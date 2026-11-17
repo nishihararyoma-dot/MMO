@@ -3,7 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>顔文字ファンタジー3D - オンライン共闘RPG</title>
+    <script>
+        window.__bootErrors = [];
+        window.addEventListener('error', function(e) {
+            var src = (e.filename || '').split('/').pop().split('?')[0] || 'script';
+            var msg = src + ':' + (e.lineno || 0) + ' ' + (e.message || 'Error');
+            window.__bootErrors.push(msg);
+            var el = document.getElementById('title-save-info');
+            if (el) {
+                el.innerHTML = '<div style="color:#fb7185; font-weight:900; font-size:11px;">⚠️ 読み込みエラー検出:<br>' + window.__bootErrors.join('<br>') + '</div>';
+            }
+        });
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         * {
@@ -28,7 +43,6 @@
             display: none !important;
         }
 
-        /* 3Dキャンバス＆ワールドオーバーレイ（タップ貫通徹底） */
         #game-canvas {
             position: fixed;
             inset: 0;
@@ -90,7 +104,6 @@
             white-space: nowrap;
         }
 
-        /* 共通ボタンスタイル（iPad Safariタップ最適化） */
         button, .btn-ui {
             touch-action: manipulation;
             cursor: pointer;
@@ -139,9 +152,7 @@
             -webkit-user-select: text;
         }
 
-        /* =========================================================
-           タイトル画面（z-index: 90）
-           ========================================================= */
+        /* タイトル画面 */
         #title-screen {
             position: fixed;
             inset: 0;
@@ -201,16 +212,13 @@
             gap: 7px;
         }
 
-        /* =========================================================
-           ゲーム内HUD（透明部分はpointer-events: none、操作パーツのみauto）
-           ========================================================= */
+        /* ゲーム内HUD */
         #hud-layer {
             position: fixed;
             inset: 0;
             z-index: 20;
             pointer-events: none;
         }
-
         .hud-top-bar {
             position: fixed;
             top: 8px;
@@ -371,7 +379,6 @@
             z-index: 38;
             pointer-events: none;
         }
-
         #warp-prompt-box {
             position: fixed;
             bottom: 135px;
@@ -381,9 +388,7 @@
             pointer-events: auto;
         }
 
-        /* =========================================================
-           チャットウィンドウ（左下）
-           ========================================================= */
+        /* チャットウィンドウ */
         #chat-wrapper {
             position: fixed;
             left: 10px;
@@ -464,9 +469,7 @@
             gap: 4px;
         }
 
-        /* =========================================================
-           左下バーチャルジョイスティック
-           ========================================================= */
+        /* ジョイスティック */
         #joystick-zone {
             position: fixed;
             left: 18px;
@@ -493,9 +496,7 @@
             pointer-events: none;
         }
 
-        /* =========================================================
-           右下アーク型バトルパッド
-           ========================================================= */
+        /* バトルパッド */
         #battle-pad {
             position: fixed;
             right: 12px;
@@ -581,9 +582,7 @@
             pointer-events: none;
         }
 
-        /* =========================================================
-           育成＆メニューモーダル（z-index: 70）
-           ========================================================= */
+        /* モーダル */
         #growth-modal {
             position: fixed;
             inset: 0;
@@ -732,10 +731,10 @@
     <div id="title-screen">
         <div class="title-card">
             <div class="title-logo-kaomoji font-kaomoji">(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧ ⚔️ (=^・ω・^=)</div>
-            <h1 class="title-main-heading">顔文字ファンタジー3D<br><span style="font-size:13px; -webkit-text-fill-color:#94a3b8;">KAOMOJI FANTASY 3D ONLINE</span></h1>
+            <h1 class="title-main-heading">顔文字ファンタジー3D<br><span style="font-size:13px; -webkit-text-fill-color:#94a3b8;">KAOMOJI FANTASY 3D ONLINE v2.2</span></h1>
 
             <div class="title-save-preview" id="title-save-info">
-                データ準備中...
+                システム起動チェック中...
             </div>
 
             <div class="title-room-box">
@@ -853,7 +852,6 @@
             </button>
         </div>
 
-        <!-- チャットウィンドウ -->
         <div id="chat-wrapper">
             <button type="button" id="btn-toggle-chat" class="btn-ui btn-slate" style="padding:5px 10px; font-size:11px;">
                 💬 チャット開閉
@@ -915,12 +913,48 @@
         <div style="font-size:14px; font-weight:900; color:#fff;">力尽きた！始まりの顔文字広場へ帰還します…</div>
     </div>
 
-    <script src="data.js?v=20261117b"></script>
-    <script src="game1.js?v=20261117b"></script>
-    <script src="game2.js?v=20261117b"></script>
-    <script src="game3.js?v=20261117b"></script>
-    <script src="game4.js?v=20261117b"></script>
-    <script src="game5.js?v=20261117b"></script>
-    <script src="game6.js?v=20261117b"></script>
+    <script src="data.js?v=20261117c"></script>
+    <script src="game1.js?v=20261117c"></script>
+    <script src="game2.js?v=20261117c"></script>
+    <script src="game3.js?v=20261117c"></script>
+    <script src="game4.js?v=20261117c"></script>
+    <script src="game5.js?v=20261117c"></script>
+    <script src="game6.js?v=20261117c"></script>
+    <script>
+        window.addEventListener('DOMContentLoaded', function() {
+            setTimeout(function() {
+                if (window.game) return;
+                var missing = [];
+                if (typeof EVOLUTIONS === 'undefined') missing.push('data.js');
+                if (typeof KaomojiMMORPG === 'undefined') missing.push('game1.js');
+                else {
+                    if (typeof KaomojiMMORPG.prototype.initThree !== 'function') missing.push('game2.js');
+                    if (typeof KaomojiMMORPG.prototype.performBasicAttack !== 'function') missing.push('game3.js');
+                    if (typeof KaomojiMMORPG.prototype.loop !== 'function') missing.push('game4.js');
+                    if (typeof KaomojiMMORPG.prototype.renderModalContent !== 'function') missing.push('game5.js');
+                    if (typeof KaomojiMMORPG.prototype.bindEvents !== 'function') missing.push('game6.js');
+                }
+                var infoEl = document.getElementById('title-save-info');
+                if (infoEl && window.__bootErrors.length === 0) {
+                    if (missing.length > 0) {
+                        infoEl.innerHTML = '<div style="color:#fbbf24; font-weight:900; font-size:11px;">⚠️ 次のファイルが未更新または読み込み失敗:<br>' + missing.join(', ') + '</div>';
+                    } else {
+                        try {
+                            window.game = new KaomojiMMORPG();
+                        } catch (err) {
+                            infoEl.innerHTML = '<div style="color:#fb7185; font-weight:900; font-size:11px;">⚠️ 起動時エラー: ' + err.message + '</div>';
+                        }
+                    }
+                }
+                var resetBtn = document.getElementById('btn-title-hard-reset');
+                if (resetBtn && !window.game) {
+                    resetBtn.onclick = function() {
+                        localStorage.clear();
+                        location.href = location.pathname + '?r=' + Date.now();
+                    };
+                }
+            }, 350);
+        });
+    </script>
 </body>
 </html>
