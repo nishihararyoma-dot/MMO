@@ -3,759 +3,203 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>顔文字ファンタジー3D - Kaomoji MMORPG</title>
-    <link rel="icon" type="image/png" href="icon.png">
-    <link rel="apple-touch-icon" href="icon.png">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>顔文字ファンタジー3D MMORPG</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            -webkit-tap-highlight-color: transparent;
-            user-select: none;
-            -webkit-user-select: none;
-        }
-        html, body {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background: #060b19;
-            color: #f8fafc;
-            font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
-            touch-action: none;
-        }
-        input, textarea {
-            user-select: text;
-            -webkit-user-select: text;
-            touch-action: auto;
-        }
-        button {
-            cursor: pointer;
-            border: none;
-            font-family: inherit;
-            color: inherit;
-            background: none;
-        }
-        button:disabled {
-            opacity: 0.42;
-            cursor: not-allowed;
-        }
-        .hidden {
-            display: none !important;
-        }
-        .font-kaomoji {
-            font-family: "MS PGothic", "Hiragino Kaku Gothic ProN", "Meiryo", monospace;
-            letter-spacing: 0.02em;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+        html, body { width: 100%; height: 100%; overflow: hidden; background: #020617; font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif; color: #f8fafc; touch-action: none; }
+        .font-kaomoji { font-family: 'MS PGothic', 'Hiragino Kaku Gothic ProN', monospace; letter-spacing: -0.5px; }
+        #game-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 1; }
+        #overlay-layer { position: fixed; inset: 0; pointer-events: none; z-index: 5; overflow: hidden; }
+        .hidden { display: none !important; }
 
-        /* 3Dキャンバス＆ワールドオーバーレイ */
-        #game-canvas {
-            position: fixed;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            display: block;
-            z-index: 1;
-        }
-        #world-overlay-layer {
-            position: fixed;
-            inset: 0;
-            pointer-events: none;
-            z-index: 5;
-            overflow: hidden;
-        }
+        /* 頭上プレート・フローティングテキスト */
+        .world-plate { position: absolute; transform: translate(-50%, -100%); background: rgba(15, 23, 42, 0.84); border: 1px solid rgba(148, 163, 184, 0.55); border-radius: 6px; padding: 2px 6px; text-align: center; white-space: nowrap; pointer-events: none; }
+        .m-hp-bg { width: 64px; height: 5px; background: #1e293b; border-radius: 3px; overflow: hidden; margin-top: 2px; }
+        .m-hp-fill { height: 100%; background: linear-gradient(90deg, #ef4444, #f97316); width: 100%; }
+        .world-float-text { position: absolute; transform: translate(-50%, -50%); font-weight: 900; text-shadow: 0 2px 4px rgba(0,0,0,0.95); pointer-events: none; white-space: nowrap; }
+        .world-emote-bubble { position: absolute; transform: translate(-50%, -100%); background: rgba(15, 23, 42, 0.92); border: 1.5px solid #f472b6; border-radius: 12px; padding: 4px 9px; text-align: center; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.6); }
 
-        /* プレイヤー頭上ステータスプレート（HP / MP / EXP） */
-        .player-head-plate {
-            position: absolute;
-            transform: translate(-50%, -100%);
-            background: rgba(7, 15, 32, 0.88);
-            border: 1.5px solid rgba(56, 189, 248, 0.75);
-            border-radius: 8px;
-            padding: 3px 7px;
-            width: 106px;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.65);
-            pointer-events: none;
-        }
-        .player-head-title {
-            font-size: 9px;
-            font-weight: 900;
-            color: #7dd3fc;
-            text-align: center;
-            line-height: 1.1;
-            margin-bottom: 2px;
-        }
-        .mini-bar-track {
-            width: 100%;
-            height: 4px;
-            background: rgba(15, 23, 42, 0.95);
-            border-radius: 999px;
-            overflow: hidden;
-            margin-top: 2px;
-        }
-        .mini-bar-fill {
-            height: 100%;
-            transition: width 0.12s ease-out;
-        }
+        /* HUDトップ */
+        #hud-top { position: fixed; top: 8px; left: 8px; right: 8px; z-index: 20; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; pointer-events: none; }
+        .hud-panel { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 12px; padding: 7px 10px; pointer-events: auto; box-shadow: 0 4px 16px rgba(0,0,0,0.45); }
+        .bar-wrap { width: 135px; height: 7px; background: #1e293b; border-radius: 4px; overflow: hidden; margin-top: 2px; }
+        .bar-fill { height: 100%; transition: width 0.15s ease-out; }
 
-        /* モンスター頭上プレート */
-        .world-hp-plate {
-            position: absolute;
-            transform: translate(-50%, -100%);
-            background: rgba(9, 14, 28, 0.88);
-            border: 1px solid rgba(248, 113, 113, 0.6);
-            border-radius: 7px;
-            padding: 2px 6px;
-            min-width: 84px;
-            text-align: center;
-            pointer-events: none;
-        }
-        .world-float-text {
-            position: absolute;
-            transform: translate(-50%, -50%);
-            font-weight: 900;
-            font-size: 15px;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.95), 0 0 3px #000;
-            white-space: nowrap;
-            pointer-events: none;
-        }
-        .world-emote-bubble {
-            position: absolute;
-            transform: translate(-50%, -100%);
-            background: rgba(15, 23, 42, 0.95);
-            border: 1.5px solid #f472b6;
-            border-radius: 12px;
-            padding: 4px 9px;
-            text-align: center;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.65);
-            pointer-events: none;
-            white-space: nowrap;
-        }
+        /* 汎用ボタン・バッジ */
+        .btn-ui { border: none; border-radius: 8px; padding: 6px 10px; font-size: 11px; font-weight: 900; color: #fff; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 4px; transition: transform 0.08s, opacity 0.15s; box-shadow: 0 2px 6px rgba(0,0,0,0.35); }
+        .btn-ui:active { transform: scale(0.94); }
+        .btn-ui:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-sky { background: linear-gradient(135deg, #0284c7, #2563eb); }
+        .btn-emerald { background: linear-gradient(135deg, #059669, #10b981); }
+        .btn-amber { background: linear-gradient(135deg, #d97706, #f59e0b); color: #0f172a; }
+        .btn-rose { background: linear-gradient(135deg, #e11d48, #f43f5e); }
+        .btn-fuchsia { background: linear-gradient(135deg, #c026d3, #9333ea); }
+        .btn-slate { background: #334155; color: #e2e8f0; }
+        .badge-pill { font-size: 9px; font-weight: 900; padding: 2px 6px; border-radius: 999px; display: inline-block; }
 
-        /* 共通パネル＆バー */
-        .mmo-panel {
-            background: rgba(11, 18, 34, 0.88);
-            backdrop-filter: blur(6px);
-            -webkit-backdrop-filter: blur(6px);
-            border: 1px solid rgba(56, 189, 248, 0.38);
-            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.52);
-        }
-        .bar-track {
-            width: 100%;
-            height: 6px;
-            background: rgba(15, 23, 42, 0.95);
-            border-radius: 999px;
-            overflow: hidden;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-        }
-        .bar-fill {
-            height: 100%;
-            transition: width 0.14s ease-out;
-        }
+        /* 中央アラート・ワープ・ボス詠唱 */
+        #alert-banner { position: fixed; top: 88px; left: 50%; transform: translateX(-50%); z-index: 30; background: rgba(15, 23, 42, 0.94); border: 1.5px solid #fde047; color: #fde047; font-size: 12px; font-weight: 900; padding: 6px 16px; border-radius: 999px; white-space: nowrap; pointer-events: none; box-shadow: 0 4px 16px rgba(0,0,0,0.6); }
+        #boss-cast-box { position: fixed; top: 124px; left: 50%; transform: translateX(-50%); z-index: 28; width: min(340px, 88vw); background: rgba(69, 10, 10, 0.92); border: 1.5px solid #fb7185; border-radius: 10px; padding: 6px 10px; text-align: center; }
+        #warp-prompt-box { position: fixed; bottom: 158px; left: 50%; transform: translateX(-50%); z-index: 25; }
 
-        /* 上部スリムHUD */
-        #hud-top {
-            position: fixed;
-            top: 6px;
-            left: 6px;
-            right: 6px;
-            z-index: 20;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 6px;
-            pointer-events: none;
-        }
-        #hud-left-col {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            width: min(300px, 47vw);
-            pointer-events: auto;
-        }
-        #hud-stat-card {
-            border-radius: 12px;
-            padding: 6px 8px;
-        }
-        .hud-row-top {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 4px;
-        }
-        .hud-kaomoji-pill {
-            font-size: 11px;
-            font-weight: 900;
-            color: #38bdf8;
-            background: rgba(7, 59, 102, 0.7);
-            border: 1px solid rgba(56, 189, 248, 0.55);
-            padding: 1px 6px;
-            border-radius: 6px;
-            white-space: nowrap;
-        }
-        .hud-bars-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 6px;
-            margin-top: 4px;
-        }
-        .hud-bar-label {
-            display: flex;
-            justify-content: space-between;
-            font-size: 9px;
-            font-weight: 800;
-            margin-bottom: 1px;
-        }
+        /* 下部コントローラー */
+        #joystick-zone { position: fixed; bottom: 22px; left: 20px; width: 106px; height: 106px; border-radius: 50%; background: rgba(15, 23, 42, 0.55); border: 2px solid rgba(56, 189, 248, 0.45); z-index: 20; display: flex; align-items: center; justify-content: center; }
+        #joystick-stick { width: 44px; height: 44px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #7dd3fc, #0284c7); border: 2px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.5); pointer-events: none; }
 
-        /* 右上コンパクトメニュー */
-        #hud-right-col {
-            position: relative;
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: flex-end;
-            gap: 4px;
-            max-width: 51vw;
-            pointer-events: auto;
-        }
-        .top-pill-btn {
-            position: relative;
-            padding: 6px 9px;
-            border-radius: 10px;
-            font-size: 11px;
-            font-weight: 900;
-            display: inline-flex;
-            align-items: center;
-            gap: 3px;
-            white-space: nowrap;
-            touch-action: manipulation;
-        }
-        .top-pill-btn:active {
-            transform: scale(0.94);
-        }
-        .alert-dot {
-            position: absolute;
-            top: -3px;
-            right: -3px;
-            background: #f43f5e;
-            color: #fff;
-            font-size: 9px;
-            font-weight: 900;
-            padding: 0 4px;
-            border-radius: 999px;
-        }
-        #hud-drawer-menu {
-            position: absolute;
-            top: 34px;
-            right: 0;
-            width: 215px;
-            border-radius: 12px;
-            padding: 6px;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            z-index: 30;
-        }
-        .drawer-item-btn {
-            width: 100%;
-            text-align: left;
-            padding: 7px 9px;
-            border-radius: 8px;
-            background: rgba(30, 41, 59, 0.88);
-            font-size: 11px;
-            font-weight: 800;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
+        #action-pad { position: fixed; bottom: 18px; right: 14px; z-index: 20; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+        #skill-slots-container { display: flex; gap: 6px; }
+        .skill-slot-btn { position: relative; width: 52px; height: 56px; border-radius: 12px; background: rgba(15, 23, 42, 0.88); border: 1.5px solid rgba(125, 211, 252, 0.55); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; }
+        .skill-slot-btn:active { transform: scale(0.92); }
+        .skill-cd-overlay { position: absolute; inset: 0; background: rgba(2, 6, 23, 0.82); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; color: #fde047; }
+        .atk-btn-circle { width: 64px; height: 64px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #fb7185, #be123c); border: 2.5px solid #fecdd3; color: #fff; font-size: 13px; font-weight: 900; box-shadow: 0 4px 14px rgba(225, 29, 72, 0.55); cursor: pointer; }
+        .atk-btn-circle:active { transform: scale(0.92); }
 
-        /* 中央アラート＆手動帰還ワープボタン */
-        #hud-center-alerts {
-            position: fixed;
-            top: 76px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: min(370px, 90vw);
-            z-index: 22;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 6px;
-            pointer-events: none;
-        }
-        #warp-prompt-box {
-            pointer-events: auto;
-            width: 100%;
-            padding: 8px 12px;
-            border-radius: 14px;
-            border: 2px solid #38bdf8;
-            background: rgba(7, 25, 48, 0.95);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-            box-shadow: 0 6px 20px rgba(14, 165, 233, 0.45);
-        }
-        #btn-exec-warp {
-            padding: 7px 12px;
-            border-radius: 10px;
-            background: linear-gradient(135deg, #0284c7, #2563eb);
-            color: #fff;
-            font-size: 12px;
-            font-weight: 900;
-            white-space: nowrap;
-        }
-        #alert-banner {
-            padding: 6px 14px;
-            border-radius: 999px;
-            background: rgba(15, 23, 42, 0.95);
-            border: 1px solid #fbbf24;
-            color: #fde047;
-            font-size: 11px;
-            font-weight: 900;
-            text-align: center;
-            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.7);
-        }
+        /* エモートパレット・ドロワー */
+        #emote-palette { position: fixed; bottom: 145px; left: 14px; z-index: 26; width: 256px; background: rgba(15, 23, 42, 0.94); border: 1.5px solid #f472b6; border-radius: 12px; padding: 8px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+        .emote-quick-btn { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 5px 2px; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; }
+        #hud-drawer-menu { position: fixed; top: 52px; right: 10px; z-index: 35; width: 175px; background: rgba(15, 23, 42, 0.95); border: 1px solid #475569; border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
 
-        /* 死亡演出オーバーレイ */
-        #death-overlay {
-            position: fixed;
-            inset: 0;
-            z-index: 45;
-            background: radial-gradient(circle, rgba(127, 29, 29, 0.55) 0%, rgba(10, 5, 12, 0.92) 100%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            pointer-events: none;
-            animation: deathFadeIn 0.25s ease-out;
-        }
-        @keyframes deathFadeIn {
-            from { opacity: 0; transform: scale(1.06); }
-            to { opacity: 1; transform: scale(1); }
-        }
-        .death-title-text {
-            font-size: clamp(28px, 6vw, 44px);
-            font-weight: 900;
-            color: #fda4af;
-            text-shadow: 0 0 22px #e11d48, 0 4px 10px #000;
-            letter-spacing: 0.08em;
-        }
-        .death-kaomoji-box {
-            font-size: clamp(22px, 4.5vw, 32px);
-            font-weight: 900;
-            color: #fff;
-            background: rgba(136, 19, 55, 0.75);
-            border: 2px solid #fb7185;
-            padding: 8px 20px;
-            border-radius: 16px;
-            box-shadow: 0 6px 24px rgba(225, 29, 72, 0.5);
-        }
+        /* 育成・ステージ選択モーダル */
+        #growth-modal { position: fixed; inset: 0; z-index: 50; background: rgba(2, 6, 23, 0.82); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; padding: 10px; }
+        .modal-window { width: min(860px, 98vw); height: min(88vh, 680px); background: #0f172a; border: 1.5px solid #38bdf8; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,0.75); }
+        #modal-tabs { display: flex; gap: 5px; padding: 8px 10px; background: #020617; border-bottom: 1px solid #1e293b; overflow-x: auto; flex-shrink: 0; }
+        .tab-chip-btn { background: #1e293b; color: #cbd5e1; border: 1px solid #334155; border-radius: 8px; padding: 6px 10px; font-size: 11px; font-weight: 900; white-space: nowrap; cursor: pointer; }
+        .tab-chip-btn.active { background: #0284c7; color: #fff; border-color: #7dd3fc; }
+        #modal-body { flex: 1; overflow-y: auto; padding: 12px; }
+        .card-box { background: rgba(30, 41, 59, 0.65); border: 1px solid #1e293b; border-radius: 12px; padding: 10px; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+        .flex-wrap-gap { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+        .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; }
+        .input-ui { width: 100%; background: #020617; border: 1px solid #475569; border-radius: 8px; padding: 7px 9px; color: #fff; font-size: 12px; user-select: text; -webkit-user-select: text; }
 
-        /* 下部操作エリア */
-        #hud-bottom {
-            position: fixed;
-            bottom: 10px;
-            left: 10px;
-            right: 10px;
-            z-index: 20;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            pointer-events: none;
-        }
-        #joystick-zone {
-            width: 118px;
-            height: 118px;
-            border-radius: 50%;
-            background: rgba(15, 23, 42, 0.55);
-            border: 2px solid rgba(56, 189, 248, 0.45);
-            position: relative;
-            pointer-events: auto;
-            touch-action: none;
-        }
-        #joystick-stick {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            background: radial-gradient(circle at 35% 35%, #7dd3fc, #0284c7);
-            border: 2px solid #e0f2fe;
-            position: absolute;
-            top: 33px;
-            left: 33px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.55);
-            pointer-events: none;
-        }
-        .action-cluster {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 7px;
-            pointer-events: auto;
-        }
-        #emote-palette {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 5px;
-            padding: 7px;
-            width: min(304px, 86vw);
-            max-height: 210px;
-            overflow-y: auto;
-            border-radius: 14px;
-            background: rgba(11, 18, 34, 0.96);
-            border: 1.5px solid rgba(244, 114, 182, 0.7);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.75);
-        }
-        .emote-quick-btn {
-            padding: 6px 3px;
-            border-radius: 9px;
-            background: #1e293b;
-            border: 1px solid rgba(244, 114, 182, 0.35);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 2px;
-            touch-action: manipulation;
-        }
-        .emote-quick-btn:active {
-            transform: scale(0.92);
-            background: #334155;
-        }
-        .skill-grid-pad {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 7px;
-        }
-        .skill-slot-btn {
-            position: relative;
-            width: 64px;
-            height: 66px;
-            border-radius: 15px;
-            background: linear-gradient(180deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.97));
-            border: 2px solid rgba(99, 102, 241, 0.8);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.55);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-            touch-action: manipulation;
-        }
-        .skill-slot-btn:active:not(:disabled) {
-            transform: scale(0.92);
-            border-color: #38bdf8;
-        }
-        @media (max-width: 640px) {
-            .skill-slot-btn {
-                width: 58px;
-                height: 60px;
-                border-radius: 13px;
-            }
-            .skill-grid-pad {
-                gap: 5px;
-            }
-        }
-        .skill-cd-overlay {
-            position: absolute;
-            inset: 0;
-            background: rgba(2, 6, 23, 0.84);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 900;
-            font-size: 14px;
-            color: #fbbf24;
-        }
-        .combat-btn-row {
-            display: flex;
-            align-items: center;
-            gap: 7px;
-        }
-        .combat-sub-btn {
-            height: 46px;
-            padding: 0 11px;
-            border-radius: 13px;
-            font-size: 12px;
-            font-weight: 900;
-            touch-action: manipulation;
-        }
-        .combat-main-atk-btn {
-            height: 52px;
-            padding: 0 18px;
-            border-radius: 15px;
-            font-size: 14px;
-            font-weight: 900;
-            background: linear-gradient(135deg, #e11d48, #d97706);
-            border: 1.5px solid rgba(253, 224, 71, 0.75);
-            box-shadow: 0 4px 14px rgba(225, 29, 72, 0.45);
-            touch-action: manipulation;
-        }
-        .combat-main-atk-btn:active {
-            transform: scale(0.94);
-        }
-
-        /* モーダルウィンドウ */
-        .modal-backdrop {
-            position: fixed;
-            inset: 0;
-            z-index: 50;
-            background: rgba(2, 6, 23, 0.78);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 10px;
-        }
-        .modal-window {
-            width: min(760px, 96vw);
-            max-height: 88vh;
-            border-radius: 18px;
-            background: #0b1222;
-            border: 1.5px solid rgba(56, 189, 248, 0.5);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85);
-        }
-        .modal-header {
-            padding: 10px 14px;
-            background: #0f172a;
-            border-bottom: 1px solid #1e293b;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .modal-tabs-bar {
-            display: flex;
-            gap: 5px;
-            padding: 7px 10px;
-            background: #080e1c;
-            border-bottom: 1px solid #1e293b;
-            overflow-x: auto;
-        }
-        .tab-chip-btn {
-            padding: 5px 10px;
-            border-radius: 8px;
-            background: #1e293b;
-            color: #cbd5e1;
-            font-size: 11px;
-            font-weight: 800;
-            white-space: nowrap;
-        }
-        .tab-chip-btn.active {
-            background: #0284c7;
-            color: #fff;
-        }
-        .modal-content-scroll {
-            padding: 12px;
-            overflow-y: auto;
-            flex: 1;
-            touch-action: pan-y;
-        }
-
-        /* モーダル内汎用UIクラス */
-        .card-box {
-            background: #070d19;
-            border: 1px solid #1e293b;
-            border-radius: 14px;
-            padding: 11px;
-        }
-        .grid-2 {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 8px;
-        }
-        .grid-3 {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 8px;
-        }
-        @media (max-width: 640px) {
-            .grid-2, .grid-3 {
-                grid-template-columns: 1fr;
-            }
-        }
-        .flex-between {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-        }
-        .flex-wrap-gap {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-        }
-        .btn-ui {
-            padding: 6px 11px;
-            border-radius: 9px;
-            font-size: 11px;
-            font-weight: 900;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 4px;
-        }
-        .btn-sky { background: #0284c7; color: #fff; }
-        .btn-emerald { background: #059669; color: #fff; }
-        .btn-amber { background: #d97706; color: #fff; }
-        .btn-fuchsia { background: #c026d3; color: #fff; }
-        .btn-rose { background: #e11d48; color: #fff; }
-        .btn-slate { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; }
-        .input-ui {
-            width: 100%;
-            padding: 7px 10px;
-            border-radius: 9px;
-            background: #0f172a;
-            border: 1px solid #334155;
-            color: #fff;
-            font-size: 12px;
-        }
-        .badge-pill {
-            display: inline-block;
-            padding: 1px 6px;
-            border-radius: 5px;
-            font-size: 9px;
-            font-weight: 900;
-        }
+        #dialog-modal { position: fixed; inset: 0; z-index: 70; background: rgba(0,0,0,0.78); display: flex; align-items: center; justify-content: center; padding: 16px; }
+        #death-overlay { position: fixed; inset: 0; z-index: 60; background: rgba(69, 10, 10, 0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
     </style>
 </head>
 <body>
     <canvas id="game-canvas"></canvas>
-    <div id="world-overlay-layer"></div>
+    <div id="overlay-layer"></div>
 
-    <!-- 死亡時演出オーバーレイ -->
-    <div id="death-overlay" class="hidden">
-        <div class="death-title-text">💀 YOU DIED 💀</div>
-        <div id="death-kaomoji" class="font-kaomoji death-kaomoji-box">(×_×;) ぐふっ…！</div>
-        <div id="death-subtext" style="font-size:13px; font-weight:900; color:#fecdd3;">力尽きてしまいました… 安全な街へ帰還します</div>
+    <!-- トップHUD -->
+    <div id="hud-top">
+        <div class="hud-panel" style="min-width: 195px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+                <span id="hud-kaomoji" class="font-kaomoji" style="font-size:13px; font-weight:900; color:#38bdf8;">(´・ω・`)</span>
+                <div>
+                    <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
+                        <span id="hud-name" style="font-size:11px; font-weight:900; color:#fff;">見習い冒険者</span>
+                        <span id="hud-title-badge" class="badge-pill hidden" style="background:#701a75; color:#f0abfc;">称号</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px; font-size:10px; font-weight:900;">
+                        <span id="hud-lv" style="color:#fde047;">Lv.1</span>
+                        <span id="hud-gold" style="color:#34d399;">0G</span>
+                        <span id="hud-online-badge" class="badge-pill" style="background:#1e293b; color:#94a3b8;">オフライン</span>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-top:5px; font-size:9px; font-weight:800;">
+                <div class="flex-between"><span style="color:#34d399;">HP</span><span id="hud-hp-text">100/100</span></div>
+                <div class="bar-wrap"><div id="hud-hp-bar" class="bar-fill" style="background:#10b981; width:100%;"></div></div>
+                <div class="flex-between" style="margin-top:2px;"><span style="color:#38bdf8;">MP</span><span id="hud-mp-text">50/50</span></div>
+                <div class="bar-wrap"><div id="hud-mp-bar" class="bar-fill" style="background:#0ea5e9; width:100%;"></div></div>
+                <div class="flex-between" style="margin-top:2px;"><span style="color:#fde047;">EXP</span><span id="hud-exp-text">0/100</span></div>
+                <div class="bar-wrap"><div id="hud-exp-bar" class="bar-fill" style="background:#eab308; width:0%;"></div></div>
+            </div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+            <div class="hud-panel" style="text-align:right;">
+                <div style="display:flex; align-items:center; justify-content:flex-end; gap:4px; flex-wrap:wrap;">
+                    <span id="hud-stage-badge" class="badge-pill" style="background:#0284c7; color:#fff;">STAGE 0</span>
+                    <span id="hud-safe-badge" class="badge-pill" style="background:#059669; color:#fff;">🛡️安全街</span>
+                    <span id="hud-threat-badge" class="badge-pill hidden" style="background:#be123c; color:#fff;">脅威+1</span>
+                </div>
+                <div id="hud-zone-name" style="font-size:12px; font-weight:900; color:#fff; margin-top:2px;">始まりの顔文字広場</div>
+                <div style="display:flex; gap:5px; margin-top:5px; justify-content:flex-end;">
+                    <button id="btn-open-travel" class="btn-ui btn-emerald">🌀 ステージ選択</button>
+                    <button id="btn-open-growth" class="btn-ui btn-sky" style="position:relative;">
+                        ⚔️ 育成･見た目
+                        <span id="badge-growth-alert" class="hidden" style="position:absolute; top:-4px; right:-4px; width:10px; height:10px; border-radius:50%; background:#f43f5e; border:1.5px solid #fff;"></span>
+                    </button>
+                    <button id="btn-toggle-drawer" class="btn-ui btn-slate">⚙️</button>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- 上部スリムHUD -->
-    <header id="hud-top">
-        <div id="hud-left-col">
-            <div id="hud-stat-card" class="mmo-panel">
-                <div class="hud-row-top">
-                    <div style="display:flex; align-items:center; gap:5px; min-width:0;">
-                        <span id="hud-kaomoji" class="font-kaomoji hud-kaomoji-pill">(*´ω｀*)</span>
-                        <span id="hud-title-badge" class="hidden badge-pill" style="background:#701a75; color:#f5d0fe;">称号</span>
-                        <span id="hud-name" style="font-size:11px; font-weight:900; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">見習い冒険者</span>
-                    </div>
-                    <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
-                        <span id="hud-lv" style="font-size:11px; font-weight:900; color:#fde047;">Lv.1</span>
-                        <span id="hud-gold" style="font-size:10px; font-weight:900; color:#fbbf24;">0G</span>
-                    </div>
-                </div>
-                <div class="hud-row-top" style="margin-top:3px;">
-                    <div style="display:flex; align-items:center; gap:4px; min-width:0;">
-                        <span id="hud-stage-badge" class="badge-pill" style="background:#064e3b; color:#6ee7b7;">STAGE 1</span>
-                        <span id="hud-zone-name" style="font-size:10px; font-weight:800; color:#cbd5e1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">始まりの顔文字広場</span>
-                    </div>
-                    <div style="display:flex; align-items:center; gap:3px; flex-shrink:0;">
-                        <span id="hud-threat-badge" class="hidden badge-pill" style="background:#881337; color:#fecdd3;">脅威+1</span>
-                        <span id="hud-safe-badge" class="badge-pill" style="background:#059669; color:#fff;">🛡️安全街</span>
-                    </div>
-                </div>
-                <div class="hud-bars-grid">
-                    <div>
-                        <div class="hud-bar-label"><span style="color:#6ee7b7;">HP</span><span id="hud-hp-text">100/100</span></div>
-                        <div class="bar-track"><div id="hud-hp-bar" class="bar-fill" style="width:100%; background:#10b981;"></div></div>
-                    </div>
-                    <div>
-                        <div class="hud-bar-label"><span style="color:#7dd3fc;">MP</span><span id="hud-mp-text">50/50</span></div>
-                        <div class="bar-track"><div id="hud-mp-bar" class="bar-fill" style="width:100%; background:#0ea5e9;"></div></div>
-                    </div>
-                </div>
-                <div style="margin-top:3px;">
-                    <div class="hud-bar-label"><span style="color:#fde047;">EXP</span><span id="hud-exp-text">0/100</span></div>
-                    <div class="bar-track" style="height:4px;"><div id="hud-exp-bar" class="bar-fill" style="width:0%; background:#eab308;"></div></div>
-                </div>
-            </div>
+    <!-- サブメニュー（歯車） -->
+    <div id="hud-drawer-menu" class="hidden">
+        <button id="btn-toggle-autohunt" class="btn-ui btn-amber" style="width:100%;">🤖 AUTO:OFF</button>
+        <div style="display:flex; gap:4px;">
+            <button id="btn-threat-down" class="btn-ui btn-slate" style="flex:1;">脅威 -1</button>
+            <button id="btn-threat-up" class="btn-ui btn-rose" style="flex:1;">脅威 +1</button>
         </div>
-
-        <div id="hud-right-col">
-            <button id="btn-open-travel" class="mmo-panel top-pill-btn" style="border-color:rgba(52,211,153,0.6); color:#6ee7b7;">🗺️ ステージ</button>
-            <button id="btn-toggle-autohunt" class="mmo-panel top-pill-btn" style="border-color:rgba(56,189,248,0.6); color:#7dd3fc;">🤖 AUTO:OFF</button>
-            <button id="btn-open-growth" class="mmo-panel top-pill-btn" style="border-color:rgba(251,191,36,0.7); color:#fde047;">
-                📊 育成
-                <span id="badge-growth-alert" class="hidden alert-dot">!</span>
-            </button>
-            <button id="btn-toggle-drawer" class="mmo-panel top-pill-btn" style="border-color:rgba(148,163,184,0.5); color:#e2e8f0;">🧰 機能▾</button>
-
-            <div id="hud-drawer-menu" class="hidden mmo-panel">
-                <button id="btn-threat-up" class="drawer-item-btn" style="color:#fda4af;"><span>🔥 脅威度ランク上昇 (最大99)</span><span>+1</span></button>
-                <button id="btn-threat-down" class="drawer-item-btn" style="color:#cbd5e1;"><span>❄️ 脅威度ランク下降</span><span>-1</span></button>
-                <button id="btn-manual-save" class="drawer-item-btn" style="color:#6ee7b7;"><span>💾 今すぐセーブ</span><span>✓</span></button>
-            </div>
-        </div>
-    </header>
-
-    <!-- 中央上部：手動帰還ワープボタン・ボス詠唱・通知バナー -->
-    <div id="hud-center-alerts">
-        <div id="warp-prompt-box" class="hidden">
-            <div style="font-size:11px; font-weight:900; color:#7dd3fc;">
-                🌀 中央ワープ陣に到達！
-                <div style="font-size:9px; color:#bae6fd; font-weight:700;">ボタンを押すと安全な街へ戻れます</div>
-            </div>
-            <button id="btn-exec-warp">🏠 安全な街へ帰還</button>
-        </div>
-
-        <div id="boss-cast-box" class="hidden mmo-panel" style="width:100%; padding:6px 10px; border-radius:12px; border-color:#f43f5e;">
-            <div id="boss-cast-title" style="font-size:11px; font-weight:900; color:#fda4af; margin-bottom:3px;">⚠️ ボス大技詠唱中！</div>
-            <div class="bar-track"><div id="boss-cast-bar" class="bar-fill" style="width:0%; background:#f43f5e;"></div></div>
-        </div>
-
-        <div id="alert-banner" class="hidden">通知メッセージ</div>
+        <button id="btn-manual-save" class="btn-ui btn-emerald" style="width:100%;">💾 手動セーブ</button>
     </div>
 
-    <!-- 下部操作エリア -->
-    <footer id="hud-bottom">
-        <div id="joystick-zone">
-            <div id="joystick-stick"></div>
+    <div id="alert-banner" class="hidden"></div>
+    <div id="boss-cast-box" class="hidden">
+        <div id="boss-cast-title" style="font-size:11px; font-weight:900; color:#fecdd3;">⚠️ ボス大技詠唱中！</div>
+        <div style="width:100%; height:7px; background:#450a0a; border-radius:4px; overflow:hidden; margin-top:4px;">
+            <div id="boss-cast-bar" style="height:100%; background:#fde047; width:0%;"></div>
         </div>
+    </div>
 
-        <div class="action-cluster">
-            <div id="emote-palette" class="hidden"></div>
-            <div id="skill-slots-container" class="skill-grid-pad"></div>
-            <div class="combat-btn-row">
-                <button id="btn-cycle-target" class="mmo-panel combat-sub-btn" style="color:#7dd3fc; border-color:rgba(56,189,248,0.55);">🎯 標的</button>
-                <button id="btn-toggle-emote" class="mmo-panel combat-sub-btn" style="color:#f9a8d4; border-color:rgba(244,114,182,0.6);">😊 エモート</button>
-                <button id="btn-basic-attack" class="combat-main-atk-btn">⚔️ 攻撃</button>
-            </div>
+    <!-- 中央ワープボタン -->
+    <div id="warp-prompt-box" class="hidden">
+        <button id="btn-exec-warp" class="btn-ui btn-emerald" style="padding:10px 18px; font-size:13px; border:2px solid #a7f3d0; box-shadow:0 0 20px rgba(16,185,129,0.75);">🌀 ステージ選択</button>
+    </div>
+
+    <!-- 左下ジョイスティック＆エモート -->
+    <div id="joystick-zone"><div id="joystick-stick"></div></div>
+    <button id="btn-toggle-emote" class="btn-ui btn-fuchsia" style="position:fixed; bottom:136px; left:22px; z-index:20;">😊 表情</button>
+    <div id="emote-palette" class="hidden"></div>
+
+    <!-- 右下攻撃＆スキルパッド -->
+    <div id="action-pad">
+        <div style="display:flex; align-items:center; gap:8px;">
+            <button id="btn-cycle-target" class="btn-ui btn-slate" style="padding:8px 10px;">🎯 標的切替</button>
+            <button id="btn-basic-attack" class="atk-btn-circle">⚔️<br>攻撃</button>
         </div>
-    </footer>
+        <div id="skill-slots-container"></div>
+    </div>
 
-    <!-- メイン育成・ステージモーダル -->
-    <div id="growth-modal" class="hidden modal-backdrop">
+    <!-- メイン育成・ステージ・見た目・オンラインモーダル -->
+    <div id="growth-modal" class="hidden">
         <div class="modal-window">
-            <div class="modal-header">
-                <span id="modal-title" style="font-size:14px; font-weight:900; color:#38bdf8;">📊 冒険者メニュー</span>
-                <button id="btn-close-modal" class="btn-ui btn-slate">✕ 閉じる</button>
+            <div class="flex-between" style="padding:8px 12px; background:#020617; border-bottom:1px solid #1e293b;">
+                <span style="font-size:13px; font-weight:900; color:#38bdf8;">✨ 冒険者メニュー（ステージ・育成・見た目・オンライン）</span>
+                <button id="btn-close-modal" class="btn-ui btn-rose">✕ 閉じる</button>
             </div>
-            <div id="modal-tabs" class="modal-tabs-bar"></div>
-            <div id="modal-body" class="modal-content-scroll"></div>
+            <div id="modal-tabs"></div>
+            <div id="modal-body"></div>
         </div>
     </div>
 
-    <!-- 確認ダイアログモーダル -->
-    <div id="dialog-modal" class="hidden modal-backdrop" style="z-index:60;">
-        <div class="modal-window" style="width:min(420px, 92vw);">
-            <div class="modal-header">
-                <span id="dialog-title" style="font-size:13px; font-weight:900; color:#fde047;">確認</span>
-            </div>
-            <div style="padding:14px;">
-                <p id="dialog-message" style="font-size:12px; line-height:1.6; color:#e2e8f0; white-space:pre-line;"></p>
-                <div id="dialog-buttons" style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;"></div>
-            </div>
+    <!-- 確認ダイアログ -->
+    <div id="dialog-modal" class="hidden">
+        <div class="card-box" style="width:min(400px, 92vw); background:#0f172a; border:1.5px solid #fde047; padding:16px;">
+            <div id="dialog-title" style="font-size:14px; font-weight:900; color:#fde047; margin-bottom:8px;">確認</div>
+            <div id="dialog-message" style="font-size:12px; color:#e2e8f0; white-space:pre-line; line-height:1.5; margin-bottom:14px;"></div>
+            <div id="dialog-buttons" style="display:flex; justify-content:flex-end; gap:8px;"></div>
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- 戦闘不能演出 -->
+    <div id="death-overlay" class="hidden">
+        <div class="font-kaomoji" style="font-size:32px; font-weight:900; color:#fecdd3;">(×_×;)</div>
+        <div style="font-size:16px; font-weight:900; color:#fff;">力尽きてしまった……！</div>
+        <div style="font-size:12px; color:#fda4af;">始まりの顔文字広場へ帰還します</div>
+    </div>
+
     <script src="data.js"></script>
     <script src="game1.js"></script>
     <script src="game2.js"></script>
     <script src="game3.js"></script>
-
+    <script src="game4.js"></script>
+    <script src="game5.js"></script>
+    <script src="game6.js"></script>
 </body>
 </html>
