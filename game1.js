@@ -71,9 +71,18 @@ class SoundEngine {
 
 const sfx = new SoundEngine();
 
+function isLightHexColor(hexStr) {
+    if (!hexStr || !/^#[0-9a-fA-F]{6}$/.test(hexStr)) return false;
+    const r = parseInt(hexStr.slice(1, 3), 16);
+    const g = parseInt(hexStr.slice(3, 5), 16);
+    const b = parseInt(hexStr.slice(5, 7), 16);
+    return (r * 0.299 + g * 0.587 + b * 0.114) > 180;
+}
+
 const faceTexCache = new Map();
 function getKaomojiFaceTexture(text, bgHex = '#073b66', fgHex = '#ffffff', borderHex = '#38bdf8') {
-    const key = `${text}|${bgHex}|${fgHex}|${borderHex}`;
+    const actualFg = (fgHex === '#ffffff' && isLightHexColor(bgHex)) ? '#0f172a' : fgHex;
+    const key = `${text}|${bgHex}|${actualFg}|${borderHex}`;
     if (faceTexCache.has(key)) return faceTexCache.get(key);
 
     const canvas = document.createElement('canvas');
@@ -88,7 +97,7 @@ function getKaomojiFaceTexture(text, bgHex = '#073b66', fgHex = '#ffffff', borde
     ctx.lineWidth = 10;
     ctx.strokeRect(5, 5, canvas.width - 10, canvas.height - 10);
 
-    ctx.fillStyle = fgHex;
+    ctx.fillStyle = actualFg;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const len = Array.from(text).length;
@@ -106,7 +115,7 @@ class KaomojiMMORPG {
         this.canvas = document.getElementById('game-canvas');
         this.overlayLayer = document.getElementById('overlay-layer');
 
-        this.saveKey = 'kaomoji_mmo_3d_save_v3';
+        this.saveKey = 'kaomoji_mmo_3d_save_v4';
         this.saveData = this.loadSaveData();
 
         this.currentZoneId = 'town';
@@ -150,7 +159,6 @@ class KaomojiMMORPG {
         this.camDist = 14.5;
         this.camShake = 0;
 
-        // Firebase リアルタイム通信状態
         this.fbConnected = false;
         this.fbSyncTimer = 0;
         this.fbPollTimer = 0;
@@ -188,8 +196,12 @@ class KaomojiMMORPG {
             customKaomoji: '',
             exTitle: '',
             bodyColor: '',
+            faceBgColor: '#073b66',
+            bodyScale: 1.0,
             cosmeticId: 'none',
             ownedCosmetics: ['none'],
+            backCosmeticId: 'back_none',
+            ownedBackCosmetics: ['back_none'],
             weaponId: 'wpn_wood',
             weaponEnhance: 0,
             weaponEnchant: null,
@@ -215,14 +227,18 @@ class KaomojiMMORPG {
                 fire_core: 0, ice_crystal: 0, abyss_shard: 0, void_star: 0
             },
             statsTrack: { kills: 0, bossKills: 0, bestTowerFloor: 0, maxThreatKill: 0 },
-            firebaseUrl: ''
+            firebaseUrl: '',
+            cloudId: '',
+            cloudPin: ''
         };
     }
 
     loadSaveData() {
         const def = this.createDefaultSave();
         try {
-            const raw = localStorage.getItem(this.saveKey) || localStorage.getItem('kaomoji_mmo_3d_save_v2');
+            const raw = localStorage.getItem(this.saveKey)
+                || localStorage.getItem('kaomoji_mmo_3d_save_v3')
+                || localStorage.getItem('kaomoji_mmo_3d_save_v2');
             if (!raw) return def;
             const parsed = JSON.parse(raw);
             return {
@@ -232,7 +248,8 @@ class KaomojiMMORPG {
                 skills: { ...def.skills, ...(parsed.skills || {}) },
                 materials: { ...def.materials, ...(parsed.materials || {}) },
                 statsTrack: { ...def.statsTrack, ...(parsed.statsTrack || {}) },
-                ownedCosmetics: parsed.ownedCosmetics || ['none']
+                ownedCosmetics: parsed.ownedCosmetics || ['none'],
+                ownedBackCosmetics: parsed.ownedBackCosmetics || ['back_none']
             };
         } catch (e) {
             return def;
@@ -262,6 +279,16 @@ class KaomojiMMORPG {
         return evo.hexColor || 0x38bdf8;
     }
 
+    getPlayerFaceBgHex() {
+        return (this.saveData.faceBgColor && /^#[0-9a-fA-F]{6}$/.test(this.saveData.faceBgColor))
+            ? this.saveData.faceBgColor
+            : '#073b66';
+    }
+
+    getPlayerBodyScale() {
+        return Number(this.saveData.bodyScale) || 1.0;
+    }
+
     getExpNeeded(lv) {
         return Math.round(90 * Math.pow(1.22, lv - 1) + lv * 25);
     }
@@ -288,7 +315,6 @@ class KaomojiMMORPG {
         const vit = d.stats.vit * baseScale;
         const agi = d.stats.agi * baseScale;
 
-        // エンチャント効果集計
         const ench = { atkBonus: 0, hpBonus: 0, critBonus: 0, critDmg: 0, cdBonus: 0, lifesteal: 0, bossDmg: 0, rewardBonus: 0 };
         [d.weaponEnchant, d.armorEnchant].forEach(eId => {
             if (!eId) return;
