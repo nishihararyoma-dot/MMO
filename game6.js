@@ -9,7 +9,7 @@ const MQTT_SERVERS = [
     { name: 'HiveMQ', url: 'wss://broker.hivemq.com:8884/mqtt' },
     { name: 'Mosquitto', url: 'wss://test.mosquitto.org:8081/mqtt' }
 ];
-const TOPIC_GLOBAL = 'kaomoji_fantasy_3d/v11/global';
+const TOPIC_GLOBAL = 'kaomoji_fantasy_3d/stable/global';
 
 const LOADING_KAOMOJIS = ['(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧', 'ε=ε=ε=┏(゜ロ゜;)┛', '(ง •̀_•́)ง ⚔️', '✧*｡٩(ˊᗜˋ*)و✧*｡', '(╯°□°）╯︵ ┻━┻'];
 const LOADING_TIPS = [
@@ -19,10 +19,10 @@ const LOADING_TIPS = [
     '💡 パスワード部屋を設定すると合言葉を知っている友達だけで遊べるよ！'
 ];
 
-(function injectV11Styles() {
-    if (document.getElementById('kmj-v11-style')) return;
+(function injectV12Styles() {
+    if (document.getElementById('kmj-v12-style')) return;
     const st = document.createElement('style');
-    st.id = 'kmj-v11-style';
+    st.id = 'kmj-v12-style';
     st.textContent = `
         #kmj-loading-screen{position:fixed;inset:0;z-index:96;background:radial-gradient(circle at center,#0f172a 0%,#020617 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;transition:opacity .28s ease;pointer-events:auto}
         #kmj-loading-screen.fade-out{opacity:0;pointer-events:none}
@@ -78,10 +78,10 @@ Object.assign(KaomojiMMORPG.prototype, {
         if (this._runtimeUid) return this._runtimeUid;
         let salt = '';
         try {
-            salt = localStorage.getItem('kmj_dev_salt_v11');
+            salt = localStorage.getItem('kmj_dev_salt_stable');
             if (!salt) {
                 salt = Math.random().toString(36).slice(2, 8);
-                localStorage.setItem('kmj_dev_salt_v11', salt);
+                localStorage.setItem('kmj_dev_salt_stable', salt);
             }
         } catch (e) {
             salt = Math.random().toString(36).slice(2, 8);
@@ -92,16 +92,16 @@ Object.assign(KaomojiMMORPG.prototype, {
 
     getRoomTopic() {
         const d = this.saveData;
-        if (!d.roomPassEnabled) return 'kaomoji_fantasy_3d/v11/room/PUBLIC';
+        if (!d.roomPassEnabled) return 'kaomoji_fantasy_3d/stable/room/PUBLIC';
         const p = String(d.roomPassword || '').trim();
         let hex = '';
         for (let i = 0; i < p.length; i++) hex += p.charCodeAt(i).toString(16);
-        return 'kaomoji_fantasy_3d/v11/room/PASS_' + (hex || 'EMPTY');
+        return 'kaomoji_fantasy_3d/stable/room/PASS_' + (hex || 'EMPTY');
     },
 
     getSafeRoomKey() {
-        if (this.getCurrentRoomKey) return this.getCurrentRoomKey();
-        return this.saveData.roomPassEnabled ? 'PASS_' + (this.saveData.roomPassword || '') : 'PUBLIC_OPEN_ROOM';
+        if (!this.saveData.roomPassEnabled) return 'PUBLIC_OPEN_ROOM';
+        return 'PASS_' + String(this.saveData.roomPassword || '').trim();
     },
 
     loadMqttLib(cb) {
@@ -118,18 +118,22 @@ Object.assign(KaomojiMMORPG.prototype, {
         step(0);
     },
 
+    // 未接続時のみ安全に再接続（接続処理中の通信は絶対に途中で切らない）
     startAutoReconnectWatchdog() {
         if (this._reconnWatchdog) return;
         this._reconnWatchdog = setInterval(() => {
             if (!this.saveData || !this.saveData.onlineEnabled) return;
             const activeCount = this.getConnectedServerNames().length;
-            if (activeCount === 0) {
-                this.fbConnected = false;
-                this.netStatusLabel = '⏳ 自動再接続中...';
-                this.refreshAllHUD();
-                if (!this._isConnectingNow) this.connectMqttStart(true);
-            } else {
+            if (activeCount > 0) {
                 this.fbConnected = true;
+                return;
+            }
+            this.fbConnected = false;
+            this.netStatusLabel = '⏳ 自動接続中...';
+            this.refreshAllHUD();
+            const elapsed = Date.now() - (this._lastConnectAttemptTs || 0);
+            if (elapsed > 6500) {
+                this.connectMqttStart(true);
             }
         }, 3000);
     },
@@ -143,6 +147,7 @@ Object.assign(KaomojiMMORPG.prototype, {
         } else {
             d.onlineEnabled = true;
             this.saveGame(false);
+            this._lastConnectAttemptTs = 0;
             this.connectMqttStart(false);
         }
         this.refreshTitleScreen();
@@ -155,14 +160,12 @@ Object.assign(KaomojiMMORPG.prototype, {
 
     connectMqttStart(silent = false) {
         this.startAutoReconnectWatchdog();
-        if (this._isConnectingNow) return;
-        this._isConnectingNow = true;
-        setTimeout(() => { this._isConnectingNow = false; }, 2600);
-
+        this._lastConnectAttemptTs = Date.now();
         this.stopMqtt(false);
+
         this.saveData.onlineEnabled = true;
         this.fbConnected = false;
-        this.netStatusLabel = '⏳ 自動接続中...';
+        this.netStatusLabel = '⏳ 接続中...';
         this.netTxCount = 0;
         this.netEchoCount = 0;
         this.netRxCount = 0;
@@ -171,9 +174,8 @@ Object.assign(KaomojiMMORPG.prototype, {
         this.refreshAllHUD();
 
         this.loadMqttLib((ok) => {
-            if (!this.saveData.onlineEnabled) { this._isConnectingNow = false; return; }
+            if (!this.saveData.onlineEnabled) return;
             if (!ok) {
-                this._isConnectingNow = false;
                 this.netStatusLabel = '⚠️ 通信読込再試行...';
                 this.refreshAllHUD();
                 return;
@@ -185,18 +187,17 @@ Object.assign(KaomojiMMORPG.prototype, {
             MQTT_SERVERS.forEach((sv, idx) => {
                 try {
                     const c = window.mqtt.connect(sv.url, {
-                        clientId: 'kmj11_' + myUid + '_' + idx + '_' + Math.random().toString(36).slice(2, 5),
+                        clientId: 'kmj_' + myUid + '_' + idx + '_' + Math.random().toString(36).slice(2, 5),
                         clean: true,
-                        keepalive: 15,
-                        connectTimeout: 4500,
-                        reconnectPeriod: 2000,
+                        keepalive: 20,
+                        connectTimeout: 6000,
+                        reconnectPeriod: 2500,
                         will: { topic: rTopic, payload: JSON.stringify({ type: 'leave', uid: myUid, ts: Date.now() }), qos: 0 }
                     });
                     c._svName = sv.name;
                     this.mqttClients.push(c);
 
                     c.on('connect', () => {
-                        this._isConnectingNow = false;
                         if (!this.saveData.onlineEnabled) {
                             try { c.end(true); } catch (e) {}
                             return;
@@ -207,8 +208,7 @@ Object.assign(KaomojiMMORPG.prototype, {
 
                         c.subscribe([TOPIC_GLOBAL, rTopic], { qos: 0 }, () => {
                             this.syncFirebaseNow(true);
-                            setTimeout(() => { if (this.fbConnected) this.syncFirebaseNow(true); }, 500);
-                            setTimeout(() => { if (this.fbConnected) this.syncFirebaseNow(true); }, 1400);
+                            setTimeout(() => { if (this.fbConnected) this.syncFirebaseNow(true); }, 600);
                         });
 
                         this.refreshTitleScreen();
@@ -247,7 +247,7 @@ Object.assign(KaomojiMMORPG.prototype, {
     reconnectMqttRoom() {
         if (!this.saveData.onlineEnabled) return;
         this.clearRemotePlayers();
-        this._isConnectingNow = false;
+        this._lastConnectAttemptTs = 0;
         this.connectMqttStart(true);
     },
 
@@ -288,6 +288,8 @@ Object.assign(KaomojiMMORPG.prototype, {
 
     publishAllConnected(topic, obj) {
         if (!this.mqttClients) return;
+        this._txSeq = (this._txSeq || 0) + 1;
+        obj.seq = this._txSeq;
         const raw = JSON.stringify(obj);
         let sent = false;
         this.mqttClients.forEach(c => {
@@ -313,6 +315,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             type: isHello ? 'hello' : 'sync',
             uid: this.getDeviceUid(),
             roomKey: this.getSafeRoomKey(),
+            passEnabled: !!d.roomPassEnabled,
             lv: d.lv || 1,
             kaomoji: this.getBasePlayerKaomoji(),
             bodyColor: d.bodyColor || '',
@@ -341,13 +344,14 @@ Object.assign(KaomojiMMORPG.prototype, {
             type,
             senderUid: this.getDeviceUid(),
             roomKey: this.getSafeRoomKey(),
+            passEnabled: !!this.saveData.roomPassEnabled,
             payload,
             ts: Date.now()
         };
         this.publishAllConnected(topic, packet);
     },
 
-    // 頭上吹き出し（チャット＆エモート両対応）
+    // 頭上吹き出し（自分＆マルチの仲間のチャット・エモート両対応）
     spawnHeadBubble(isSelf, uid, kaomoji, text, isEmote = false) {
         if (!this.overlayLayer) return;
         const cleanText = String(text || '').trim();
@@ -387,7 +391,6 @@ Object.assign(KaomojiMMORPG.prototype, {
 
         ent.emoteAnim = { style, timer: 2.2, maxTimer: 2.2 };
 
-        // 頭上にキラキラ星リングを発生
         if (this.useWebGL && this.scene && ent.pos && typeof THREE !== 'undefined') {
             if (!this._slashEffects) this._slashEffects = [];
             for (let i = 0; i < 6; i++) {
@@ -452,6 +455,45 @@ Object.assign(KaomojiMMORPG.prototype, {
         });
     },
 
+    // スキルID・名前・スロット番号からスキル情報を確実に取得
+    resolveSkillMeta(slotIdx) {
+        const d = this.saveData || {};
+        const candidates = [
+            d.equippedSkills?.[slotIdx],
+            d.skillSlots?.[slotIdx],
+            d.activeSkills?.[slotIdx],
+            d.skills?.[slotIdx],
+            d.hotbar?.[slotIdx]
+        ].filter(v => v !== undefined && v !== null && v !== '');
+
+        let found = null;
+        if (typeof SKILLS !== 'undefined' && SKILLS) {
+            const list = Array.isArray(SKILLS) ? SKILLS : Object.values(SKILLS);
+            for (const cand of candidates) {
+                if (!Array.isArray(SKILLS) && SKILLS[cand]) { found = SKILLS[cand]; break; }
+                found = list.find((s, i) => s && (s.id === cand || s.skillId === cand || i === Number(cand)));
+                if (found) break;
+            }
+            if (!found && list[slotIdx]) found = list[slotIdx];
+        }
+
+        let domText = '';
+        document.querySelectorAll('button').forEach(b => {
+            const idStr = `${b.id} ${b.className} ${b.dataset?.slot ?? ''} ${b.dataset?.skillSlot ?? ''}`;
+            if (/skill|slot/i.test(idStr) && (idStr.includes(String(slotIdx)) || b.textContent.includes(`枠${slotIdx + 1}`))) {
+                domText += ' ' + b.textContent + ' ' + (b.title || '');
+            }
+        });
+
+        const skillId = String(found?.id || found?.skillId || candidates[0] || `slot_${slotIdx}`);
+        const skillName = (String(found?.name || found?.title || '') + ' ' + domText).trim();
+        const lower = (skillId + ' ' + skillName).toLowerCase();
+        const isOtherElem = /heal|fire|meteor|ice|thunder|癒|回復|祈|炎|爆|火|隕|氷|雪|凍|雷|電|閃/.test(lower);
+        const isChabudai = /chabu|table|flip|ちゃぶ|卓|返|┻|┬/.test(lower) || (slotIdx === 0 && !isOtherElem);
+
+        return { slotIdx, skillId, skillName, isChabudai };
+    },
+
     // 3Dちゃぶ台生成（天板＋4本脚＋急須＋湯呑み）
     createChabudai3D() {
         const grp = new THREE.Group();
@@ -488,10 +530,9 @@ Object.assign(KaomojiMMORPG.prototype, {
         const sId = String(skillInfo?.skillId || '').toLowerCase();
         const sName = String(skillInfo?.skillName || '');
 
-        // ちゃぶ台返し判定（スキル名・ID・スロット0の初期スキル等のいずれかに該当）
         const isChabudai = isSkill && (
-            sId.includes('chabu') || sId.includes('table') || sId.includes('flip') ||
-            sName.includes('ちゃぶ') || sName.includes('卓') || sName.includes('返')
+            skillInfo?.isChabudai === true ||
+            /chabu|table|flip|ちゃぶ|卓|返|┻|┬/.test(sId + ' ' + sName)
         );
 
         if (isChabudai) {
@@ -502,15 +543,14 @@ Object.assign(KaomojiMMORPG.prototype, {
             this._slashEffects.push({
                 kind: 'chabudai',
                 mesh: tableMesh,
-                life: 0.85,
-                maxLife: 0.85,
-                vx: dirX * 11.0,
-                vz: dirZ * 11.0
+                life: 0.9,
+                maxLife: 0.9,
+                vx: dirX * 11.5,
+                vz: dirZ * 11.5
             });
             return;
         }
 
-        // その他スキル専用エフェクト
         if (isSkill && (sName || sId)) {
             let color = 0xfde047;
             let kind = 'wave';
@@ -536,7 +576,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             }
         }
 
-        // クリーンな2重光の斬撃アーク（顔や装飾には一切干渉しない）
         const mat = new THREE.MeshBasicMaterial({
             color: isSkill ? 0xfde047 : 0x38bdf8,
             side: THREE.DoubleSide,
@@ -561,9 +600,7 @@ Object.assign(KaomojiMMORPG.prototype, {
         });
     },
 
-    // 攻撃モーション＆3Dエモートアニメーション更新（子パーツを壊さない安全設計）
     updateCharacterAnimations(dt) {
-        // 1. 空間エフェクト（ちゃぶ台・斬撃・魔法・エモート星）の更新
         if (this._slashEffects && this._slashEffects.length) {
             this._slashEffects = this._slashEffects.filter(ef => {
                 ef.life -= dt;
@@ -579,9 +616,9 @@ Object.assign(KaomojiMMORPG.prototype, {
                 if (ef.kind === 'chabudai') {
                     ef.mesh.position.x += ef.vx * dt;
                     ef.mesh.position.z += ef.vz * dt;
-                    ef.mesh.position.y = 0.9 + Math.sin(p * Math.PI) * 2.4;
-                    ef.mesh.rotation.x = p * Math.PI * 3.8;
-                    ef.mesh.scale.setScalar(1 + p * 0.4);
+                    ef.mesh.position.y = 0.9 + Math.sin(p * Math.PI) * 2.5;
+                    ef.mesh.rotation.x = p * Math.PI * 4.0;
+                    ef.mesh.scale.setScalar(1 + p * 0.45);
                 } else if (ef.kind === 'orb') {
                     ef.mesh.position.x += ef.vx * dt;
                     ef.mesh.position.z += ef.vz * dt;
@@ -608,7 +645,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             });
         }
 
-        // 2. キャラクター本体の攻撃モーション＆エモート全身アニメーション
         const applyPose = (ent) => {
             if (!ent || !ent.group) return;
             const baseRotY = ent.rotY || 0;
@@ -616,7 +652,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             let rotX = 0, rotY = baseRotY, rotZ = 0;
             let active = false;
 
-            // 攻撃モーション（踏み込み＋ひねりスイング）
             if (ent.attackAnimTimer && ent.attackAnimTimer > 0) {
                 active = true;
                 ent.attackAnimTimer = Math.max(0, ent.attackAnimTimer - dt);
@@ -629,7 +664,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                 rotX += swing * 0.18;
             }
 
-            // エモート全身アニメーション
             if (ent.emoteAnim && ent.emoteAnim.timer > 0) {
                 active = true;
                 ent.emoteAnim.timer = Math.max(0, ent.emoteAnim.timer - dt);
@@ -646,7 +680,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                     rotZ += Math.sin(t * 36) * 0.24;
                     rotX += 0.22;
                 } else {
-                    // 楽しい連続ジャンプ＆左右スイング
                     offY += Math.abs(Math.sin(t * 9.5)) * 0.58;
                     rotZ += Math.sin(t * 9.5) * 0.22;
                 }
@@ -708,7 +741,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             return;
         }
 
-        const dedupKey = `${senderUid}_${msg.type}_${msg.ts}`;
+        const dedupKey = `${senderUid}_${msg.type}_${msg.ts}_${msg.seq || 0}`;
         if (!this._seenIds) this._seenIds = new Set();
         if (this._seenIds.has(dedupKey)) return;
         this._seenIds.add(dedupKey);
@@ -724,7 +757,10 @@ Object.assign(KaomojiMMORPG.prototype, {
             }
             return;
         }
-        if ((msg.roomKey || 'PUBLIC_OPEN_ROOM') !== this.getSafeRoomKey()) return;
+
+        if (this.saveData.roomPassEnabled) {
+            if ((msg.roomKey || '') !== this.getSafeRoomKey()) return;
+        }
 
         if (msg.type === 'sync' || msg.type === 'hello') {
             const isNew = !this.remotePlayers.has(msg.uid);
@@ -893,7 +929,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             document.getElementById('hud-drawer-menu')?.classList.add('hidden');
         });
 
-        // エモート選択のキャプチャ監視（元のリスナーと競合せず確実に同期＆3Dアニメーション実行）
         if (!this._emoteCaptureBound) {
             this._emoteCaptureBound = true;
             document.addEventListener('click', (e) => {
@@ -1068,9 +1103,9 @@ if (typeof KaomojiMMORPG !== 'undefined') {
             this.showLoadingOverlay('NOW LOADING... 冒険の世界へ出発！', 1100);
             _origEnter.call(this);
             this.startAutoReconnectWatchdog();
-            if (this.saveData?.onlineEnabled) {
-                setTimeout(() => this.connectMqttStart(true), 300);
-                setTimeout(() => { if (this.fbConnected) this.syncFirebaseNow(true); }, 1500);
+            if (this.saveData?.onlineEnabled && !this.fbConnected) {
+                this._lastConnectAttemptTs = 0;
+                this.connectMqttStart(true);
             }
         };
     }
@@ -1111,28 +1146,23 @@ if (typeof KaomojiMMORPG !== 'undefined') {
     if (P.useSkillSlot) {
         const _origSkill = P.useSkillSlot;
         P.useSkillSlot = function (slotIdx) {
-            const d = this.saveData || {};
-            // UIボタンのラベル・セーブデータ配列・スキル辞書のすべてからスキル名とIDを特定
-            const domBtn = document.querySelector(`[data-skill-slot="${slotIdx}"], [data-slot="${slotIdx}"], #btn-skill-${slotIdx}`)
-                || document.querySelectorAll('#skill-bar button, .skill-slot-btn')[slotIdx];
-            const domLabel = domBtn ? domBtn.textContent.trim() : '';
-            const sid = (d.equippedSkills && d.equippedSkills[slotIdx])
-                || (d.skillSlots && d.skillSlots[slotIdx])
-                || (d.activeSkills && d.activeSkills[slotIdx])
-                || '';
-            const sObj = (typeof SKILLS !== 'undefined' && sid) ? SKILLS[sid] : null;
-            const sName = (sObj?.name || '') + ' ' + domLabel;
-            const prevCd = this.player?.skillCds?.[slotIdx] || 0;
+            const meta = this.resolveSkillMeta(slotIdx);
+            const prevMp = this.player?.mp ?? 0;
+            const prevCds = JSON.stringify(this.player?.skillCds || this.skillCds || []);
 
             _origSkill.call(this, slotIdx);
 
-            const nowCd = this.player?.skillCds?.[slotIdx] || 0;
-            if (nowCd > prevCd || domLabel) {
+            const nowMp = this.player?.mp ?? 0;
+            const nowCds = JSON.stringify(this.player?.skillCds || this.skillCds || []);
+            const activated = (nowMp < prevMp) || (nowCds !== prevCds) || (this.currentZoneId === 'town');
+
+            if (activated) {
                 const info = {
                     isSkill: true,
-                    slotIdx,
-                    skillId: sid,
-                    skillName: sName.trim(),
+                    slotIdx: meta.slotIdx,
+                    skillId: meta.skillId,
+                    skillName: meta.skillName,
+                    isChabudai: meta.isChabudai,
                     x: this.player?.pos?.x,
                     z: this.player?.pos?.z,
                     rotY: this.player?.rotY
@@ -1173,7 +1203,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
                     `);
                     document.getElementById('btn-diag-reconn')?.addEventListener('click', () => {
                         sfx.init();
-                        this._isConnectingNow = false;
+                        this._lastConnectAttemptTs = 0;
                         this.connectMqttStart(false);
                     });
                 }
@@ -1195,4 +1225,4 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!window.game && typeof KaomojiMMORPG !== 'undefined') window.game = new KaomojiMMORPG();
     if (window.game && window.game.startAutoReconnectWatchdog) window.game.startAutoReconnectWatchdog();
 });
-// === GAME6_V11_OK ===
+// === GAME6_V12_OK ===
