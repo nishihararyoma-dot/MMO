@@ -7,7 +7,7 @@
 Object.assign(KaomojiMMORPG.prototype, {
 
     // -----------------------------------------------------------------
-    // プレイヤー更新（全身スキルモーション・属性斬撃・街中央ワープ検知）
+    // プレイヤー更新（全身スキルモーション・属性斬撃・街中央ステージ選択ワープ）
     // -----------------------------------------------------------------
     updatePlayer(dt, elapsed) {
         if (!this.player) return;
@@ -45,21 +45,27 @@ Object.assign(KaomojiMMORPG.prototype, {
             }
         }
 
-        // 中央ワープポータル検知（街ではステージ選択へ出発、狩場では街へ帰還）
+        // 中央ワープポータル検知（街では乗った瞬間にステージ選択を開き、狩場では街へ帰還）
+        const onWarp = this.isOnWarpPortal(this.player.pos);
         const warpBox = document.getElementById('warp-prompt-box');
         const warpBtn = document.getElementById('btn-exec-warp');
         if (warpBox) {
-            if (this.isOnWarpPortal(this.player.pos)) {
+            if (onWarp) {
                 warpBox.classList.remove('hidden');
                 if (warpBtn) {
                     warpBtn.textContent = (this.currentZoneId === 'town')
-                        ? '🌀 ステージ・試練の塔へ出発'
+                        ? '🌀 ステージ選択'
                         : '🏠 街へ帰還ワープ';
+                }
+                if (this.currentZoneId === 'town' && !this.wasOnWarp && !this.isModalOpen) {
+                    sfx.playSkill();
+                    this.openGrowthModal('travel');
                 }
             } else {
                 warpBox.classList.add('hidden');
             }
         }
+        this.wasOnWarp = onWarp;
 
         const inTown = this.currentZoneId === 'town';
         const hpRegen = inTown ? st.maxHp * 0.40 : st.maxHp * (0.015 + st.treeHpRegenBonus);
@@ -193,7 +199,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             this.player.group.rotation.y = this.player.rotY;
         }
 
-        // オート通常攻撃（武器属性色の三日月斬撃波＋クリティカル十字閃光！）
+        // オート通常攻撃
         if (this.autoAttack && !this.isModalOpen && !this.isDead && this.player.stunTimer <= 0 && !inTown) {
             const target = this.getNearestMonster(5.0) || this.getValidTarget();
             if (target && !target.dead && this.player.pos.distanceTo(target.pos) <= 4.9) {
@@ -332,7 +338,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                 m.atkAnimTimer = Math.max(0, m.atkAnimTimer - dt);
             }
 
-            // 敵の攻撃踏み込みモーション反映
             if (m.group) {
                 if (m.atkAnimTimer > 0) {
                     const lunge = Math.sin((m.atkAnimTimer / 0.28) * Math.PI);
@@ -374,7 +379,6 @@ Object.assign(KaomojiMMORPG.prototype, {
 
             const spdMult = m.slowTimer > 0 ? (m.slowFactor || 0.5) : 1.0;
             const moveSpd = (m.isBoss ? 4.5 : 5.3) * spdMult;
-            // 近距離攻撃の射程を延長（通常敵: 4.3 / ボス: 5.6）
             const meleeRange = m.isBoss ? 5.6 : 4.3;
 
             const dx = pPos.x - m.pos.x;
@@ -478,7 +482,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                 } else if (ef.kind === 'orbit' && ef.mesh) {
                     ef.mesh.rotation.y += dt * 10.5;
                     if (this.player) {
-                        // 主人公追従の公転エフェクト（旋風円舞・イージス）
                         const distToP = Math.hypot(ef.mesh.position.x - this.player.pos.x, ef.mesh.position.z - this.player.pos.z);
                         if (distToP < 2.2) {
                             ef.mesh.position.x = this.player.pos.x;
@@ -1603,7 +1606,7 @@ Object.assign(KaomojiMMORPG.prototype, {
     },
 
     // -----------------------------------------------------------------
-    // イベントバインド（街中央ワープ起動・BGM切替・マルチタッチ操作）
+    // イベントバインド（街中央ステージ選択ワープ・BGM切替・マルチタッチ操作）
     // -----------------------------------------------------------------
     bindEvents() {
         const drawer = document.getElementById('hud-drawer-menu');
@@ -1782,7 +1785,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             this.saveGame(true);
         });
 
-        // 中央ワープボタン：街では「ステージ・試練の塔」選択を開き、狩場では街へ帰還
+        // 中央ワープボタン：街では「ステージ選択」、狩場では「街へ帰還ワープ」
         document.getElementById('btn-exec-warp')?.addEventListener('click', () => {
             sfx.playSkill();
             if (this.currentZoneId === 'town') {
