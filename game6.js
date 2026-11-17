@@ -6,20 +6,41 @@ const MQTT_CDNS = [
 ];
 const MQTT_SERVERS = [
     { name: 'EMQX', url: 'wss://broker.emqx.io:8084/mqtt' },
-    { name: 'Eclipse443', url: 'wss://mqtt.eclipseprojects.io:443/mqtt' },
-    { name: 'HiveMQ', url: 'wss://broker.hivemq.com:8884/mqtt' }
+    { name: 'HiveMQ', url: 'wss://broker.hivemq.com:8884/mqtt' },
+    { name: 'Mosquitto', url: 'wss://test.mosquitto.org:8081/mqtt' }
 ];
-const TOPIC_GLOBAL = 'kaomoji_fantasy_3d/v7/global';
+const TOPIC_GLOBAL = 'kaomoji_fantasy_3d/v8/global';
 
 Object.assign(KaomojiMMORPG.prototype, {
 
+    getDeviceUid() {
+        if (this._runtimeUid) return this._runtimeUid;
+        let salt = '';
+        try {
+            salt = localStorage.getItem('kmj_dev_salt_v8');
+            if (!salt) {
+                salt = Math.random().toString(36).slice(2, 8);
+                localStorage.setItem('kmj_dev_salt_v8', salt);
+            }
+        } catch (e) {
+            salt = Math.random().toString(36).slice(2, 8);
+        }
+        this._runtimeUid = `${this.saveData.playerUid || 'p'}_${salt}`;
+        return this._runtimeUid;
+    },
+
     getRoomTopic() {
         const d = this.saveData;
-        if (!d.roomPassEnabled) return 'kaomoji_fantasy_3d/v7/room/PUBLIC';
+        if (!d.roomPassEnabled) return 'kaomoji_fantasy_3d/v8/room/PUBLIC';
         const p = String(d.roomPassword || '').trim();
         let hex = '';
         for (let i = 0; i < p.length; i++) hex += p.charCodeAt(i).toString(16);
-        return 'kaomoji_fantasy_3d/v7/room/PASS_' + (hex || 'EMPTY');
+        return 'kaomoji_fantasy_3d/v8/room/PASS_' + (hex || 'EMPTY');
+    },
+
+    getSafeRoomKey() {
+        if (this.getCurrentRoomKey) return this.getCurrentRoomKey();
+        return this.saveData.roomPassEnabled ? 'PASS_' + (this.saveData.roomPassword || '') : 'PUBLIC_OPEN_ROOM';
     },
 
     loadMqttLib(cb) {
@@ -61,8 +82,9 @@ Object.assign(KaomojiMMORPG.prototype, {
         this.fbConnected = false;
         this.netStatusLabel = '⏳ 接続中...';
         this.netTxCount = 0;
+        this.netEchoCount = 0;
         this.netRxCount = 0;
-        this.netBrokerName = '接続試行中';
+        this.mqttClients = [];
         this.refreshTitleScreen();
         this.refreshAllHUD();
 
@@ -70,38 +92,34 @@ Object.assign(KaomojiMMORPG.prototype, {
             if (!this.saveData.onlineEnabled) return;
             if (!ok) {
                 this.netStatusLabel = '⚠️ 通信読込失敗';
-                this.netBrokerName = 'ライブラリ読込エラー';
                 this.refreshAllHUD();
                 return;
             }
             const rTopic = this.getRoomTopic();
             this.curRoomTopic = rTopic;
-            const uid = this.saveData.playerUid;
-            this._pool = [];
+            const myUid = this.getDeviceUid();
 
             MQTT_SERVERS.forEach((sv, idx) => {
                 try {
                     const c = window.mqtt.connect(sv.url, {
-                        clientId: 'kmj_' + uid + '_' + idx + '_' + Math.random().toString(36).slice(2, 6),
+                        clientId: 'kmj8_' + myUid + '_' + idx + '_' + Math.random().toString(36).slice(2, 5),
                         clean: true,
                         keepalive: 20,
-                        connectTimeout: 5000,
+                        connectTimeout: 6000,
                         reconnectPeriod: 3000,
-                        will: { topic: rTopic, payload: JSON.stringify({ type: 'leave', uid }), qos: 0 }
+                        will: { topic: rTopic, payload: JSON.stringify({ type: 'leave', uid: myUid, ts: Date.now() }), qos: 0 }
                     });
-                    this._pool.push(c);
+                    c._svName = sv.name;
+                    this.mqttClients.push(c);
 
                     c.on('connect', () => {
-                        if (!this.saveData.onlineEnabled || (this.mqttClient && this.mqttClient !== c)) {
+                        if (!this.saveData.onlineEnabled) {
                             try { c.end(true); } catch (e) {}
                             return;
                         }
-                        this._pool.forEach(o => { if (o !== c) try { o.end(true); } catch (e) {} });
-                        this._pool = [c];
-                        this.mqttClient = c;
+                        const wasConnected = this.fbConnected;
                         this.fbConnected = true;
                         this.netStatusLabel = '';
-                        this.netBrokerName = 'MQTT (' + sv.name + ')';
 
                         c.subscribe([TOPIC_GLOBAL, rTopic], { qos: 0 }, () => {
                             this.syncFirebaseNow(true);
@@ -111,14 +129,13 @@ Object.assign(KaomojiMMORPG.prototype, {
                         this.refreshTitleScreen();
                         this.refreshAllHUD();
                         if (this.isModalOpen && this.activeTab === 'online') this.renderModalContent();
-                        if (!silent) {
+                        if (!wasConnected && !silent) {
                             sfx.playHeal();
                             this.showAlertBanner(`🌐 オンライン接続完了！（${sv.name}）`, 2200);
                         }
                     });
 
                     c.on('message', (topic, buf) => {
-                        if (this.mqttClient !== c) return;
                         try {
                             const msg = JSON.parse(buf.toString());
                             this.onMqttPacket(topic, msg);
@@ -129,6 +146,11 @@ Object.assign(KaomojiMMORPG.prototype, {
         });
     },
 
+    getConnectedServerNames() {
+        if (!this.mqttClients) return [];
+        return this.mqttClients.filter(c => c && c.connected).map(c => c._svName);
+    },
+
     reconnectMqttRoom() {
         if (!this.saveData.onlineEnabled) return;
         this.clearRemotePlayers();
@@ -136,14 +158,18 @@ Object.assign(KaomojiMMORPG.prototype, {
     },
 
     stopMqtt(sendLeave = true) {
-        if (sendLeave && this.mqttClient && this.mqttClient.connected && this.curRoomTopic) {
-            try { this.mqttClient.publish(this.curRoomTopic, JSON.stringify({ type: 'leave', uid: this.saveData.playerUid })); } catch (e) {}
+        const myUid = this.getDeviceUid();
+        if (this.mqttClients) {
+            this.mqttClients.forEach(c => {
+                try {
+                    if (sendLeave && c.connected && this.curRoomTopic) {
+                        c.publish(this.curRoomTopic, JSON.stringify({ type: 'leave', uid: myUid, ts: Date.now() }));
+                    }
+                    c.end(true);
+                } catch (e) {}
+            });
         }
-        if (this._pool) {
-            this._pool.forEach(c => { try { c.end(true); } catch (e) {} });
-            this._pool = [];
-        }
-        this.mqttClient = null;
+        this.mqttClients = [];
     },
 
     clearRemotePlayers() {
@@ -166,8 +192,23 @@ Object.assign(KaomojiMMORPG.prototype, {
         this.showAlertBanner('📴 オフラインモードに切り替えました', 1500);
     },
 
+    publishAllConnected(topic, obj) {
+        if (!this.mqttClients) return;
+        const raw = JSON.stringify(obj);
+        let sent = false;
+        this.mqttClients.forEach(c => {
+            if (c && c.connected) {
+                try {
+                    c.publish(topic, raw, { qos: 0 });
+                    sent = true;
+                } catch (e) {}
+            }
+        });
+        if (sent) this.netTxCount = (this.netTxCount || 0) + 1;
+    },
+
     syncFirebaseNow(isHello = false) {
-        if (!this.fbConnected || !this.mqttClient || !this.mqttClient.connected) return;
+        if (!this.fbConnected) return;
         const rTopic = this.getRoomTopic();
         if (this.curRoomTopic && this.curRoomTopic !== rTopic) {
             this.reconnectMqttRoom();
@@ -176,8 +217,8 @@ Object.assign(KaomojiMMORPG.prototype, {
         const d = this.saveData;
         const payload = {
             type: isHello ? 'hello' : 'sync',
-            uid: d.playerUid,
-            roomKey: this.getCurrentRoomKey(),
+            uid: this.getDeviceUid(),
+            roomKey: this.getSafeRoomKey(),
             lv: d.lv || 1,
             kaomoji: this.getBasePlayerKaomoji(),
             bodyColor: d.bodyColor || '',
@@ -196,20 +237,20 @@ Object.assign(KaomojiMMORPG.prototype, {
             rotY: this.player ? Number(this.player.rotY.toFixed(2)) : 0,
             ts: Date.now()
         };
-        try {
-            this.mqttClient.publish(rTopic, JSON.stringify(payload), { qos: 0 });
-            this.netTxCount = (this.netTxCount || 0) + 1;
-        } catch (e) {}
+        this.publishAllConnected(rTopic, payload);
     },
 
     broadcastFirebaseEvent(type, payload) {
-        if (!this.fbConnected || !this.mqttClient || !this.mqttClient.connected) return;
+        if (!this.fbConnected) return;
         const topic = (type === 'chat_global') ? TOPIC_GLOBAL : this.getRoomTopic();
-        const packet = { type, senderUid: this.saveData.playerUid, roomKey: this.getCurrentRoomKey(), payload, ts: Date.now() };
-        try {
-            this.mqttClient.publish(topic, JSON.stringify(packet), { qos: 0 });
-            this.netTxCount = (this.netTxCount || 0) + 1;
-        } catch (e) {}
+        const packet = {
+            type,
+            senderUid: this.getDeviceUid(),
+            roomKey: this.getSafeRoomKey(),
+            payload,
+            ts: Date.now()
+        };
+        this.publishAllConnected(topic, packet);
     },
 
     updateFirebaseSync(dt) {
@@ -244,16 +285,32 @@ Object.assign(KaomojiMMORPG.prototype, {
 
     onMqttPacket(topic, msg) {
         if (!msg || typeof msg !== 'object') return;
-        const myUid = this.saveData.playerUid;
+        const myUid = this.getDeviceUid();
         const senderUid = msg.uid || msg.senderUid;
-        if (!senderUid || senderUid === myUid) return;
+        if (!senderUid) return;
+
+        // 自分のパケットがサーバーから折り返してきたか確認
+        if (senderUid === myUid) {
+            this.netEchoCount = (this.netEchoCount || 0) + 1;
+            return;
+        }
+
+        // 複数サーバーからの重複受信を除外
+        const dedupKey = `${senderUid}_${msg.type}_${msg.ts}`;
+        if (!this._seenIds) this._seenIds = new Set();
+        if (this._seenIds.has(dedupKey)) return;
+        this._seenIds.add(dedupKey);
+        if (this._seenIds.size > 500) {
+            this._seenIds.delete(this._seenIds.values().next().value);
+        }
+
         this.netRxCount = (this.netRxCount || 0) + 1;
 
         if (topic === TOPIC_GLOBAL || msg.type === 'chat_global') {
             if (msg.payload) this.addChatMessage('global', msg.payload.kaomoji, msg.payload.name, msg.payload.text, false);
             return;
         }
-        if ((msg.roomKey || 'PUBLIC_OPEN_ROOM') !== this.getCurrentRoomKey()) return;
+        if ((msg.roomKey || 'PUBLIC_OPEN_ROOM') !== this.getSafeRoomKey()) return;
 
         if (msg.type === 'sync' || msg.type === 'hello') {
             const isNew = !this.remotePlayers.has(msg.uid);
@@ -560,7 +617,21 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         _rMod.call(this);
         if (this.activeTab === 'online') {
             const body = document.getElementById('modal-body');
-            if (body) body.insertAdjacentHTML('afterbegin', `<div class="card-box" style="margin-bottom:8px;border-color:#fde047;"><b style="color:#fde047;font-size:11px;">📡 通信: ${this.netBrokerName || '待機'} ／ 送信:${this.netTxCount || 0} 受信:${this.netRxCount || 0}</b></div>`);
+            const svList = this.getConnectedServerNames().join(', ') || '接続試行中...';
+            if (body) {
+                body.insertAdjacentHTML('afterbegin', `
+                    <div class="card-box" style="margin-bottom:8px;border-color:#fde047;">
+                        <div class="flex-between">
+                            <b style="color:#fde047;font-size:11px;">📡 接続サーバー: ${svList}</b>
+                            <button type="button" id="btn-diag-reconn" class="btn-ui btn-amber" style="padding:4px 8px;font-size:10px;">🔄 再接続</button>
+                        </div>
+                        <div style="font-size:10px;color:#cbd5e1;margin-top:3px;">
+                            送信: <b>${this.netTxCount || 0}</b>回 ／ 折返し: <b>${this.netEchoCount || 0}</b>回 ／ 仲間受信: <b>${this.netRxCount || 0}</b>回
+                        </div>
+                    </div>
+                `);
+                document.getElementById('btn-diag-reconn')?.addEventListener('click', () => { sfx.init(); this.connectMqttStart(false); });
+            }
         }
     };
     const _bPE = KaomojiMMORPG.prototype.buildPlayerEntity;
@@ -574,4 +645,4 @@ if (typeof KaomojiMMORPG !== 'undefined') {
 window.addEventListener('DOMContentLoaded', () => {
     if (!window.game && typeof KaomojiMMORPG !== 'undefined') window.game = new KaomojiMMORPG();
 });
-// === GAME6_OK ===
+// === GAME6_V8_END ===
