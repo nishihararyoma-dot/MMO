@@ -41,7 +41,7 @@ const MATERIAL_ALCHEMY = [
     { from: 'abyss_shard', to: 'void_star',   count: 5, gold: 12000 }
 ];
 
-// 武器精錬（+1ごと）に必要なゴールドと素材（後半でも序盤〜上位素材を消費）
+// 武器精錬（+1ごと）に必要なゴールドと素材
 function getWeaponEnhanceRequirement(enh) {
     const gold = Math.round(160 * Math.pow(1.34, enh));
     const mats = {};
@@ -84,7 +84,7 @@ function getArmorEnhanceRequirement(enh) {
     return { gold, mats };
 }
 
-// 装備エンチャント抽選プール（素材消費で付与・厳選）
+// 装備エンチャント抽選プール
 const ENCHANT_POOL = [
     { id: 'atk_pct',   label: '攻撃力 +15%',       stat: 'atkBonus',   val: 0.15 },
     { id: 'hp_pct',    label: '最大HP +20%',       stat: 'hpBonus',    val: 0.20 },
@@ -96,20 +96,32 @@ const ENCHANT_POOL = [
     { id: 'reward_up', label: '獲得EXP/G +20%',    stat: 'rewardBonus',val: 0.20 }
 ];
 
-// 個性あふれる3D見た目パーツ＆体色プリセット
+// 頭パーツ（9種）
 const COSMETICS = {
-    none:          { id: 'none',          name: 'パーツなし',       icon: '✨', desc: '標準スタイル', costGold: 0, costMat: {} },
-    sprout:        { id: 'sprout',        name: '元気なふたば',     icon: '🌱', desc: '頭の上に可愛い双葉が生える', costGold: 150, costMat: { slime_gel: 3 } },
-    cat_ears:      { id: 'cat_ears',      name: 'ネコミミ＆しっぽ', icon: '🐱', desc: 'ぴょこんと可愛い猫耳と猫しっぽ', costGold: 500, costMat: { slime_gel: 5, ancient_sap: 3 } },
-    bunny_ears:    { id: 'bunny_ears',    name: 'ウサミミ＆丸しっぽ',icon: '🐰', desc: 'ぴょんぴょん長いウサギ耳', costGold: 800, costMat: { ancient_sap: 6, goblin_fang: 2 } },
-    fox_set:       { id: 'fox_set',       name: '九尾キツネ耳＆尾', icon: '🦊', desc: '黄金の狐耳とふさふさ尻尾', costGold: 1800, costMat: { goblin_fang: 6, fire_core: 3 } },
-    cat_headphone: { id: 'cat_headphone', name: '猫耳ゲーミングヘッドホン', icon: '🎧', desc: 'ネオン発光するサイバー猫耳', costGold: 3200, costMat: { fire_core: 5, ice_crystal: 4 } },
-    witch_hat:     { id: 'witch_hat',     name: '星導の三角魔法帽', icon: '🧙', desc: 'とんがり帽子に輝く星の飾り', costGold: 4500, costMat: { ice_crystal: 6, abyss_shard: 3 } },
-    demon_horns:   { id: 'demon_horns',   name: '紅蓮の悪魔角＆翼', icon: '😈', desc: '漆黒の双角とコウモリ翼', costGold: 8000, costMat: { fire_core: 6, abyss_shard: 6 } },
-    angel_halo:    { id: 'angel_halo',    name: '熾天使の輪＆純白翼', icon: '😇', desc: '頭上の聖輪と純白の天使翼', costGold: 12000, costMat: { ice_crystal: 8, void_star: 3 } },
-    royal_crown:   { id: 'royal_crown',   name: '覇王の黄金クラウン', icon: '👑', desc: '宝石が輝く王者の冠', costGold: 20000, costMat: { abyss_shard: 8, void_star: 5 } }
+    none:          { id: 'none',          name: '頭パーツなし',       icon: '✨', desc: 'スッキリ標準スタイル', costGold: 0, costMat: {} },
+    sprout:        { id: 'sprout',        name: '元気なふたば',       icon: '🌱', desc: '頭の上に可愛い双葉が揺れる', costGold: 150, costMat: { slime_gel: 3 } },
+    cat_ears:      { id: 'cat_ears',      name: 'ネコミミ',           icon: '🐱', desc: 'ぴょこんと可愛い猫耳', costGold: 450, costMat: { slime_gel: 5, ancient_sap: 2 } },
+    bunny_ears:    { id: 'bunny_ears',    name: 'ウサミミ',           icon: '🐰', desc: '長いぴょんぴょんウサギ耳', costGold: 750, costMat: { ancient_sap: 5, goblin_fang: 2 } },
+    fox_ears:      { id: 'fox_ears',      name: 'お稲荷キツネ耳',     icon: '🦊', desc: '黄金色の大きなキツネ耳', costGold: 1500, costMat: { goblin_fang: 5, fire_core: 2 } },
+    cat_headphone: { id: 'cat_headphone', name: '猫耳ヘッドホン',     icon: '🎧', desc: 'ネオン発光するサイバー猫耳', costGold: 2800, costMat: { fire_core: 4, ice_crystal: 3 } },
+    witch_hat:     { id: 'witch_hat',     name: '星導の三角魔法帽',   icon: '🧙', desc: '星の飾りがついたとんがり帽子', costGold: 4200, costMat: { ice_crystal: 5, abyss_shard: 2 } },
+    demon_horns:   { id: 'demon_horns',   name: '紅蓮の悪魔角',       icon: '😈', desc: '迫力ある双子の悪魔角', costGold: 7500, costMat: { fire_core: 5, abyss_shard: 5 } },
+    angel_halo:    { id: 'angel_halo',    name: '熾天使の聖輪',       icon: '😇', desc: '頭上に浮かぶ黄金の光の輪', costGold: 11000, costMat: { ice_crystal: 6, void_star: 2 } },
+    royal_crown:   { id: 'royal_crown',   name: '覇王の黄金クラウン', icon: '👑', desc: 'ルビーが輝く王者の冠', costGold: 18000, costMat: { abyss_shard: 7, void_star: 4 } }
 };
 
+// 背中パーツ（6種：頭パーツと同時装着OK！）
+const BACK_COSMETICS = {
+    back_none:   { id: 'back_none',   name: '背中パーツなし',     icon: '➖', desc: '装備の標準マント表示', costGold: 0, costMat: {} },
+    cat_tail:    { id: 'cat_tail',    name: 'ゆらゆら猫しっぽ',   icon: '🐈', desc: '体色とお揃いのしなやかな猫尾', costGold: 400, costMat: { slime_gel: 4, ancient_sap: 2 } },
+    fox_tails:   { id: 'fox_tails',   name: 'もふもふ九尾の尾',   icon: '🦊', desc: '白銀の穂先が輝く豪華な狐尾', costGold: 2200, costMat: { goblin_fang: 5, fire_core: 3 } },
+    hero_cape:   { id: 'hero_cape',   name: '紅蓮の英雄マント',   icon: '🦸', desc: '金縁が輝く勇者のロングマント', costGold: 3800, costMat: { fire_core: 5, ice_crystal: 3 } },
+    demon_wings: { id: 'demon_wings', name: '漆黒の堕天使翼',     icon: '🦇', desc: '闇の魔力を纏う悪魔の翼', costGold: 8500, costMat: { ice_crystal: 6, abyss_shard: 5 } },
+    angel_wings: { id: 'angel_wings', name: '純白のセラフィム翼', icon: '🕊️', desc: '神々しく広がる純白の天使翼', costGold: 13000, costMat: { abyss_shard: 6, void_star: 3 } },
+    flame_aura:  { id: 'flame_aura',  name: '創世の輪光オーラ',   icon: '🌟', desc: '背後に回転する神聖な光輪リング', costGold: 22000, costMat: { abyss_shard: 8, void_star: 5 } }
+};
+
+// キャラクター体色プリセット
 const BODY_COLOR_PRESETS = [
     { name: '職業デフォルト', hex: '' },
     { name: 'スカイブルー',   hex: '#38bdf8' },
@@ -123,6 +135,24 @@ const BODY_COLOR_PRESETS = [
     { name: 'ミントシアン',   hex: '#2dd4bf' },
     { name: 'サンセット橙',   hex: '#fb923c' },
     { name: 'ロイヤル紺',     hex: '#3b82f6' }
+];
+
+// 顔モニター背景色プリセット
+const FACE_BG_PRESETS = [
+    { name: 'ディープブルー', hex: '#073b66' },
+    { name: '漆黒ナイト',     hex: '#090d16' },
+    { name: 'ローズピンク',   hex: '#831843' },
+    { name: 'フォレスト緑',   hex: '#064e3b' },
+    { name: 'ロイヤル紫',     hex: '#4c1d95' },
+    { name: 'クリムゾン赤',   hex: '#7f1d1d' },
+    { name: 'クリーム白',     hex: '#f8fafc' }
+];
+
+// 体型サイズ設定
+const BODY_SCALE_PRESETS = [
+    { id: 'chibi', name: '🐣 ちびサイズ', scale: 0.84 },
+    { id: 'normal', name: '🧍 標準サイズ', scale: 1.0 },
+    { id: 'tall',  name: '巨人 ビッグ',   scale: 1.18 }
 ];
 
 const WEAPONS = {
