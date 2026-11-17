@@ -63,8 +63,8 @@ Object.assign(KaomojiMMORPG.prototype, {
             }
         }
 
-        // 中央ワープポータル検知（街では乗った瞬間にステージ選択を開き、狩場では街へ帰還）
-        const onWarp = this.isOnWarpPortal(this.player.pos);
+        // 中央ワープポータル検知（タイトル画面中・モーダル中は誤作動防止）
+        const onWarp = !this.inTitleScreen && this.isOnWarpPortal(this.player.pos);
         const warpBox = document.getElementById('warp-prompt-box');
         const warpBtn = document.getElementById('btn-exec-warp');
         if (warpBox) {
@@ -93,13 +93,17 @@ Object.assign(KaomojiMMORPG.prototype, {
 
         let mx = this.joyVec.x;
         let mz = this.joyVec.y;
-        if (this.keys['KeyW'] || this.keys['ArrowUp']) mz -= 1;
-        if (this.keys['KeyS'] || this.keys['ArrowDown']) mz += 1;
-        if (this.keys['KeyA'] || this.keys['ArrowLeft']) mx -= 1;
-        if (this.keys['KeyD'] || this.keys['ArrowRight']) mx += 1;
+        if (!this.inTitleScreen && !this.isModalOpen) {
+            if (this.keys['KeyW'] || this.keys['ArrowUp']) mz -= 1;
+            if (this.keys['KeyS'] || this.keys['ArrowDown']) mz += 1;
+            if (this.keys['KeyA'] || this.keys['ArrowLeft']) mx -= 1;
+            if (this.keys['KeyD'] || this.keys['ArrowRight']) mx += 1;
+        }
 
         const mag = Math.hypot(mx, mz);
-        if (mag > 0.05 && this.player.stunTimer <= 0 && !this.isModalOpen && !this.isDead) {
+        const canAct = !this.inTitleScreen && !this.isModalOpen && !this.isDead && this.player.stunTimer <= 0;
+
+        if (mag > 0.05 && canAct) {
             const nx = mx / Math.max(1, mag);
             const nz = mz / Math.max(1, mag);
             const sin = Math.sin(this.camYaw);
@@ -111,7 +115,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             this.player.pos.z += wz * st.moveSpeed * dt;
             this.clampPosition(this.player.pos);
             this.player.rotY = Math.atan2(wx, wz);
-        } else if (this.autoHunt && this.player.stunTimer <= 0 && !this.isModalOpen && !this.isDead && !inTown) {
+        } else if (this.autoHunt && canAct && !inTown) {
             this.autoSkillTimer -= dt;
             if (this.autoSkillTimer <= 0) {
                 this.autoSkillTimer = 0.45;
@@ -150,7 +154,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                 const prog = 1 - (this.player.skillAnimTimer / Math.max(0.01, this.player.skillAnimDur));
                 const sType = this.player.skillAnimType;
                 if (sType === 'basic_slash') {
-                    // 剣を振りかぶってから前方へ鋭く振り下ろす
                     const swing = prog < 0.28
                         ? (-0.75 * (prog / 0.28))
                         : (-0.75 + 2.35 * ((prog - 0.28) / 0.72));
@@ -193,7 +196,7 @@ Object.assign(KaomojiMMORPG.prototype, {
                     this.player.head.rotation.z = Math.sin(elapsed * 26) * 0.22;
                 }
             } else {
-                if (mag > 0.05) {
+                if (mag > 0.05 && canAct) {
                     this.player.group.position.y = Math.abs(Math.sin(elapsed * 14)) * 0.14;
                 }
                 if (this.player.head) {
@@ -212,7 +215,7 @@ Object.assign(KaomojiMMORPG.prototype, {
         }
 
         // 近接オート通常攻撃
-        if (this.autoAttack && !this.isModalOpen && !this.isDead && this.player.stunTimer <= 0 && !inTown) {
+        if (this.autoAttack && canAct && !inTown) {
             const target = this.getNearestMonster(5.2) || this.getValidTarget();
             if (target && !target.dead && this.player.pos.distanceTo(target.pos) <= 5.1) {
                 this.selectedTarget = target;
@@ -607,17 +610,34 @@ Object.assign(KaomojiMMORPG.prototype, {
         document.getElementById('hud-lv').textContent = d.rebirthCount > 0 ? `Lv.${d.lv} (転生${d.rebirthCount})` : `Lv.${d.lv}`;
         document.getElementById('hud-gold').textContent = `${formatBigNum(d.gold)}G`;
 
-        const onlineBadge = document.getElementById('hud-online-badge');
-        if (onlineBadge) {
+        // 上部バー：ワンタッチ オンライン切替＆パスワード部屋バッジ更新
+        const onlineBtn = document.getElementById('btn-hud-online-toggle');
+        const roomLockBtn = document.getElementById('btn-hud-room-lock');
+        if (onlineBtn) {
             if (this.fbConnected) {
                 const totalOnline = 1 + this.remotePlayers.size;
-                onlineBadge.textContent = `🌐 オンライン(${totalOnline}人)`;
-                onlineBadge.style.background = '#065f46';
-                onlineBadge.style.color = '#6ee7b7';
+                onlineBtn.textContent = `🌐 オンライン(${totalOnline}人)`;
+                onlineBtn.className = 'btn-ui btn-emerald';
+            } else if (d.onlineEnabled) {
+                onlineBtn.textContent = '🌐 接続待機中…';
+                onlineBtn.className = 'btn-ui btn-amber';
             } else {
-                onlineBadge.textContent = 'オフライン';
-                onlineBadge.style.background = '#1e293b';
-                onlineBadge.style.color = '#94a3b8';
+                onlineBtn.textContent = '📴 オフライン';
+                onlineBtn.className = 'btn-ui btn-slate';
+            }
+        }
+        if (roomLockBtn) {
+            if (this.fbConnected || d.onlineEnabled) {
+                roomLockBtn.classList.remove('hidden');
+                if (d.roomPassEnabled) {
+                    roomLockBtn.textContent = `🔒 パス部屋`;
+                    roomLockBtn.className = 'btn-ui btn-amber';
+                } else {
+                    roomLockBtn.textContent = `🔓 公開部屋`;
+                    roomLockBtn.className = 'btn-ui btn-slate';
+                }
+            } else {
+                roomLockBtn.classList.add('hidden');
             }
         }
 
