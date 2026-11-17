@@ -1,7 +1,7 @@
 'use strict';
 
 // =========================================================================
-// 顔文字ファンタジー3D 全育成・鍛冶錬金・見た目・オンラインUI (game5.js)
+// 顔文字ファンタジー3D 全育成・鍛冶錬金・こだわり見た目・クラウドUI (game5.js)
 // =========================================================================
 
 Object.assign(KaomojiMMORPG.prototype, {
@@ -21,13 +21,13 @@ Object.assign(KaomojiMMORPG.prototype, {
         this.isModalOpen = true;
         document.getElementById('hud-drawer-menu')?.classList.add('hidden');
         document.getElementById('emote-palette')?.classList.add('hidden');
-        document.getElementById('growth-modal').classList.remove('hidden');
+        document.getElementById('growth-modal')?.classList.remove('hidden');
         this.renderModalContent();
     },
 
     closeGrowthModal() {
         this.isModalOpen = false;
-        document.getElementById('growth-modal').classList.add('hidden');
+        document.getElementById('growth-modal')?.classList.add('hidden');
         this.refreshAllHUD();
     },
 
@@ -81,7 +81,7 @@ Object.assign(KaomojiMMORPG.prototype, {
 
         const tabs = [
             { id: 'travel',     label: '🗺️ ステージ･塔' },
-            { id: 'appearance', label: '🐱 見た目･色･表情' },
+            { id: 'appearance', label: '🐱 見た目･色･翼' },
             { id: 'forge',      label: '⚒️ 鍛冶･錬金･付与' },
             { id: 'stats',      label: `📊 ステ振り${d.ap > 0 ? `(${d.ap})` : ''}` },
             { id: 'skills',     label: `📘 スキル${d.sp > 0 ? `(${d.sp})` : ''}` },
@@ -89,7 +89,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             { id: 'pet',        label: '🐾 相棒ペット' },
             { id: 'evolve',     label: '👑 進化･神話･転生' },
             { id: 'achieve',    label: `🏆 実績･称号${hasAchAlert ? '!' : ''}` },
-            { id: 'online',     label: `🌐 オンライン${this.fbConnected ? '●' : ''}` }
+            { id: 'online',     label: `☁️ クラウド･通信${this.fbConnected ? '●' : ''}` }
         ];
 
         const tabBar = document.getElementById('modal-tabs');
@@ -178,9 +178,21 @@ Object.assign(KaomojiMMORPG.prototype, {
 
         } else if (this.activeTab === 'appearance') {
             const curColor = d.bodyColor || evo.color;
+            const curFaceBg = this.getPlayerFaceBgHex();
+            const curScale = this.getPlayerBodyScale();
             body.innerHTML = `
                 <div style="display:flex; flex-direction:column; gap:10px;">
+                    <!-- 体型サイズ＆体色＆顔モニター色 -->
                     <div class="card-box">
+                        <div style="font-size:12px; font-weight:900; color:#fde047; margin-bottom:6px;">📏 体型サイズ変更</div>
+                        <div class="flex-wrap-gap" style="margin-bottom:10px;">
+                            ${BODY_SCALE_PRESETS.map(p => `
+                                <button class="btn-body-scale btn-ui ${Math.abs(curScale - p.scale) < 0.02 ? 'btn-amber' : 'btn-slate'}" data-scale="${p.scale}">
+                                    ${p.name}
+                                </button>
+                            `).join('')}
+                        </div>
+
                         <div style="font-size:12px; font-weight:900; color:#38bdf8; margin-bottom:6px;">🎨 キャラクター体色のカスタマイズ</div>
                         <div class="flex-wrap-gap" style="margin-bottom:8px;">
                             ${BODY_COLOR_PRESETS.map(c => `
@@ -190,15 +202,28 @@ Object.assign(KaomojiMMORPG.prototype, {
                                 </button>
                             `).join('')}
                         </div>
-                        <div class="flex-wrap-gap">
-                            <span style="font-size:11px; color:#cbd5e1;">自由カラー指定:</span>
+                        <div class="flex-wrap-gap" style="margin-bottom:10px;">
+                            <span style="font-size:11px; color:#cbd5e1;">体色ピッカー:</span>
                             <input id="input-body-color" type="color" value="${curColor}" style="width:44px; height:28px; border:none; background:none; cursor:pointer;">
-                            <button id="btn-apply-picker-color" class="btn-ui btn-sky">この色を反映</button>
+                            <button id="btn-apply-picker-color" class="btn-ui btn-sky">体色を反映</button>
+                        </div>
+
+                        <div style="font-size:12px; font-weight:900; color:#6ee7b7; margin-bottom:6px;">🖥️ 顔モニターの背景色</div>
+                        <div class="flex-wrap-gap">
+                            ${FACE_BG_PRESETS.map(f => `
+                                <button class="btn-face-bg btn-ui btn-slate" data-hex="${f.hex}" style="border:2px solid ${curFaceBg.toLowerCase() === f.hex.toLowerCase() ? '#fde047' : '#334155'};">
+                                    <span style="display:inline-block; width:12px; height:12px; border-radius:3px; background:${f.hex}; border:1px solid #94a3b8;"></span>
+                                    ${f.name}
+                                </button>
+                            `).join('')}
+                            <input id="input-face-bg" type="color" value="${curFaceBg}" style="width:40px; height:26px; border:none; background:none; cursor:pointer;">
+                            <button id="btn-apply-face-bg" class="btn-ui btn-emerald">背景反映</button>
                         </div>
                     </div>
 
+                    <!-- 頭パーツ（9種） -->
                     <div class="card-box">
-                        <div style="font-size:12px; font-weight:900; color:#f472b6; margin-bottom:6px;">🐱 個性あふれる3D見た目パーツ（猫耳・角・天使輪・尻尾など）</div>
+                        <div style="font-size:12px; font-weight:900; color:#f472b6; margin-bottom:6px;">🐱 頭パーツ（背中パーツと同時装着OK！）</div>
                         <div class="grid-2">
                             ${Object.values(COSMETICS).map(cos => {
                                 const owned = (d.ownedCosmetics || ['none']).includes(cos.id);
@@ -222,6 +247,33 @@ Object.assign(KaomojiMMORPG.prototype, {
                         </div>
                     </div>
 
+                    <!-- 背中パーツ（6種） -->
+                    <div class="card-box">
+                        <div style="font-size:12px; font-weight:900; color:#c084fc; margin-bottom:6px;">🕊️ 背中パーツ（翼・マント・九尾・光輪オーラ）</div>
+                        <div class="grid-2">
+                            ${Object.values(BACK_COSMETICS).map(bk => {
+                                const owned = (d.ownedBackCosmetics || ['back_none']).includes(bk.id);
+                                const equipped = (d.backCosmeticId || 'back_none') === bk.id;
+                                const canBuy = d.gold >= bk.costGold && this.hasEnoughMats(bk.costMat);
+                                return `
+                                    <div class="card-box flex-between" style="border-color:${equipped ? '#c084fc' : '#1e293b'};">
+                                        <div>
+                                            <div style="font-size:12px; font-weight:900; color:#fff;">${bk.icon} ${bk.name}</div>
+                                            <div style="font-size:10px; color:#cbd5e1;">${bk.desc}</div>
+                                            ${!owned ? `<div style="font-size:10px; margin-top:2px;">必要: ${formatBigNum(bk.costGold)}G / ${this.formatMatReqHtml(bk.costMat)}</div>` : ''}
+                                        </div>
+                                        ${equipped
+                                            ? '<span class="badge-pill" style="background:#9333ea; color:#fff;">装着中</span>'
+                                            : (owned
+                                                ? `<button class="btn-eq-back btn-ui btn-sky" data-id="${bk.id}">装着</button>`
+                                                : `<button class="btn-buy-back btn-ui btn-amber" data-id="${bk.id}" ${!canBuy ? 'disabled' : ''}>作成</button>`)}
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+
+                    <!-- 顔文字＆カスタム称号・エモート -->
                     <div class="card-box">
                         <div style="font-size:12px; font-weight:900; color:#7dd3fc; margin-bottom:6px;">✏️ 基本の顔文字＆カスタム称号・エモート</div>
                         <div class="grid-2" style="margin-bottom:8px;">
@@ -249,6 +301,12 @@ Object.assign(KaomojiMMORPG.prototype, {
                     </div>
                 </div>
             `;
+            body.querySelectorAll('.btn-body-scale').forEach(btn => btn.addEventListener('click', () => {
+                d.bodyScale = Number(btn.dataset.scale) || 1.0;
+                this.buildPlayerEntity();
+                this.saveGame(false);
+                this.renderModalContent();
+            }));
             body.querySelectorAll('.btn-body-color').forEach(btn => btn.addEventListener('click', () => {
                 d.bodyColor = btn.dataset.hex;
                 this.buildPlayerEntity();
@@ -257,6 +315,18 @@ Object.assign(KaomojiMMORPG.prototype, {
             }));
             document.getElementById('btn-apply-picker-color')?.addEventListener('click', () => {
                 d.bodyColor = document.getElementById('input-body-color')?.value || '';
+                this.buildPlayerEntity();
+                this.saveGame(false);
+                this.renderModalContent();
+            });
+            body.querySelectorAll('.btn-face-bg').forEach(btn => btn.addEventListener('click', () => {
+                d.faceBgColor = btn.dataset.hex;
+                this.buildPlayerEntity();
+                this.saveGame(false);
+                this.renderModalContent();
+            }));
+            document.getElementById('btn-apply-face-bg')?.addEventListener('click', () => {
+                d.faceBgColor = document.getElementById('input-face-bg')?.value || '#073b66';
                 this.buildPlayerEntity();
                 this.saveGame(false);
                 this.renderModalContent();
@@ -273,10 +343,30 @@ Object.assign(KaomojiMMORPG.prototype, {
                 sfx.playLevelUp();
                 this.saveGame(false);
                 this.renderModalContent();
-                this.showAlertBanner(`✨ 見た目パーツ「${cos.name}」を作成＆装着しました！`, 2000);
+                this.showAlertBanner(`✨ 頭パーツ「${cos.name}」を作成＆装着しました！`, 2000);
             }));
             body.querySelectorAll('.btn-eq-cos').forEach(btn => btn.addEventListener('click', () => {
                 d.cosmeticId = btn.dataset.id;
+                this.buildPlayerEntity();
+                this.saveGame(false);
+                this.renderModalContent();
+            }));
+            body.querySelectorAll('.btn-buy-back').forEach(btn => btn.addEventListener('click', () => {
+                const bk = BACK_COSMETICS[btn.dataset.id];
+                if (!bk || d.gold < bk.costGold || !this.hasEnoughMats(bk.costMat)) return;
+                d.gold -= bk.costGold;
+                this.consumeMats(bk.costMat);
+                if (!d.ownedBackCosmetics) d.ownedBackCosmetics = ['back_none'];
+                d.ownedBackCosmetics.push(bk.id);
+                d.backCosmeticId = bk.id;
+                this.buildPlayerEntity();
+                sfx.playLevelUp();
+                this.saveGame(false);
+                this.renderModalContent();
+                this.showAlertBanner(`✨ 背中パーツ「${bk.name}」を作成＆装着しました！`, 2000);
+            }));
+            body.querySelectorAll('.btn-eq-back').forEach(btn => btn.addEventListener('click', () => {
+                d.backCosmeticId = btn.dataset.id;
                 this.buildPlayerEntity();
                 this.saveGame(false);
                 this.renderModalContent();
@@ -322,7 +412,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                         ${Object.values(MATERIALS).map(m => `<span>${m.icon}${m.name}: <b>${d.materials[m.id] || 0}</b></span>`).join('')}
                     </div>
 
-                    <!-- 武器・防具精錬（両方とも素材＋Gを消費） -->
                     <div class="grid-2">
                         <div class="card-box" style="display:flex; flex-direction:column; justify-content:space-between; gap:6px;">
                             <div>
@@ -342,7 +431,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                         </div>
                     </div>
 
-                    <!-- 素材の使い道①：ランダムエンチャント付与＆厳選 -->
                     <div class="card-box">
                         <div style="font-size:12px; font-weight:900; color:#c084fc; margin-bottom:6px;">🔮 素材エンチャント付与・厳選（ランダム特殊オプション）</div>
                         <div class="grid-2">
@@ -363,7 +451,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                         </div>
                     </div>
 
-                    <!-- 素材の使い道②：下位素材の上位錬金＆AP/SPの書錬金 -->
                     <div class="card-box">
                         <div style="font-size:12px; font-weight:900; color:#34d399; margin-bottom:6px;">⚗️ 素材錬金工房（上位変換 ＆ 無限成長の書）</div>
                         <div class="grid-2" style="margin-bottom:8px;">
@@ -392,7 +479,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                         </div>
                     </div>
 
-                    <!-- 武器・防具・装飾品の鍛造 -->
                     <div style="font-size:12px; font-weight:900; color:#fde047;">🗡️ 武器の鍛造・装備</div>
                     <div class="grid-2">
                         ${Object.values(WEAPONS).map(w => {
@@ -634,7 +720,7 @@ Object.assign(KaomojiMMORPG.prototype, {
                 <div style="display:flex; flex-direction:column; gap:10px;">
                     <div class="card-box flex-between">
                         <span style="font-size:12px; font-weight:900; color:#818cf8;">残りスキルポイント (SP): <b style="color:#fde047; font-size:15px;">${d.sp}</b></span>
-                        <span style="font-size:10px; color:#94a3b8;">番号ボタン[1〜5]でバトルスロットにセット</span>
+                        <span style="font-size:10px; color:#94a3b8;">番号ボタン[1〜5]で右下アークスロットにセット</span>
                     </div>
                     <div class="grid-2">
                         ${Object.values(SKILLS).map(sk => {
@@ -923,10 +1009,11 @@ Object.assign(KaomojiMMORPG.prototype, {
             const remotes = Array.from(this.remotePlayers.values());
             body.innerHTML = `
                 <div style="display:flex; flex-direction:column; gap:10px;">
+                    <!-- 1. Firebase データベースURL接続 -->
                     <div class="card-box" style="border-color:${this.fbConnected ? '#10b981' : '#38bdf8'};">
-                        <div style="font-size:13px; font-weight:900; color:#38bdf8; margin-bottom:4px;">🌐 Firebase リアルタイムオンライン接続（無料枠対応）</div>
-                        <p style="font-size:11px; color:#cbd5e1; line-height:1.5; margin-bottom:8px;">
-                            Firebaseの「Realtime Database」のURLを入力して接続すると、同じURLを繋いだ別端末のプレイヤーがリアルタイムに表示され、共闘ボーナス(+25%)＆素材全員ドロップが有効になります！
+                        <div style="font-size:13px; font-weight:900; color:#38bdf8; margin-bottom:4px;">🌐 Step1: Firebase Realtime Database URL接続</div>
+                        <p style="font-size:11px; color:#cbd5e1; line-height:1.45; margin-bottom:8px;">
+                            FirebaseのデータベースURLを接続すると、<strong>☁️クラウドセーブ（別端末からのデータ復元）</strong>と<strong>リアルタイムマルチ共闘</strong>の両方が使えるようになります！
                         </p>
                         <div style="display:flex; gap:6px; flex-wrap:wrap;">
                             <input id="input-firebase-url" class="input-ui" style="flex:1; min-width:220px;" type="text" value="${d.firebaseUrl || ''}" placeholder="https://your-project-default-rtdb.firebaseio.com">
@@ -934,12 +1021,46 @@ Object.assign(KaomojiMMORPG.prototype, {
                             ${this.fbConnected ? '<button id="btn-fb-disconnect" class="btn-ui btn-rose">切断</button>' : ''}
                         </div>
                         <div style="font-size:11px; font-weight:900; margin-top:6px; color:${this.fbConnected ? '#34d399' : '#94a3b8'};">
-                            ステータス: ${this.fbConnected ? `● オンライン接続中（現在 ${1 + remotes.length} 人）` : '○ オフライン（1人プレイモード）'}
+                            接続状態: ${this.fbConnected ? `● オンライン接続中（現在 ${1 + remotes.length} 人）` : '○ 未接続（オフライン）'}
                         </div>
                     </div>
 
+                    <!-- 2. Firebase クラウドセーブ＆別端末データ復元 -->
+                    <div class="card-box" style="border-color:rgba(251,191,36,0.6);">
+                        <div style="font-size:13px; font-weight:900; color:#fde047; margin-bottom:4px;">☁️ Step2: Firebase クラウドセーブ＆引き継ぎ復元</div>
+                        <p style="font-size:11px; color:#cbd5e1; line-height:1.45; margin-bottom:8px;">
+                            好きな<strong>「冒険者ID（半角英数字）」</strong>と<strong>「4桁の合言葉（PIN）」</strong>を決めて保存すると、スマホやPCが変わっても同じIDと合言葉でデータを完全復元できます！
+                        </p>
+                        <div class="grid-2" style="margin-bottom:8px;">
+                            <div>
+                                <div style="font-size:10px; color:#94a3b8; margin-bottom:2px;">冒険者ID（半角英数字 3〜20文字）</div>
+                                <input id="input-cloud-id" class="input-ui" type="text" maxlength="20" value="${d.cloudId || ''}" placeholder="例: neko_hero77">
+                            </div>
+                            <div>
+                                <div style="font-size:10px; color:#94a3b8; margin-bottom:2px;">合言葉 / 暗証番号（4〜12文字）</div>
+                                <input id="input-cloud-pin" class="input-ui" type="text" maxlength="12" value="${d.cloudPin || ''}" placeholder="例: 1234">
+                            </div>
+                        </div>
+                        <div class="flex-wrap-gap">
+                            <button id="btn-cloud-save" class="btn-ui btn-amber" ${!this.fbConnected ? 'disabled' : ''}>☁️ クラウドにセーブ保存</button>
+                            <button id="btn-cloud-load" class="btn-ui btn-sky" ${!this.fbConnected ? 'disabled' : ''}>📥 クラウドからデータ復元</button>
+                            ${!this.fbConnected ? '<span style="font-size:10px; color:#fda4af;">※先に上のFirebase URLを接続してください</span>' : ''}
+                        </div>
+                    </div>
+
+                    <!-- 3. オフラインでも使えるバックアップコード -->
                     <div class="card-box">
-                        <div style="font-size:12px; font-weight:900; color:#fde047; margin-bottom:6px;">👥 オンライン中の冒険者一覧</div>
+                        <div style="font-size:12px; font-weight:900; color:#6ee7b7; margin-bottom:4px;">📜 引き継ぎコード（メモ帳バックアップ用）</div>
+                        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                            <input id="input-backup-code" class="input-ui" style="flex:1; min-width:200px;" type="text" placeholder="ここに引き継ぎコードを貼り付けて復元">
+                            <button id="btn-export-code" class="btn-ui btn-emerald">📋 現在のデータを書き出し</button>
+                            <button id="btn-import-code" class="btn-ui btn-fuchsia">📥 コードから復元</button>
+                        </div>
+                    </div>
+
+                    <!-- 4. オンライン中の冒険者一覧 -->
+                    <div class="card-box">
+                        <div style="font-size:12px; font-weight:900; color:#7dd3fc; margin-bottom:6px;">👥 オンライン中の冒険者一覧</div>
                         <div class="grid-2">
                             <div class="card-box flex-between" style="border-color:#38bdf8;">
                                 <div>
@@ -968,6 +1089,61 @@ Object.assign(KaomojiMMORPG.prototype, {
             document.getElementById('btn-fb-disconnect')?.addEventListener('click', () => {
                 this.disconnectFirebase();
                 this.renderModalContent();
+            });
+            document.getElementById('btn-cloud-save')?.addEventListener('click', () => {
+                const cid = document.getElementById('input-cloud-id')?.value.trim() || '';
+                const cpin = document.getElementById('input-cloud-pin')?.value.trim() || '';
+                if (this.saveToFirebaseCloud) this.saveToFirebaseCloud(cid, cpin);
+            });
+            document.getElementById('btn-cloud-load')?.addEventListener('click', () => {
+                const cid = document.getElementById('input-cloud-id')?.value.trim() || '';
+                const cpin = document.getElementById('input-cloud-pin')?.value.trim() || '';
+                if (this.loadFromFirebaseCloud) this.loadFromFirebaseCloud(cid, cpin);
+            });
+            document.getElementById('btn-export-code')?.addEventListener('click', () => {
+                try {
+                    const json = JSON.stringify(this.saveData);
+                    const code = btoa(unescape(encodeURIComponent(json)));
+                    const inp = document.getElementById('input-backup-code');
+                    if (inp) {
+                        inp.value = code;
+                        inp.select();
+                    }
+                    if (navigator.clipboard) navigator.clipboard.writeText(code).catch(() => {});
+                    this.showAlertBanner('📋 引き継ぎコードを書き出し＆コピーしました！', 2200);
+                } catch (e) {
+                    this.showAlertBanner('⚠️ コード生成に失敗しました', 1800);
+                }
+            });
+            document.getElementById('btn-import-code')?.addEventListener('click', () => {
+                const rawCode = document.getElementById('input-backup-code')?.value.trim() || '';
+                if (!rawCode) {
+                    this.showAlertBanner('⚠️ 引き継ぎコードを貼り付けてください', 1800);
+                    return;
+                }
+                try {
+                    const json = decodeURIComponent(escape(atob(rawCode)));
+                    const parsed = JSON.parse(json);
+                    if (!parsed || typeof parsed.lv !== 'number') throw new Error('invalid');
+                    const def = this.createDefaultSave();
+                    this.saveData = {
+                        ...def,
+                        ...parsed,
+                        stats: { ...def.stats, ...(parsed.stats || {}) },
+                        skills: { ...def.skills, ...(parsed.skills || {}) },
+                        materials: { ...def.materials, ...(parsed.materials || {}) },
+                        statsTrack: { ...def.statsTrack, ...(parsed.statsTrack || {}) }
+                    };
+                    this.saveGame(false);
+                    this.buildPlayerEntity();
+                    this.buildPetEntity();
+                    this.loadZone('town');
+                    this.closeGrowthModal();
+                    sfx.playLevelUp();
+                    this.showAlertBanner('🎉 引き継ぎコードからデータを完全復元しました！', 2400);
+                } catch (e) {
+                    this.showAlertBanner('❌ 無効な引き継ぎコードです', 2000);
+                }
             });
         }
     }
