@@ -1,7 +1,7 @@
 'use strict';
 
 // =========================================================================
-// 顔文字ファンタジー3D コアエンジン・BGM・装備3D造形・ペット・試練の塔 (game1.js)
+// 顔文字ファンタジー3D コアエンジン・BGM・装備3D造形・ワープ・ペット (game1.js)
 // =========================================================================
 
 class SoundEngine {
@@ -144,7 +144,7 @@ class KaomojiMMORPG {
         this.canvas = document.getElementById('game-canvas');
         this.overlayLayer = document.getElementById('world-overlay-layer');
 
-        this.WARP_PORTAL_RADIUS = 2.6;
+        this.WARP_PORTAL_RADIUS = 2.8;
         this.FIELD_LIMIT = 27.0;
 
         this.currentZoneId = 'town';
@@ -168,6 +168,7 @@ class KaomojiMMORPG {
         this.camYaw = 0;
         this.camPitch = 0.56;
         this.camDist = 14.5;
+        this.camShake = 0;
 
         this.monsters = [];
         this.aiAllies = [];
@@ -314,13 +315,30 @@ class KaomojiMMORPG {
             this.scene.add(ring);
         });
 
-        this.warpPortalMesh = new THREE.Mesh(
-            new THREE.RingGeometry(0.35, this.WARP_PORTAL_RADIUS, 36),
-            new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.58 })
+        // 初期マップ中央にも表示される豪華な3Dワープゲート
+        this.warpGroup = new THREE.Group();
+        this.warpOuterMat = new THREE.MeshBasicMaterial({ color: 0x10b981, side: THREE.DoubleSide, transparent: true, opacity: 0.65 });
+        const outerDisk = new THREE.Mesh(new THREE.RingGeometry(0.45, this.WARP_PORTAL_RADIUS, 36), this.warpOuterMat);
+        outerDisk.rotation.x = -Math.PI / 2;
+        outerDisk.position.y = 0.05;
+
+        this.warpInnerMat = new THREE.MeshBasicMaterial({ color: 0xfde047, side: THREE.DoubleSide, transparent: true, opacity: 0.85 });
+        const innerRing = new THREE.Mesh(new THREE.RingGeometry(1.75, 2.05, 32), this.warpInnerMat);
+        innerRing.rotation.x = -Math.PI / 2;
+        innerRing.position.y = 0.07;
+
+        this.warpPillarMat = new THREE.MeshBasicMaterial({ color: 0x34d399, side: THREE.DoubleSide, transparent: true, opacity: 0.24 });
+        const warpPillar = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 2.2, 4.2, 20, 1, true), this.warpPillarMat);
+        warpPillar.position.y = 2.1;
+
+        this.warpCrystal = new THREE.Mesh(
+            new THREE.OctahedronGeometry(0.48, 0),
+            new THREE.MeshBasicMaterial({ color: 0xfde047, wireframe: false })
         );
-        this.warpPortalMesh.rotation.x = -Math.PI / 2;
-        this.warpPortalMesh.position.y = 0.05;
-        this.scene.add(this.warpPortalMesh);
+        this.warpCrystal.position.y = 2.4;
+
+        this.warpGroup.add(outerDisk, innerRing, warpPillar, this.warpCrystal);
+        this.scene.add(this.warpGroup);
 
         window.addEventListener('resize', () => {
             if (!this.useWebGL) return;
@@ -399,6 +417,7 @@ class KaomojiMMORPG {
             maxHp, maxMp, physAtk, magMult, defMitigation,
             rawCritChance, critChance, overflowCrit, overflowCritDmgBonus, critDmg,
             cdReduction, moveSpeed,
+            wpnGlowColor: wpn.glowColor || 0x38bdf8,
             lifesteal: acc.lifesteal || 0,
             doubleCast: acc.doubleCast || 0,
             bossDmgMult: 1 + (acc.bossDmg || 0),
@@ -411,9 +430,6 @@ class KaomojiMMORPG {
         };
     }
 
-    // -----------------------------------------------------------------
-    // 武器ごとの専用3Dメッシュ生成
-    // -----------------------------------------------------------------
     buildWeaponMesh(wpn, enh) {
         const wpnGroup = new THREE.Group();
         wpnGroup.position.set(0.76, 0.88, 0.22);
@@ -502,9 +518,6 @@ class KaomojiMMORPG {
         return { wpnGroup, orbitPart };
     }
 
-    // -----------------------------------------------------------------
-    // プレイヤー＆防具3D造形（マント貫通完全修正＋防具6種ビジュアル変化！）
-    // -----------------------------------------------------------------
     buildPlayerEntity() {
         const d = this.saveData;
         const st = this.calcDerivedStats();
@@ -513,7 +526,7 @@ class KaomojiMMORPG {
         const arm = ARMORS[d.armorId] || ARMORS.arm_cloth;
         const acc = ACCESSORIES[d.accessoryId] || ACCESSORIES.acc_none;
 
-        const pos = this.player ? this.player.pos.clone() : new THREE.Vector3(0, 0, 0);
+        const pos = this.player ? this.player.pos.clone() : new THREE.Vector3(0, 0, 5.2);
         const rotY = this.player ? this.player.rotY : Math.PI;
         const hp = this.player ? Math.min(st.maxHp, this.player.hp) : st.maxHp;
         const mp = this.player ? Math.min(st.maxMp, this.player.mp) : st.maxMp;
@@ -532,7 +545,6 @@ class KaomojiMMORPG {
             group.position.copy(pos);
             group.rotation.y = rotY;
 
-            // 足元魔法陣
             const ring = new THREE.Mesh(
                 new THREE.RingGeometry(0.82, 1.15, 24),
                 new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.9 })
@@ -551,7 +563,6 @@ class KaomojiMMORPG {
                 group.add(exRing);
             }
 
-            // 胴体（半径をスリム化してマントや鎧と干渉しない設計）
             const body = new THREE.Mesh(
                 new THREE.CylinderGeometry(0.32, 0.42, 0.96, 12),
                 new THREE.MeshLambertMaterial({ color: evo.hexColor })
@@ -559,7 +570,6 @@ class KaomojiMMORPG {
             body.position.y = 0.56;
             group.add(body);
 
-            // 防具チェストプレート＆バックプレート（前後から胴体をしっかり覆う）
             const chestMat = new THREE.MeshLambertMaterial({ color: arm.plateColor });
             const trimMat = new THREE.MeshBasicMaterial({ color: arm.trimColor });
             const chestPlate = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.54, 0.56), chestMat);
@@ -570,7 +580,6 @@ class KaomojiMMORPG {
             chestEmblem.position.set(0, 0.74, 0.02);
             group.add(chestEmblem);
 
-            // 防具Tier3以上：腰当て装甲（タセット）
             if (arm.tierLook >= 3) {
                 [-0.36, 0.36].forEach(wx => {
                     const tasset = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.38, 0.46), chestMat);
@@ -580,7 +589,6 @@ class KaomojiMMORPG {
                 });
             }
 
-            // マント（貫通ゼロ！背中の後ろ z = -0.46 に配置し、下端が後ろへ広がるよう rotation.x = -0.26 に設定）
             const mantleCollar = new THREE.Mesh(
                 new THREE.BoxGeometry(0.76, 0.14, 0.36),
                 new THREE.MeshLambertMaterial({ color: arm.trimColor })
@@ -596,7 +604,6 @@ class KaomojiMMORPG {
             cape.rotation.x = -0.26;
             group.add(cape);
 
-            // 肩当てアーマー（防具Tierに応じてサイズ・角・輝きが変化）
             const shSize = 0.20 + arm.tierLook * 0.025;
             [-0.50, 0.50].forEach(sx => {
                 const sh = new THREE.Mesh(new THREE.SphereGeometry(shSize, 10, 8), arm.tierLook >= 3 ? trimMat : chestMat);
@@ -610,7 +617,6 @@ class KaomojiMMORPG {
                 }
             });
 
-            // 左腕のシールド（防具Tier1以上で出現し、上位防具ほど大型＆豪華に！）
             if (arm.tierLook >= 1) {
                 const shRad = 0.30 + arm.tierLook * 0.035;
                 const shield = new THREE.Mesh(
@@ -628,7 +634,6 @@ class KaomojiMMORPG {
                 group.add(shield, shieldCore);
             }
 
-            // 背面神光輪＆翼（上級職または上位防具で出現）
             if (evo.tier >= 4 || arm.tierLook >= 4) {
                 const wingColor = (evo.tier >= 5 || arm.tierLook >= 5) ? 0xfde047 : 0x38bdf8;
                 const wingMat = new THREE.MeshBasicMaterial({ color: wingColor, transparent: true, opacity: 0.88 });
@@ -648,7 +653,6 @@ class KaomojiMMORPG {
                 }
             }
 
-            // 装飾品装備時の浮遊オーブエフェクト
             if (acc.id !== 'acc_none') {
                 const accOrb = new THREE.Mesh(
                     new THREE.OctahedronGeometry(0.16, 0),
@@ -658,7 +662,6 @@ class KaomojiMMORPG {
                 group.add(accOrb);
             }
 
-            // 顔文字ヘッド＋頭上光輪
             const faceTex = getKaomojiFaceTexture(this.getBasePlayerKaomoji(), '#073b66', '#ffffff', '#38bdf8');
             frontMat = new THREE.MeshBasicMaterial({ map: faceTex });
             const sideMat = new THREE.MeshLambertMaterial({ color: 0xe0f2fe });
@@ -705,9 +708,6 @@ class KaomojiMMORPG {
         };
     }
 
-    // -----------------------------------------------------------------
-    // ① 相棒・ペット3D造形（後ろを付いてきて攻撃＆回復援護！）
-    // -----------------------------------------------------------------
     buildPetEntity() {
         if (this.petEntity && this.petEntity.group && this.scene) {
             this.scene.remove(this.petEntity.group);
@@ -882,6 +882,7 @@ class KaomojiMMORPG {
             respawnTimer: 0,
             aggro: false,
             autoTimer: 1.4,
+            atkAnimTimer: 0,
             mechTimer: 7.5,
             casting: null,
             stunTimer: 0,
@@ -896,9 +897,9 @@ class KaomojiMMORPG {
 
     spawnTownAllies() {
         const alliesCfg = [
-            { name: '見習いルナ', kaomoji: '(*´ω｀*)', color: 0x34d399, x: -5.5, z: -4.5 },
-            { name: '重騎士ガイン', kaomoji: '(｀・ω・´)', color: 0x60a5fa, x: 5.8, z: -4.0 },
-            { name: '星導士ミア', kaomoji: '(☆ω☆)✧', color: 0xc084fc, x: 0.0, z: -7.5 }
+            { name: '見習いルナ', kaomoji: '(*´ω｀*)', color: 0x34d399, x: -5.8, z: -4.8 },
+            { name: '重騎士ガイン', kaomoji: '(｀・ω・´)', color: 0x60a5fa, x: 5.8, z: -4.2 },
+            { name: '星導士ミア', kaomoji: '(☆ω☆)✧', color: 0xc084fc, x: 0.0, z: -8.2 }
         ];
         alliesCfg.forEach(a => {
             const pos = new THREE.Vector3(a.x, 0, a.z);
@@ -965,7 +966,13 @@ class KaomojiMMORPG {
             this.scene.background = new THREE.Color(zone.skyColor);
             this.scene.fog = new THREE.FogExp2(zone.skyColor, 0.015);
             this.groundMat.color.setHex(zone.groundColor);
-            this.warpPortalMesh.visible = !zone.safe;
+
+            // 初期平和マップ(town)でも中央ワープを常設！街では出発ポータル色、狩場では帰還ポータル色
+            if (this.warpGroup) {
+                this.warpGroup.visible = true;
+                this.warpOuterMat.color.setHex(zone.safe ? 0x10b981 : 0x38bdf8);
+                this.warpPillarMat.color.setHex(zone.safe ? 0x34d399 : 0x7dd3fc);
+            }
 
             const propColor = zone.safe ? 0x38bdf8 : 0x475569;
             const propMat = new THREE.MeshLambertMaterial({ color: propColor });
@@ -986,7 +993,7 @@ class KaomojiMMORPG {
         }
 
         if (this.player) {
-            this.player.pos.set(0, 0, zone.safe ? 0 : 4.2);
+            this.player.pos.set(0, 0, 5.2);
             if (this.player.group) this.player.group.position.copy(this.player.pos);
         }
         if (this.petEntity && this.player) {
@@ -1021,9 +1028,6 @@ class KaomojiMMORPG {
         this.refreshAllHUD();
     }
 
-    // -----------------------------------------------------------------
-    // ⑤ 無限の試練の塔モード起動＆階層ウェーブ生成
-    // -----------------------------------------------------------------
     startTowerMode(startFloor = 1) {
         this.currentZoneId = 'tower';
         this.towerState = { active: true, floor: Math.max(1, startFloor), clearing: false };
@@ -1034,7 +1038,11 @@ class KaomojiMMORPG {
             this.scene.background = new THREE.Color(0x1f0933);
             this.scene.fog = new THREE.FogExp2(0x1f0933, 0.015);
             this.groundMat.color.setHex(0x2e1065);
-            this.warpPortalMesh.visible = true;
+            if (this.warpGroup) {
+                this.warpGroup.visible = true;
+                this.warpOuterMat.color.setHex(0xe879f9);
+                this.warpPillarMat.color.setHex(0xc084fc);
+            }
         }
 
         if (this.player) {
@@ -1054,8 +1062,7 @@ class KaomojiMMORPG {
         const dropMat = matKeys[Math.min(matKeys.length - 1, Math.floor((floor - 1) / 3))];
 
         if (isBossFloor) {
-            const ang = 0;
-            const spawnPos = new THREE.Vector3(Math.cos(ang) * 11, 0, -9);
+            const spawnPos = new THREE.Vector3(0, 0, -11);
             this.spawnMonsterEntity({
                 name: `塔の守護神・第${floor}層`,
                 kaomoji: '🗼꧁(╬◣д◢)꧂',
