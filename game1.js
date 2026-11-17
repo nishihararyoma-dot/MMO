@@ -228,11 +228,9 @@ class KaomojiMMORPG {
 
         this.lastTime = performance.now();
 
-        // 最優先でタイトル画面の表示と全ボタンイベント登録を実行（絶対にボタンが固まらないようにする）
         try { this.refreshTitleScreen(); } catch (e) { console.error(e); }
         try { if (this.bindEvents) this.bindEvents(); } catch (e) { console.error(e); }
 
-        // 3D初期化・キャラクター構築を安全に実行
         try { if (this.initThree) this.initThree(); } catch (e) { console.error(e); }
         try { if (this.buildPlayerEntity) this.buildPlayerEntity(); } catch (e) { console.error(e); }
         try { if (this.buildPetEntity) this.buildPetEntity(); } catch (e) { console.error(e); }
@@ -544,7 +542,7 @@ class KaomojiMMORPG {
         if (this.player && this.spawnEmoteBubble) {
             this.spawnEmoteBubble(this.player.pos.clone().add(new THREE.Vector3(0, 2.7, 0)), myK, msg.slice(0, 16));
         }
-    },
+    }
 
     getCurrentRoomKey() {
         const d = this.saveData;
