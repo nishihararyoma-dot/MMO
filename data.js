@@ -27,22 +27,62 @@ const MATERIALS = {
 };
 
 const WEAPONS = {
-    wpn_wood:    { id: 'wpn_wood',    icon: '🪵', shape: 'wood',    bladeColor: 0xb45309, glowColor: 0xd97706, name: '見習いの木の剣',              atk: 14,   mag: 1.00, costGold: 0,      costMat: {}, desc: '冒険の第一歩となる素朴な木剣。' },
-    wpn_iron:    { id: 'wpn_iron',    icon: '🗡️', shape: 'broad',   bladeColor: 0xe2e8f0, glowColor: 0x38bdf8, name: '精錬ブロードソード',          atk: 45,   mag: 1.18, costGold: 220,    costMat: { slime_gel: 3, ancient_sap: 2 }, desc: '鍛え上げられた鋼の剣。序盤の狩りに最適。' },
-    wpn_flame:   { id: 'wpn_flame',   icon: '🔥', shape: 'flame',   bladeColor: 0xf97316, glowColor: 0xef4444, name: '紅蓮のフレイムブレード',      atk: 135,  mag: 1.50, costGold: 950,    costMat: { goblin_fang: 4, fire_core: 3 }, desc: '灼熱の炎を纏う魔剣。スキル威力も大きく伸びる。' },
-    wpn_frost:   { id: 'wpn_frost',   icon: '❄️', shape: 'scythe',  bladeColor: 0x38bdf8, glowColor: 0xbae6fd, name: '氷皇のクリスタルサイズ',      atk: 360,  mag: 1.90, costGold: 3200,   costMat: { ice_crystal: 5, fire_core: 4 }, desc: '絶対零度の冷気を放つ三日月大鎌。' },
-    wpn_abyss:   { id: 'wpn_abyss',   icon: '🔮', shape: 'abyss',   bladeColor: 0xa855f7, glowColor: 0xe879f9, name: '深淵の虚無神剣',              atk: 980,  mag: 2.50, costGold: 11000,  costMat: { abyss_shard: 6, ice_crystal: 5 }, desc: '次元を切り裂く漆黒と紫の双刃神剣。' },
-    wpn_omega:   { id: 'wpn_omega',   icon: '⚡', shape: 'omega',   bladeColor: 0xfde047, glowColor: 0xf59e0b, name: '創世神オメガ・エッジ',          atk: 2700, mag: 3.40, costGold: 38000,  costMat: { void_star: 8, abyss_shard: 8 }, desc: '黄金の光輪を宿す創世の聖大剣。' },
-    wpn_genesis: { id: 'wpn_genesis', icon: '🌟', shape: 'genesis', bladeColor: 0xf43f5e, glowColor: 0xfde047, name: '【神話級】十界終焉・創世天剣', atk: 8800, mag: 5.00, costGold: 150000, costMat: { void_star: 18, abyss_shard: 16 }, desc: '星屑のオーブを従える神話の終焉天剣。' }
+    wpn_wood:    { id: 'wpn_wood',    icon: '🪵', shape: 'wood',    bladeColor: 0xb45309, glowColor: 0x4ade80, name: '見習いの木の剣',              atk: 14,   mag: 1.00, costGold: 0,      costMat: {}, desc: '冒険の第一歩となる素朴な木剣。' },
+    wpn_iron:    { id: 'wpn_iron',    icon: '🗡️', shape: 'broad',   bladeColor: 0xe2e8f0, glowColor: 0x38bdf8, name: '精錬ブロードソード',          atk: 45,   mag: 1.18, costGold: 220,    costMat: { slime_gel: 3, ancient_sap: 2 }, desc: '蒼い輝きを宿す鋼のブロードソード。' },
+    wpn_flame:   { id: 'wpn_flame',   icon: '🔥', shape: 'flame',   bladeColor: 0xf97316, glowColor: 0xef4444, name: '紅蓮のフレイムブレード',      atk: 135,  mag: 1.50, costGold: 950,    costMat: { goblin_fang: 4, fire_core: 3 }, desc: '炎の鋸歯を纏う灼熱の紅蓮大剣。' },
+    wpn_frost:   { id: 'wpn_frost',   icon: '❄️', shape: 'scythe',  bladeColor: 0x38bdf8, glowColor: 0xbae6fd, name: '氷皇のクリスタルサイズ',      atk: 360,  mag: 1.90, costGold: 3200,   costMat: { ice_crystal: 5, fire_core: 4 }, desc: '絶対零度の冷気を放つ巨大三日月大鎌。' },
+    wpn_abyss:   { id: 'wpn_abyss',   icon: '🔮', shape: 'abyss',   bladeColor: 0xa855f7, glowColor: 0xe879f9, name: '深淵の虚無神剣',              atk: 980,  mag: 2.50, costGold: 11000,  costMat: { abyss_shard: 6, ice_crystal: 5 }, desc: '紫水晶が周回する漆黒と紫の双刃神剣。' },
+    wpn_omega:   { id: 'wpn_omega',   icon: '⚡', shape: 'omega',   bladeColor: 0xfde047, glowColor: 0xf59e0b, name: '創世神オメガ・エッジ',          atk: 2700, mag: 3.40, costGold: 38000,  costMat: { void_star: 8, abyss_shard: 8 }, desc: '回転する黄金光輪を宿す創世の聖大剣。' },
+    wpn_genesis: { id: 'wpn_genesis', icon: '🌟', shape: 'genesis', bladeColor: 0xf43f5e, glowColor: 0xfde047, name: '【神話級】十界終焉・創世天剣', atk: 8800, mag: 5.00, costGold: 150000, costMat: { void_star: 18, abyss_shard: 16 }, desc: '星屑のオーブと翼刃を持つ神話の終焉天剣。' }
 };
 
 const ARMORS = {
-    arm_cloth:   { id: 'arm_cloth',   icon: '👕', tierLook: 0, plateColor: 0xe2e8f0, trimColor: 0x94a3b8, capeColor: 0xe11d48, name: '冒険者の布服',                hp: 45,    mp: 12,   def: 0.03, costGold: 0,      costMat: {}, desc: '動きやすい軽装の服。' },
-    arm_chain:   { id: 'arm_chain',   icon: '⛓️', tierLook: 1, plateColor: 0xcbd5e1, trimColor: 0x38bdf8, capeColor: 0x0284c7, name: '銀糸のチェインメイル',          hp: 170,   mp: 38,   def: 0.09, costGold: 220,    costMat: { slime_gel: 3, ancient_sap: 2 }, desc: '軽量ながら堅牢な銀の鎖帷子。' },
-    arm_dragon:  { id: 'arm_dragon',  icon: '🐉', tierLook: 2, plateColor: 0xb91c1c, trimColor: 0xfbbf24, capeColor: 0x7f1d1d, name: '炎竜鱗の重鎧',                hp: 520,   mp: 95,   def: 0.16, costGold: 950,    costMat: { fire_core: 4, goblin_fang: 4 }, desc: '紅蓮の竜鱗で編まれた重装甲鎧。' },
-    arm_glacier: { id: 'arm_glacier', icon: '💠', tierLook: 3, plateColor: 0xe0f2fe, trimColor: 0x0ea5e9, capeColor: 0x1d4ed8, name: '星氷の聖騎士鎧',              hp: 1450,  mp: 240,  def: 0.24, costGold: 3200,   costMat: { ice_crystal: 5, abyss_shard: 2 }, desc: '氷晶の肩当てを持つ白銀の聖騎士鎧。' },
-    arm_omega:   { id: 'arm_omega',   icon: '👑', tierLook: 4, plateColor: 0x1e1b4b, trimColor: 0xfde047, capeColor: 0x6d28d9, name: '十界創世の神装束',            hp: 4500,  mp: 680,  def: 0.34, costGold: 32000,  costMat: { void_star: 6, abyss_shard: 6 }, desc: '漆黒と黄金が輝く究極の神装束。' },
-    arm_genesis: { id: 'arm_genesis', icon: '✨', tierLook: 5, plateColor: 0xfef08a, trimColor: 0xf43f5e, capeColor: 0xf59e0b, name: '【神話級】不滅神話の星辰聖衣', hp: 14500, mp: 2100, def: 0.44, costGold: 130000, costMat: { void_star: 16, abyss_shard: 14 }, desc: '背面神光輪を纏う不滅の神話聖衣。' }
+    arm_cloth:   { id: 'arm_cloth',   icon: '👕', tierLook: 0, plateColor: 0xe2e8f0, trimColor: 0x94a3b8, capeColor: 0xe11d48, name: '冒険者の布服',                hp: 45,    mp: 12,   def: 0.03, costGold: 0,      costMat: {}, desc: '動きやすい軽装の服と赤いマント。' },
+    arm_chain:   { id: 'arm_chain',   icon: '⛓️', tierLook: 1, plateColor: 0xcbd5e1, trimColor: 0x38bdf8, capeColor: 0x0284c7, name: '銀糸のチェインメイル',          hp: 170,   mp: 38,   def: 0.09, costGold: 220,    costMat: { slime_gel: 3, ancient_sap: 2 }, desc: '銀の鎖帷子と蒼いラウンドシールド。' },
+    arm_dragon:  { id: 'arm_dragon',  icon: '🐉', tierLook: 2, plateColor: 0xb91c1c, trimColor: 0xfbbf24, capeColor: 0x7f1d1d, name: '炎竜鱗の重鎧',                hp: 520,   mp: 95,   def: 0.16, costGold: 950,    costMat: { fire_core: 4, goblin_fang: 4 }, desc: '角付き竜肩当てと竜鱗シールドを備えた重鎧。' },
+    arm_glacier: { id: 'arm_glacier', icon: '💠', tierLook: 3, plateColor: 0xe0f2fe, trimColor: 0x0ea5e9, capeColor: 0x1d4ed8, name: '星氷の聖騎士鎧',              hp: 1450,  mp: 240,  def: 0.24, costGold: 3200,   costMat: { ice_crystal: 5, abyss_shard: 2 }, desc: '白銀のフルプレート＆腰当て装甲を持つ聖騎士鎧。' },
+    arm_omega:   { id: 'arm_omega',   icon: '👑', tierLook: 4, plateColor: 0x1e1b4b, trimColor: 0xfde047, capeColor: 0x6d28d9, name: '十界創世の神装束',            hp: 4500,  mp: 680,  def: 0.34, costGold: 32000,  costMat: { void_star: 6, abyss_shard: 6 }, desc: '漆黒と黄金の大盾・背面光輪を纏う究極神装束。' },
+    arm_genesis: { id: 'arm_genesis', icon: '✨', tierLook: 5, plateColor: 0xfef08a, trimColor: 0xf43f5e, capeColor: 0xf59e0b, name: '【神話級】不滅神話の星辰聖衣', hp: 14500, mp: 2100, def: 0.44, costGold: 130000, costMat: { void_star: 16, abyss_shard: 14 }, desc: '六芒星神光輪と翼を纏う不滅の神話聖衣。' }
+};
+
+// 装飾品（リング・アーティファクト）マスター
+const ACCESSORIES = {
+    acc_none:          { id: 'acc_none',          icon: '⭕', name: '装飾品なし',               costGold: 0,     costMat: {}, desc: '未装備状態。', atkBonus: 0, hpBonus: 0, rewardBonus: 0, lifesteal: 0, cdBonus: 0, doubleCast: 0, bossDmg: 0 },
+    acc_ring_might:    { id: 'acc_ring_might',    icon: '💍', name: '剛力の紅玉リング',         costGold: 600,   costMat: { slime_gel: 5, goblin_fang: 3 }, desc: '最終攻撃力 +18% / 最大HP +10%', atkBonus: 0.18, hpBonus: 0.10, rewardBonus: 0, lifesteal: 0, cdBonus: 0, doubleCast: 0, bossDmg: 0 },
+    acc_amulet_exp:    { id: 'acc_amulet_exp',    icon: '🧿', name: '叡智の星屑アミュレット',   costGold: 1800,  costMat: { ancient_sap: 6, fire_core: 3 }, desc: '獲得EXP＆ゴールド +35%', atkBonus: 0.05, hpBonus: 0.05, rewardBonus: 0.35, lifesteal: 0, cdBonus: 0, doubleCast: 0, bossDmg: 0 },
+    acc_vamp_fang:     { id: 'acc_vamp_fang',     icon: '🩸', name: '吸血鬼の真紅牙',           costGold: 4500,  costMat: { fire_core: 5, ice_crystal: 4 }, desc: '与ダメージの 4% をHP吸収＆攻撃 +15%', atkBonus: 0.15, hpBonus: 0.12, rewardBonus: 0, lifesteal: 0.04, cdBonus: 0, doubleCast: 0, bossDmg: 0 },
+    acc_chrono_orb:    { id: 'acc_chrono_orb',    icon: '⏳', name: '時空の懐中時計',           costGold: 12000, costMat: { ice_crystal: 6, abyss_shard: 4 }, desc: 'クールタイム短縮 +15% & MP自然回復 +50%', atkBonus: 0.12, hpBonus: 0.12, rewardBonus: 0, lifesteal: 0, cdBonus: 0.15, doubleCast: 0, bossDmg: 0 },
+    acc_twin_echo:     { id: 'acc_twin_echo',     icon: '♊', name: '双子星の共鳴器',           costGold: 35000, costMat: { abyss_shard: 8, void_star: 5 }, desc: '25%の確率でスキルがMP消費なしで2連発！', atkBonus: 0.22, hpBonus: 0.18, rewardBonus: 0, lifesteal: 0, cdBonus: 0.08, doubleCast: 0.25, bossDmg: 0.10 },
+    acc_genesis_crown: { id: 'acc_genesis_crown', icon: '👑', name: '【神話】創世神の王冠',     costGold: 95000, costMat: { void_star: 15, abyss_shard: 12 }, desc: '全基礎ステ +30% / ボス特効 +25% / 獲得報酬 +30%', atkBonus: 0.30, hpBonus: 0.30, rewardBonus: 0.30, lifesteal: 0.03, cdBonus: 0.10, doubleCast: 0.15, bossDmg: 0.25 }
+};
+
+// 相棒ペットマスター
+const PETS = {
+    pet_slime:   { id: 'pet_slime',   name: 'ぷるぷる妖精',     kaomoji: '(・ω・)',        color: 0x38bdf8, costGold: 300,   costMat: { slime_gel: 4 }, desc: '愛らしいスライム相棒。攻撃＋定期的に主人のHPを小回復。', atkRatio: 0.35, healRatio: 0.08 },
+    pet_fox:     { id: 'pet_fox',     name: '星屑の九尾狐',     kaomoji: '(^・ω・^)',      color: 0xfbbf24, costGold: 2200,  costMat: { ancient_sap: 6, fire_core: 3 }, desc: '素早い連続噛みつき攻撃と主人のMP回復を行う霊狐。', atkRatio: 0.55, healRatio: 0.06, mpRestore: 0.08 },
+    pet_dragon:  { id: 'pet_dragon',  name: '紅蓮のチビ炎竜',   kaomoji: '(｀・ω・´)🔥',   color: 0xf97316, costGold: 9500,  costMat: { fire_core: 6, goblin_fang: 6 }, desc: '灼熱ブレスで敵を焼き払う高火力ドラゴン相棒。', atkRatio: 0.85, healRatio: 0.05 },
+    pet_angel:   { id: 'pet_angel',   name: '聖光のミニ天使',   kaomoji: '✧(☆ω☆)✧',      color: 0xf472b6, costGold: 26000, costMat: { ice_crystal: 8, abyss_shard: 4 }, desc: '聖光弾での援護と強力なHP＆MP同時回復をこなす天使。', atkRatio: 0.75, healRatio: 0.15, mpRestore: 0.12 },
+    pet_omega:   { id: 'pet_omega',   name: '創世ミニオメガ',   kaomoji: '꧁(・∀・)꧂',     color: 0xfde047, costGold: 85000, costMat: { void_star: 10, abyss_shard: 8 }, desc: '神域のレーザーで敵を殲滅する最強の創世相棒！', atkRatio: 1.35, healRatio: 0.14, mpRestore: 0.14 }
+};
+
+// 実績ミッション＆バフ付き称号マスター
+const ACHIEVEMENTS = [
+    { id: 'ach_kill_30',   name: '初陣の冒険者',     desc: 'モンスターを累計 30体 討伐する',     key: 'kills',         req: 30,   rewardAp: 5,  rewardSp: 2,  titleId: 'title_rookie' },
+    { id: 'ach_kill_200',  name: '百戦錬磨の狩人',   desc: 'モンスターを累計 200体 討伐する',    key: 'kills',         req: 200,  rewardAp: 12, rewardSp: 5,  titleId: 'title_hunter' },
+    { id: 'ach_boss_10',   name: '巨獣討伐者',       desc: 'ボスを累計 10体 討伐する',           key: 'bossKills',     req: 10,   rewardAp: 15, rewardSp: 6,  titleId: 'title_slayer' },
+    { id: 'ach_tower_10',  name: '試練の登頂者',     desc: '無限の試練の塔 10階 に到達する',     key: 'bestTowerFloor',req: 10,   rewardAp: 20, rewardSp: 8,  titleId: 'title_tower' },
+    { id: 'ach_threat_20', name: '深淵に挑む勇者',   desc: '脅威度ランク +20 以上で敵を倒す',    key: 'maxThreatKill', req: 20,   rewardAp: 25, rewardSp: 10, titleId: 'title_threat' },
+    { id: 'ach_rebirth_1', name: '輪廻を超えし者',   desc: '極限超越転生を 1回 達成する',       key: 'rebirthCount',  req: 1,    rewardAp: 35, rewardSp: 15, titleId: 'title_god' }
+];
+
+const TITLES = {
+    title_none:   { id: 'title_none',   name: '称号なし',           bonusText: '補正なし',                     atk: 0,    hp: 0,    reward: 0,    crit: 0 },
+    title_rookie: { id: 'title_rookie', name: '🌱 期待の新星',       bonusText: 'HP +8% / 攻撃 +8%',            atk: 0.08, hp: 0.08, reward: 0,    crit: 0 },
+    title_hunter: { id: 'title_hunter', name: '⚔️ 百戦錬磨の狩人',   bonusText: '攻撃 +15% / 会心率 +5%',       atk: 0.15, hp: 0.05, reward: 0,    crit: 0.05 },
+    title_slayer: { id: 'title_slayer', name: '👑 ボススレイヤー',   bonusText: '攻撃 +22% / 会心率 +8%',       atk: 0.22, hp: 0.12, reward: 0,    crit: 0.08 },
+    title_tower:  { id: 'title_tower',  name: '🗼 試練の踏破者',     bonusText: '全ステ +18% / 報酬 +15%',      atk: 0.18, hp: 0.18, reward: 0.15, crit: 0.04 },
+    title_threat: { id: 'title_threat', name: '🔥 災厄の征服者',     bonusText: '攻撃 +28% / 獲得EXP・G +25%',  atk: 0.28, hp: 0.15, reward: 0.25, crit: 0.06 },
+    title_god:    { id: 'title_god',    name: '✨ 十界の超越神',     bonusText: '全ステ +35% / 会心率 +12%',    atk: 0.35, hp: 0.35, reward: 0.20, crit: 0.12 }
 };
 
 function getArmorEnhanceRequirement(curEnh) {
