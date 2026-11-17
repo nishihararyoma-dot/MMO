@@ -1,11 +1,14 @@
 'use strict';
 
 // =========================================================================
-// 顔文字ファンタジー3D ntfy最適化同期・同時視点操作・全イベント制御 (game6.js)
+// 顔文字ファンタジー3D MQTTリアルタイム通信・マルチタッチ視点操作 (game6.js)
 // =========================================================================
 
-window.NTFY_BASE_URL = 'https://ntfy.sh';
-window.NTFY_GLOBAL_TOPIC = 'kaomoji_fantasy_3d_global_chat_v4';
+const MQTT_BROKERS = [
+    'wss://broker.emqx.io:8084/mqtt',
+    'wss://broker.hivemq.com:8884/mqtt'
+];
+const MQTT_GLOBAL_TOPIC = 'kaomoji_fantasy_3d/v3/global';
 
 Object.assign(KaomojiMMORPG.prototype, {
 
@@ -19,12 +22,12 @@ Object.assign(KaomojiMMORPG.prototype, {
         return hex.slice(0, 48);
     },
 
-    getNtfyRoomTopic() {
+    getMqttRoomTopic() {
         const d = this.saveData;
         if (!d.roomPassEnabled) {
-            return 'kaomoji_fantasy_3d_room_PUBLIC_OPEN_v4';
+            return 'kaomoji_fantasy_3d/v3/room/PUBLIC_OPEN';
         }
-        return 'kaomoji_fantasy_3d_room_PASS_' + this.encodeRoomTopicSuffix(d.roomPassword);
+        return 'kaomoji_fantasy_3d/v3/room/PASS_' + this.encodeRoomTopicSuffix(d.roomPassword);
     },
 
     toggleOnlineMode() {
@@ -40,68 +43,121 @@ Object.assign(KaomojiMMORPG.prototype, {
             this.saveGame(false);
             this.refreshTitleScreen();
             this.refreshAllHUD();
-            this.connectNtfy(false);
+            this.connectMqtt(false, 0);
         }
     },
 
     connectFirebase(rawUrl, silent = false) {
-        this.connectNtfy(silent);
+        this.connectMqtt(silent, 0);
     },
 
-    connectNtfy(silent = false) {
-        this.closeNtfyStreams();
+    connectMqtt(silent = false, brokerIdx = 0) {
+        this.closeMqttClient(false);
         this.saveData.onlineEnabled = true;
-        this.fbConnected = true;
-        this.fbLastEventTs = Date.now();
-        this._ntfyBackoffUntil = 0;
+        this.fbConnected = false;
         this.saveGame(false);
-
-        this.openNtfyGlobalStream();
-        this.openNtfyRoomStream();
-
-        this.syncFirebaseNow(true);
-        setTimeout(() => {
-            if (this.fbConnected) this.pollNtfyTopics();
-        }, 800);
-
         this.refreshTitleScreen();
         this.refreshAllHUD();
-        if (this.isModalOpen && this.activeTab === 'online') {
-            this.renderModalContent();
+
+        if (typeof mqtt === 'undefined') {
+            this.showAlertBanner('⚠️ MQTT通信ライブラリの読込に失敗しました。再読み込みしてください', 3000);
+            return;
         }
-        if (!silent) {
-            sfx.playHeal();
-            const roomLabel = this.saveData.roomPassEnabled
-                ? `🔒 パスワード部屋（${this.saveData.roomPassword || '未設定'}）`
-                : '🌐 公開オンライン広場';
-            this.showAlertBanner(`${roomLabel}に接続しました！`, 2200);
+
+        const brokerUrl = MQTT_BROKERS[brokerIdx % MQTT_BROKERS.length];
+        const roomTopic = this.getMqttRoomTopic();
+        this.currentMqttRoomTopic = roomTopic;
+        const myUid = this.saveData.playerUid;
+        const clientId = 'kmj_' + myUid + '_' + Math.random().toString(36).slice(2, 7);
+
+        let connectedOnce = false;
+        const fallbackTimer = setTimeout(() => {
+            if (!connectedOnce && this.saveData.onlineEnabled && brokerIdx + 1 < MQTT_BROKERS.length) {
+                this.connectMqtt(silent, brokerIdx + 1);
+            }
+        }, 5500);
+
+        try {
+            const client = mqtt.connect(brokerUrl, {
+                clientId,
+                clean: true,
+                keepalive: 20,
+                connectTimeout: 5000,
+                reconnectPeriod: 3000,
+                will: {
+                    topic: roomTopic,
+                    payload: JSON.stringify({ type: 'leave', uid: myUid, ts: Date.now() }),
+                    qos: 0,
+                    retain: false
+                }
+            });
+
+            this.mqttClient = client;
+
+            client.on('connect', () => {
+                if (this.mqttClient !== client) return;
+                connectedOnce = true;
+                clearTimeout(fallbackTimer);
+                this.fbConnected = true;
+                this.fbLastEventTs = Date.now();
+
+                client.subscribe([MQTT_GLOBAL_TOPIC, roomTopic], { qos: 0 }, () => {
+                    this.syncFirebaseNow(true);
+                    setTimeout(() => {
+                        if (this.fbConnected) this.syncFirebaseNow(true);
+                    }, 700);
+                });
+
+                this.refreshTitleScreen();
+                this.refreshAllHUD();
+                if (this.isModalOpen && this.activeTab === 'online') {
+                    this.renderModalContent();
+                }
+                if (!silent) {
+                    sfx.playHeal();
+                    const roomLabel = this.saveData.roomPassEnabled
+                        ? `🔒 パスワード部屋（${this.saveData.roomPassword || '未設定'}）`
+                        : '🌐 公開オンライン広場';
+                    this.showAlertBanner(`${roomLabel}に接続完了！`, 2000);
+                }
+            });
+
+            client.on('message', (topic, payloadBuf) => {
+                if (this.mqttClient !== client) return;
+                this.handleMqttMessage(topic, payloadBuf ? payloadBuf.toString() : '');
+            });
+
+            client.on('offline', () => {
+                if (this.mqttClient !== client) return;
+                this.fbConnected = false;
+                this.refreshAllHUD();
+            });
+
+            client.on('error', () => {});
+        } catch (e) {
+            clearTimeout(fallbackTimer);
         }
     },
 
-    reconnectNtfyRoom() {
-        if (!this.fbConnected) return;
-        this.broadcastNtfyPacket(this.currentNtfyRoomTopic || this.getNtfyRoomTopic(), {
-            type: 'leave',
-            uid: this.saveData.playerUid,
-            ts: Date.now()
-        });
+    reconnectMqttRoom() {
+        if (!this.saveData.onlineEnabled) return;
         this.clearRemotePlayers();
-        if (this.ntfyRoomEs) {
-            try { this.ntfyRoomEs.close(); } catch (e) {}
-            this.ntfyRoomEs = null;
-        }
-        this.openNtfyRoomStream();
-        this.syncFirebaseNow(true);
+        this.connectMqtt(true, 0);
     },
 
-    closeNtfyStreams() {
-        if (this.ntfyGlobalEs) {
-            try { this.ntfyGlobalEs.close(); } catch (e) {}
-            this.ntfyGlobalEs = null;
-        }
-        if (this.ntfyRoomEs) {
-            try { this.ntfyRoomEs.close(); } catch (e) {}
-            this.ntfyRoomEs = null;
+    closeMqttClient(sendLeave = true) {
+        if (this.mqttClient) {
+            try {
+                if (sendLeave && this.mqttClient.connected && this.currentMqttRoomTopic) {
+                    this.mqttClient.publish(this.currentMqttRoomTopic, JSON.stringify({
+                        type: 'leave',
+                        uid: this.saveData.playerUid,
+                        ts: Date.now()
+                    }));
+                }
+                this.mqttClient.end(true);
+            } catch (e) {}
+            this.mqttClient = null;
         }
     },
 
@@ -113,56 +169,8 @@ Object.assign(KaomojiMMORPG.prototype, {
         this.remotePlayers.clear();
     },
 
-    openNtfyGlobalStream() {
-        if (typeof EventSource === 'undefined') return;
-        try {
-            const es = new EventSource(`${window.NTFY_BASE_URL}/${window.NTFY_GLOBAL_TOPIC}/sse?since=20s`);
-            es.onmessage = (ev) => this.handleNtfyRawLine(ev.data);
-            this.ntfyGlobalEs = es;
-        } catch (e) {}
-    },
-
-    openNtfyRoomStream() {
-        if (typeof EventSource === 'undefined') return;
-        const topic = this.getNtfyRoomTopic();
-        this.currentNtfyRoomTopic = topic;
-        try {
-            const es = new EventSource(`${window.NTFY_BASE_URL}/${topic}/sse?since=20s`);
-            es.onmessage = (ev) => this.handleNtfyRawLine(ev.data);
-            this.ntfyRoomEs = es;
-        } catch (e) {}
-    },
-
-    pollNtfyTopics() {
-        if (!this.fbConnected) return;
-        if (this._ntfyBackoffUntil && Date.now() < this._ntfyBackoffUntil) return;
-        const roomTopic = this.getNtfyRoomTopic();
-        fetch(`${window.NTFY_BASE_URL}/${roomTopic}/json?poll=1&since=20s`, { cache: 'no-store' })
-            .then(r => {
-                if (r.status === 429) {
-                    this._ntfyBackoffUntil = Date.now() + 15000;
-                    return '';
-                }
-                return r.ok ? r.text() : '';
-            })
-            .then(txt => {
-                if (!txt) return;
-                txt.split('\n').forEach(line => {
-                    if (line.trim()) this.handleNtfyRawLine(line);
-                });
-            })
-            .catch(() => {});
-    },
-
     disconnectFirebase() {
-        if (this.fbConnected) {
-            this.broadcastNtfyPacket(this.currentNtfyRoomTopic || this.getNtfyRoomTopic(), {
-                type: 'leave',
-                uid: this.saveData.playerUid,
-                ts: Date.now()
-            });
-        }
-        this.closeNtfyStreams();
+        this.closeMqttClient(true);
         this.fbConnected = false;
         this.saveData.onlineEnabled = false;
         this.clearRemotePlayers();
@@ -172,17 +180,11 @@ Object.assign(KaomojiMMORPG.prototype, {
         this.showAlertBanner('📴 オフラインモードに切り替えました', 1600);
     },
 
-    broadcastNtfyPacket(topic, obj) {
-        if (!topic || !obj) return;
-        if (this._ntfyBackoffUntil && Date.now() < this._ntfyBackoffUntil) return;
-        fetch(`${window.NTFY_BASE_URL}/${topic}`, {
-            method: 'POST',
-            body: JSON.stringify(obj)
-        }).then(r => {
-            if (r.status === 429) {
-                this._ntfyBackoffUntil = Date.now() + 15000;
-            }
-        }).catch(() => {});
+    publishMqtt(topic, obj) {
+        if (!this.mqttClient || !this.mqttClient.connected || !topic || !obj) return;
+        try {
+            this.mqttClient.publish(topic, JSON.stringify(obj), { qos: 0 });
+        } catch (e) {}
     },
 
     buildMyOnlinePayload(isHello = false) {
@@ -213,12 +215,12 @@ Object.assign(KaomojiMMORPG.prototype, {
 
     syncFirebaseNow(isHello = false) {
         if (!this.fbConnected) return;
-        const topic = this.getNtfyRoomTopic();
-        if (this.currentNtfyRoomTopic && this.currentNtfyRoomTopic !== topic) {
-            this.reconnectNtfyRoom();
+        const topic = this.getMqttRoomTopic();
+        if (this.currentMqttRoomTopic && this.currentMqttRoomTopic !== topic) {
+            this.reconnectMqttRoom();
             return;
         }
-        this.broadcastNtfyPacket(topic, this.buildMyOnlinePayload(isHello));
+        this.publishMqtt(topic, this.buildMyOnlinePayload(isHello));
     },
 
     broadcastFirebaseEvent(type, payload) {
@@ -231,20 +233,20 @@ Object.assign(KaomojiMMORPG.prototype, {
             ts: Date.now()
         };
         if (type === 'chat_global') {
-            this.broadcastNtfyPacket(window.NTFY_GLOBAL_TOPIC, packet);
+            this.publishMqtt(MQTT_GLOBAL_TOPIC, packet);
         } else {
-            this.broadcastNtfyPacket(this.getNtfyRoomTopic(), packet);
+            this.publishMqtt(this.getMqttRoomTopic(), packet);
         }
     },
 
     updateFirebaseSync(dt) {
         if (!this.fbConnected) return;
 
-        // 移動中は2.5秒ごと、静止中は4.5秒ごとに送信（ntfy制限回避）
-        const isMoving = Math.hypot(this.joyVec.x, this.joyVec.y) > 0.1 ||
+        // MQTT WebSocketなので移動中は0.25秒ごと、静止中は2.5秒ごとに高速同期
+        const isMoving = Math.hypot(this.joyVec.x, this.joyVec.y) > 0.08 ||
             this.keys['KeyW'] || this.keys['KeyA'] || this.keys['KeyS'] || this.keys['KeyD'] ||
             this.keys['ArrowUp'] || this.keys['ArrowDown'] || this.keys['ArrowLeft'] || this.keys['ArrowRight'];
-        const syncInterval = isMoving ? 2.5 : 4.5;
+        const syncInterval = isMoving ? 0.25 : 2.5;
 
         this.fbSyncTimer += dt;
         if (this.fbSyncTimer >= syncInterval) {
@@ -252,16 +254,14 @@ Object.assign(KaomojiMMORPG.prototype, {
             this.syncFirebaseNow(false);
         }
 
-        // SSEの補助ポーリングは8秒ごと
+        // 12秒以上応答がないプレイヤーを自動退出処理
         this.fbPollTimer += dt;
-        if (this.fbPollTimer >= 8.0) {
+        if (this.fbPollTimer >= 3.0) {
             this.fbPollTimer = 0;
-            this.pollNtfyTopics();
-
             const now = Date.now();
             let changed = false;
             for (const [uid, rp] of this.remotePlayers.entries()) {
-                if (now - (rp.lastSeenTs || 0) > 25000) {
+                if (now - (rp.lastSeenTs || 0) > 12000) {
                     if (rp.group && this.scene) this.scene.remove(rp.group);
                     if (rp.plateEl) rp.plateEl.remove();
                     this.remotePlayers.delete(uid);
@@ -275,19 +275,11 @@ Object.assign(KaomojiMMORPG.prototype, {
         }
     },
 
-    handleNtfyRawLine(rawLine) {
-        if (!rawLine) return;
-        let wrapper;
-        try {
-            wrapper = JSON.parse(rawLine);
-        } catch (e) {
-            return;
-        }
-        if (!wrapper || wrapper.event !== 'message' || !wrapper.message) return;
-
+    handleMqttMessage(topic, rawStr) {
+        if (!rawStr) return;
         let msg;
         try {
-            msg = JSON.parse(wrapper.message);
+            msg = JSON.parse(rawStr);
         } catch (e) {
             return;
         }
@@ -297,20 +289,15 @@ Object.assign(KaomojiMMORPG.prototype, {
         const senderUid = msg.uid || msg.senderUid;
         if (!senderUid || senderUid === myUid) return;
 
-        const msgId = wrapper.id || `${senderUid}_${msg.type}_${msg.ts}`;
-        if (!this._seenNtfyIds) this._seenNtfyIds = new Set();
-        if (this._seenNtfyIds.has(msgId)) return;
-        this._seenNtfyIds.add(msgId);
-        if (this._seenNtfyIds.size > 400) {
-            const first = this._seenNtfyIds.values().next().value;
-            this._seenNtfyIds.delete(first);
-        }
-
-        if (msg.type === 'chat_global' && msg.payload) {
-            this.addChatMessage('global', msg.payload.kaomoji, msg.payload.name, msg.payload.text, false);
+        // 1. 全体チャット
+        if (topic === MQTT_GLOBAL_TOPIC || msg.type === 'chat_global') {
+            if (msg.payload) {
+                this.addChatMessage('global', msg.payload.kaomoji, msg.payload.name, msg.payload.text, false);
+            }
             return;
         }
 
+        // 2. 部屋トピック
         const myRoomKey = this.getCurrentRoomKey();
         const msgRoomKey = msg.roomKey || 'PUBLIC_OPEN_ROOM';
         if (msgRoomKey !== myRoomKey) return;
@@ -319,10 +306,10 @@ Object.assign(KaomojiMMORPG.prototype, {
             const isNew = !this.remotePlayers.has(msg.uid);
             this.upsertRemotePlayer(msg);
             if (isNew || msg.type === 'hello') {
-                setTimeout(() => this.syncFirebaseNow(false), 300);
+                this.syncFirebaseNow(false);
                 if (isNew) {
                     const zName = (typeof ZONES !== 'undefined' && ZONES[msg.zoneId]) ? ZONES[msg.zoneId].name : '試練の塔';
-                    this.showAlertBanner(`👋 ${msg.kaomoji || '(´・ω・`)'} Lv.${msg.lv || 1} が合流！（現在地: ${zName}）`, 2600);
+                    this.showAlertBanner(`👋 ${msg.kaomoji || '(´・ω・`)'} Lv.${msg.lv || 1} が合流！（${zName}）`, 2400);
                     this.refreshAllHUD();
                     if (this.isModalOpen && this.activeTab === 'online') this.renderModalContent();
                 }
@@ -431,8 +418,8 @@ Object.assign(KaomojiMMORPG.prototype, {
             rp.visible = sameZone;
             if (rp.group) rp.group.visible = sameZone;
 
-            rp.pos.lerp(rp.targetPos, Math.min(1, dt * 6));
-            rp.rotY += (rp.targetRotY - rp.rotY) * Math.min(1, dt * 6);
+            rp.pos.lerp(rp.targetPos, Math.min(1, dt * 10));
+            rp.rotY += (rp.targetRotY - rp.rotY) * Math.min(1, dt * 10);
             if (rp.group) {
                 rp.group.position.copy(rp.pos);
                 rp.group.rotation.y = rp.rotY;
@@ -458,7 +445,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             sfx.init();
             this.saveData.roomPassEnabled = !this.saveData.roomPassEnabled;
             this.saveGame(false);
-            if (this.fbConnected) this.reconnectNtfyRoom();
+            if (this.saveData.onlineEnabled) this.reconnectMqttRoom();
             this.refreshTitleScreen();
             this.refreshAllHUD();
         });
@@ -466,7 +453,7 @@ Object.assign(KaomojiMMORPG.prototype, {
         document.getElementById('title-input-room-pass')?.addEventListener('input', (e) => {
             this.saveData.roomPassword = e.target.value.trim();
             this.saveGame(false);
-            if (this.fbConnected) this.reconnectNtfyRoom();
+            if (this.saveData.onlineEnabled) this.reconnectMqttRoom();
         });
 
         document.getElementById('btn-title-start')?.addEventListener('click', () => {
@@ -942,13 +929,7 @@ Object.assign(KaomojiMMORPG.prototype, {
         }
 
         window.addEventListener('pagehide', () => {
-            if (this.fbConnected) {
-                this.broadcastNtfyPacket(this.currentNtfyRoomTopic || this.getNtfyRoomTopic(), {
-                    type: 'leave',
-                    uid: this.saveData.playerUid,
-                    ts: Date.now()
-                });
-            }
+            this.closeMqttClient(true);
         });
     }
 });
