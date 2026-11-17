@@ -4,11 +4,6 @@
 // 顔文字ファンタジー3D コアシステム・セーブ・タイトル・チャット基盤 (game1.js)
 // =========================================================================
 
-const MAX_PLAYER_LEVEL = 999;
-const MAX_THREAT_RANK = 99;
-const REBIRTH_REQ_LEVEL = 100;
-const DEFAULT_PUBLIC_FIREBASE_URL = '';
-
 function formatBigNum(num) {
     const n = Math.floor(Number(num) || 0);
     if (n >= 1e12) return (n / 1e12).toFixed(2) + '兆';
@@ -17,10 +12,10 @@ function formatBigNum(num) {
     return n.toLocaleString('ja-JP');
 }
 
-const _faceTexCache = new Map();
+window.__faceTexCache = window.__faceTexCache || new Map();
 function getKaomojiFaceTexture(kaomoji, bgHex = '#073b66', textHex = '#ffffff', borderHex = '#38bdf8') {
     const key = `${kaomoji}|${bgHex}|${textHex}|${borderHex}`;
-    if (_faceTexCache.has(key)) return _faceTexCache.get(key);
+    if (window.__faceTexCache.has(key)) return window.__faceTexCache.get(key);
 
     const canvas = document.createElement('canvas');
     canvas.width = 256;
@@ -48,57 +43,59 @@ function getKaomojiFaceTexture(kaomoji, bgHex = '#073b66', textHex = '#ffffff', 
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.needsUpdate = true;
-    _faceTexCache.set(key, tex);
+    window.__faceTexCache.set(key, tex);
     return tex;
 }
 
-const sfx = {
-    ctx: null,
-    bgmMuted: false,
-    init() {
-        if (!this.ctx) {
-            const AudioCtx = window.AudioContext || window.webkitAudioContext;
-            if (AudioCtx) {
-                try { this.ctx = new AudioCtx(); } catch (e) {}
+if (typeof sfx === 'undefined') {
+    window.sfx = {
+        ctx: null,
+        bgmMuted: false,
+        init() {
+            if (!this.ctx) {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (AudioCtx) {
+                    try { this.ctx = new AudioCtx(); } catch (e) {}
+                }
             }
+            if (this.ctx && this.ctx.state === 'suspended') {
+                this.ctx.resume().catch(() => {});
+            }
+        },
+        playTone(freq = 440, type = 'sine', dur = 0.1, vol = 0.06, slideTo = null) {
+            if (this.bgmMuted || !this.ctx) return;
+            try {
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, now);
+                if (slideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(40, slideTo), now + dur);
+                gain.gain.setValueAtTime(vol, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + dur);
+            } catch (e) {}
+        },
+        playHit(crit = false) {
+            this.playTone(crit ? 680 : 320, crit ? 'sawtooth' : 'triangle', crit ? 0.14 : 0.08, 0.07, 110);
+        },
+        playSkill() {
+            this.playTone(520, 'sine', 0.16, 0.07, 880);
+        },
+        playHeal() {
+            this.playTone(580, 'sine', 0.12, 0.06, 920);
+            setTimeout(() => this.playTone(780, 'sine', 0.16, 0.06, 1180), 90);
+        },
+        playLevelUp() {
+            [523, 659, 784, 1046].forEach((f, idx) => {
+                setTimeout(() => this.playTone(f, 'triangle', 0.16, 0.07), idx * 75);
+            });
         }
-        if (this.ctx && this.ctx.state === 'suspended') {
-            this.ctx.resume().catch(() => {});
-        }
-    },
-    playTone(freq = 440, type = 'sine', dur = 0.1, vol = 0.06, slideTo = null) {
-        if (this.bgmMuted || !this.ctx) return;
-        try {
-            const now = this.ctx.currentTime;
-            const osc = this.ctx.createOscillator();
-            const gain = this.ctx.createGain();
-            osc.type = type;
-            osc.frequency.setValueAtTime(freq, now);
-            if (slideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(40, slideTo), now + dur);
-            gain.gain.setValueAtTime(vol, now);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
-            osc.connect(gain);
-            gain.connect(this.ctx.destination);
-            osc.start(now);
-            osc.stop(now + dur);
-        } catch (e) {}
-    },
-    playHit(crit = false) {
-        this.playTone(crit ? 680 : 320, crit ? 'sawtooth' : 'triangle', crit ? 0.14 : 0.08, 0.07, 110);
-    },
-    playSkill() {
-        this.playTone(520, 'sine', 0.16, 0.07, 880);
-    },
-    playHeal() {
-        this.playTone(580, 'sine', 0.12, 0.06, 920);
-        setTimeout(() => this.playTone(780, 'sine', 0.16, 0.06, 1180), 90);
-    },
-    playLevelUp() {
-        [523, 659, 784, 1046].forEach((f, idx) => {
-            setTimeout(() => this.playTone(f, 'triangle', 0.16, 0.07), idx * 75);
-        });
-    }
-};
+    };
+}
 
 function getSkillMpCost(sk, skLv = 1) {
     const base = sk.mp || 10;
@@ -304,7 +301,7 @@ class KaomojiMMORPG {
                 bestTowerFloor: 0,
                 maxThreatKill: 0
             },
-            firebaseUrl: DEFAULT_PUBLIC_FIREBASE_URL,
+            firebaseUrl: '',
             onlineEnabled: false,
             roomPassEnabled: false,
             roomPassword: '',
@@ -355,7 +352,7 @@ class KaomojiMMORPG {
     }
 
     hardResetGame() {
-        const keepUrl = this.saveData.firebaseUrl || DEFAULT_PUBLIC_FIREBASE_URL;
+        const keepUrl = this.saveData.firebaseUrl || '';
         if (this.fbConnected && this.disconnectFirebase) {
             this.disconnectFirebase();
         }
