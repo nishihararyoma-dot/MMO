@@ -9,18 +9,85 @@ const MQTT_SERVERS = [
     { name: 'HiveMQ', url: 'wss://broker.hivemq.com:8884/mqtt' },
     { name: 'Mosquitto', url: 'wss://test.mosquitto.org:8081/mqtt' }
 ];
-const TOPIC_GLOBAL = 'kaomoji_fantasy_3d/v8/global';
+const TOPIC_GLOBAL = 'kaomoji_fantasy_3d/v9/global';
+
+const LOADING_KAOMOJIS = [
+    '(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧',
+    'ε=ε=ε=┏(゜ロ゜;)┛',
+    '(ง •̀_•́)ง ⚔️',
+    '✧*｡٩(ˊᗜˋ*)و✧*｡',
+    '(=^・ω・^=) 🐾'
+];
+const LOADING_TIPS = [
+    '💡 チャットやエモートを送るとキャラの頭上に吹き出しが出るよ！',
+    '💡 左手で移動しながら右手で画面をなぞると視点を自由に回せるよ！',
+    '💡 仲間と同じマップで戦うと討伐報酬がシェアされるよ！',
+    '💡 パスワード部屋を設定すると合言葉を知っている友達だけで遊べるよ！'
+];
+
+(function injectV9Styles() {
+    if (document.getElementById('kmj-v9-style')) return;
+    const st = document.createElement('style');
+    st.id = 'kmj-v9-style';
+    st.textContent = `
+        #kmj-loading-screen{position:fixed;inset:0;z-index:96;background:radial-gradient(circle at center,#0f172a 0%,#020617 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;transition:opacity .28s ease;pointer-events:auto}
+        #kmj-loading-screen.fade-out{opacity:0;pointer-events:none}
+        .kmj-load-kao{font-size:32px;font-weight:900;color:#38bdf8;text-shadow:0 0 18px rgba(56,189,248,.8);animation:kmjBounce .6s infinite alternate}
+        .kmj-load-bar-bg{width:min(300px,80vw);height:10px;background:#1e293b;border:1px solid #38bdf8;border-radius:999px;overflow:hidden}
+        .kmj-load-bar-fill{height:100%;width:0%;background:linear-gradient(90deg,#38bdf8,#f472b6,#fde047);transition:width .25s ease}
+        @keyframes kmjBounce{from{transform:translateY(0)}to{transform:translateY(-8px)}}
+        .world-head-bubble{position:absolute;transform:translate(-50%,-100%);background:rgba(15,23,42,.95);border:2px solid #38bdf8;border-radius:14px;padding:5px 11px;text-align:center;box-shadow:0 6px 18px rgba(0,0,0,.65);pointer-events:none!important;max-width:210px;word-break:break-word;z-index:12;animation:kmjPop .18s ease-out}
+        .world-head-bubble.is-emote{border-color:#f472b6;background:rgba(30,15,42,.95)}
+        .world-head-bubble::after{content:'';position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);border-width:7px 6px 0;border-style:solid;border-color:#38bdf8 transparent transparent}
+        .world-head-bubble.is-emote::after{border-color:#f472b6 transparent transparent}
+        @keyframes kmjPop{from{transform:translate(-50%,-85%) scale(.75);opacity:0}to{transform:translate(-50%,-100%) scale(1);opacity:1}}
+    `;
+    document.head.appendChild(st);
+})();
 
 Object.assign(KaomojiMMORPG.prototype, {
+
+    showLoadingOverlay(titleText = 'NOW LOADING...', durationMs = 950) {
+        let el = document.getElementById('kmj-loading-screen');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'kmj-loading-screen';
+            el.innerHTML = `
+                <div id="kmj-load-kao" class="kmj-load-kao font-kaomoji">(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧</div>
+                <div id="kmj-load-title" style="font-size:16px;font-weight:900;color:#fde047;letter-spacing:1px;">NOW LOADING...</div>
+                <div class="kmj-load-bar-bg"><div id="kmj-load-fill" class="kmj-load-bar-fill"></div></div>
+                <div id="kmj-load-tip" style="font-size:11px;color:#cbd5e1;text-align:center;max-width:320px;line-height:1.45;"></div>
+            `;
+            document.body.appendChild(el);
+        }
+        el.classList.remove('hidden', 'fade-out');
+        const kaoEl = document.getElementById('kmj-load-kao');
+        const titleEl = document.getElementById('kmj-load-title');
+        const fillEl = document.getElementById('kmj-load-fill');
+        const tipEl = document.getElementById('kmj-load-tip');
+        if (kaoEl) kaoEl.textContent = LOADING_KAOMOJIS[Math.floor(Math.random() * LOADING_KAOMOJIS.length)];
+        if (titleEl) titleEl.textContent = titleText;
+        if (tipEl) tipEl.textContent = LOADING_TIPS[Math.floor(Math.random() * LOADING_TIPS.length)];
+        if (fillEl) {
+            fillEl.style.width = '18%';
+            setTimeout(() => { if (fillEl) fillEl.style.width = '68%'; }, Math.floor(durationMs * 0.3));
+            setTimeout(() => { if (fillEl) fillEl.style.width = '100%'; }, Math.floor(durationMs * 0.75));
+        }
+        clearTimeout(this._loadHideTimer);
+        this._loadHideTimer = setTimeout(() => {
+            el.classList.add('fade-out');
+            setTimeout(() => el.classList.add('hidden'), 280);
+        }, durationMs);
+    },
 
     getDeviceUid() {
         if (this._runtimeUid) return this._runtimeUid;
         let salt = '';
         try {
-            salt = localStorage.getItem('kmj_dev_salt_v8');
+            salt = localStorage.getItem('kmj_dev_salt_v9');
             if (!salt) {
                 salt = Math.random().toString(36).slice(2, 8);
-                localStorage.setItem('kmj_dev_salt_v8', salt);
+                localStorage.setItem('kmj_dev_salt_v9', salt);
             }
         } catch (e) {
             salt = Math.random().toString(36).slice(2, 8);
@@ -31,11 +98,11 @@ Object.assign(KaomojiMMORPG.prototype, {
 
     getRoomTopic() {
         const d = this.saveData;
-        if (!d.roomPassEnabled) return 'kaomoji_fantasy_3d/v8/room/PUBLIC';
+        if (!d.roomPassEnabled) return 'kaomoji_fantasy_3d/v9/room/PUBLIC';
         const p = String(d.roomPassword || '').trim();
         let hex = '';
         for (let i = 0; i < p.length; i++) hex += p.charCodeAt(i).toString(16);
-        return 'kaomoji_fantasy_3d/v8/room/PASS_' + (hex || 'EMPTY');
+        return 'kaomoji_fantasy_3d/v9/room/PASS_' + (hex || 'EMPTY');
     },
 
     getSafeRoomKey() {
@@ -102,7 +169,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             MQTT_SERVERS.forEach((sv, idx) => {
                 try {
                     const c = window.mqtt.connect(sv.url, {
-                        clientId: 'kmj8_' + myUid + '_' + idx + '_' + Math.random().toString(36).slice(2, 5),
+                        clientId: 'kmj9_' + myUid + '_' + idx + '_' + Math.random().toString(36).slice(2, 5),
                         clean: true,
                         keepalive: 20,
                         connectTimeout: 6000,
@@ -123,7 +190,8 @@ Object.assign(KaomojiMMORPG.prototype, {
 
                         c.subscribe([TOPIC_GLOBAL, rTopic], { qos: 0 }, () => {
                             this.syncFirebaseNow(true);
-                            setTimeout(() => { if (this.fbConnected) this.syncFirebaseNow(true); }, 600);
+                            setTimeout(() => { if (this.fbConnected) this.syncFirebaseNow(true); }, 500);
+                            setTimeout(() => { if (this.fbConnected) this.syncFirebaseNow(true); }, 1500);
                         });
 
                         this.refreshTitleScreen();
@@ -253,6 +321,152 @@ Object.assign(KaomojiMMORPG.prototype, {
         this.publishAllConnected(topic, packet);
     },
 
+    // 頭上追従吹き出し（チャット＆エモート共通）
+    spawnHeadBubble(isSelf, uid, kaomoji, text, isEmote = false) {
+        if (!this.overlayLayer) return;
+        if (!this._headBubbles) this._headBubbles = [];
+        const key = isSelf ? 'SELF' : String(uid);
+        this._headBubbles = this._headBubbles.filter(b => {
+            if (b.key === key) { b.el.remove(); return false; }
+            return true;
+        });
+
+        const el = document.createElement('div');
+        el.className = 'world-head-bubble' + (isEmote ? ' is-emote' : '');
+        const safeText = String(text || '').replace(/[<>&"]/g, '');
+        const safeKao = String(kaomoji || '').replace(/[<>&"]/g, '');
+        if (isEmote) {
+            el.innerHTML = `<div class="font-kaomoji" style="font-size:15px;font-weight:900;color:#f472b6;">${safeKao}</div><div style="font-size:10px;font-weight:900;color:#fff;margin-top:1px;">${safeText}</div>`;
+        } else {
+            el.innerHTML = `<div style="font-size:11px;font-weight:900;color:#fff;">💬 ${safeText}</div>`;
+        }
+        this.overlayLayer.appendChild(el);
+        this._headBubbles.push({ key, isSelf, uid, el, life: 3.8 });
+    },
+
+    updateHeadBubbles(dt) {
+        if (!this._headBubbles || !this._headBubbles.length) return;
+        this._headBubbles = this._headBubbles.filter(b => {
+            b.life -= dt;
+            if (b.life <= 0) { b.el.remove(); return false; }
+            let target = null;
+            let scale = 1.0;
+            if (b.isSelf && this.player) {
+                target = this.player.pos;
+                scale = this.getPlayerBodyScale ? this.getPlayerBodyScale() : 1.0;
+            } else if (!b.isSelf) {
+                const rp = this.remotePlayers.get(b.uid);
+                if (rp && rp.visible) { target = rp.pos; scale = rp.bodyScale || 1.0; }
+            }
+            if (!target) {
+                b.el.style.display = 'none';
+                return true;
+            }
+            const worldPos = new THREE.Vector3(target.x, 2.75 * scale, target.z);
+            let sc = this.projectToScreen ? this.projectToScreen(worldPos) : null;
+            if (!sc && this.camera && this.canvas) {
+                const v = worldPos.clone().project(this.camera);
+                if (v.z < 1) {
+                    sc = {
+                        x: (v.x * 0.5 + 0.5) * this.canvas.clientWidth,
+                        y: (-v.y * 0.5 + 0.5) * this.canvas.clientHeight
+                    };
+                }
+            }
+            if (sc) {
+                b.el.style.display = 'block';
+                b.el.style.left = sc.x + 'px';
+                b.el.style.top = sc.y + 'px';
+                b.el.style.opacity = b.life < 0.5 ? String(b.life * 2) : '1';
+            } else {
+                b.el.style.display = 'none';
+            }
+            return true;
+        });
+    },
+
+    // 攻撃モーション＆斬撃エフェクト（自分・他プレイヤー共通）
+    triggerAttackVisual(entity, isSkill = false) {
+        if (!entity) return;
+        entity.attackAnimTimer = 0.36;
+        entity.attackIsSkill = isSkill;
+
+        if (this.useWebGL && this.scene && entity.pos && typeof THREE !== 'undefined') {
+            if (!this._slashEffects) this._slashEffects = [];
+            const geo = new THREE.RingGeometry(0.65, isSkill ? 1.55 : 1.25, 24, 1, -Math.PI * 0.45, Math.PI * 0.9);
+            const mat = new THREE.MeshBasicMaterial({
+                color: isSkill ? 0xfde047 : 0x38bdf8,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.92
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            const rotY = entity.rotY || 0;
+            mesh.position.set(
+                entity.pos.x + Math.sin(rotY) * 1.15,
+                1.05,
+                entity.pos.z + Math.cos(rotY) * 1.15
+            );
+            mesh.rotation.set(Math.PI * 0.35, rotY, -0.5);
+            this.scene.add(mesh);
+            this._slashEffects.push({ mesh, mat, life: 0.28, maxLife: 0.28, rotY });
+        }
+    },
+
+    updateAttackAnimations(dt) {
+        // 斬撃エフェクト更新
+        if (this._slashEffects && this._slashEffects.length) {
+            this._slashEffects = this._slashEffects.filter(ef => {
+                ef.life -= dt;
+                if (ef.life <= 0) {
+                    if (this.scene) this.scene.remove(ef.mesh);
+                    ef.mesh.geometry?.dispose();
+                    ef.mat?.dispose();
+                    return false;
+                }
+                const p = 1 - (ef.life / ef.maxLife);
+                ef.mesh.scale.setScalar(1 + p * 0.55);
+                ef.mesh.rotation.z = -0.5 + p * 2.2;
+                ef.mat.opacity = (1 - p) * 0.92;
+                return true;
+            });
+        }
+
+        // キャラ本体と武器の振りモーション更新
+        const animateChar = (ent) => {
+            if (!ent || !ent.group) return;
+            if (ent.attackAnimTimer && ent.attackAnimTimer > 0) {
+                ent.attackAnimTimer = Math.max(0, ent.attackAnimTimer - dt);
+                const p = 1 - (ent.attackAnimTimer / 0.36);
+                const swing = Math.sin(p * Math.PI);
+                const rotY = ent.rotY || 0;
+                ent.group.position.x = ent.pos.x + Math.sin(rotY) * (swing * 0.38);
+                ent.group.position.z = ent.pos.z + Math.cos(rotY) * (swing * 0.38);
+                ent.group.position.y = swing * 0.22;
+                ent.group.rotation.y = rotY + (swing * 0.45);
+                ent.group.rotation.x = swing * 0.22;
+
+                ent.group.children.forEach((ch, i) => {
+                    if (i >= 2) {
+                        if (ch._origRotX === undefined) ch._origRotX = ch.rotation.x;
+                        ch.rotation.x = ch._origRotX - swing * 1.45;
+                    }
+                });
+            } else if (ent.attackAnimTimer === 0) {
+                ent.attackAnimTimer = -1;
+                ent.group.position.set(ent.pos.x, 0, ent.pos.z);
+                ent.group.rotation.x = 0;
+                ent.group.rotation.y = ent.rotY || 0;
+                ent.group.children.forEach((ch, i) => {
+                    if (i >= 2 && ch._origRotX !== undefined) ch.rotation.x = ch._origRotX;
+                });
+            }
+        };
+
+        animateChar(this.player);
+        this.remotePlayers.forEach(rp => animateChar(rp));
+    },
+
     updateFirebaseSync(dt) {
         if (!this.fbConnected) return;
         const moving = Math.hypot(this.joyVec.x, this.joyVec.y) > 0.08 ||
@@ -289,25 +503,24 @@ Object.assign(KaomojiMMORPG.prototype, {
         const senderUid = msg.uid || msg.senderUid;
         if (!senderUid) return;
 
-        // 自分のパケットがサーバーから折り返してきたか確認
         if (senderUid === myUid) {
             this.netEchoCount = (this.netEchoCount || 0) + 1;
             return;
         }
 
-        // 複数サーバーからの重複受信を除外
         const dedupKey = `${senderUid}_${msg.type}_${msg.ts}`;
         if (!this._seenIds) this._seenIds = new Set();
         if (this._seenIds.has(dedupKey)) return;
         this._seenIds.add(dedupKey);
-        if (this._seenIds.size > 500) {
-            this._seenIds.delete(this._seenIds.values().next().value);
-        }
+        if (this._seenIds.size > 500) this._seenIds.delete(this._seenIds.values().next().value);
 
         this.netRxCount = (this.netRxCount || 0) + 1;
 
         if (topic === TOPIC_GLOBAL || msg.type === 'chat_global') {
-            if (msg.payload) this.addChatMessage('global', msg.payload.kaomoji, msg.payload.name, msg.payload.text, false);
+            if (msg.payload) {
+                this.addChatMessage('global', msg.payload.kaomoji, msg.payload.name, msg.payload.text, false);
+                this.spawnHeadBubble(false, senderUid, msg.payload.kaomoji, msg.payload.text, false);
+            }
             return;
         }
         if ((msg.roomKey || 'PUBLIC_OPEN_ROOM') !== this.getSafeRoomKey()) return;
@@ -335,13 +548,18 @@ Object.assign(KaomojiMMORPG.prototype, {
             }
         } else if (msg.type === 'chat_room' && msg.payload) {
             this.addChatMessage('room', msg.payload.kaomoji, msg.payload.name, msg.payload.text, false);
+            this.spawnHeadBubble(false, senderUid, msg.payload.kaomoji, msg.payload.text, false);
         } else if (msg.type === 'kill' && msg.payload && this.receiveCoopReward) {
             this.receiveCoopReward(msg.payload);
         } else if (msg.type === 'emote' && msg.payload) {
+            this.spawnHeadBubble(false, senderUid, msg.payload.kaomoji || '(≧▽≦)', msg.payload.msg || 'やっほー！', true);
             const rp = this.remotePlayers.get(senderUid);
             if (rp && rp.visible && this.spawnEmoteBubble) {
                 this.spawnEmoteBubble(rp.pos.clone().add(new THREE.Vector3(0, 2.7, 0)), msg.payload.kaomoji || '(≧▽≦)', msg.payload.msg || 'やっほー！');
             }
+        } else if (msg.type === 'attack') {
+            const rp = this.remotePlayers.get(senderUid);
+            if (rp && rp.visible) this.triggerAttackVisual(rp, !!msg.payload?.isSkill);
         }
     },
 
@@ -398,8 +616,13 @@ Object.assign(KaomojiMMORPG.prototype, {
             if (rp.group) rp.group.visible = same;
             rp.pos.lerp(rp.targetPos, Math.min(1, dt * 10));
             rp.rotY += (rp.targetRotY - rp.rotY) * Math.min(1, dt * 10);
-            if (rp.group) { rp.group.position.copy(rp.pos); rp.group.rotation.y = rp.rotY; }
+            if (rp.group && !(rp.attackAnimTimer > 0)) {
+                rp.group.position.copy(rp.pos);
+                rp.group.rotation.y = rp.rotY;
+            }
         });
+        this.updateAttackAnimations(dt);
+        this.updateHeadBubbles(dt);
     },
 
     getSameZoneRemoteCount() {
@@ -452,6 +675,16 @@ Object.assign(KaomojiMMORPG.prototype, {
             e.stopPropagation(); sfx.init();
             document.getElementById('emote-palette')?.classList.toggle('hidden');
             document.getElementById('hud-drawer-menu')?.classList.add('hidden');
+        });
+        // エモート選択時に自分と仲間の頭上へ確実に吹き出し送信
+        document.getElementById('emote-palette')?.addEventListener('click', (e) => {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            const spans = btn.querySelectorAll('span');
+            const kao = spans[0]?.textContent?.trim() || btn.textContent.trim().slice(0, 12);
+            const label = spans[1]?.textContent?.trim() || 'やっほー！';
+            this.spawnHeadBubble(true, null, kao, label, true);
+            this.broadcastFirebaseEvent('emote', { kaomoji: kao, msg: label });
         });
         on('btn-exec-warp', 'click', (e) => {
             e.stopPropagation(); sfx.init(); sfx.playSkill();
@@ -543,7 +776,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         });
         window.addEventListener('keyup', (e) => { this.keys[e.code] = false; });
 
-        // 左手ジョイスティック
         const jz = document.getElementById('joystick-zone'), jk = document.getElementById('joystick-knob');
         if (jz && jk) {
             let act = false, tid = null;
@@ -565,7 +797,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             window.addEventListener('mouseup', () => { if (act) rst(); });
         }
 
-        // 右手3Dカメラ回転
         if (this.canvas) {
             let drag = false, ctid = null, lx = 0, ly = 0, pd = 0;
             this.canvas.addEventListener('mousedown', (e) => { drag = true; lx = e.clientX; ly = e.clientY; });
@@ -606,43 +837,104 @@ Object.assign(KaomojiMMORPG.prototype, {
 });
 
 if (typeof KaomojiMMORPG !== 'undefined') {
-    const _rHUD = KaomojiMMORPG.prototype.refreshAllHUD;
-    if (_rHUD) KaomojiMMORPG.prototype.refreshAllHUD = function () {
-        _rHUD.call(this);
-        const btn = document.getElementById('btn-hud-online-toggle');
-        if (btn && !this.fbConnected && this.saveData?.onlineEnabled && this.netStatusLabel) btn.textContent = this.netStatusLabel;
-    };
-    const _rMod = KaomojiMMORPG.prototype.renderModalContent;
-    if (_rMod) KaomojiMMORPG.prototype.renderModalContent = function () {
-        _rMod.call(this);
-        if (this.activeTab === 'online') {
-            const body = document.getElementById('modal-body');
-            const svList = this.getConnectedServerNames().join(', ') || '接続試行中...';
-            if (body) {
-                body.insertAdjacentHTML('afterbegin', `
-                    <div class="card-box" style="margin-bottom:8px;border-color:#fde047;">
-                        <div class="flex-between">
-                            <b style="color:#fde047;font-size:11px;">📡 接続サーバー: ${svList}</b>
-                            <button type="button" id="btn-diag-reconn" class="btn-ui btn-amber" style="padding:4px 8px;font-size:10px;">🔄 再接続</button>
-                        </div>
-                        <div style="font-size:10px;color:#cbd5e1;margin-top:3px;">
-                            送信: <b>${this.netTxCount || 0}</b>回 ／ 折返し: <b>${this.netEchoCount || 0}</b>回 ／ 仲間受信: <b>${this.netRxCount || 0}</b>回
-                        </div>
-                    </div>
-                `);
-                document.getElementById('btn-diag-reconn')?.addEventListener('click', () => { sfx.init(); this.connectMqttStart(false); });
+    const P = KaomojiMMORPG.prototype;
+
+    // 1. タイトルから開始時にロード画面＋自動再接続を実行
+    if (P.enterGameFromTitle) {
+        const _origEnter = P.enterGameFromTitle;
+        P.enterGameFromTitle = function () {
+            this.showLoadingOverlay('NOW LOADING... 冒険の世界へ出発！', 1100);
+            _origEnter.call(this);
+            if (this.saveData?.onlineEnabled) {
+                setTimeout(() => this.connectMqttStart(true), 400);
+                setTimeout(() => { if (this.fbConnected) this.syncFirebaseNow(true); }, 1800);
             }
-        }
-    };
-    const _bPE = KaomojiMMORPG.prototype.buildPlayerEntity;
-    if (_bPE) KaomojiMMORPG.prototype.buildPlayerEntity = function () {
-        const cds = this.player?.skillCds || [0, 0, 0, 0, 0];
-        _bPE.call(this);
-        if (this.player) this.player.skillCds = cds;
-    };
+        };
+    }
+
+    // 2. ステージ移動時にミニロード画面を表示
+    if (P.loadZone) {
+        const _origLoadZone = P.loadZone;
+        P.loadZone = function (zoneId) {
+            const zName = (typeof ZONES !== 'undefined' && ZONES[zoneId]) ? ZONES[zoneId].name : '移動中';
+            if (!this.inTitleScreen) this.showLoadingOverlay(`WARPING... ${zName}`, 650);
+            _origLoadZone.call(this, zoneId);
+            if (this.fbConnected) setTimeout(() => this.syncFirebaseNow(true), 300);
+        };
+    }
+
+    // 3. チャット送信時に自分の頭上にも吹き出しを表示
+    if (P.sendChatMessage) {
+        const _origSendChat = P.sendChatMessage;
+        P.sendChatMessage = function (rawText) {
+            const txt = String(rawText || '').trim();
+            _origSendChat.call(this, rawText);
+            if (txt) this.spawnHeadBubble(true, null, this.getBasePlayerKaomoji(), txt, false);
+        };
+    }
+
+    // 4. 通常攻撃＆スキル時に自分の攻撃モーション再生＋仲間へ送信
+    if (P.performBasicAttack) {
+        const _origAtk = P.performBasicAttack;
+        P.performBasicAttack = function () {
+            _origAtk.call(this);
+            this.triggerAttackVisual(this.player, false);
+            this.broadcastFirebaseEvent('attack', { isSkill: false });
+        };
+    }
+    if (P.useSkillSlot) {
+        const _origSkill = P.useSkillSlot;
+        P.useSkillSlot = function (slotIdx) {
+            _origSkill.call(this, slotIdx);
+            this.triggerAttackVisual(this.player, true);
+            this.broadcastFirebaseEvent('attack', { isSkill: true, slotIdx });
+        };
+    }
+
+    // 5. HUD＆オンライン診断モニター表示
+    if (P.refreshAllHUD) {
+        const _rHUD = P.refreshAllHUD;
+        P.refreshAllHUD = function () {
+            _rHUD.call(this);
+            const btn = document.getElementById('btn-hud-online-toggle');
+            if (btn && !this.fbConnected && this.saveData?.onlineEnabled && this.netStatusLabel) btn.textContent = this.netStatusLabel;
+        };
+    }
+    if (P.renderModalContent) {
+        const _rMod = P.renderModalContent;
+        P.renderModalContent = function () {
+            _rMod.call(this);
+            if (this.activeTab === 'online') {
+                const body = document.getElementById('modal-body');
+                const svList = this.getConnectedServerNames().join(', ') || '接続試行中...';
+                if (body) {
+                    body.insertAdjacentHTML('afterbegin', `
+                        <div class="card-box" style="margin-bottom:8px;border-color:#fde047;">
+                            <div class="flex-between">
+                                <b style="color:#fde047;font-size:11px;">📡 接続サーバー: ${svList}</b>
+                                <button type="button" id="btn-diag-reconn" class="btn-ui btn-amber" style="padding:4px 8px;font-size:10px;">🔄 再接続</button>
+                            </div>
+                            <div style="font-size:10px;color:#cbd5e1;margin-top:3px;">
+                                送信: <b>${this.netTxCount || 0}</b>回 ／ 折返し: <b>${this.netEchoCount || 0}</b>回 ／ 仲間受信: <b>${this.netRxCount || 0}</b>回
+                            </div>
+                        </div>
+                    `);
+                    document.getElementById('btn-diag-reconn')?.addEventListener('click', () => { sfx.init(); this.connectMqttStart(false); });
+                }
+            }
+        };
+    }
+    if (P.buildPlayerEntity) {
+        const _bPE = P.buildPlayerEntity;
+        P.buildPlayerEntity = function () {
+            const cds = this.player?.skillCds || [0, 0, 0, 0, 0];
+            _bPE.call(this);
+            if (this.player) this.player.skillCds = cds;
+        };
+    }
 }
 
 window.addEventListener('DOMContentLoaded', () => {
     if (!window.game && typeof KaomojiMMORPG !== 'undefined') window.game = new KaomojiMMORPG();
 });
-// === GAME6_V8_END ===
+// === GAME6_V9_OK ===
