@@ -1,7 +1,7 @@
 'use strict';
 
 // =========================================================================
-// 顔文字ファンタジー3D 全育成・鍛冶錬金・こだわり見た目・クラウドUI (game5.js)
+// 顔文字ファンタジー3D 全育成・鍛冶錬金・見た目・オンライン部屋UI (game5.js)
 // =========================================================================
 
 Object.assign(KaomojiMMORPG.prototype, {
@@ -80,6 +80,7 @@ Object.assign(KaomojiMMORPG.prototype, {
         const hasAchAlert = this.hasClaimableAchievement();
 
         const tabs = [
+            { id: 'online',     label: `🌐 オンライン･部屋${this.fbConnected ? '●' : ''}` },
             { id: 'travel',     label: '🗺️ ステージ･塔' },
             { id: 'appearance', label: '🐱 見た目･色･翼' },
             { id: 'forge',      label: '⚒️ 鍛冶･錬金･付与' },
@@ -88,8 +89,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             { id: 'tree',       label: `🌳 ツリー${d.sp > 0 ? `(${d.sp})` : ''}` },
             { id: 'pet',        label: '🐾 相棒ペット' },
             { id: 'evolve',     label: '👑 進化･神話･転生' },
-            { id: 'achieve',    label: `🏆 実績･称号${hasAchAlert ? '!' : ''}` },
-            { id: 'online',     label: `☁️ クラウド･通信${this.fbConnected ? '●' : ''}` }
+            { id: 'achieve',    label: `🏆 実績･称号${hasAchAlert ? '!' : ''}` }
         ];
 
         const tabBar = document.getElementById('modal-tabs');
@@ -105,7 +105,217 @@ Object.assign(KaomojiMMORPG.prototype, {
 
         const body = document.getElementById('modal-body');
 
-        if (this.activeTab === 'travel') {
+        if (this.activeTab === 'online') {
+            const remotes = Array.from(this.remotePlayers.values());
+            const isOnline = !!d.onlineEnabled;
+            const isPassOn = !!d.roomPassEnabled;
+
+            body.innerHTML = `
+                <div style="display:flex; flex-direction:column; gap:10px;">
+                    <!-- 1. ワンタッチ オンライン / オフライン切替 ＆ パスワード部屋 -->
+                    <div class="card-box" style="border-color:${this.fbConnected ? '#10b981' : '#38bdf8'};">
+                        <div class="flex-between" style="flex-wrap:wrap; margin-bottom:8px;">
+                            <div>
+                                <div style="font-size:13px; font-weight:900; color:#38bdf8;">🌐 オンラインマルチ共闘 ＆ 部屋パスワード</div>
+                                <div style="font-size:11px; color:${this.fbConnected ? '#34d399' : '#94a3b8'}; font-weight:900; margin-top:2px;">
+                                    状態: ${this.fbConnected ? `● オンライン接続中（同じ部屋: ${1 + remotes.length}人）` : (isOnline ? '⏳ 接続中 / URL未設定' : '📴 オフライン（ソロプレイ）')}
+                                </div>
+                            </div>
+                            <button id="m-btn-toggle-online" class="btn-ui ${isOnline ? 'btn-emerald' : 'btn-slate'}" style="padding:9px 14px; font-size:12px;">
+                                ${isOnline ? '🌐 オンライン: ON' : '📴 オフライン: OFF'}
+                            </button>
+                        </div>
+
+                        <div class="card-box" style="background:rgba(15,23,42,0.75); border-color:${isPassOn ? '#f59e0b' : '#334155'};">
+                            <div class="flex-between" style="flex-wrap:wrap; margin-bottom:6px;">
+                                <div>
+                                    <div style="font-size:12px; font-weight:900; color:#fde047;">🔒 パスワード部屋（合言葉ロック）</div>
+                                    <div style="font-size:10px; color:#cbd5e1;">
+                                        ${isPassOn
+                                            ? '🔒 ON中：同じパスワードを設定した人だけ表示・共闘・部屋チャットができます'
+                                            : '🔓 OFF中：オンラインのみんなが全員表示される公開広場モードです'}
+                                    </div>
+                                </div>
+                                <button id="m-btn-toggle-pass" class="btn-ui ${isPassOn ? 'btn-amber' : 'btn-slate'}">
+                                    ${isPassOn ? '🔒 パスワード: ON' : '🔓 パスワード: OFF'}
+                                </button>
+                            </div>
+                            ${isPassOn ? `
+                                <div style="display:flex; gap:6px; align-items:center; margin-top:6px;">
+                                    <input id="m-input-room-pass" class="input-ui" type="text" maxlength="16" value="${d.roomPassword || ''}" placeholder="合言葉を入力（例: 7777）">
+                                    <button id="m-btn-apply-pass" class="btn-ui btn-emerald" style="white-space:nowrap;">決定</button>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+
+                    <!-- 2. Firebase データベースURL設定 -->
+                    <div class="card-box">
+                        <div style="font-size:12px; font-weight:900; color:#7dd3fc; margin-bottom:4px;">🔗 Firebase Realtime Database URL（初回のみ設定）</div>
+                        <p style="font-size:10px; color:#94a3b8; line-height:1.4; margin-bottom:6px;">
+                            URLを一度接続すると自動保存され、次回からは上の「オンライン ON/OFF」ボタンだけで即座にみんなと合流できます。
+                        </p>
+                        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                            <input id="input-firebase-url" class="input-ui" style="flex:1; min-width:210px;" type="text" value="${d.firebaseUrl || ''}" placeholder="https://your-project-default-rtdb.firebaseio.com">
+                            <button id="btn-fb-connect" class="btn-ui btn-sky">接続＆保存</button>
+                            ${this.fbConnected ? '<button id="btn-fb-disconnect" class="btn-ui btn-rose">切断</button>' : ''}
+                        </div>
+                    </div>
+
+                    <!-- 3. 同じ部屋のオンライン仲間一覧 -->
+                    <div class="card-box">
+                        <div style="font-size:12px; font-weight:900; color:#f472b6; margin-bottom:6px;">
+                            👥 ${isPassOn ? `パスワード部屋「${d.roomPassword || '未入力'}」のメンバー` : '公開オンラインの冒険者一覧'}（${1 + remotes.length}人）
+                        </div>
+                        <div class="grid-2">
+                            <div class="card-box flex-between" style="border-color:#38bdf8;">
+                                <div>
+                                    <div class="font-kaomoji" style="font-size:13px; font-weight:900; color:#38bdf8;">${this.getBasePlayerKaomoji()} <span style="color:#fff;">あなた (Lv.${d.lv})</span></div>
+                                    <div style="font-size:10px; color:#94a3b8;">現在地: ${ZONES[this.currentZoneId]?.name || '試練の塔'} / 脅威+${d.threatRank || 0}</div>
+                                </div>
+                                <span class="badge-pill" style="background:#0284c7; color:#fff;">自分</span>
+                            </div>
+                            ${remotes.map(rp => `
+                                <div class="card-box flex-between">
+                                    <div>
+                                        <div class="font-kaomoji" style="font-size:13px; font-weight:900; color:#f472b6;">${rp.kaomoji} <span style="color:#fff;">Lv.${rp.lv} 仲間</span></div>
+                                        <div style="font-size:10px; color:#94a3b8;">現在地: ${ZONES[rp.zoneId]?.name || '試練の塔'} / 脅威+${rp.threatRank || 0}</div>
+                                    </div>
+                                    <span class="badge-pill" style="background:#059669; color:#fff;">表示中</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <!-- 4. Firebase クラウドセーブ＆別端末データ復元 -->
+                    <div class="card-box" style="border-color:rgba(251,191,36,0.5);">
+                        <div style="font-size:12px; font-weight:900; color:#fde047; margin-bottom:4px;">☁️ クラウドセーブ＆別端末データ復元</div>
+                        <div class="grid-2" style="margin-bottom:6px;">
+                            <div>
+                                <div style="font-size:10px; color:#94a3b8; margin-bottom:2px;">冒険者ID（半角英数字 3文字以上）</div>
+                                <input id="input-cloud-id" class="input-ui" type="text" maxlength="20" value="${d.cloudId || ''}" placeholder="例: neko_hero77">
+                            </div>
+                            <div>
+                                <div style="font-size:10px; color:#94a3b8; margin-bottom:2px;">合言葉 / 暗証番号（4文字以上）</div>
+                                <input id="input-cloud-pin" class="input-ui" type="text" maxlength="12" value="${d.cloudPin || ''}" placeholder="例: 1234">
+                            </div>
+                        </div>
+                        <div class="flex-wrap-gap">
+                            <button id="btn-cloud-save" class="btn-ui btn-amber" ${!this.fbConnected ? 'disabled' : ''}>☁️ クラウド保存</button>
+                            <button id="btn-cloud-load" class="btn-ui btn-sky" ${!this.fbConnected ? 'disabled' : ''}>📥 クラウド復元</button>
+                        </div>
+                    </div>
+
+                    <!-- 5. 引き継ぎコード -->
+                    <div class="card-box">
+                        <div style="font-size:12px; font-weight:900; color:#6ee7b7; margin-bottom:4px;">📜 引き継ぎコード（オフラインバックアップ）</div>
+                        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                            <input id="input-backup-code" class="input-ui" style="flex:1; min-width:200px;" type="text" placeholder="ここに引き継ぎコードを貼り付けて復元">
+                            <button id="btn-export-code" class="btn-ui btn-emerald">📋 書き出し</button>
+                            <button id="btn-import-code" class="btn-ui btn-fuchsia">📥 コード復元</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('m-btn-toggle-online')?.addEventListener('click', () => {
+                if (this.toggleOnlineMode) {
+                    this.toggleOnlineMode();
+                } else {
+                    d.onlineEnabled = !d.onlineEnabled;
+                    this.saveGame(false);
+                }
+                this.renderModalContent();
+            });
+
+            document.getElementById('m-btn-toggle-pass')?.addEventListener('click', () => {
+                d.roomPassEnabled = !d.roomPassEnabled;
+                this.saveGame(false);
+                if (this.syncFirebaseNow) this.syncFirebaseNow();
+                this.refreshTitleScreen();
+                this.refreshAllHUD();
+                this.renderModalContent();
+                this.showAlertBanner(d.roomPassEnabled ? '🔒 パスワード部屋をONにしました' : '🔓 パスワード制限を解除（公開部屋）しました', 1600);
+            });
+
+            document.getElementById('m-btn-apply-pass')?.addEventListener('click', () => {
+                const pw = document.getElementById('m-input-room-pass')?.value.trim() || '';
+                d.roomPassword = pw;
+                this.saveGame(false);
+                if (this.syncFirebaseNow) this.syncFirebaseNow();
+                this.refreshTitleScreen();
+                this.refreshAllHUD();
+                this.renderModalContent();
+                this.showAlertBanner(pw ? `🔑 部屋パスワード「${pw}」を設定しました！` : '⚠️ パスワードが空欄です', 1600);
+            });
+
+            document.getElementById('btn-fb-connect')?.addEventListener('click', () => {
+                const url = document.getElementById('input-firebase-url')?.value.trim() || '';
+                d.onlineEnabled = true;
+                this.connectFirebase(url, false);
+            });
+            document.getElementById('btn-fb-disconnect')?.addEventListener('click', () => {
+                d.onlineEnabled = false;
+                this.disconnectFirebase();
+                this.renderModalContent();
+            });
+            document.getElementById('btn-cloud-save')?.addEventListener('click', () => {
+                const cid = document.getElementById('input-cloud-id')?.value.trim() || '';
+                const cpin = document.getElementById('input-cloud-pin')?.value.trim() || '';
+                if (this.saveToFirebaseCloud) this.saveToFirebaseCloud(cid, cpin);
+            });
+            document.getElementById('btn-cloud-load')?.addEventListener('click', () => {
+                const cid = document.getElementById('input-cloud-id')?.value.trim() || '';
+                const cpin = document.getElementById('input-cloud-pin')?.value.trim() || '';
+                if (this.loadFromFirebaseCloud) this.loadFromFirebaseCloud(cid, cpin);
+            });
+            document.getElementById('btn-export-code')?.addEventListener('click', () => {
+                try {
+                    const json = JSON.stringify(this.saveData);
+                    const code = btoa(unescape(encodeURIComponent(json)));
+                    const inp = document.getElementById('input-backup-code');
+                    if (inp) {
+                        inp.value = code;
+                        inp.select();
+                    }
+                    if (navigator.clipboard) navigator.clipboard.writeText(code).catch(() => {});
+                    this.showAlertBanner('📋 引き継ぎコードを書き出し＆コピーしました！', 2200);
+                } catch (e) {
+                    this.showAlertBanner('⚠️ コード生成に失敗しました', 1800);
+                }
+            });
+            document.getElementById('btn-import-code')?.addEventListener('click', () => {
+                const rawCode = document.getElementById('input-backup-code')?.value.trim() || '';
+                if (!rawCode) {
+                    this.showAlertBanner('⚠️ 引き継ぎコードを貼り付けてください', 1800);
+                    return;
+                }
+                try {
+                    const json = decodeURIComponent(escape(atob(rawCode)));
+                    const parsed = JSON.parse(json);
+                    if (!parsed || typeof parsed.lv !== 'number') throw new Error('invalid');
+                    const def = this.createDefaultSave();
+                    this.saveData = {
+                        ...def,
+                        ...parsed,
+                        stats: { ...def.stats, ...(parsed.stats || {}) },
+                        skills: { ...def.skills, ...(parsed.skills || {}) },
+                        materials: { ...def.materials, ...(parsed.materials || {}) },
+                        statsTrack: { ...def.statsTrack, ...(parsed.statsTrack || {}) }
+                    };
+                    this.saveGame(false);
+                    this.buildPlayerEntity();
+                    this.buildPetEntity();
+                    this.loadZone('town');
+                    this.closeGrowthModal();
+                    sfx.playLevelUp();
+                    this.showAlertBanner('🎉 引き継ぎコードからデータを完全復元しました！', 2400);
+                } catch (e) {
+                    this.showAlertBanner('❌ 無効な引き継ぎコードです', 2000);
+                }
+            });
+
+        } else if (this.activeTab === 'travel') {
             const bestFloor = (d.statsTrack && d.statsTrack.bestTowerFloor) || 0;
             const resumeFloor = Math.max(1, Math.floor(bestFloor / 5) * 5 + 1);
             body.innerHTML = `
@@ -182,7 +392,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             const curScale = this.getPlayerBodyScale();
             body.innerHTML = `
                 <div style="display:flex; flex-direction:column; gap:10px;">
-                    <!-- 体型サイズ＆体色＆顔モニター色 -->
                     <div class="card-box">
                         <div style="font-size:12px; font-weight:900; color:#fde047; margin-bottom:6px;">📏 体型サイズ変更</div>
                         <div class="flex-wrap-gap" style="margin-bottom:10px;">
@@ -221,7 +430,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                         </div>
                     </div>
 
-                    <!-- 頭パーツ（9種） -->
                     <div class="card-box">
                         <div style="font-size:12px; font-weight:900; color:#f472b6; margin-bottom:6px;">🐱 頭パーツ（背中パーツと同時装着OK！）</div>
                         <div class="grid-2">
@@ -247,7 +455,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                         </div>
                     </div>
 
-                    <!-- 背中パーツ（6種） -->
                     <div class="card-box">
                         <div style="font-size:12px; font-weight:900; color:#c084fc; margin-bottom:6px;">🕊️ 背中パーツ（翼・マント・九尾・光輪オーラ）</div>
                         <div class="grid-2">
@@ -273,7 +480,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                         </div>
                     </div>
 
-                    <!-- 顔文字＆カスタム称号・エモート -->
                     <div class="card-box">
                         <div style="font-size:12px; font-weight:900; color:#7dd3fc; margin-bottom:6px;">✏️ 基本の顔文字＆カスタム称号・エモート</div>
                         <div class="grid-2" style="margin-bottom:8px;">
@@ -1004,147 +1210,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                 this.saveGame(false);
                 this.renderModalContent();
             }));
-
-        } else if (this.activeTab === 'online') {
-            const remotes = Array.from(this.remotePlayers.values());
-            body.innerHTML = `
-                <div style="display:flex; flex-direction:column; gap:10px;">
-                    <!-- 1. Firebase データベースURL接続 -->
-                    <div class="card-box" style="border-color:${this.fbConnected ? '#10b981' : '#38bdf8'};">
-                        <div style="font-size:13px; font-weight:900; color:#38bdf8; margin-bottom:4px;">🌐 Step1: Firebase Realtime Database URL接続</div>
-                        <p style="font-size:11px; color:#cbd5e1; line-height:1.45; margin-bottom:8px;">
-                            FirebaseのデータベースURLを接続すると、<strong>☁️クラウドセーブ（別端末からのデータ復元）</strong>と<strong>リアルタイムマルチ共闘</strong>の両方が使えるようになります！
-                        </p>
-                        <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                            <input id="input-firebase-url" class="input-ui" style="flex:1; min-width:220px;" type="text" value="${d.firebaseUrl || ''}" placeholder="https://your-project-default-rtdb.firebaseio.com">
-                            <button id="btn-fb-connect" class="btn-ui btn-emerald">🔗 接続する</button>
-                            ${this.fbConnected ? '<button id="btn-fb-disconnect" class="btn-ui btn-rose">切断</button>' : ''}
-                        </div>
-                        <div style="font-size:11px; font-weight:900; margin-top:6px; color:${this.fbConnected ? '#34d399' : '#94a3b8'};">
-                            接続状態: ${this.fbConnected ? `● オンライン接続中（現在 ${1 + remotes.length} 人）` : '○ 未接続（オフライン）'}
-                        </div>
-                    </div>
-
-                    <!-- 2. Firebase クラウドセーブ＆別端末データ復元 -->
-                    <div class="card-box" style="border-color:rgba(251,191,36,0.6);">
-                        <div style="font-size:13px; font-weight:900; color:#fde047; margin-bottom:4px;">☁️ Step2: Firebase クラウドセーブ＆引き継ぎ復元</div>
-                        <p style="font-size:11px; color:#cbd5e1; line-height:1.45; margin-bottom:8px;">
-                            好きな<strong>「冒険者ID（半角英数字）」</strong>と<strong>「4桁の合言葉（PIN）」</strong>を決めて保存すると、スマホやPCが変わっても同じIDと合言葉でデータを完全復元できます！
-                        </p>
-                        <div class="grid-2" style="margin-bottom:8px;">
-                            <div>
-                                <div style="font-size:10px; color:#94a3b8; margin-bottom:2px;">冒険者ID（半角英数字 3〜20文字）</div>
-                                <input id="input-cloud-id" class="input-ui" type="text" maxlength="20" value="${d.cloudId || ''}" placeholder="例: neko_hero77">
-                            </div>
-                            <div>
-                                <div style="font-size:10px; color:#94a3b8; margin-bottom:2px;">合言葉 / 暗証番号（4〜12文字）</div>
-                                <input id="input-cloud-pin" class="input-ui" type="text" maxlength="12" value="${d.cloudPin || ''}" placeholder="例: 1234">
-                            </div>
-                        </div>
-                        <div class="flex-wrap-gap">
-                            <button id="btn-cloud-save" class="btn-ui btn-amber" ${!this.fbConnected ? 'disabled' : ''}>☁️ クラウドにセーブ保存</button>
-                            <button id="btn-cloud-load" class="btn-ui btn-sky" ${!this.fbConnected ? 'disabled' : ''}>📥 クラウドからデータ復元</button>
-                            ${!this.fbConnected ? '<span style="font-size:10px; color:#fda4af;">※先に上のFirebase URLを接続してください</span>' : ''}
-                        </div>
-                    </div>
-
-                    <!-- 3. オフラインでも使えるバックアップコード -->
-                    <div class="card-box">
-                        <div style="font-size:12px; font-weight:900; color:#6ee7b7; margin-bottom:4px;">📜 引き継ぎコード（メモ帳バックアップ用）</div>
-                        <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                            <input id="input-backup-code" class="input-ui" style="flex:1; min-width:200px;" type="text" placeholder="ここに引き継ぎコードを貼り付けて復元">
-                            <button id="btn-export-code" class="btn-ui btn-emerald">📋 現在のデータを書き出し</button>
-                            <button id="btn-import-code" class="btn-ui btn-fuchsia">📥 コードから復元</button>
-                        </div>
-                    </div>
-
-                    <!-- 4. オンライン中の冒険者一覧 -->
-                    <div class="card-box">
-                        <div style="font-size:12px; font-weight:900; color:#7dd3fc; margin-bottom:6px;">👥 オンライン中の冒険者一覧</div>
-                        <div class="grid-2">
-                            <div class="card-box flex-between" style="border-color:#38bdf8;">
-                                <div>
-                                    <div class="font-kaomoji" style="font-size:13px; font-weight:900; color:#38bdf8;">${this.getBasePlayerKaomoji()} <span style="color:#fff;">あなた (Lv.${d.lv})</span></div>
-                                    <div style="font-size:10px; color:#94a3b8;">現在地: ${ZONES[this.currentZoneId]?.name || '試練の塔'} / 脅威+${d.threatRank || 0}</div>
-                                </div>
-                                <span class="badge-pill" style="background:#0284c7; color:#fff;">自分</span>
-                            </div>
-                            ${remotes.map(rp => `
-                                <div class="card-box flex-between">
-                                    <div>
-                                        <div class="font-kaomoji" style="font-size:13px; font-weight:900; color:#f472b6;">${rp.kaomoji} <span style="color:#fff;">Lv.${rp.lv} 冒険者</span></div>
-                                        <div style="font-size:10px; color:#94a3b8;">現在地: ${ZONES[rp.zoneId]?.name || '試練の塔'} / 脅威+${rp.threatRank || 0}</div>
-                                    </div>
-                                    <span class="badge-pill" style="background:#059669; color:#fff;">オンライン</span>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                </div>
-            `;
-            document.getElementById('btn-fb-connect')?.addEventListener('click', () => {
-                const url = document.getElementById('input-firebase-url')?.value.trim() || '';
-                this.connectFirebase(url, false);
-            });
-            document.getElementById('btn-fb-disconnect')?.addEventListener('click', () => {
-                this.disconnectFirebase();
-                this.renderModalContent();
-            });
-            document.getElementById('btn-cloud-save')?.addEventListener('click', () => {
-                const cid = document.getElementById('input-cloud-id')?.value.trim() || '';
-                const cpin = document.getElementById('input-cloud-pin')?.value.trim() || '';
-                if (this.saveToFirebaseCloud) this.saveToFirebaseCloud(cid, cpin);
-            });
-            document.getElementById('btn-cloud-load')?.addEventListener('click', () => {
-                const cid = document.getElementById('input-cloud-id')?.value.trim() || '';
-                const cpin = document.getElementById('input-cloud-pin')?.value.trim() || '';
-                if (this.loadFromFirebaseCloud) this.loadFromFirebaseCloud(cid, cpin);
-            });
-            document.getElementById('btn-export-code')?.addEventListener('click', () => {
-                try {
-                    const json = JSON.stringify(this.saveData);
-                    const code = btoa(unescape(encodeURIComponent(json)));
-                    const inp = document.getElementById('input-backup-code');
-                    if (inp) {
-                        inp.value = code;
-                        inp.select();
-                    }
-                    if (navigator.clipboard) navigator.clipboard.writeText(code).catch(() => {});
-                    this.showAlertBanner('📋 引き継ぎコードを書き出し＆コピーしました！', 2200);
-                } catch (e) {
-                    this.showAlertBanner('⚠️ コード生成に失敗しました', 1800);
-                }
-            });
-            document.getElementById('btn-import-code')?.addEventListener('click', () => {
-                const rawCode = document.getElementById('input-backup-code')?.value.trim() || '';
-                if (!rawCode) {
-                    this.showAlertBanner('⚠️ 引き継ぎコードを貼り付けてください', 1800);
-                    return;
-                }
-                try {
-                    const json = decodeURIComponent(escape(atob(rawCode)));
-                    const parsed = JSON.parse(json);
-                    if (!parsed || typeof parsed.lv !== 'number') throw new Error('invalid');
-                    const def = this.createDefaultSave();
-                    this.saveData = {
-                        ...def,
-                        ...parsed,
-                        stats: { ...def.stats, ...(parsed.stats || {}) },
-                        skills: { ...def.skills, ...(parsed.skills || {}) },
-                        materials: { ...def.materials, ...(parsed.materials || {}) },
-                        statsTrack: { ...def.statsTrack, ...(parsed.statsTrack || {}) }
-                    };
-                    this.saveGame(false);
-                    this.buildPlayerEntity();
-                    this.buildPetEntity();
-                    this.loadZone('town');
-                    this.closeGrowthModal();
-                    sfx.playLevelUp();
-                    this.showAlertBanner('🎉 引き継ぎコードからデータを完全復元しました！', 2400);
-                } catch (e) {
-                    this.showAlertBanner('❌ 無効な引き継ぎコードです', 2000);
-                }
-            });
         }
     }
 });
