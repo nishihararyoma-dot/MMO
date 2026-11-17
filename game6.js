@@ -1,11 +1,11 @@
 'use strict';
 
 // =========================================================================
-// 顔文字ファンタジー3D ntfy二重同期・マルチタッチ視点回転・全操作制御 (game6.js)
+// 顔文字ファンタジー3D ntfy最適化同期・同時視点操作・全イベント制御 (game6.js)
 // =========================================================================
 
-const NTFY_BASE_URL = 'https://ntfy.sh';
-const NTFY_GLOBAL_TOPIC = 'kaomoji_fantasy_3d_global_chat_v3';
+window.NTFY_BASE_URL = 'https://ntfy.sh';
+window.NTFY_GLOBAL_TOPIC = 'kaomoji_fantasy_3d_global_chat_v4';
 
 Object.assign(KaomojiMMORPG.prototype, {
 
@@ -22,7 +22,7 @@ Object.assign(KaomojiMMORPG.prototype, {
     getNtfyRoomTopic() {
         const d = this.saveData;
         if (!d.roomPassEnabled) {
-            return 'kaomoji_fantasy_3d_room_PUBLIC_OPEN_v3';
+            return 'kaomoji_fantasy_3d_room_PUBLIC_OPEN_v4';
         }
         return 'kaomoji_fantasy_3d_room_PASS_' + this.encodeRoomTopicSuffix(d.roomPassword);
     },
@@ -53,16 +53,16 @@ Object.assign(KaomojiMMORPG.prototype, {
         this.saveData.onlineEnabled = true;
         this.fbConnected = true;
         this.fbLastEventTs = Date.now();
+        this._ntfyBackoffUntil = 0;
         this.saveGame(false);
 
         this.openNtfyGlobalStream();
         this.openNtfyRoomStream();
 
-        // 接続直後に入室パケット＆現在地を送信し、さらに1.2秒後にも再送して確実に出会う
         this.syncFirebaseNow(true);
         setTimeout(() => {
-            if (this.fbConnected) this.syncFirebaseNow(true);
-        }, 1200);
+            if (this.fbConnected) this.pollNtfyTopics();
+        }, 800);
 
         this.refreshTitleScreen();
         this.refreshAllHUD();
@@ -116,7 +116,7 @@ Object.assign(KaomojiMMORPG.prototype, {
     openNtfyGlobalStream() {
         if (typeof EventSource === 'undefined') return;
         try {
-            const es = new EventSource(`${NTFY_BASE_URL}/${NTFY_GLOBAL_TOPIC}/sse?since=15s`);
+            const es = new EventSource(`${window.NTFY_BASE_URL}/${window.NTFY_GLOBAL_TOPIC}/sse?since=20s`);
             es.onmessage = (ev) => this.handleNtfyRawLine(ev.data);
             this.ntfyGlobalEs = es;
         } catch (e) {}
@@ -127,28 +127,24 @@ Object.assign(KaomojiMMORPG.prototype, {
         const topic = this.getNtfyRoomTopic();
         this.currentNtfyRoomTopic = topic;
         try {
-            const es = new EventSource(`${NTFY_BASE_URL}/${topic}/sse?since=15s`);
+            const es = new EventSource(`${window.NTFY_BASE_URL}/${topic}/sse?since=20s`);
             es.onmessage = (ev) => this.handleNtfyRawLine(ev.data);
             this.ntfyRoomEs = es;
         } catch (e) {}
     },
 
-    // iPad Safari等でSSEが遅延・切断された場合でも確実に受信するHTTP JSONポーリング
     pollNtfyTopics() {
         if (!this.fbConnected) return;
+        if (this._ntfyBackoffUntil && Date.now() < this._ntfyBackoffUntil) return;
         const roomTopic = this.getNtfyRoomTopic();
-        fetch(`${NTFY_BASE_URL}/${roomTopic}/json?poll=1&since=12s`, { cache: 'no-store' })
-            .then(r => r.ok ? r.text() : '')
-            .then(txt => {
-                if (!txt) return;
-                txt.split('\n').forEach(line => {
-                    if (line.trim()) this.handleNtfyRawLine(line);
-                });
+        fetch(`${window.NTFY_BASE_URL}/${roomTopic}/json?poll=1&since=20s`, { cache: 'no-store' })
+            .then(r => {
+                if (r.status === 429) {
+                    this._ntfyBackoffUntil = Date.now() + 15000;
+                    return '';
+                }
+                return r.ok ? r.text() : '';
             })
-            .catch(() => {});
-
-        fetch(`${NTFY_BASE_URL}/${NTFY_GLOBAL_TOPIC}/json?poll=1&since=12s`, { cache: 'no-store' })
-            .then(r => r.ok ? r.text() : '')
             .then(txt => {
                 if (!txt) return;
                 txt.split('\n').forEach(line => {
@@ -178,9 +174,14 @@ Object.assign(KaomojiMMORPG.prototype, {
 
     broadcastNtfyPacket(topic, obj) {
         if (!topic || !obj) return;
-        fetch(`${NTFY_BASE_URL}/${topic}`, {
+        if (this._ntfyBackoffUntil && Date.now() < this._ntfyBackoffUntil) return;
+        fetch(`${window.NTFY_BASE_URL}/${topic}`, {
             method: 'POST',
             body: JSON.stringify(obj)
+        }).then(r => {
+            if (r.status === 429) {
+                this._ntfyBackoffUntil = Date.now() + 15000;
+            }
         }).catch(() => {});
     },
 
@@ -230,7 +231,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             ts: Date.now()
         };
         if (type === 'chat_global') {
-            this.broadcastNtfyPacket(NTFY_GLOBAL_TOPIC, packet);
+            this.broadcastNtfyPacket(window.NTFY_GLOBAL_TOPIC, packet);
         } else {
             this.broadcastNtfyPacket(this.getNtfyRoomTopic(), packet);
         }
@@ -239,21 +240,28 @@ Object.assign(KaomojiMMORPG.prototype, {
     updateFirebaseSync(dt) {
         if (!this.fbConnected) return;
 
+        // 移動中は2.5秒ごと、静止中は4.5秒ごとに送信（ntfy制限回避）
+        const isMoving = Math.hypot(this.joyVec.x, this.joyVec.y) > 0.1 ||
+            this.keys['KeyW'] || this.keys['KeyA'] || this.keys['KeyS'] || this.keys['KeyD'] ||
+            this.keys['ArrowUp'] || this.keys['ArrowDown'] || this.keys['ArrowLeft'] || this.keys['ArrowRight'];
+        const syncInterval = isMoving ? 2.5 : 4.5;
+
         this.fbSyncTimer += dt;
-        if (this.fbSyncTimer >= 1.35) {
+        if (this.fbSyncTimer >= syncInterval) {
             this.fbSyncTimer = 0;
             this.syncFirebaseNow(false);
         }
 
+        // SSEの補助ポーリングは8秒ごと
         this.fbPollTimer += dt;
-        if (this.fbPollTimer >= 2.2) {
+        if (this.fbPollTimer >= 8.0) {
             this.fbPollTimer = 0;
             this.pollNtfyTopics();
 
             const now = Date.now();
             let changed = false;
             for (const [uid, rp] of this.remotePlayers.entries()) {
-                if (now - (rp.lastSeenTs || 0) > 18000) {
+                if (now - (rp.lastSeenTs || 0) > 25000) {
                     if (rp.group && this.scene) this.scene.remove(rp.group);
                     if (rp.plateEl) rp.plateEl.remove();
                     this.remotePlayers.delete(uid);
@@ -289,7 +297,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         const senderUid = msg.uid || msg.senderUid;
         if (!senderUid || senderUid === myUid) return;
 
-        // 重複イベント防止
         const msgId = wrapper.id || `${senderUid}_${msg.type}_${msg.ts}`;
         if (!this._seenNtfyIds) this._seenNtfyIds = new Set();
         if (this._seenNtfyIds.has(msgId)) return;
@@ -299,13 +306,11 @@ Object.assign(KaomojiMMORPG.prototype, {
             this._seenNtfyIds.delete(first);
         }
 
-        // 1. 全体チャット
         if (msg.type === 'chat_global' && msg.payload) {
             this.addChatMessage('global', msg.payload.kaomoji, msg.payload.name, msg.payload.text, false);
             return;
         }
 
-        // 2. 部屋同期・部屋イベント（同じ部屋キーのみ）
         const myRoomKey = this.getCurrentRoomKey();
         const msgRoomKey = msg.roomKey || 'PUBLIC_OPEN_ROOM';
         if (msgRoomKey !== myRoomKey) return;
@@ -314,8 +319,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             const isNew = !this.remotePlayers.has(msg.uid);
             this.upsertRemotePlayer(msg);
             if (isNew || msg.type === 'hello') {
-                // 新規合流または入室挨拶を受けたら即座に自分の現在地を返す
-                this.syncFirebaseNow(false);
+                setTimeout(() => this.syncFirebaseNow(false), 300);
                 if (isNew) {
                     const zName = (typeof ZONES !== 'undefined' && ZONES[msg.zoneId]) ? ZONES[msg.zoneId].name : '試練の塔';
                     this.showAlertBanner(`👋 ${msg.kaomoji || '(´・ω・`)'} Lv.${msg.lv || 1} が合流！（現在地: ${zName}）`, 2600);
@@ -427,8 +431,8 @@ Object.assign(KaomojiMMORPG.prototype, {
             rp.visible = sameZone;
             if (rp.group) rp.group.visible = sameZone;
 
-            rp.pos.lerp(rp.targetPos, Math.min(1, dt * 8));
-            rp.rotY += (rp.targetRotY - rp.rotY) * Math.min(1, dt * 8);
+            rp.pos.lerp(rp.targetPos, Math.min(1, dt * 6));
+            rp.rotY += (rp.targetRotY - rp.rotY) * Math.min(1, dt * 6);
             if (rp.group) {
                 rp.group.position.copy(rp.pos);
                 rp.group.rotation.y = rp.rotY;
@@ -445,11 +449,7 @@ Object.assign(KaomojiMMORPG.prototype, {
         return count;
     },
 
-    // -----------------------------------------------------------------
-    // 全UI・タイトル画面・チャット・操作イベントバインド
-    // -----------------------------------------------------------------
     bindEvents() {
-        // 1. タイトル画面のボタン群
         document.getElementById('title-btn-toggle-online')?.addEventListener('click', () => {
             this.toggleOnlineMode();
         });
@@ -492,7 +492,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             );
         });
 
-        // 2. 上部HUDメニューボタン群
         document.getElementById('btn-hud-online-toggle')?.addEventListener('click', (e) => {
             e.stopPropagation();
             this.toggleOnlineMode();
@@ -524,7 +523,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             if (e.target.id === 'growth-modal') this.closeGrowthModal();
         });
 
-        // 歯車ドロワー＆エモート開閉
         document.getElementById('btn-toggle-drawer')?.addEventListener('click', (e) => {
             e.stopPropagation();
             sfx.init();
@@ -539,7 +537,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             document.getElementById('hud-drawer-menu')?.classList.add('hidden');
         });
 
-        // 中央ワープ実行ボタン
         document.getElementById('btn-exec-warp')?.addEventListener('click', (e) => {
             e.stopPropagation();
             sfx.init();
@@ -552,7 +549,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             }
         });
 
-        // 歯車ドロワー内ボタン群
         document.getElementById('btn-toggle-autohunt')?.addEventListener('click', (e) => {
             e.stopPropagation();
             sfx.init();
@@ -625,7 +621,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             );
         });
 
-        // 3. チャットUI
         document.getElementById('btn-toggle-chat')?.addEventListener('click', (e) => {
             e.stopPropagation();
             sfx.init();
@@ -670,7 +665,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             }
         });
 
-        // 4. 右下バトルパッド
         const atkBtn = document.getElementById('btn-basic-attack');
         if (atkBtn) {
             let lastAtkTouch = 0;
@@ -694,7 +688,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             if (this.cycleTarget) this.cycleTarget();
         });
 
-        // 5. 画面タップでポップアップ閉じ＋3Dモンスター選択
         this.canvas?.addEventListener('click', (e) => {
             sfx.init();
             document.getElementById('hud-drawer-menu')?.classList.add('hidden');
@@ -723,7 +716,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             }
         });
 
-        // 6. キーボード操作
         window.addEventListener('keydown', (e) => {
             const tag = (document.activeElement && document.activeElement.tagName) || '';
             if (tag === 'INPUT' || tag === 'TEXTAREA') return;
@@ -753,7 +745,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             this.keys[e.code] = false;
         });
 
-        // 7. バーチャルジョイスティック（左手移動専用タッチID管理）
+        // バーチャルジョイスティック（左手移動専用タッチID）
         const joyZone = document.getElementById('joystick-zone');
         const joyKnob = document.getElementById('joystick-knob');
         if (joyZone && joyKnob) {
@@ -841,7 +833,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             });
         }
 
-        // 8. 3Dカメラ回転＆ズーム（ジョイスティックと同時操作可能なマルチタッチ対応）
+        // 3Dカメラ回転＆ズーム（targetTouchesでジョイスティックと同時操作可能）
         if (this.canvas) {
             let camDragging = false;
             let camTouchId = null;
@@ -874,7 +866,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                 this.camDist = Math.max(7.5, Math.min(26.0, this.camDist + e.deltaY * 0.01));
             }, { passive: false });
 
-            // targetTouches（キャンバス上の指だけ）を使うことで左手の移動と完全独立！
             this.canvas.addEventListener('touchstart', (e) => {
                 sfx.init();
                 if (e.targetTouches.length === 1) {
@@ -934,7 +925,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                     camTouchId = null;
                     pinchDist = 0;
                 } else if (e.targetTouches.length === 1) {
-                    // 2本指ズームから1本指に戻ったときも視点回転を継続
                     const t = e.targetTouches[0];
                     camDragging = true;
                     camTouchId = t.identifier;
@@ -963,7 +953,6 @@ Object.assign(KaomojiMMORPG.prototype, {
     }
 });
 
-// player.skillCds 初期化保証ラッパー
 if (typeof KaomojiMMORPG !== 'undefined' && KaomojiMMORPG.prototype.buildPlayerEntity) {
     const _origBuildPlayerEntity = KaomojiMMORPG.prototype.buildPlayerEntity;
     KaomojiMMORPG.prototype.buildPlayerEntity = function () {
@@ -975,7 +964,6 @@ if (typeof KaomojiMMORPG !== 'undefined' && KaomojiMMORPG.prototype.buildPlayerE
     };
 }
 
-// ゲーム起動
 window.addEventListener('DOMContentLoaded', () => {
     if (!window.game && typeof KaomojiMMORPG !== 'undefined') {
         window.game = new KaomojiMMORPG();
