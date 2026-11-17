@@ -1,11 +1,11 @@
 'use strict';
 
 // =========================================================================
-// 顔文字ファンタジー3D ntfyリアルタイム通信・部屋同期・全操作制御 (game6.js)
+// 顔文字ファンタジー3D ntfy二重同期・マルチタッチ視点回転・全操作制御 (game6.js)
 // =========================================================================
 
 const NTFY_BASE_URL = 'https://ntfy.sh';
-const NTFY_GLOBAL_TOPIC = 'kaomoji_fantasy_3d_global_chat_v2';
+const NTFY_GLOBAL_TOPIC = 'kaomoji_fantasy_3d_global_chat_v3';
 
 Object.assign(KaomojiMMORPG.prototype, {
 
@@ -22,12 +22,11 @@ Object.assign(KaomojiMMORPG.prototype, {
     getNtfyRoomTopic() {
         const d = this.saveData;
         if (!d.roomPassEnabled) {
-            return 'kaomoji_fantasy_3d_room_PUBLIC_OPEN_v2';
+            return 'kaomoji_fantasy_3d_room_PUBLIC_OPEN_v3';
         }
         return 'kaomoji_fantasy_3d_room_PASS_' + this.encodeRoomTopicSuffix(d.roomPassword);
     },
 
-    // ワンタッチ オンライン / オフライン切替（URL入力不要で即接続）
     toggleOnlineMode() {
         sfx.init();
         const d = this.saveData;
@@ -45,7 +44,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         }
     },
 
-    // game1.js 等からの互換呼び出し口
     connectFirebase(rawUrl, silent = false) {
         this.connectNtfy(silent);
     },
@@ -59,7 +57,12 @@ Object.assign(KaomojiMMORPG.prototype, {
 
         this.openNtfyGlobalStream();
         this.openNtfyRoomStream();
-        this.syncFirebaseNow();
+
+        // 接続直後に入室パケット＆現在地を送信し、さらに1.2秒後にも再送して確実に出会う
+        this.syncFirebaseNow(true);
+        setTimeout(() => {
+            if (this.fbConnected) this.syncFirebaseNow(true);
+        }, 1200);
 
         this.refreshTitleScreen();
         this.refreshAllHUD();
@@ -88,7 +91,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             this.ntfyRoomEs = null;
         }
         this.openNtfyRoomStream();
-        this.syncFirebaseNow();
+        this.syncFirebaseNow(true);
     },
 
     closeNtfyStreams() {
@@ -113,8 +116,8 @@ Object.assign(KaomojiMMORPG.prototype, {
     openNtfyGlobalStream() {
         if (typeof EventSource === 'undefined') return;
         try {
-            const es = new EventSource(`${NTFY_BASE_URL}/${NTFY_GLOBAL_TOPIC}/sse?since=10s`);
-            es.onmessage = (ev) => this.handleNtfySseEvent(ev.data, 'global');
+            const es = new EventSource(`${NTFY_BASE_URL}/${NTFY_GLOBAL_TOPIC}/sse?since=15s`);
+            es.onmessage = (ev) => this.handleNtfyRawLine(ev.data);
             this.ntfyGlobalEs = es;
         } catch (e) {}
     },
@@ -124,10 +127,35 @@ Object.assign(KaomojiMMORPG.prototype, {
         const topic = this.getNtfyRoomTopic();
         this.currentNtfyRoomTopic = topic;
         try {
-            const es = new EventSource(`${NTFY_BASE_URL}/${topic}/sse?since=10s`);
-            es.onmessage = (ev) => this.handleNtfySseEvent(ev.data, 'room');
+            const es = new EventSource(`${NTFY_BASE_URL}/${topic}/sse?since=15s`);
+            es.onmessage = (ev) => this.handleNtfyRawLine(ev.data);
             this.ntfyRoomEs = es;
         } catch (e) {}
+    },
+
+    // iPad Safari等でSSEが遅延・切断された場合でも確実に受信するHTTP JSONポーリング
+    pollNtfyTopics() {
+        if (!this.fbConnected) return;
+        const roomTopic = this.getNtfyRoomTopic();
+        fetch(`${NTFY_BASE_URL}/${roomTopic}/json?poll=1&since=12s`, { cache: 'no-store' })
+            .then(r => r.ok ? r.text() : '')
+            .then(txt => {
+                if (!txt) return;
+                txt.split('\n').forEach(line => {
+                    if (line.trim()) this.handleNtfyRawLine(line);
+                });
+            })
+            .catch(() => {});
+
+        fetch(`${NTFY_BASE_URL}/${NTFY_GLOBAL_TOPIC}/json?poll=1&since=12s`, { cache: 'no-store' })
+            .then(r => r.ok ? r.text() : '')
+            .then(txt => {
+                if (!txt) return;
+                txt.split('\n').forEach(line => {
+                    if (line.trim()) this.handleNtfyRawLine(line);
+                });
+            })
+            .catch(() => {});
     },
 
     disconnectFirebase() {
@@ -156,10 +184,10 @@ Object.assign(KaomojiMMORPG.prototype, {
         }).catch(() => {});
     },
 
-    buildMyOnlinePayload() {
+    buildMyOnlinePayload(isHello = false) {
         const d = this.saveData;
         return {
-            type: 'sync',
+            type: isHello ? 'hello' : 'sync',
             uid: d.playerUid,
             roomKey: this.getCurrentRoomKey(),
             lv: d.lv || 1,
@@ -182,14 +210,14 @@ Object.assign(KaomojiMMORPG.prototype, {
         };
     },
 
-    syncFirebaseNow() {
+    syncFirebaseNow(isHello = false) {
         if (!this.fbConnected) return;
         const topic = this.getNtfyRoomTopic();
         if (this.currentNtfyRoomTopic && this.currentNtfyRoomTopic !== topic) {
             this.reconnectNtfyRoom();
             return;
         }
-        this.broadcastNtfyPacket(topic, this.buildMyOnlinePayload());
+        this.broadcastNtfyPacket(topic, this.buildMyOnlinePayload(isHello));
     },
 
     broadcastFirebaseEvent(type, payload) {
@@ -212,18 +240,20 @@ Object.assign(KaomojiMMORPG.prototype, {
         if (!this.fbConnected) return;
 
         this.fbSyncTimer += dt;
-        if (this.fbSyncTimer >= 1.25) {
+        if (this.fbSyncTimer >= 1.35) {
             this.fbSyncTimer = 0;
-            this.syncFirebaseNow();
+            this.syncFirebaseNow(false);
         }
 
         this.fbPollTimer += dt;
-        if (this.fbPollTimer >= 2.0) {
+        if (this.fbPollTimer >= 2.2) {
             this.fbPollTimer = 0;
+            this.pollNtfyTopics();
+
             const now = Date.now();
             let changed = false;
             for (const [uid, rp] of this.remotePlayers.entries()) {
-                if (now - (rp.lastSeenTs || 0) > 15000) {
+                if (now - (rp.lastSeenTs || 0) > 18000) {
                     if (rp.group && this.scene) this.scene.remove(rp.group);
                     if (rp.plateEl) rp.plateEl.remove();
                     this.remotePlayers.delete(uid);
@@ -237,11 +267,11 @@ Object.assign(KaomojiMMORPG.prototype, {
         }
     },
 
-    handleNtfySseEvent(rawSseData, streamKind) {
-        if (!rawSseData) return;
+    handleNtfyRawLine(rawLine) {
+        if (!rawLine) return;
         let wrapper;
         try {
-            wrapper = JSON.parse(rawSseData);
+            wrapper = JSON.parse(rawLine);
         } catch (e) {
             return;
         }
@@ -257,19 +287,19 @@ Object.assign(KaomojiMMORPG.prototype, {
 
         const myUid = this.saveData.playerUid;
         const senderUid = msg.uid || msg.senderUid;
-        if (senderUid === myUid) return;
+        if (!senderUid || senderUid === myUid) return;
 
         // 重複イベント防止
-        const msgId = wrapper.id || `${senderUid}_${msg.ts}`;
+        const msgId = wrapper.id || `${senderUid}_${msg.type}_${msg.ts}`;
         if (!this._seenNtfyIds) this._seenNtfyIds = new Set();
         if (this._seenNtfyIds.has(msgId)) return;
         this._seenNtfyIds.add(msgId);
-        if (this._seenNtfyIds.size > 300) {
+        if (this._seenNtfyIds.size > 400) {
             const first = this._seenNtfyIds.values().next().value;
             this._seenNtfyIds.delete(first);
         }
 
-        // 1. 全体チャット（どの部屋にいても受信）
+        // 1. 全体チャット
         if (msg.type === 'chat_global' && msg.payload) {
             this.addChatMessage('global', msg.payload.kaomoji, msg.payload.name, msg.payload.text, false);
             return;
@@ -280,13 +310,18 @@ Object.assign(KaomojiMMORPG.prototype, {
         const msgRoomKey = msg.roomKey || 'PUBLIC_OPEN_ROOM';
         if (msgRoomKey !== myRoomKey) return;
 
-        if (msg.type === 'sync') {
+        if (msg.type === 'sync' || msg.type === 'hello') {
             const isNew = !this.remotePlayers.has(msg.uid);
             this.upsertRemotePlayer(msg);
-            if (isNew) {
-                this.syncFirebaseNow();
-                this.refreshAllHUD();
-                if (this.isModalOpen && this.activeTab === 'online') this.renderModalContent();
+            if (isNew || msg.type === 'hello') {
+                // 新規合流または入室挨拶を受けたら即座に自分の現在地を返す
+                this.syncFirebaseNow(false);
+                if (isNew) {
+                    const zName = (typeof ZONES !== 'undefined' && ZONES[msg.zoneId]) ? ZONES[msg.zoneId].name : '試練の塔';
+                    this.showAlertBanner(`👋 ${msg.kaomoji || '(´・ω・`)'} Lv.${msg.lv || 1} が合流！（現在地: ${zName}）`, 2600);
+                    this.refreshAllHUD();
+                    if (this.isModalOpen && this.activeTab === 'online') this.renderModalContent();
+                }
             }
         } else if (msg.type === 'leave') {
             const rp = this.remotePlayers.get(msg.uid);
@@ -590,7 +625,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             );
         });
 
-        // 3. チャットUI（開閉・タブ切替・定型文・送信）
+        // 3. チャットUI
         document.getElementById('btn-toggle-chat')?.addEventListener('click', (e) => {
             e.stopPropagation();
             sfx.init();
@@ -635,7 +670,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             }
         });
 
-        // 4. 右下アーク型バトルパッド（攻撃＆標的切替）
+        // 4. 右下バトルパッド
         const atkBtn = document.getElementById('btn-basic-attack');
         if (atkBtn) {
             let lastAtkTouch = 0;
@@ -718,7 +753,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             this.keys[e.code] = false;
         });
 
-        // 7. バーチャルジョイスティック
+        // 7. バーチャルジョイスティック（左手移動専用タッチID管理）
         const joyZone = document.getElementById('joystick-zone');
         const joyKnob = document.getElementById('joystick-knob');
         if (joyZone && joyKnob) {
@@ -752,6 +787,7 @@ Object.assign(KaomojiMMORPG.prototype, {
 
             joyZone.addEventListener('touchstart', (e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 sfx.init();
                 const t = e.changedTouches[0];
                 joyActive = true;
@@ -779,6 +815,16 @@ Object.assign(KaomojiMMORPG.prototype, {
                 }
             });
 
+            window.addEventListener('touchcancel', (e) => {
+                if (!joyActive) return;
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === joyTouchId) {
+                        resetJoy();
+                        break;
+                    }
+                }
+            });
+
             joyZone.addEventListener('mousedown', (e) => {
                 e.preventDefault();
                 sfx.init();
@@ -795,9 +841,10 @@ Object.assign(KaomojiMMORPG.prototype, {
             });
         }
 
-        // 8. 3Dカメラ回転＆ズーム
+        // 8. 3Dカメラ回転＆ズーム（ジョイスティックと同時操作可能なマルチタッチ対応）
         if (this.canvas) {
             let camDragging = false;
+            let camTouchId = null;
             let lastX = 0;
             let lastY = 0;
             let pinchDist = 0;
@@ -827,33 +874,52 @@ Object.assign(KaomojiMMORPG.prototype, {
                 this.camDist = Math.max(7.5, Math.min(26.0, this.camDist + e.deltaY * 0.01));
             }, { passive: false });
 
+            // targetTouches（キャンバス上の指だけ）を使うことで左手の移動と完全独立！
             this.canvas.addEventListener('touchstart', (e) => {
                 sfx.init();
-                if (e.touches.length === 1) {
+                if (e.targetTouches.length === 1) {
+                    const t = e.targetTouches[0];
                     camDragging = true;
-                    lastX = e.touches[0].clientX;
-                    lastY = e.touches[0].clientY;
-                } else if (e.touches.length === 2) {
+                    camTouchId = t.identifier;
+                    lastX = t.clientX;
+                    lastY = t.clientY;
+                    pinchDist = 0;
+                } else if (e.targetTouches.length >= 2) {
                     camDragging = false;
+                    camTouchId = null;
                     pinchDist = Math.hypot(
-                        e.touches[0].clientX - e.touches[1].clientX,
-                        e.touches[0].clientY - e.touches[1].clientY
+                        e.targetTouches[0].clientX - e.targetTouches[1].clientX,
+                        e.targetTouches[0].clientY - e.targetTouches[1].clientY
                     );
                 }
             }, { passive: true });
 
             this.canvas.addEventListener('touchmove', (e) => {
-                if (e.touches.length === 1 && camDragging) {
-                    const dx = e.touches[0].clientX - lastX;
-                    const dy = e.touches[0].clientY - lastY;
-                    lastX = e.touches[0].clientX;
-                    lastY = e.touches[0].clientY;
-                    this.camYaw -= dx * 0.008;
+                if (e.targetTouches.length === 1 && camDragging) {
+                    let t = null;
+                    for (let i = 0; i < e.targetTouches.length; i++) {
+                        if (e.targetTouches[i].identifier === camTouchId) {
+                            t = e.targetTouches[i];
+                            break;
+                        }
+                    }
+                    if (!t) {
+                        t = e.targetTouches[0];
+                        camTouchId = t.identifier;
+                        lastX = t.clientX;
+                        lastY = t.clientY;
+                        return;
+                    }
+                    const dx = t.clientX - lastX;
+                    const dy = t.clientY - lastY;
+                    lastX = t.clientX;
+                    lastY = t.clientY;
+                    this.camYaw -= dx * 0.0085;
                     this.camPitch = Math.max(0.18, Math.min(1.15, this.camPitch + dy * 0.007));
-                } else if (e.touches.length === 2) {
+                } else if (e.targetTouches.length >= 2) {
                     const newDist = Math.hypot(
-                        e.touches[0].clientX - e.touches[1].clientX,
-                        e.touches[0].clientY - e.touches[1].clientY
+                        e.targetTouches[0].clientX - e.targetTouches[1].clientX,
+                        e.targetTouches[0].clientY - e.targetTouches[1].clientY
                     );
                     if (pinchDist > 0) {
                         this.camDist = Math.max(7.5, Math.min(26.0, this.camDist - (newDist - pinchDist) * 0.03));
@@ -862,13 +928,29 @@ Object.assign(KaomojiMMORPG.prototype, {
                 }
             }, { passive: true });
 
-            this.canvas.addEventListener('touchend', () => {
+            this.canvas.addEventListener('touchend', (e) => {
+                if (e.targetTouches.length === 0) {
+                    camDragging = false;
+                    camTouchId = null;
+                    pinchDist = 0;
+                } else if (e.targetTouches.length === 1) {
+                    // 2本指ズームから1本指に戻ったときも視点回転を継続
+                    const t = e.targetTouches[0];
+                    camDragging = true;
+                    camTouchId = t.identifier;
+                    lastX = t.clientX;
+                    lastY = t.clientY;
+                    pinchDist = 0;
+                }
+            });
+
+            this.canvas.addEventListener('touchcancel', () => {
                 camDragging = false;
+                camTouchId = null;
                 pinchDist = 0;
             });
         }
 
-        // ページを閉じる際に退出パケットを送信
         window.addEventListener('pagehide', () => {
             if (this.fbConnected) {
                 this.broadcastNtfyPacket(this.currentNtfyRoomTopic || this.getNtfyRoomTopic(), {
