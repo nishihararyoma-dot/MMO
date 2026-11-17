@@ -1,13 +1,13 @@
 'use strict';
 
 // =========================================================================
-// 顔文字ファンタジー3D 駆動ループ・装飾品・ペット・実績・試練の塔UI (game3.js)
+// 顔文字ファンタジー3D 駆動ループ・豪華エフェクト制御・全育成UI (game3.js)
 // =========================================================================
 
 Object.assign(KaomojiMMORPG.prototype, {
 
     // -----------------------------------------------------------------
-    // プレイヤー更新（全身スキルモーション・装備パーツ回転・スマートAUTO）
+    // プレイヤー更新（全身スキルモーション・属性斬撃・街中央ワープ検知）
     // -----------------------------------------------------------------
     updatePlayer(dt, elapsed) {
         if (!this.player) return;
@@ -45,10 +45,17 @@ Object.assign(KaomojiMMORPG.prototype, {
             }
         }
 
+        // 中央ワープポータル検知（街ではステージ選択へ出発、狩場では街へ帰還）
         const warpBox = document.getElementById('warp-prompt-box');
+        const warpBtn = document.getElementById('btn-exec-warp');
         if (warpBox) {
             if (this.isOnWarpPortal(this.player.pos)) {
                 warpBox.classList.remove('hidden');
+                if (warpBtn) {
+                    warpBtn.textContent = (this.currentZoneId === 'town')
+                        ? '🌀 ステージ・試練の塔へ出発'
+                        : '🏠 街へ帰還ワープ';
+                }
             } else {
                 warpBox.classList.add('hidden');
             }
@@ -93,7 +100,7 @@ Object.assign(KaomojiMMORPG.prototype, {
                 const dx = target.pos.x - this.player.pos.x;
                 const dz = target.pos.z - this.player.pos.z;
                 const dist = Math.hypot(dx, dz);
-                if (dist > 3.6) {
+                if (dist > 3.8) {
                     this.player.pos.x += (dx / dist) * st.moveSpeed * dt;
                     this.player.pos.z += (dz / dist) * st.moveSpeed * dt;
                     this.clampPosition(this.player.pos);
@@ -186,18 +193,23 @@ Object.assign(KaomojiMMORPG.prototype, {
             this.player.group.rotation.y = this.player.rotY;
         }
 
+        // オート通常攻撃（武器属性色の三日月斬撃波＋クリティカル十字閃光！）
         if (this.autoAttack && !this.isModalOpen && !this.isDead && this.player.stunTimer <= 0 && !inTown) {
-            const target = this.getNearestMonster(4.8) || this.getValidTarget();
-            if (target && !target.dead && this.player.pos.distanceTo(target.pos) <= 4.7) {
+            const target = this.getNearestMonster(5.0) || this.getValidTarget();
+            if (target && !target.dead && this.player.pos.distanceTo(target.pos) <= 4.9) {
                 this.selectedTarget = target;
                 this.autoAtkTimer -= dt;
                 if (this.autoAtkTimer <= 0) {
                     this.autoAtkTimer = Math.max(0.45, 1.05 * (1 - st.cdReduction * 0.6));
+                    const dx = target.pos.x - this.player.pos.x;
+                    const dz = target.pos.z - this.player.pos.z;
+                    if (dx * dx + dz * dz > 0.01) this.player.rotY = Math.atan2(dx, dz);
+
                     const crit = Math.random() < st.critChance;
                     this.damageMonster(target, st.physAtk * (crit ? st.critDmg : 1), crit);
-                    this.spawnSlashEffect(target.pos, 0x38bdf8);
+                    this.spawnPlayerAttackEffect(target.pos, st.wpnGlowColor, crit);
                     if (this.player.wpnGroup && this.player.skillAnimTimer <= 0) {
-                        this.player.wpnGroup.rotation.x = 1.3;
+                        this.player.wpnGroup.rotation.x = 1.35;
                     }
                 }
             }
@@ -248,7 +260,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             }
 
             const dist = this.player.pos.distanceTo(nearEnemy.pos);
-            if (dist <= 5.5) {
+            if (dist <= 5.8) {
                 if (nearEnemy.casting) {
                     const intSlot = d.equippedSkills.findIndex((id, idx) => {
                         const s = id ? SKILLS[id] : null;
@@ -274,6 +286,9 @@ Object.assign(KaomojiMMORPG.prototype, {
         }
     },
 
+    // -----------------------------------------------------------------
+    // モンスター更新（近距離攻撃の射程拡大＋踏み込み爪撃エフェクト）
+    // -----------------------------------------------------------------
     updateMonsters(dt) {
         if (!this.player) return;
         const pPos = this.player.pos;
@@ -290,9 +305,11 @@ Object.assign(KaomojiMMORPG.prototype, {
                     m.stunTimer = 0;
                     m.slowTimer = 0;
                     m.burnTimer = 0;
+                    m.atkAnimTimer = 0;
                     m.pos.copy(m.spawnPos);
                     if (m.group) {
                         m.group.position.copy(m.pos);
+                        m.group.rotation.x = 0;
                         m.group.visible = true;
                     }
                     if (m.plateEl) m.plateEl.style.display = 'block';
@@ -311,6 +328,24 @@ Object.assign(KaomojiMMORPG.prototype, {
                 if (m.dead) return;
             }
 
+            if (m.atkAnimTimer > 0) {
+                m.atkAnimTimer = Math.max(0, m.atkAnimTimer - dt);
+            }
+
+            // 敵の攻撃踏み込みモーション反映
+            if (m.group) {
+                if (m.atkAnimTimer > 0) {
+                    const lunge = Math.sin((m.atkAnimTimer / 0.28) * Math.PI);
+                    const fwdX = Math.sin(m.group.rotation.y);
+                    const fwdZ = Math.cos(m.group.rotation.y);
+                    m.group.position.set(m.pos.x + fwdX * lunge * 0.95, lunge * 0.28, m.pos.z + fwdZ * lunge * 0.95);
+                    m.group.rotation.x = lunge * 0.34;
+                } else {
+                    m.group.position.copy(m.pos);
+                    m.group.rotation.x = 0;
+                }
+            }
+
             if (m.stunTimer > 0) return;
 
             if (m.casting) {
@@ -321,8 +356,11 @@ Object.assign(KaomojiMMORPG.prototype, {
                 if (m.casting.elapsed >= m.casting.duration) {
                     m.casting = null;
                     document.getElementById('boss-cast-box')?.classList.add('hidden');
-                    this.spawnRingEffect(m.pos, 0xf43f5e, 9.5);
-                    if (pPos.distanceTo(m.pos) <= 9.5) {
+                    this.camShake = Math.max(this.camShake, 0.42);
+                    this.spawnDomeEffect(m.pos, 0xf43f5e, 6.0);
+                    this.spawnRingEffect(m.pos, 0xf43f5e, 10.5);
+                    this.spawnSparkleBurst(m.pos, 0xfbbf24, 12);
+                    if (pPos.distanceTo(m.pos) <= 10.5) {
                         this.damagePlayer(m.atk * 2.2);
                         this.showAlertBanner(`💥 ${m.name}の大技が炸裂！`, 1600);
                     }
@@ -331,28 +369,31 @@ Object.assign(KaomojiMMORPG.prototype, {
             }
 
             const dist = m.pos.distanceTo(pPos);
-            if (dist < 16.5 || this.towerState.active) m.aggro = true;
+            if (dist < 17.5 || this.towerState.active) m.aggro = true;
             if (!m.aggro) return;
 
             const spdMult = m.slowTimer > 0 ? (m.slowFactor || 0.5) : 1.0;
-            const moveSpd = (m.isBoss ? 4.3 : 5.1) * spdMult;
-            const stopRange = m.isBoss ? 3.8 : 2.8;
+            const moveSpd = (m.isBoss ? 4.5 : 5.3) * spdMult;
+            // 近距離攻撃の射程を延長（通常敵: 4.3 / ボス: 5.6）
+            const meleeRange = m.isBoss ? 5.6 : 4.3;
 
-            if (dist > stopRange) {
-                const dx = pPos.x - m.pos.x;
-                const dz = pPos.z - m.pos.z;
+            const dx = pPos.x - m.pos.x;
+            const dz = pPos.z - m.pos.z;
+            if (m.group && (dx * dx + dz * dz > 0.01)) {
+                m.group.rotation.y = Math.atan2(dx, dz);
+            }
+
+            if (dist > meleeRange) {
                 m.pos.x += (dx / dist) * moveSpd * dt;
                 m.pos.z += (dz / dist) * moveSpd * dt;
-                if (m.group) {
-                    m.group.position.copy(m.pos);
-                    m.group.rotation.y = Math.atan2(dx, dz);
-                }
             } else {
                 m.autoTimer -= dt * spdMult;
                 if (m.autoTimer <= 0) {
-                    m.autoTimer = m.isBoss ? 2.1 : 1.8;
+                    m.autoTimer = m.isBoss ? 2.0 : 1.75;
+                    m.atkAnimTimer = 0.28;
                     this.damagePlayer(m.atk);
-                    this.spawnSlashEffect(pPos, m.color);
+                    this.spawnEnemyAttackEffect(m.pos, pPos, m.color, m.isBoss);
+                    if (m.isBoss) this.camShake = Math.max(this.camShake, 0.18);
                 }
             }
 
@@ -404,7 +445,15 @@ Object.assign(KaomojiMMORPG.prototype, {
         };
     },
 
-    updateEffectsAndOverlays(dt) {
+    // -----------------------------------------------------------------
+    // 3Dエフェクト駆動（全スキル専用アニメーション＋ワープ回転＋画面揺れ）
+    // -----------------------------------------------------------------
+    updateEffectsAndOverlays(dt, elapsed) {
+        if (this.warpCrystal && this.warpGroup && this.warpGroup.visible) {
+            this.warpCrystal.rotation.y += dt * 2.4;
+            this.warpCrystal.position.y = 2.35 + Math.sin(elapsed * 3.5) * 0.22;
+        }
+
         for (let i = this.effects.length - 1; i >= 0; i--) {
             const ef = this.effects[i];
             ef.life -= dt;
@@ -416,12 +465,43 @@ Object.assign(KaomojiMMORPG.prototype, {
                 const prog = 1 - ratio;
 
                 if (ef.kind === 'expand' && ef.mesh) {
-                    const s = 1 + prog * 0.42;
+                    const s = 1 + prog * 0.45;
                     ef.mesh.scale.set(s, s, 1);
+                } else if (ef.kind === 'implode' && ef.mesh) {
+                    const s = Math.max(0.05, ratio);
+                    ef.mesh.scale.set(s, s, s);
+                    ef.mesh.rotation.y += dt * 12.0;
                 } else if (ef.kind === 'pillar' && ef.mesh) {
-                    ef.mesh.rotation.y += dt * 7.0;
+                    ef.mesh.rotation.y += dt * 7.5;
                     const s = Math.max(0.2, ratio);
                     ef.mesh.scale.set(s, 1, s);
+                } else if (ef.kind === 'orbit' && ef.mesh) {
+                    ef.mesh.rotation.y += dt * 10.5;
+                    if (this.player) {
+                        // 主人公追従の公転エフェクト（旋風円舞・イージス）
+                        const distToP = Math.hypot(ef.mesh.position.x - this.player.pos.x, ef.mesh.position.z - this.player.pos.z);
+                        if (distToP < 2.2) {
+                            ef.mesh.position.x = this.player.pos.x;
+                            ef.mesh.position.z = this.player.pos.z;
+                        }
+                    }
+                } else if (ef.kind === 'projectile' && ef.mesh) {
+                    ef.mesh.position.x += (ef.vx || 0) * dt;
+                    ef.mesh.position.z += (ef.vz || 0) * dt;
+                    const s = 1 + prog * 0.35;
+                    ef.mesh.scale.set(s, s, s);
+                } else if (ef.kind === 'homing' && ef.mesh) {
+                    const tx = this.player ? this.player.pos.x : (ef.targetX || 0);
+                    const tz = this.player ? this.player.pos.z : (ef.targetZ || 0);
+                    const ty = ef.targetY || 1.1;
+                    const ease = prog * prog;
+                    ef.mesh.position.x = ef.startX + (tx - ef.startX) * ease;
+                    ef.mesh.position.y = ef.startY + (ty - ef.startY) * ease + Math.sin(prog * Math.PI) * 0.8;
+                    ef.mesh.position.z = ef.startZ + (tz - ef.startZ) * ease;
+                } else if (ef.kind === 'phoenix' && ef.mesh) {
+                    ef.mesh.position.x += (ef.vx || 0) * dt;
+                    ef.mesh.position.z += (ef.vz || 0) * dt;
+                    ef.mesh.position.y = Math.max(0.75, 4.5 * ratio);
                 } else if (ef.kind === 'fall' && ef.mesh) {
                     ef.mesh.position.y = Math.max(0.8, (ef.startY || 12) * ratio);
                     ef.mesh.rotation.x += dt * 9.0;
@@ -448,8 +528,15 @@ Object.assign(KaomojiMMORPG.prototype, {
         }
 
         if (this.useWebGL && this.camera && this.player) {
-            const cx = this.player.pos.x + Math.sin(this.camYaw) * Math.cos(this.camPitch) * this.camDist;
-            const cy = this.player.pos.y + Math.sin(this.camPitch) * this.camDist;
+            let shakeX = 0, shakeY = 0;
+            if (this.camShake > 0) {
+                shakeX = (Math.random() - 0.5) * this.camShake * 1.6;
+                shakeY = (Math.random() - 0.5) * this.camShake * 1.6;
+                this.camShake = Math.max(0, this.camShake - dt * 1.4);
+            }
+
+            const cx = this.player.pos.x + Math.sin(this.camYaw) * Math.cos(this.camPitch) * this.camDist + shakeX;
+            const cy = this.player.pos.y + Math.sin(this.camPitch) * this.camDist + shakeY;
             const cz = this.player.pos.z + Math.cos(this.camYaw) * Math.cos(this.camPitch) * this.camDist;
             this.camera.position.set(cx, cy, cz);
             this.camera.lookAt(this.player.pos.x, this.player.pos.y + 1.2, this.player.pos.z);
@@ -689,7 +776,7 @@ Object.assign(KaomojiMMORPG.prototype, {
     },
 
     // -----------------------------------------------------------------
-    // モーダル・全育成タブ描画（装飾品・ペット・実績＆称号・試練の塔対応）
+    // モーダル・全育成タブ描画
     // -----------------------------------------------------------------
     canEvolveTo(evo) {
         const d = this.saveData;
@@ -938,7 +1025,7 @@ Object.assign(KaomojiMMORPG.prototype, {
                         </div>
                     </div>
 
-                    <div style="font-size:12px; font-weight:900; color:#fde047;">🗡️ 武器の鍛造・装備（3D武器モデル変化）</div>
+                    <div style="font-size:12px; font-weight:900; color:#fde047;">🗡️ 武器の鍛造・装備（3D武器モデル＆斬撃エフェクト色変化）</div>
                     <div class="grid-2">
                         ${Object.values(WEAPONS).map(w => {
                             const owned = d.ownedWeapons.includes(w.id);
@@ -1234,7 +1321,7 @@ Object.assign(KaomojiMMORPG.prototype, {
                 <div style="display:flex; flex-direction:column; gap:10px;">
                     <div class="card-box flex-between">
                         <span style="font-size:12px; font-weight:900; color:#818cf8;">残りスキルポイント (SP): <b style="color:#fde047; font-size:15px;">${d.sp}</b></span>
-                        <span style="font-size:10px; color:#94a3b8;">LvUPで倍率＆サポート性能が上昇（消費MPも比例増加）</span>
+                        <span style="font-size:10px; color:#94a3b8;">全14スキル固有3Dエフェクト搭載！LvUPで倍率＆サポート強化</span>
                     </div>
                     <div class="grid-2">
                         ${Object.values(SKILLS).map(sk => {
@@ -1516,10 +1603,9 @@ Object.assign(KaomojiMMORPG.prototype, {
     },
 
     // -----------------------------------------------------------------
-    // イベントバインド（BGM切替・マルチタッチスティック・カメラ・戦闘）
+    // イベントバインド（街中央ワープ起動・BGM切替・マルチタッチ操作）
     // -----------------------------------------------------------------
     bindEvents() {
-        // ④ BGM ON/OFFボタンをドロワー内に自動追加
         const drawer = document.getElementById('hud-drawer-menu');
         if (drawer && !document.getElementById('btn-toggle-bgm')) {
             const bgmBtn = document.createElement('button');
@@ -1696,13 +1782,19 @@ Object.assign(KaomojiMMORPG.prototype, {
             this.saveGame(true);
         });
 
+        // 中央ワープボタン：街では「ステージ・試練の塔」選択を開き、狩場では街へ帰還
         document.getElementById('btn-exec-warp')?.addEventListener('click', () => {
-            this.autoHunt = false;
-            const autoBtn = document.getElementById('btn-toggle-autohunt');
-            if (autoBtn) autoBtn.textContent = '🤖 AUTO:OFF';
-            this.loadZone('town');
-            sfx.playLevelUp();
-            this.showAlertBanner('🏠 安全な街「始まりの顔文字広場」へ帰還しました！', 2200);
+            sfx.playSkill();
+            if (this.currentZoneId === 'town') {
+                this.openGrowthModal('travel');
+            } else {
+                this.autoHunt = false;
+                const autoBtn = document.getElementById('btn-toggle-autohunt');
+                if (autoBtn) autoBtn.textContent = '🤖 AUTO:OFF';
+                this.loadZone('town');
+                sfx.playLevelUp();
+                this.showAlertBanner('🏠 安全な街「始まりの顔文字広場」へ帰還しました！', 2200);
+            }
         });
 
         document.getElementById('btn-toggle-emote')?.addEventListener('click', (e) => {
@@ -1731,13 +1823,17 @@ Object.assign(KaomojiMMORPG.prototype, {
         bindInstantAction('btn-basic-attack', () => {
             if (this.isDead) return;
             const target = this.getValidTarget();
-            if (target && !target.dead && this.player.pos.distanceTo(target.pos) <= 5.2) {
+            if (target && !target.dead && this.player.pos.distanceTo(target.pos) <= 5.4) {
                 const st = this.calcDerivedStats();
+                const dx = target.pos.x - this.player.pos.x;
+                const dz = target.pos.z - this.player.pos.z;
+                if (dx * dx + dz * dz > 0.01) this.player.rotY = Math.atan2(dx, dz);
+
                 const crit = Math.random() < st.critChance;
                 this.damageMonster(target, st.physAtk * (crit ? st.critDmg : 1), crit);
-                this.spawnSlashEffect(target.pos, 0x38bdf8);
+                this.spawnPlayerAttackEffect(target.pos, st.wpnGlowColor, crit);
                 if (this.player.wpnGroup && this.player.skillAnimTimer <= 0) {
-                    this.player.wpnGroup.rotation.x = 1.3;
+                    this.player.wpnGroup.rotation.x = 1.35;
                 }
             } else {
                 this.showAlertBanner('攻撃範囲内に敵がいません！近づこう！', 1100);
