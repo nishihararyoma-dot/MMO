@@ -51,7 +51,7 @@ Object.assign(KaomojiMMORPG.prototype, {
                 this.emoteMotion = 'none';
                 if (this.useWebGL && this.player.frontMat) {
                     const hexStr = '#' + this.getPlayerBodyHexColor().toString(16).padStart(6, '0');
-                    this.player.frontMat.map = getKaomojiFaceTexture(this.getBasePlayerKaomoji(), '#073b66', '#ffffff', hexStr);
+                    this.player.frontMat.map = getKaomojiFaceTexture(this.getBasePlayerKaomoji(), this.getPlayerFaceBgHex(), '#ffffff', hexStr);
                     this.player.frontMat.needsUpdate = true;
                 }
             }
@@ -149,23 +149,32 @@ Object.assign(KaomojiMMORPG.prototype, {
             if (this.player.skillAnimTimer > 0) {
                 const prog = 1 - (this.player.skillAnimTimer / Math.max(0.01, this.player.skillAnimDur));
                 const sType = this.player.skillAnimType;
-                if (sType === 'jump_slash') {
+                if (sType === 'basic_slash') {
+                    // 剣を振りかぶってから前方へ鋭く振り下ろす
+                    const swing = prog < 0.28
+                        ? (-0.75 * (prog / 0.28))
+                        : (-0.75 + 2.35 * ((prog - 0.28) / 0.72));
+                    if (this.player.wpnGroup) {
+                        this.player.wpnGroup.rotation.x = swing;
+                        this.player.wpnGroup.rotation.y = Math.sin(prog * Math.PI) * -0.35;
+                    }
+                } else if (sType === 'jump_slash') {
                     this.player.group.position.y = Math.sin(prog * Math.PI) * 1.45;
-                    this.player.group.rotation.x = Math.sin(prog * Math.PI) * 0.35;
-                    if (this.player.wpnGroup) this.player.wpnGroup.rotation.x = -0.8 + prog * 2.6;
+                    this.player.group.rotation.x = Math.sin(prog * Math.PI) * 0.32;
+                    if (this.player.wpnGroup) this.player.wpnGroup.rotation.x = -0.9 + prog * 2.6;
                 } else if (sType === 'spin_whirl') {
                     this.player.group.position.y = Math.sin(prog * Math.PI) * 0.45;
                     this.player.rotY += dt * 22.0;
                     if (this.player.wpnGroup) {
-                        this.player.wpnGroup.rotation.x = 1.35;
-                        this.player.wpnGroup.rotation.z = 1.25;
+                        this.player.wpnGroup.rotation.x = 1.25;
+                        this.player.wpnGroup.rotation.z = 1.15;
                     }
                 } else if (sType === 'cast_up') {
                     this.player.group.position.y = Math.sin(prog * Math.PI) * 0.42;
-                    if (this.player.wpnGroup) this.player.wpnGroup.rotation.x = -0.55;
+                    if (this.player.wpnGroup) this.player.wpnGroup.rotation.x = -0.45;
                 } else if (sType === 'slam_ground') {
                     this.player.group.position.y = Math.sin(prog * Math.PI) * 0.85;
-                    if (this.player.wpnGroup) this.player.wpnGroup.rotation.x = prog < 0.4 ? -0.9 : 1.65;
+                    if (this.player.wpnGroup) this.player.wpnGroup.rotation.x = prog < 0.4 ? -0.95 : 1.65;
                 }
             } else if (this.emoteTimer > 0) {
                 if (this.emoteMotion === 'jump') {
@@ -176,9 +185,9 @@ Object.assign(KaomojiMMORPG.prototype, {
                     this.player.group.position.y = Math.abs(Math.sin(elapsed * 16)) * 0.85;
                     this.player.rotY += dt * 7.5;
                 } else if (this.emoteMotion === 'beam') {
-                    if (this.player.wpnGroup) this.player.wpnGroup.rotation.x = 1.45;
+                    if (this.player.wpnGroup) this.player.wpnGroup.rotation.x = 1.25;
                 } else if (this.emoteMotion === 'bow' && this.player.head) {
-                    this.player.head.position.y = 1.15;
+                    this.player.head.position.y = 1.12;
                     this.player.head.rotation.x = 0.65;
                 } else if (this.emoteMotion === 'shake' && this.player.head) {
                     this.player.head.rotation.z = Math.sin(elapsed * 26) * 0.22;
@@ -188,23 +197,24 @@ Object.assign(KaomojiMMORPG.prototype, {
                     this.player.group.position.y = Math.abs(Math.sin(elapsed * 14)) * 0.14;
                 }
                 if (this.player.head) {
-                    this.player.head.position.y = 1.62;
+                    this.player.head.position.y = 1.58;
                     this.player.head.rotation.x = 0;
                     this.player.head.rotation.z = 0;
                 }
                 if (this.player.wpnGroup) {
-                    this.player.wpnGroup.rotation.x *= 0.80;
-                    this.player.wpnGroup.rotation.z *= 0.80;
+                    this.player.wpnGroup.rotation.x *= 0.78;
+                    this.player.wpnGroup.rotation.y *= 0.78;
+                    this.player.wpnGroup.rotation.z *= 0.78;
                 }
             }
 
             this.player.group.rotation.y = this.player.rotY;
         }
 
-        // オート通常攻撃
+        // 近接オート通常攻撃
         if (this.autoAttack && !this.isModalOpen && !this.isDead && this.player.stunTimer <= 0 && !inTown) {
-            const target = this.getNearestMonster(5.0) || this.getValidTarget();
-            if (target && !target.dead && this.player.pos.distanceTo(target.pos) <= 4.9) {
+            const target = this.getNearestMonster(5.2) || this.getValidTarget();
+            if (target && !target.dead && this.player.pos.distanceTo(target.pos) <= 5.1) {
                 this.selectedTarget = target;
                 this.autoAtkTimer -= dt;
                 if (this.autoAtkTimer <= 0) {
@@ -216,8 +226,10 @@ Object.assign(KaomojiMMORPG.prototype, {
                     const crit = Math.random() < st.critChance;
                     this.damageMonster(target, st.physAtk * (crit ? st.critDmg : 1), crit);
                     this.spawnPlayerAttackEffect(target.pos, st.wpnGlowColor, crit);
-                    if (this.player.wpnGroup && this.player.skillAnimTimer <= 0) {
-                        this.player.wpnGroup.rotation.x = 1.35;
+                    if (this.player.skillAnimTimer <= 0) {
+                        this.player.skillAnimType = 'basic_slash';
+                        this.player.skillAnimDur = 0.24;
+                        this.player.skillAnimTimer = 0.24;
                     }
                 }
             }
@@ -474,7 +486,8 @@ Object.assign(KaomojiMMORPG.prototype, {
             this.camera.lookAt(this.player.pos.x, this.player.pos.y + 1.2, this.player.pos.z);
 
             if (this.player.headPlateEl) {
-                const pSc = this.projectToScreen(new THREE.Vector3(this.player.pos.x, 2.55, this.player.pos.z));
+                const pScale = this.getPlayerBodyScale();
+                const pSc = this.projectToScreen(new THREE.Vector3(this.player.pos.x, 2.55 * pScale, this.player.pos.z));
                 if (pSc) {
                     this.player.headPlateEl.style.display = 'block';
                     this.player.headPlateEl.style.left = `${pSc.x}px`;
@@ -492,7 +505,7 @@ Object.assign(KaomojiMMORPG.prototype, {
                 rp.plateEl.style.display = 'none';
                 return;
             }
-            const sc = this.projectToScreen(new THREE.Vector3(rp.pos.x, 2.55, rp.pos.z));
+            const sc = this.projectToScreen(new THREE.Vector3(rp.pos.x, 2.55 * (rp.bodyScale || 1), rp.pos.z));
             if (sc) {
                 rp.plateEl.style.display = 'block';
                 rp.plateEl.style.left = `${sc.x}px`;
@@ -652,21 +665,20 @@ Object.assign(KaomojiMMORPG.prototype, {
             alertDot?.classList.add('hidden');
         }
 
+        // 親指アーク（扇形）丸型スキルボタン 1〜5
         const slotWrap = document.getElementById('skill-slots-container');
         slotWrap.innerHTML = [0, 1, 2, 3, 4].map(i => {
             const skId = d.equippedSkills[i];
             const sk = skId ? SKILLS[skId] : null;
             if (!sk) {
-                return `<button class="skill-slot-btn" style="opacity:0.35;" disabled><span style="font-size:10px; font-weight:800;">空枠${i + 1}</span></button>`;
+                return `<button class="skill-slot-btn skill-arc-${i}" style="opacity:0.32;" disabled><span style="font-size:9px; font-weight:900;">枠${i + 1}</span></button>`;
             }
             const skLv = d.skills[skId] || 1;
             const mpCost = getSkillMpCost(sk, skLv);
-            const shortName = sk.name.slice(0, 4);
             return `
-                <button class="skill-slot-btn" data-slot="${i}">
-                    <span style="font-size:19px; line-height:1;">${sk.icon}</span>
-                    <span style="font-size:9px; font-weight:900; color:#fff; margin-top:2px; line-height:1;">${shortName}</span>
-                    <span style="font-size:8px; font-weight:800; color:#7dd3fc; margin-top:2px; line-height:1;">MP${mpCost}</span>
+                <button class="skill-slot-btn skill-arc-${i}" data-slot="${i}">
+                    <span style="font-size:18px; line-height:1;">${sk.icon}</span>
+                    <span style="font-size:8px; font-weight:900; color:#7dd3fc; margin-top:2px; line-height:1;">MP${mpCost}</span>
                     <div id="skill-cd-${i}" class="skill-cd-overlay hidden">0.0</div>
                 </button>
             `;
