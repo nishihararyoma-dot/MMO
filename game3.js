@@ -43,7 +43,7 @@ Object.assign(KaomojiMMORPG.prototype, {
         this.emoteMotion = em.motion;
         if (this.useWebGL && this.player.frontMat) {
             const hexStr = '#' + this.getPlayerBodyHexColor().toString(16).padStart(6, '0');
-            this.player.frontMat.map = getKaomojiFaceTexture(em.kaomoji, '#073b66', '#fde047', hexStr);
+            this.player.frontMat.map = getKaomojiFaceTexture(em.kaomoji, this.getPlayerFaceBgHex(), '#fde047', hexStr);
             this.player.frontMat.needsUpdate = true;
         }
 
@@ -54,7 +54,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             this.spawnProjectileBeam(this.player.pos, this.player.rotY, 0x38bdf8);
         }
 
-        // 街のAI仲間が反応
         if (this.currentZoneId === 'town' && this.aiAllies.length > 0) {
             const ally = this.aiAllies[Math.floor(Math.random() * this.aiAllies.length)];
             setTimeout(() => {
@@ -64,7 +63,9 @@ Object.assign(KaomojiMMORPG.prototype, {
             }, 450);
         }
 
-        this.broadcastFirebaseEvent('emote', { emoteId: em.id, kaomoji: em.kaomoji, msg: em.msg });
+        if (this.broadcastFirebaseEvent) {
+            this.broadcastFirebaseEvent('emote', { emoteId: em.id, kaomoji: em.kaomoji, msg: em.msg });
+        }
     },
 
     getNearestMonster(maxDist = 30) {
@@ -97,6 +98,46 @@ Object.assign(KaomojiMMORPG.prototype, {
         const idx = alive.indexOf(this.selectedTarget);
         this.selectedTarget = alive[(idx + 1) % alive.length];
         sfx.playTone(620, 'sine', 0.08, 0.06);
+    },
+
+    // 手動「⚔️ 攻撃」ボタン用アクション
+    performBasicAttack() {
+        if (!this.player || this.isDead || this.player.stunTimer > 0) return;
+        sfx.init();
+        const st = this.calcDerivedStats();
+        const target = this.getNearestMonster(6.2) || this.getValidTarget();
+
+        if (target && !target.dead) {
+            const dx = target.pos.x - this.player.pos.x;
+            const dz = target.pos.z - this.player.pos.z;
+            if (dx * dx + dz * dz > 0.01) this.player.rotY = Math.atan2(dx, dz);
+        }
+
+        // 剣の振り下ろしアニメーション開始
+        this.player.skillAnimType = 'basic_slash';
+        this.player.skillAnimDur = 0.24;
+        this.player.skillAnimTimer = 0.24;
+        this.autoAtkTimer = Math.max(0.42, 0.95 * (1 - st.cdReduction * 0.6));
+
+        if (this.currentZoneId === 'town') {
+            sfx.playTone(360, 'triangle', 0.09, 0.06, 180);
+            return;
+        }
+
+        if (target && !target.dead && this.player.pos.distanceTo(target.pos) <= 6.2) {
+            this.selectedTarget = target;
+            const crit = Math.random() < st.critChance;
+            this.damageMonster(target, st.physAtk * (crit ? st.critDmg : 1), crit);
+            this.spawnPlayerAttackEffect(target.pos, st.wpnGlowColor, crit);
+        } else {
+            sfx.playTone(320, 'triangle', 0.09, 0.06, 150);
+            const fwd = new THREE.Vector3(
+                this.player.pos.x + Math.sin(this.player.rotY) * 2.2,
+                1.0,
+                this.player.pos.z + Math.cos(this.player.rotY) * 2.2
+            );
+            this.spawnSparkleBurst(fwd, st.wpnGlowColor, 4);
+        }
     },
 
     damageMonster(m, rawDmg, isCrit = false) {
@@ -140,7 +181,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         }
     },
 
-    // 自分が倒した時の報酬＆マルチ同席者への共闘イベント送信
     grantMonsterRewards(m) {
         const d = this.saveData;
         const st = this.calcDerivedStats();
@@ -155,7 +195,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         d.gold += gainGold;
         this.gainExp(gainExp);
 
-        // 素材ドロップ（全員獲得対象）
         const matKey = m.drop || 'slime_gel';
         const matCount = m.isBoss ? (2 + Math.floor(threat / 10)) : (Math.random() < 0.72 ? 1 + Math.floor(threat / 20) : 0);
         if (matCount > 0 && d.materials[matKey] !== undefined) {
@@ -164,7 +203,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             this.spawnFloatText(m.pos.clone().add(new THREE.Vector3(0, 1.5, 0)), `${matInfo.icon}${matInfo.name} x${matCount}`, '#6ee7b7', 13);
         }
 
-        // 実績トラッキング＆ボスAP/SPドロップ
         if (!d.statsTrack) d.statsTrack = { kills: 0, bossKills: 0, bestTowerFloor: 0, maxThreatKill: 0 };
         d.statsTrack.kills = (d.statsTrack.kills || 0) + 1;
         if (threat > (d.statsTrack.maxThreatKill || 0)) d.statsTrack.maxThreatKill = threat;
@@ -180,8 +218,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             this.spawnFloatText(this.player.pos.clone().add(new THREE.Vector3(0, 2.7, 0)), `🤝共闘+25% +${formatBigNum(gainGold)}G`, '#fde047', 12);
         }
 
-        // マルチプレイ時は同エリアの仲間に共闘報酬イベントを配信
-        if (!this.towerState.active && this.fbConnected) {
+        if (!this.towerState.active && this.fbConnected && this.broadcastFirebaseEvent) {
             this.broadcastFirebaseEvent('kill', {
                 zoneId: this.currentZoneId,
                 monsterName: m.name,
@@ -197,22 +234,18 @@ Object.assign(KaomojiMMORPG.prototype, {
         this.refreshAllHUD();
     },
 
-    // マルチプレイで味方が敵を倒したときの「実効脅威度リンク＋適正Lvキャップ＋共闘ボーナス」報酬
     receiveCoopReward(ev) {
         if (!ev || ev.zoneId !== this.currentZoneId || this.towerState.active) return;
         const d = this.saveData;
         const st = this.calcDerivedStats();
 
-        // 1. 実効脅威度リンク（低い方に合わせてズル防止）
         const effThreat = Math.min(d.threatRank || 0, ev.killerThreat || 0);
         const threatMult = 1 + effThreat * 0.25;
 
-        // 2. 適正レベルキャップ（低Lvが超高Lv敵で一気に壊れるのを防止）
         const lvCapBase = (45 + d.lv * 32) * 1.5;
         const cappedExpBase = Math.min(ev.baseExp || 30, lvCapBase);
         const cappedGoldBase = Math.min(ev.baseGold || 25, lvCapBase);
 
-        // 3. 共闘ボーナス +25%
         const coopMult = 1.25;
         const finalExp = Math.round(cappedExpBase * threatMult * coopMult * st.rewardMult);
         const finalGold = Math.round(cappedGoldBase * threatMult * coopMult * st.rewardMult);
@@ -220,7 +253,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         d.gold += finalGold;
         this.gainExp(finalExp);
 
-        // 4. 素材はレベル制限なしで全員ドロップ！
         const matKey = ev.drop || 'slime_gel';
         let matMsg = '';
         if (d.materials[matKey] !== undefined) {
@@ -349,7 +381,6 @@ Object.assign(KaomojiMMORPG.prototype, {
 
         this.executeSingleSkillCast(sk, skLv, st);
 
-        // 双子星の魔導符など2連発判定
         if (st.doubleCast > 0 && Math.random() < st.doubleCast) {
             setTimeout(() => {
                 if (!this.isDead) {
@@ -412,7 +443,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         }
 
         if (sk.radius) {
-            // 範囲スキル
             const center = (sk.type === 'AOE_DMG' && sk.id === 'spin_whirl') ? pPos : (target ? target.pos : pPos);
             this.player.skillAnimType = sk.id === 'spin_whirl' ? 'spin_whirl' : 'slam_ground';
             this.player.skillAnimDur = 0.4;
@@ -439,7 +469,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                 }
             });
         } else if (target && !target.dead) {
-            // 単体スキル
             this.player.skillAnimType = 'jump_slash';
             this.player.skillAnimDur = 0.35;
             this.player.skillAnimTimer = 0.35;
@@ -467,9 +496,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         }
     },
 
-    // -----------------------------------------------------------------
-    // 3Dビジュアルエフェクト生成
-    // -----------------------------------------------------------------
     spawnPlayerAttackEffect(pos, colorHex = 0x38bdf8, crit = false) {
         this.spawnSparkleBurst(pos, colorHex, crit ? 9 : 4);
         if (crit) this.spawnRingEffect(pos, 0xfde047, 2.4);
