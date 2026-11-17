@@ -11,18 +11,33 @@ const MQTT_SERVERS = [
 ];
 const TOPIC_GLOBAL = 'kaomoji_fantasy_3d/stable/global';
 
+const ALL_EMOTE_MOTIONS = [
+    'greeting_wave',
+    'backflip',
+    'bow_polite',
+    'tornado_dance',
+    'heart_float',
+    'chabudai_rage',
+    'cry_fountain',
+    'dogeza',
+    'ghost_faint',
+    'sleep_bubble',
+    'salute_hero',
+    'rocket_zoom'
+];
+
 const LOADING_KAOMOJIS = ['(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧', 'ε=ε=ε=┏(゜ロ゜;)┛', '(ง •̀_•́)ง ⚔️', '✧*｡٩(ˊᗜˋ*)و✧*｡', '(╯°□°）╯︵ ┻━┻'];
 const LOADING_TIPS = [
-    '💡 エモートを送ると自分も仲間も同じ動きで跳ねたり回ったりするよ！',
+    '💡 エモートはバク宙・土下座・昇天・号泣噴水など12種類の専用3Dアクションがあるよ！',
     '💡 枠1の「ちゃぶ台返し」で3Dのちゃぶ台が回転しながら飛んでいくよ！',
     '💡 左手で移動しながら右手で画面をなぞると視点を自由に回せるよ！',
     '💡 パスワード部屋を設定すると合言葉を知っている友達だけで遊べるよ！'
 ];
 
-(function injectV13Styles() {
-    if (document.getElementById('kmj-v13-style')) return;
+(function injectV14Styles() {
+    if (document.getElementById('kmj-v14-style')) return;
     const st = document.createElement('style');
-    st.id = 'kmj-v13-style';
+    st.id = 'kmj-v14-style';
     st.textContent = `
         #kmj-loading-screen{position:fixed;inset:0;z-index:96;background:radial-gradient(circle at center,#0f172a 0%,#020617 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;transition:opacity .28s ease;pointer-events:auto}
         #kmj-loading-screen.fade-out{opacity:0;pointer-events:none}
@@ -131,9 +146,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             this.netStatusLabel = '⏳ 自動接続中...';
             this.refreshAllHUD();
             const elapsed = Date.now() - (this._lastConnectAttemptTs || 0);
-            if (elapsed > 6500) {
-                this.connectMqttStart(true);
-            }
+            if (elapsed > 6500) this.connectMqttStart(true);
         }, 3000);
     },
 
@@ -376,68 +389,197 @@ Object.assign(KaomojiMMORPG.prototype, {
         this._headBubbles.push({ key, isSelf, uid, el, life: 4.5 });
     },
 
-    // エモートボタンのテキストや配列から正確な顔文字・ラベル・動きタイプを判定
-    classifyEmote(rawKaomoji, rawLabel, emoteIdx = -1) {
-        let kao = String(rawKaomoji || '').trim();
-        let label = String(rawLabel || '').trim();
+    // エモート要素から「顔文字・セリフ・12種の個性派モーションID」を一意に決定
+    classifyEmoteItem(itemEl, emoteIdx) {
+        let kao = itemEl?.dataset?.kaomoji || '';
+        let label = itemEl?.dataset?.msg || itemEl?.dataset?.label || '';
 
-        if ((!kao || !label) && typeof EMOTES !== 'undefined' && Array.isArray(EMOTES) && emoteIdx >= 0 && EMOTES[emoteIdx]) {
-            const em = EMOTES[emoteIdx];
-            if (!kao) kao = em.kaomoji || em.face || '';
-            if (!label) label = em.label || em.name || em.msg || em.text || '';
+        if (!kao || !label) {
+            const leaves = [...(itemEl?.querySelectorAll('*') || [])].filter(el => el.children.length === 0 && el.textContent.trim());
+            if (leaves.length >= 2) {
+                if (!kao) kao = leaves[0].textContent.trim();
+                if (!label) label = leaves[1].textContent.trim();
+            } else {
+                const raw = (itemEl?.textContent || '').trim();
+                const parts = raw.split(/\s+/);
+                if (parts.length >= 2) {
+                    if (!kao) kao = parts[0];
+                    if (!label) label = parts.slice(1).join(' ');
+                } else {
+                    if (!kao) kao = raw || '(≧▽≦)';
+                    if (!label) label = raw || 'やっほー！';
+                }
+            }
         }
-        if (!kao) kao = '(≧▽≦)';
-        if (!label) label = kao;
 
         const combined = `${kao} ${label}`;
-        let motionType = 'joy';
-        if (/踊|ﾀﾞﾝｽ|ダンス|♪|♫|クル|回|ｽﾋﾟﾝ|スピン/.test(combined)) motionType = 'spin';
-        else if (/よろ|ありがと|礼|謝|ペコリ|🙇|おつ|拝|土下座/.test(combined)) motionType = 'bow';
-        else if (/泣|悲|えん|orz|ショボ|涙|ToT|T_T|；；|😭/.test(combined)) motionType = 'cry';
-        else if (/怒|ﾑｶ|ぷん|┻|憤|💢|😡/.test(combined)) motionType = 'angry';
-        else if (/愛|好|ﾊｰﾄ|ハート|照|ｷｭﾝ|キュン|♡|❤|💕/.test(combined)) motionType = 'love';
-        else if (/眠|zzz|おやすみ|ふぅ|😪/.test(combined)) motionType = 'sleep';
-        else if (/驚|びっく|えっ|！？|ガーン|Σ|😲/.test(combined)) motionType = 'shock';
-        else if (/やっほ|手|ハロー|バイ|ﾉｼ|👋/.test(combined)) motionType = 'wave';
+        let motionType = '';
+        if (/土下座|ごめん|謝|許し|orz/.test(combined)) motionType = 'dogeza';
+        else if (/気絶|倒|疲|ガーン|昇天|死亡|バタン/.test(combined)) motionType = 'ghost_faint';
+        else if (/眠|zzz|おやすみ|ふぅ|😪|寝/.test(combined)) motionType = 'sleep_bubble';
+        else if (/泣|悲|えん|ショボ|涙|ToT|T_T|；；|😭/.test(combined)) motionType = 'cry_fountain';
+        else if (/怒|ﾑｶ|ぷん|┻|憤|💢|😡|ガオ/.test(combined)) motionType = 'chabudai_rage';
+        else if (/愛|好|ﾊｰﾄ|ハート|照|ｷｭﾝ|キュン|♡|❤|💕/.test(combined)) motionType = 'heart_float';
+        else if (/踊|ﾀﾞﾝｽ|ダンス|♪|♫|クル|回|ｽﾋﾟﾝ|スピン/.test(combined)) motionType = 'tornado_dance';
+        else if (/やった|勝|バンザイ|万歳|歓喜|最高|🎉|✨|✧/.test(combined)) motionType = 'backflip';
+        else if (/敬礼|任せ|キメ|応援|ファイト|💪|🔥/.test(combined)) motionType = 'salute_hero';
+        else if (/ダッシュ|急げ|突撃|ε=|走/.test(combined)) motionType = 'rocket_zoom';
+        else if (/よろ|ありがと|礼|ペコリ|🙇|おつ|拝/.test(combined)) motionType = 'bow_polite';
+        else if (/やっほ|手|ハロー|バイ|ﾉｼ|👋|こん/.test(combined)) motionType = 'greeting_wave';
+        else motionType = ALL_EMOTE_MOTIONS[Math.max(0, emoteIdx) % ALL_EMOTE_MOTIONS.length];
+
+        // 同じパレット内で同じ動きが連続しないよう、インデックス固有の個性も保証
+        if (emoteIdx >= 0 && this._emoteSlotMotionMap) {
+            const used = Object.entries(this._emoteSlotMotionMap).filter(([k]) => Number(k) !== emoteIdx).map(([, v]) => v);
+            if (used.includes(motionType)) {
+                const unused = ALL_EMOTE_MOTIONS.find(m => !used.includes(m));
+                if (unused) motionType = unused;
+            }
+        }
+        if (emoteIdx >= 0) {
+            if (!this._emoteSlotMotionMap) this._emoteSlotMotionMap = {};
+            this._emoteSlotMotionMap[emoteIdx] = motionType;
+        }
 
         return { motionType, kaomoji: kao, label };
     },
 
-    // 自分も味方もまったく同じ動き＆粒子＆頭上吹き出しを実行
+    // 3Dハートメッシュ生成
+    createHeart3D(colorHex = 0xf43f5e) {
+        const g = new THREE.Group();
+        const mat = new THREE.MeshBasicMaterial({ color: colorHex });
+        const s1 = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 10), mat);
+        s1.position.set(-0.1, 0.08, 0);
+        const s2 = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 10), mat);
+        s2.position.set(0.1, 0.08, 0);
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.32, 12), mat);
+        cone.position.set(0, -0.1, 0);
+        cone.rotation.z = Math.PI;
+        g.add(s1, s2, cone);
+        return g;
+    },
+
+    // 自分も味方もまったく同じ12種3Dエモート演出を実行
     playSyncedEmote(isSelf, uid, emoteData) {
         const kao = emoteData.kaomoji || '(≧▽≦)';
         const label = emoteData.label || emoteData.msg || 'やっほー！';
-        const motionType = emoteData.motionType || this.classifyEmote(kao, label).motionType;
+        const motionType = emoteData.motionType || 'backflip';
 
         this.spawnHeadBubble(isSelf, uid, kao, label, true);
         const ent = isSelf ? this.player : this.remotePlayers.get(uid);
         if (!ent) return;
 
-        ent.emoteAnim = { style: motionType, timer: 2.4, maxTimer: 2.4 };
+        const durMap = {
+            backflip: 2.2,
+            tornado_dance: 2.6,
+            dogeza: 2.8,
+            chabudai_rage: 2.4,
+            heart_float: 2.7,
+            ghost_faint: 3.0,
+            sleep_bubble: 2.9,
+            greeting_wave: 2.3,
+            salute_hero: 2.3,
+            cry_fountain: 2.7,
+            rocket_zoom: 2.4,
+            bow_polite: 2.5
+        };
+        const maxT = durMap[motionType] || 2.4;
+        ent.emoteAnim = { style: motionType, timer: maxT, maxTimer: maxT };
 
-        if (this.useWebGL && this.scene && ent.pos && typeof THREE !== 'undefined') {
-            if (!this._slashEffects) this._slashEffects = [];
-            let c1 = 0xfde047, c2 = 0xf472b6, vy = 1.6, vr = 1.4;
-            if (motionType === 'cry' || motionType === 'sleep') { c1 = 0x38bdf8; c2 = 0x93c5fd; vy = -0.8; vr = 1.1; }
-            else if (motionType === 'angry') { c1 = 0xef4444; c2 = 0xf97316; vy = 2.1; vr = 1.8; }
-            else if (motionType === 'love') { c1 = 0xf472b6; c2 = 0xfb7185; vy = 1.9; vr = 1.2; }
+        if (!this.useWebGL || !this.scene || !ent.pos || typeof THREE === 'undefined') return;
+        if (!this._slashEffects) this._slashEffects = [];
 
+        const px = ent.pos.x, pz = ent.pos.z;
+
+        if (motionType === 'heart_float') {
             for (let i = 0; i < 6; i++) {
                 const ang = (i / 6) * Math.PI * 2;
+                const h = this.createHeart3D(i % 2 === 0 ? 0xf43f5e : 0xf472b6);
+                h.position.set(px + Math.cos(ang) * 0.85, 1.2 + i * 0.15, pz + Math.sin(ang) * 0.85);
+                this.scene.add(h);
+                this._slashEffects.push({
+                    kind: 'heart', mesh: h, life: 2.2, maxLife: 2.2,
+                    cx: px, cz: pz, ang, rad: 0.95, vy: 1.15
+                });
+            }
+        } else if (motionType === 'ghost_faint') {
+            const ghost = new THREE.Group();
+            const gMat = new THREE.MeshBasicMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.82 });
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.35, 14, 14), gMat);
+            const tail = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.7, 14), gMat);
+            tail.position.y = -0.35;
+            tail.rotation.x = Math.PI;
+            ghost.add(head, tail);
+            ghost.position.set(px, 1.0, pz);
+            this.scene.add(ghost);
+            this._slashEffects.push({ kind: 'ghost', mesh: ghost, mat: gMat, life: 2.6, maxLife: 2.6, bx: px, bz: pz });
+        } else if (motionType === 'sleep_bubble') {
+            const bMat = new THREE.MeshBasicMaterial({ color: 0xbae6fd, transparent: true, opacity: 0.65 });
+            const bub = new THREE.Mesh(new THREE.SphereGeometry(0.25, 16, 16), bMat);
+            const rotY = ent.rotY || 0;
+            bub.position.set(px + Math.sin(rotY) * 0.8, 1.65, pz + Math.cos(rotY) * 0.8);
+            this.scene.add(bub);
+            this._slashEffects.push({ kind: 'snot_bubble', mesh: bub, mat: bMat, life: 2.4, maxLife: 2.4 });
+        } else if (motionType === 'cry_fountain') {
+            const rotY = ent.rotY || 0;
+            const rightX = Math.cos(rotY), rightZ = -Math.sin(rotY);
+            for (let i = 0; i < 14; i++) {
+                const side = (i % 2 === 0) ? 1 : -1;
+                const drop = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.11, 8, 8),
+                    new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+                );
+                drop.position.set(px + rightX * 0.45 * side, 1.75, pz + rightZ * 0.45 * side);
+                this.scene.add(drop);
+                this._slashEffects.push({
+                    kind: 'tear', mesh: drop, life: 1.6, maxLife: 1.6,
+                    vx: rightX * side * (2.2 + (i % 3) * 0.5),
+                    vy: 3.2 + (i % 4) * 0.4,
+                    vz: rightZ * side * (2.2 + (i % 3) * 0.5),
+                    delay: (i * 0.08)
+                });
+            }
+        } else if (motionType === 'chabudai_rage') {
+            const rMat = new THREE.MeshBasicMaterial({ color: 0xef4444, side: THREE.DoubleSide, transparent: true, opacity: 0.85 });
+            const ring = new THREE.Mesh(new THREE.RingGeometry(0.5, 1.1, 24), rMat);
+            ring.rotation.x = -Math.PI / 2;
+            ring.position.set(px, 0.12, pz);
+            this.scene.add(ring);
+            this._slashEffects.push({ kind: 'shockwave', mesh: ring, mat: rMat, life: 1.5, maxLife: 1.5 });
+        } else if (motionType === 'salute_hero') {
+            const beamMat = new THREE.MeshBasicMaterial({ color: 0xfef08a, side: THREE.DoubleSide, transparent: true, opacity: 0.36 });
+            const beam = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.6, 7.0, 20, 1, true), beamMat);
+            beam.position.set(px, 3.5, pz);
+            this.scene.add(beam);
+            this._slashEffects.push({ kind: 'aura', mesh: beam, mat: beamMat, life: 2.0, maxLife: 2.0 });
+        } else if (motionType === 'bow_polite') {
+            for (let i = 0; i < 10; i++) {
+                const ang = (i / 10) * Math.PI * 2;
+                const petal = new THREE.Mesh(
+                    new THREE.PlaneGeometry(0.24, 0.16),
+                    new THREE.MeshBasicMaterial({ color: 0xf9a8d4, side: THREE.DoubleSide })
+                );
+                petal.position.set(px + Math.cos(ang) * 1.1, 2.8 + (i % 3) * 0.4, pz + Math.sin(ang) * 1.1);
+                this.scene.add(petal);
+                this._slashEffects.push({
+                    kind: 'petal', mesh: petal, life: 2.2, maxLife: 2.2,
+                    vx: Math.cos(ang) * 0.6, vy: -1.1, vz: Math.sin(ang) * 0.6
+                });
+            }
+        } else {
+            const c1 = motionType === 'tornado_dance' ? 0x38bdf8 : 0xfde047;
+            const c2 = motionType === 'dogeza' ? 0x60a5fa : 0xf472b6;
+            for (let i = 0; i < 8; i++) {
+                const ang = (i / 8) * Math.PI * 2;
                 const star = new THREE.Mesh(
                     new THREE.OctahedronGeometry(0.18, 0),
                     new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? c1 : c2 })
                 );
-                star.position.set(ent.pos.x + Math.cos(ang) * 0.75, 2.25, ent.pos.z + Math.sin(ang) * 0.75);
+                star.position.set(px + Math.cos(ang) * 0.8, 2.1, pz + Math.sin(ang) * 0.8);
                 this.scene.add(star);
                 this._slashEffects.push({
-                    kind: 'star',
-                    mesh: star,
-                    life: 1.3,
-                    maxLife: 1.3,
-                    vx: Math.cos(ang) * vr,
-                    vy,
-                    vz: Math.sin(ang) * vr
+                    kind: 'star', mesh: star, life: 1.5, maxLife: 1.5,
+                    vx: Math.cos(ang) * 1.8, vy: 1.8, vz: Math.sin(ang) * 1.8
                 });
             }
         }
@@ -484,7 +626,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         });
     },
 
-    // スキル情報の確実な取得（枠1のちゃぶ台返しを確実に判定）
     resolveSkillMeta(slotIdx) {
         const d = this.saveData || {};
         const candidates = [
@@ -520,7 +661,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         return { slotIdx, skillId, skillName, isChabudai };
     },
 
-    // 3Dちゃぶ台生成（丸い天板＋4本脚＋急須＋湯呑み＋お皿）
     createChabudai3D() {
         const grp = new THREE.Group();
         const woodMat = new THREE.MeshLambertMaterial({ color: 0xb45309 });
@@ -544,7 +684,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         return grp;
     },
 
-    // 攻撃モーション＆スキル別3Dエフェクト（ちゃぶ台返し・斬撃・魔法）
     triggerAttackVisual(entity, isSkill = false, skillInfo = null) {
         if (!entity) return;
         entity.attackAnimTimer = 0.34;
@@ -632,6 +771,12 @@ Object.assign(KaomojiMMORPG.prototype, {
     updateCharacterAnimations(dt) {
         if (this._slashEffects && this._slashEffects.length) {
             this._slashEffects = this._slashEffects.filter(ef => {
+                if (ef.delay && ef.delay > 0) {
+                    ef.delay -= dt;
+                    ef.mesh.visible = false;
+                    return true;
+                }
+                ef.mesh.visible = true;
                 ef.life -= dt;
                 if (ef.life <= 0) {
                     if (this.scene) this.scene.remove(ef.mesh);
@@ -649,6 +794,35 @@ Object.assign(KaomojiMMORPG.prototype, {
                     ef.mesh.rotation.x = p * Math.PI * 4.5;
                     ef.mesh.rotation.z = p * Math.PI * 1.4;
                     ef.mesh.scale.setScalar(1 + p * 0.45);
+                } else if (ef.kind === 'heart') {
+                    ef.ang += dt * 3.2;
+                    ef.mesh.position.x = ef.cx + Math.cos(ef.ang) * ef.rad;
+                    ef.mesh.position.z = ef.cz + Math.sin(ef.ang) * ef.rad;
+                    ef.mesh.position.y += ef.vy * dt;
+                    ef.mesh.rotation.y += dt * 4;
+                    ef.mesh.scale.setScalar(1 - p * 0.5);
+                } else if (ef.kind === 'ghost') {
+                    ef.mesh.position.y += dt * 1.5;
+                    ef.mesh.position.x = ef.bx + Math.sin(p * 14) * 0.28;
+                    ef.mat.opacity = (1 - p) * 0.85;
+                } else if (ef.kind === 'snot_bubble') {
+                    const sc = p < 0.8 ? (0.4 + p * 2.2) : (2.2 + (p - 0.8) * 6.0);
+                    ef.mesh.scale.setScalar(sc);
+                    ef.mat.opacity = p < 0.8 ? 0.65 : Math.max(0, (1 - p) * 3.2);
+                } else if (ef.kind === 'tear') {
+                    ef.mesh.position.x += ef.vx * dt;
+                    ef.mesh.position.y += ef.vy * dt;
+                    ef.mesh.position.z += ef.vz * dt;
+                    ef.vy -= 9.5 * dt;
+                } else if (ef.kind === 'shockwave') {
+                    ef.mesh.scale.setScalar(1 + p * 3.2);
+                    ef.mat.opacity = (1 - p) * 0.85;
+                } else if (ef.kind === 'petal') {
+                    ef.mesh.position.x += ef.vx * dt + Math.sin(p * 12) * 0.03;
+                    ef.mesh.position.y += ef.vy * dt;
+                    ef.mesh.position.z += ef.vz * dt;
+                    ef.mesh.rotation.x += dt * 5;
+                    ef.mesh.rotation.z += dt * 4;
                 } else if (ef.kind === 'orb') {
                     ef.mesh.position.x += ef.vx * dt;
                     ef.mesh.position.z += ef.vz * dt;
@@ -675,12 +849,14 @@ Object.assign(KaomojiMMORPG.prototype, {
             });
         }
 
-        // 自分も味方もまったく同じ計算式で全身ポーズを描画
+        // 12種類の完全に個性的な全身ポーズ（自分と味方で100%同一計算）
         const applyPose = (ent) => {
             if (!ent || !ent.group) return;
+            if (!ent._baseScale) ent._baseScale = ent.group.scale.x || 1;
             const baseRotY = ent.rotY || 0;
             let offX = 0, offY = 0, offZ = 0;
             let rotX = 0, rotY = baseRotY, rotZ = 0;
+            let scaleMult = 1.0;
             let active = false;
 
             if (ent.attackAnimTimer && ent.attackAnimTimer > 0) {
@@ -699,47 +875,92 @@ Object.assign(KaomojiMMORPG.prototype, {
                 active = true;
                 ent.emoteAnim.timer = Math.max(0, ent.emoteAnim.timer - dt);
                 const t = ent.emoteAnim.maxTimer - ent.emoteAnim.timer;
+                const p = t / ent.emoteAnim.maxTimer;
                 const st = ent.emoteAnim.style;
-                if (st === 'spin') {
-                    rotY += t * Math.PI * 3.5;
-                    offY += Math.abs(Math.sin(t * 9)) * 0.45;
-                } else if (st === 'bow') {
-                    const bow = Math.sin(Math.min(1, t / 1.2) * Math.PI);
-                    rotX += bow * 0.72;
-                    offZ += Math.sin(baseRotY) * (bow * 0.22);
-                } else if (st === 'cry') {
-                    offY -= 0.14;
-                    rotX += 0.42;
-                    rotZ += Math.sin(t * 28) * 0.14;
-                } else if (st === 'angry') {
-                    offY += Math.abs(Math.sin(t * 14)) * 0.32;
-                    rotZ += Math.sin(t * 42) * 0.24;
-                } else if (st === 'love') {
-                    offY += Math.abs(Math.sin(t * 7)) * 0.38;
-                    rotZ += Math.sin(t * 7) * 0.26;
-                } else if (st === 'sleep') {
-                    rotX += 0.25;
-                    rotZ += Math.sin(t * 3.5) * 0.28;
-                } else if (st === 'shock') {
-                    if (t < 0.45) offY += Math.sin((t / 0.45) * Math.PI) * 0.85;
-                    rotZ += Math.sin(t * 38) * 0.18;
-                } else if (st === 'wave') {
-                    offY += Math.abs(Math.sin(t * 8)) * 0.28;
-                    rotZ += Math.sin(t * 11) * 0.36;
+
+                if (st === 'backflip') {
+                    // 1. 空中360度バク宙
+                    const jumpP = Math.min(1, p / 0.65);
+                    offY += Math.sin(jumpP * Math.PI) * 2.4;
+                    rotX -= jumpP * Math.PI * 2;
+                    if (p > 0.65) scaleMult = 1 + Math.sin(((p - 0.65) / 0.35) * Math.PI) * 0.15;
+                } else if (st === 'tornado_dance') {
+                    // 2. 斜めブレイクダンス回転
+                    rotZ = 0.58;
+                    rotY += t * Math.PI * 5.0;
+                    offX += Math.cos(t * 5) * 0.45;
+                    offZ += Math.sin(t * 5) * 0.45;
+                    offY += 0.25 + Math.abs(Math.sin(t * 8)) * 0.25;
+                } else if (st === 'dogeza') {
+                    // 3. 地面平伏土下座
+                    const down = Math.min(1, p * 4) * Math.min(1, (1 - p) * 5);
+                    offY -= down * 0.32;
+                    rotX += down * 1.38;
+                    rotZ += Math.sin(t * 32) * 0.05 * down;
+                } else if (st === 'chabudai_rage') {
+                    // 4. 巨大化ブチギレ地団駄
+                    scaleMult = 1.35;
+                    offY += Math.abs(Math.sin(t * 18)) * 0.42;
+                    rotZ += Math.sin(t * 48) * 0.26;
+                } else if (st === 'heart_float') {
+                    // 5. 空中ハート浮遊スウェイ
+                    offY += 0.65 + Math.sin(t * 4.5) * 0.18;
+                    rotZ += Math.sin(t * 3.8) * 0.25;
+                    rotY += Math.sin(t * 2.5) * 0.35;
+                } else if (st === 'ghost_faint') {
+                    // 6. 仰向けバタン気絶（魂抜け）
+                    const down = Math.min(1, p * 4.5) * Math.min(1, (1 - p) * 4.5);
+                    offY -= down * 0.28;
+                    rotX -= down * 1.45;
+                } else if (st === 'sleep_bubble') {
+                    // 7. コックリ居眠り船漕ぎ
+                    const nod = Math.pow(Math.abs(Math.sin(t * 2.6)), 3);
+                    rotX += nod * 0.65;
+                    rotZ = 0.36;
+                } else if (st === 'greeting_wave') {
+                    // 8. 軽快サイドステップ手振り
+                    const rightX = Math.cos(baseRotY), rightZ = -Math.sin(baseRotY);
+                    const step = Math.sin(t * 6.5) * 0.55;
+                    offX += rightX * step;
+                    offZ += rightZ * step;
+                    offY += Math.abs(Math.sin(t * 13)) * 0.24;
+                    rotZ += Math.sin(t * 13) * 0.32;
+                } else if (st === 'salute_hero') {
+                    // 9. スポットライト英雄キメポーズ
+                    const pop = Math.min(1, p * 5) * Math.min(1, (1 - p) * 5);
+                    offY += pop * 0.45;
+                    rotX -= pop * 0.26;
+                    rotY += pop * 0.55;
+                    scaleMult = 1 + pop * 0.12;
+                } else if (st === 'cry_fountain') {
+                    // 10. 縮こまり号泣スプリンクラー
+                    scaleMult = 0.86;
+                    rotX = 0.48;
+                    rotZ += Math.sin(t * 34) * 0.16;
+                } else if (st === 'rocket_zoom') {
+                    // 11. 45度前傾8の字高速ダッシュ
+                    rotX = 0.72;
+                    offX += Math.sin(t * 4.5) * 1.15;
+                    offZ += Math.sin(t * 9.0) * 0.55;
+                    rotY = Math.atan2(Math.cos(t * 4.5) * 1.15, Math.cos(t * 9.0) * 1.1);
                 } else {
-                    offY += Math.abs(Math.sin(t * 9.5)) * 0.62;
-                    rotZ += Math.sin(t * 9.5) * 0.22;
+                    // 12. 丁寧な90度お辞儀
+                    const bow = Math.min(1, p * 3.5) * Math.min(1, (1 - p) * 3.5);
+                    rotX += bow * 0.98;
+                    offZ += Math.sin(baseRotY) * (bow * 0.25);
                 }
             }
 
             if (active) {
                 ent.group.position.set(ent.pos.x + offX, offY, ent.pos.z + offZ);
                 ent.group.rotation.set(rotX, rotY, rotZ);
+                ent.group.scale.setScalar(ent._baseScale * scaleMult);
                 ent._poseDirty = true;
             } else if (ent._poseDirty) {
                 ent._poseDirty = false;
                 ent.group.position.set(ent.pos.x, 0, ent.pos.z);
                 ent.group.rotation.set(0, baseRotY, 0);
+                ent.group.scale.setScalar(ent._baseScale);
             }
         };
 
@@ -837,13 +1058,12 @@ Object.assign(KaomojiMMORPG.prototype, {
         } else if (msg.type === 'kill' && msg.payload && this.receiveCoopReward) {
             this.receiveCoopReward(msg.payload);
         } else if (msg.type === 'emote' && msg.payload) {
-            const parsed = this.classifyEmote(
-                msg.payload.kaomoji,
-                msg.payload.label || msg.payload.msg || msg.payload.text,
-                typeof msg.payload.emoteIdx === 'number' ? msg.payload.emoteIdx : -1
-            );
-            if (msg.payload.motionType) parsed.motionType = msg.payload.motionType;
-            this.playSyncedEmote(false, senderUid, parsed);
+            // 送信側が確定させた motionType・kaomoji・label をそのまま再生して100%一致させる
+            this.playSyncedEmote(false, senderUid, {
+                motionType: msg.payload.motionType || ALL_EMOTE_MOTIONS[(msg.payload.emoteIdx || 0) % ALL_EMOTE_MOTIONS.length],
+                kaomoji: msg.payload.kaomoji || '(≧▽≦)',
+                label: msg.payload.label || msg.payload.msg || 'やっほー！'
+            });
         } else if (msg.type === 'attack' || msg.type === 'skill_fx') {
             const rp = this.remotePlayers.get(senderUid);
             if (rp) {
@@ -976,27 +1196,30 @@ Object.assign(KaomojiMMORPG.prototype, {
             document.getElementById('hud-drawer-menu')?.classList.add('hidden');
         });
 
-        // エモートパレット選択を単独・確実に捕捉し、自分と味方で完全同一の演出を再生
+        // エモートパレット選択（button / div 問わず捕捉し、自分と味方で100%同一の演出を再生）
         if (!this._emoteCaptureBound) {
             this._emoteCaptureBound = true;
-            document.addEventListener('click', (e) => {
+            let lastEmoteTs = 0;
+            const handleEmoteTap = (e) => {
                 const pal = document.getElementById('emote-palette');
-                if (!pal || !pal.contains(e.target)) return;
-                const btn = e.target.closest('button');
-                if (!btn) return;
+                if (!pal || pal.classList.contains('hidden') || !pal.contains(e.target)) return;
+                let items = [...pal.querySelectorAll('button, .emote-btn, .emote-item, [data-kaomoji], [data-msg]')];
+                if (!items.length) items = [...pal.children];
+                const item = items.find(el => el === e.target || el.contains(e.target));
+                if (!item) return;
+
                 e.preventDefault();
                 e.stopImmediatePropagation();
+                const now = performance.now();
+                if (now - lastEmoteTs < 250) return;
+                lastEmoteTs = now;
+
                 sfx.init();
-                sfx.playTone(760, 'sine', 0.1, 0.08);
+                sfx.playTone(780, 'sine', 0.1, 0.08);
                 pal.classList.add('hidden');
 
-                const allBtns = [...pal.querySelectorAll('button')];
-                const emoteIdx = allBtns.indexOf(btn);
-                const children = [...btn.children];
-                const rawKao = btn.dataset.kaomoji || children[0]?.textContent?.trim() || '';
-                const rawLbl = btn.dataset.msg || btn.dataset.label || children[1]?.textContent?.trim() || btn.textContent.trim();
-
-                const parsed = this.classifyEmote(rawKao, rawLbl, emoteIdx);
+                const emoteIdx = items.indexOf(item);
+                const parsed = this.classifyEmoteItem(item, emoteIdx);
                 this.playSyncedEmote(true, null, parsed);
                 this.broadcastFirebaseEvent('emote', {
                     emoteIdx,
@@ -1005,7 +1228,9 @@ Object.assign(KaomojiMMORPG.prototype, {
                     label: parsed.label,
                     msg: parsed.label
                 });
-            }, true);
+            };
+            document.addEventListener('touchend', handleEmoteTap, { capture: true, passive: false });
+            document.addEventListener('click', handleEmoteTap, true);
         }
 
         on('btn-exec-warp', 'click', (e) => {
@@ -1051,7 +1276,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         on('btn-send-chat', 'click', (e) => { e.stopPropagation(); if (chatInp) { this.sendChatMessage(chatInp.value); chatInp.value = ''; } });
         chatInp?.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); this.sendChatMessage(chatInp.value); chatInp.value = ''; } });
 
-        // 通常攻撃ボタン
         const atkBtn = document.getElementById('btn-basic-attack');
         if (atkBtn) {
             let lastT = 0;
@@ -1064,7 +1288,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             atkBtn.addEventListener('mousedown', doAtk);
         }
 
-        // スキル5枠ボタン（iPadタッチ・クリック両対応）
         for (let i = 0; i < 5; i++) {
             const sBtn = document.getElementById(`skill-slot-${i}`)
                 || document.getElementById(`btn-skill-${i}`)
@@ -1235,7 +1458,6 @@ if (typeof KaomojiMMORPG !== 'undefined') {
 
             _origSkill.call(this, slotIdx);
 
-            // クールダウン中でなければ、広場でも戦闘中でも3Dちゃぶ台＆スキル演出を確実に発動・同期
             if (curCd <= 0.05) {
                 if (meta.isChabudai) sfx.playTone(320, 'sawtooth', 0.16, 0.1);
                 const info = {
@@ -1306,4 +1528,4 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!window.game && typeof KaomojiMMORPG !== 'undefined') window.game = new KaomojiMMORPG();
     if (window.game && window.game.startAutoReconnectWatchdog) window.game.startAutoReconnectWatchdog();
 });
-// === GAME6_V13_OK ===
+// === GAME6_V14_OK ===
