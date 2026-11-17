@@ -13,16 +13,16 @@ const TOPIC_GLOBAL = 'kaomoji_fantasy_3d/stable/global';
 
 const LOADING_KAOMOJIS = ['(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧', 'ε=ε=ε=┏(゜ロ゜;)┛', '(ง •̀_•́)ง ⚔️', '✧*｡٩(ˊᗜˋ*)و✧*｡', '(╯°□°）╯︵ ┻━┻'];
 const LOADING_TIPS = [
-    '💡 エモートを送るとキャラが跳ねたり回ったりして頭上に吹き出しが出るよ！',
-    '💡 ちゃぶ台返しなどのスキルも仲間の画面に3Dで飛んでいくよ！',
+    '💡 エモートを送ると自分も仲間も同じ動きで跳ねたり回ったりするよ！',
+    '💡 枠1の「ちゃぶ台返し」で3Dのちゃぶ台が回転しながら飛んでいくよ！',
     '💡 左手で移動しながら右手で画面をなぞると視点を自由に回せるよ！',
     '💡 パスワード部屋を設定すると合言葉を知っている友達だけで遊べるよ！'
 ];
 
-(function injectV12Styles() {
-    if (document.getElementById('kmj-v12-style')) return;
+(function injectV13Styles() {
+    if (document.getElementById('kmj-v13-style')) return;
     const st = document.createElement('style');
-    st.id = 'kmj-v12-style';
+    st.id = 'kmj-v13-style';
     st.textContent = `
         #kmj-loading-screen{position:fixed;inset:0;z-index:96;background:radial-gradient(circle at center,#0f172a 0%,#020617 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;transition:opacity .28s ease;pointer-events:auto}
         #kmj-loading-screen.fade-out{opacity:0;pointer-events:none}
@@ -118,7 +118,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         step(0);
     },
 
-    // 未接続時のみ安全に再接続（接続処理中の通信は絶対に途中で切らない）
     startAutoReconnectWatchdog() {
         if (this._reconnWatchdog) return;
         this._reconnWatchdog = setInterval(() => {
@@ -351,7 +350,7 @@ Object.assign(KaomojiMMORPG.prototype, {
         this.publishAllConnected(topic, packet);
     },
 
-    // 頭上吹き出し（自分＆マルチの仲間のチャット・エモート両対応）
+    // 頭上吹き出し（自分＆マルチの仲間のチャット・エモート共通）
     spawnHeadBubble(isSelf, uid, kaomoji, text, isEmote = false) {
         if (!this.overlayLayer) return;
         const cleanText = String(text || '').trim();
@@ -377,38 +376,68 @@ Object.assign(KaomojiMMORPG.prototype, {
         this._headBubbles.push({ key, isSelf, uid, el, life: 4.5 });
     },
 
-    // 動きのある3Dエモート演出（ジャンプ・スピン・お辞儀・震え＋キラキラ星）
-    triggerEmoteAction(isSelf, uid, kaomoji, msg) {
-        this.spawnHeadBubble(isSelf, uid, kaomoji, msg, true);
+    // エモートボタンのテキストや配列から正確な顔文字・ラベル・動きタイプを判定
+    classifyEmote(rawKaomoji, rawLabel, emoteIdx = -1) {
+        let kao = String(rawKaomoji || '').trim();
+        let label = String(rawLabel || '').trim();
+
+        if ((!kao || !label) && typeof EMOTES !== 'undefined' && Array.isArray(EMOTES) && emoteIdx >= 0 && EMOTES[emoteIdx]) {
+            const em = EMOTES[emoteIdx];
+            if (!kao) kao = em.kaomoji || em.face || '';
+            if (!label) label = em.label || em.name || em.msg || em.text || '';
+        }
+        if (!kao) kao = '(≧▽≦)';
+        if (!label) label = kao;
+
+        const combined = `${kao} ${label}`;
+        let motionType = 'joy';
+        if (/踊|ﾀﾞﾝｽ|ダンス|♪|♫|クル|回|ｽﾋﾟﾝ|スピン/.test(combined)) motionType = 'spin';
+        else if (/よろ|ありがと|礼|謝|ペコリ|🙇|おつ|拝|土下座/.test(combined)) motionType = 'bow';
+        else if (/泣|悲|えん|orz|ショボ|涙|ToT|T_T|；；|😭/.test(combined)) motionType = 'cry';
+        else if (/怒|ﾑｶ|ぷん|┻|憤|💢|😡/.test(combined)) motionType = 'angry';
+        else if (/愛|好|ﾊｰﾄ|ハート|照|ｷｭﾝ|キュン|♡|❤|💕/.test(combined)) motionType = 'love';
+        else if (/眠|zzz|おやすみ|ふぅ|😪/.test(combined)) motionType = 'sleep';
+        else if (/驚|びっく|えっ|！？|ガーン|Σ|😲/.test(combined)) motionType = 'shock';
+        else if (/やっほ|手|ハロー|バイ|ﾉｼ|👋/.test(combined)) motionType = 'wave';
+
+        return { motionType, kaomoji: kao, label };
+    },
+
+    // 自分も味方もまったく同じ動き＆粒子＆頭上吹き出しを実行
+    playSyncedEmote(isSelf, uid, emoteData) {
+        const kao = emoteData.kaomoji || '(≧▽≦)';
+        const label = emoteData.label || emoteData.msg || 'やっほー！';
+        const motionType = emoteData.motionType || this.classifyEmote(kao, label).motionType;
+
+        this.spawnHeadBubble(isSelf, uid, kao, label, true);
         const ent = isSelf ? this.player : this.remotePlayers.get(uid);
         if (!ent) return;
 
-        const text = `${kaomoji || ''} ${msg || ''}`;
-        let style = 'jump';
-        if (/回|踊|ﾀﾞﾝｽ|ダンス|♪|♫|クル/.test(text)) style = 'spin';
-        else if (/よろ|ありがと|礼|謝|ペコリ|🙇|おつ/.test(text)) style = 'bow';
-        else if (/怒|ﾑｶ|泣|悲|orz|ガーン|震|怖/.test(text)) style = 'shake';
-
-        ent.emoteAnim = { style, timer: 2.2, maxTimer: 2.2 };
+        ent.emoteAnim = { style: motionType, timer: 2.4, maxTimer: 2.4 };
 
         if (this.useWebGL && this.scene && ent.pos && typeof THREE !== 'undefined') {
             if (!this._slashEffects) this._slashEffects = [];
+            let c1 = 0xfde047, c2 = 0xf472b6, vy = 1.6, vr = 1.4;
+            if (motionType === 'cry' || motionType === 'sleep') { c1 = 0x38bdf8; c2 = 0x93c5fd; vy = -0.8; vr = 1.1; }
+            else if (motionType === 'angry') { c1 = 0xef4444; c2 = 0xf97316; vy = 2.1; vr = 1.8; }
+            else if (motionType === 'love') { c1 = 0xf472b6; c2 = 0xfb7185; vy = 1.9; vr = 1.2; }
+
             for (let i = 0; i < 6; i++) {
                 const ang = (i / 6) * Math.PI * 2;
                 const star = new THREE.Mesh(
                     new THREE.OctahedronGeometry(0.18, 0),
-                    new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? 0xf472b6 : 0xfde047 })
+                    new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? c1 : c2 })
                 );
-                star.position.set(ent.pos.x + Math.cos(ang) * 0.8, 2.2, ent.pos.z + Math.sin(ang) * 0.8);
+                star.position.set(ent.pos.x + Math.cos(ang) * 0.75, 2.25, ent.pos.z + Math.sin(ang) * 0.75);
                 this.scene.add(star);
                 this._slashEffects.push({
                     kind: 'star',
                     mesh: star,
-                    life: 1.2,
-                    maxLife: 1.2,
-                    vx: Math.cos(ang) * 1.4,
-                    vy: 1.6,
-                    vz: Math.sin(ang) * 1.4
+                    life: 1.3,
+                    maxLife: 1.3,
+                    vx: Math.cos(ang) * vr,
+                    vy,
+                    vz: Math.sin(ang) * vr
                 });
             }
         }
@@ -455,7 +484,7 @@ Object.assign(KaomojiMMORPG.prototype, {
         });
     },
 
-    // スキルID・名前・スロット番号からスキル情報を確実に取得
+    // スキル情報の確実な取得（枠1のちゃぶ台返しを確実に判定）
     resolveSkillMeta(slotIdx) {
         const d = this.saveData || {};
         const candidates = [
@@ -477,13 +506,10 @@ Object.assign(KaomojiMMORPG.prototype, {
             if (!found && list[slotIdx]) found = list[slotIdx];
         }
 
-        let domText = '';
-        document.querySelectorAll('button').forEach(b => {
-            const idStr = `${b.id} ${b.className} ${b.dataset?.slot ?? ''} ${b.dataset?.skillSlot ?? ''}`;
-            if (/skill|slot/i.test(idStr) && (idStr.includes(String(slotIdx)) || b.textContent.includes(`枠${slotIdx + 1}`))) {
-                domText += ' ' + b.textContent + ' ' + (b.title || '');
-            }
-        });
+        const btnEl = document.getElementById(`skill-slot-${slotIdx}`)
+            || document.getElementById(`btn-skill-${slotIdx}`)
+            || document.querySelectorAll('.skill-slot-btn, .skill-slot, .skill-btn')[slotIdx];
+        const domText = btnEl ? `${btnEl.textContent || ''} ${btnEl.title || ''}` : '';
 
         const skillId = String(found?.id || found?.skillId || candidates[0] || `slot_${slotIdx}`);
         const skillName = (String(found?.name || found?.title || '') + ' ' + domText).trim();
@@ -494,24 +520,27 @@ Object.assign(KaomojiMMORPG.prototype, {
         return { slotIdx, skillId, skillName, isChabudai };
     },
 
-    // 3Dちゃぶ台生成（天板＋4本脚＋急須＋湯呑み）
+    // 3Dちゃぶ台生成（丸い天板＋4本脚＋急須＋湯呑み＋お皿）
     createChabudai3D() {
         const grp = new THREE.Group();
-        const woodMat = new THREE.MeshLambertMaterial({ color: 0x9a3412 });
+        const woodMat = new THREE.MeshLambertMaterial({ color: 0xb45309 });
         const darkMat = new THREE.MeshLambertMaterial({ color: 0x451a03 });
-        const top = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.15, 0.14, 24), woodMat);
+        const top = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.3, 0.16, 24), woodMat);
         grp.add(top);
-        [[-0.65, -0.65], [0.65, -0.65], [-0.65, 0.65], [0.65, 0.65]].forEach(([lx, lz]) => {
-            const leg = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.52, 0.13), darkMat);
-            leg.position.set(lx, -0.3, lz);
+        [[-0.72, -0.72], [0.72, -0.72], [-0.72, 0.72], [0.72, 0.72]].forEach(([lx, lz]) => {
+            const leg = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.56, 0.15), darkMat);
+            leg.position.set(lx, -0.32, lz);
             grp.add(leg);
         });
-        const tea = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.19, 0.26, 12), new THREE.MeshLambertMaterial({ color: 0x16a34a }));
-        tea.position.set(-0.25, 0.18, 0.12);
+        const tea = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 0.28, 12), new THREE.MeshLambertMaterial({ color: 0x16a34a }));
+        tea.position.set(-0.3, 0.2, 0.15);
         grp.add(tea);
-        const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.08, 0.16, 12), new THREE.MeshLambertMaterial({ color: 0xf8fafc }));
-        cup.position.set(0.28, 0.14, -0.18);
+        const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.09, 0.18, 12), new THREE.MeshLambertMaterial({ color: 0xf8fafc }));
+        cup.position.set(0.32, 0.15, -0.2);
         grp.add(cup);
+        const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.22, 0.06, 14), new THREE.MeshLambertMaterial({ color: 0xfef08a }));
+        plate.position.set(0.15, 0.1, 0.35);
+        grp.add(plate);
         return grp;
     },
 
@@ -537,16 +566,16 @@ Object.assign(KaomojiMMORPG.prototype, {
 
         if (isChabudai) {
             const tableMesh = this.createChabudai3D();
-            tableMesh.position.set(entity.pos.x + dirX * 1.0, 0.9, entity.pos.z + dirZ * 1.0);
+            tableMesh.position.set(entity.pos.x + dirX * 1.1, 1.0, entity.pos.z + dirZ * 1.1);
             tableMesh.rotation.y = rotY;
             this.scene.add(tableMesh);
             this._slashEffects.push({
                 kind: 'chabudai',
                 mesh: tableMesh,
-                life: 0.9,
-                maxLife: 0.9,
-                vx: dirX * 11.5,
-                vz: dirZ * 11.5
+                life: 0.95,
+                maxLife: 0.95,
+                vx: dirX * 12.0,
+                vz: dirZ * 12.0
             });
             return;
         }
@@ -616,8 +645,9 @@ Object.assign(KaomojiMMORPG.prototype, {
                 if (ef.kind === 'chabudai') {
                     ef.mesh.position.x += ef.vx * dt;
                     ef.mesh.position.z += ef.vz * dt;
-                    ef.mesh.position.y = 0.9 + Math.sin(p * Math.PI) * 2.5;
-                    ef.mesh.rotation.x = p * Math.PI * 4.0;
+                    ef.mesh.position.y = 1.0 + Math.sin(p * Math.PI) * 3.0;
+                    ef.mesh.rotation.x = p * Math.PI * 4.5;
+                    ef.mesh.rotation.z = p * Math.PI * 1.4;
                     ef.mesh.scale.setScalar(1 + p * 0.45);
                 } else if (ef.kind === 'orb') {
                     ef.mesh.position.x += ef.vx * dt;
@@ -645,6 +675,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             });
         }
 
+        // 自分も味方もまったく同じ計算式で全身ポーズを描画
         const applyPose = (ent) => {
             if (!ent || !ent.group) return;
             const baseRotY = ent.rotY || 0;
@@ -670,17 +701,33 @@ Object.assign(KaomojiMMORPG.prototype, {
                 const t = ent.emoteAnim.maxTimer - ent.emoteAnim.timer;
                 const st = ent.emoteAnim.style;
                 if (st === 'spin') {
-                    rotY += t * Math.PI * 4;
-                    offY += Math.abs(Math.sin(t * 9)) * 0.42;
+                    rotY += t * Math.PI * 3.5;
+                    offY += Math.abs(Math.sin(t * 9)) * 0.45;
                 } else if (st === 'bow') {
-                    const bow = Math.sin(Math.min(1, t / 1.1) * Math.PI);
-                    rotX += bow * 0.65;
-                    offZ += Math.sin(baseRotY) * (bow * 0.2);
-                } else if (st === 'shake') {
-                    rotZ += Math.sin(t * 36) * 0.24;
-                    rotX += 0.22;
+                    const bow = Math.sin(Math.min(1, t / 1.2) * Math.PI);
+                    rotX += bow * 0.72;
+                    offZ += Math.sin(baseRotY) * (bow * 0.22);
+                } else if (st === 'cry') {
+                    offY -= 0.14;
+                    rotX += 0.42;
+                    rotZ += Math.sin(t * 28) * 0.14;
+                } else if (st === 'angry') {
+                    offY += Math.abs(Math.sin(t * 14)) * 0.32;
+                    rotZ += Math.sin(t * 42) * 0.24;
+                } else if (st === 'love') {
+                    offY += Math.abs(Math.sin(t * 7)) * 0.38;
+                    rotZ += Math.sin(t * 7) * 0.26;
+                } else if (st === 'sleep') {
+                    rotX += 0.25;
+                    rotZ += Math.sin(t * 3.5) * 0.28;
+                } else if (st === 'shock') {
+                    if (t < 0.45) offY += Math.sin((t / 0.45) * Math.PI) * 0.85;
+                    rotZ += Math.sin(t * 38) * 0.18;
+                } else if (st === 'wave') {
+                    offY += Math.abs(Math.sin(t * 8)) * 0.28;
+                    rotZ += Math.sin(t * 11) * 0.36;
                 } else {
-                    offY += Math.abs(Math.sin(t * 9.5)) * 0.58;
+                    offY += Math.abs(Math.sin(t * 9.5)) * 0.62;
                     rotZ += Math.sin(t * 9.5) * 0.22;
                 }
             }
@@ -790,13 +837,13 @@ Object.assign(KaomojiMMORPG.prototype, {
         } else if (msg.type === 'kill' && msg.payload && this.receiveCoopReward) {
             this.receiveCoopReward(msg.payload);
         } else if (msg.type === 'emote' && msg.payload) {
-            const kao = msg.payload.kaomoji || '(≧▽≦)';
-            const label = msg.payload.msg || msg.payload.text || 'やっほー！';
-            this.triggerEmoteAction(false, senderUid, kao, label);
-            const rp = this.remotePlayers.get(senderUid);
-            if (rp && rp.visible && this.spawnEmoteBubble) {
-                this.spawnEmoteBubble(rp.pos.clone().add(new THREE.Vector3(0, 2.7, 0)), kao, label);
-            }
+            const parsed = this.classifyEmote(
+                msg.payload.kaomoji,
+                msg.payload.label || msg.payload.msg || msg.payload.text,
+                typeof msg.payload.emoteIdx === 'number' ? msg.payload.emoteIdx : -1
+            );
+            if (msg.payload.motionType) parsed.motionType = msg.payload.motionType;
+            this.playSyncedEmote(false, senderUid, parsed);
         } else if (msg.type === 'attack' || msg.type === 'skill_fx') {
             const rp = this.remotePlayers.get(senderUid);
             if (rp) {
@@ -929,6 +976,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             document.getElementById('hud-drawer-menu')?.classList.add('hidden');
         });
 
+        // エモートパレット選択を単独・確実に捕捉し、自分と味方で完全同一の演出を再生
         if (!this._emoteCaptureBound) {
             this._emoteCaptureBound = true;
             document.addEventListener('click', (e) => {
@@ -936,11 +984,27 @@ Object.assign(KaomojiMMORPG.prototype, {
                 if (!pal || !pal.contains(e.target)) return;
                 const btn = e.target.closest('button');
                 if (!btn) return;
-                const spans = btn.querySelectorAll('span');
-                const kao = btn.dataset.kaomoji || spans[0]?.textContent?.trim() || '(≧▽≦)';
-                const label = btn.dataset.msg || btn.dataset.label || spans[1]?.textContent?.trim() || 'やっほー！';
-                this.triggerEmoteAction(true, null, kao, label);
-                this.broadcastFirebaseEvent('emote', { kaomoji: kao, msg: label });
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                sfx.init();
+                sfx.playTone(760, 'sine', 0.1, 0.08);
+                pal.classList.add('hidden');
+
+                const allBtns = [...pal.querySelectorAll('button')];
+                const emoteIdx = allBtns.indexOf(btn);
+                const children = [...btn.children];
+                const rawKao = btn.dataset.kaomoji || children[0]?.textContent?.trim() || '';
+                const rawLbl = btn.dataset.msg || btn.dataset.label || children[1]?.textContent?.trim() || btn.textContent.trim();
+
+                const parsed = this.classifyEmote(rawKao, rawLbl, emoteIdx);
+                this.playSyncedEmote(true, null, parsed);
+                this.broadcastFirebaseEvent('emote', {
+                    emoteIdx,
+                    motionType: parsed.motionType,
+                    kaomoji: parsed.kaomoji,
+                    label: parsed.label,
+                    msg: parsed.label
+                });
             }, true);
         }
 
@@ -987,6 +1051,7 @@ Object.assign(KaomojiMMORPG.prototype, {
         on('btn-send-chat', 'click', (e) => { e.stopPropagation(); if (chatInp) { this.sendChatMessage(chatInp.value); chatInp.value = ''; } });
         chatInp?.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); this.sendChatMessage(chatInp.value); chatInp.value = ''; } });
 
+        // 通常攻撃ボタン
         const atkBtn = document.getElementById('btn-basic-attack');
         if (atkBtn) {
             let lastT = 0;
@@ -998,6 +1063,25 @@ Object.assign(KaomojiMMORPG.prototype, {
             atkBtn.addEventListener('touchstart', doAtk, { passive: false });
             atkBtn.addEventListener('mousedown', doAtk);
         }
+
+        // スキル5枠ボタン（iPadタッチ・クリック両対応）
+        for (let i = 0; i < 5; i++) {
+            const sBtn = document.getElementById(`skill-slot-${i}`)
+                || document.getElementById(`btn-skill-${i}`)
+                || document.querySelectorAll('.skill-slot-btn, .skill-slot, .skill-btn')[i];
+            if (sBtn) {
+                let lastSkillTap = 0;
+                const doSkill = (e) => {
+                    if (e) { e.preventDefault(); e.stopPropagation(); }
+                    const now = performance.now(); if (now - lastSkillTap < 160) return; lastSkillTap = now;
+                    sfx.init();
+                    if (this.useSkillSlot) this.useSkillSlot(i);
+                };
+                sBtn.addEventListener('touchstart', doSkill, { passive: false });
+                sBtn.addEventListener('click', doSkill);
+            }
+        }
+
         on('btn-cycle-target', 'click', (e) => { e.stopPropagation(); sfx.init(); if (this.cycleTarget) this.cycleTarget(); });
 
         this.canvas?.addEventListener('click', (e) => {
@@ -1147,16 +1231,13 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         const _origSkill = P.useSkillSlot;
         P.useSkillSlot = function (slotIdx) {
             const meta = this.resolveSkillMeta(slotIdx);
-            const prevMp = this.player?.mp ?? 0;
-            const prevCds = JSON.stringify(this.player?.skillCds || this.skillCds || []);
+            const curCd = (this.player?.skillCds?.[slotIdx] || this.skillCds?.[slotIdx] || 0);
 
             _origSkill.call(this, slotIdx);
 
-            const nowMp = this.player?.mp ?? 0;
-            const nowCds = JSON.stringify(this.player?.skillCds || this.skillCds || []);
-            const activated = (nowMp < prevMp) || (nowCds !== prevCds) || (this.currentZoneId === 'town');
-
-            if (activated) {
+            // クールダウン中でなければ、広場でも戦闘中でも3Dちゃぶ台＆スキル演出を確実に発動・同期
+            if (curCd <= 0.05) {
+                if (meta.isChabudai) sfx.playTone(320, 'sawtooth', 0.16, 0.1);
                 const info = {
                     isSkill: true,
                     slotIdx: meta.slotIdx,
@@ -1225,4 +1306,4 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!window.game && typeof KaomojiMMORPG !== 'undefined') window.game = new KaomojiMMORPG();
     if (window.game && window.game.startAutoReconnectWatchdog) window.game.startAutoReconnectWatchdog();
 });
-// === GAME6_V12_OK ===
+// === GAME6_V13_OK ===
