@@ -40,7 +40,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             ring.position.y = 0.04;
             this.scene.add(ring);
 
-            // 中央ワープポータル（街ではステージ選択・狩場では街へ帰還）
+            // 中央ワープポータル
             this.warpGroup = new THREE.Group();
             this.warpGroup.position.set(0, 0, -9);
 
@@ -79,8 +79,8 @@ Object.assign(KaomojiMMORPG.prototype, {
         }
     },
 
-    // 個性あふれる3D見た目パーツ装着（頭パーツ・尻尾・翼など）
-    attachCosmeticParts(cosmeticId, headGroup, rootGroup, bodyHex) {
+    // 頭パーツ（9種）
+    attachHeadCosmetic(cosmeticId, headGroup, bodyHex) {
         if (!cosmeticId || cosmeticId === 'none') return;
         const bodyMat = new THREE.MeshStandardMaterial({ color: bodyHex, roughness: 0.45 });
         const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
@@ -106,21 +106,15 @@ Object.assign(KaomojiMMORPG.prototype, {
                 const ear = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.46, 4), bodyMat);
                 ear.position.set(x, 0.66, 0.05);
                 ear.rotation.z = idx === 0 ? 0.25 : -0.25;
-                headGroup.add(ear);
                 const inner = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.28, 4), pinkMat);
                 inner.position.set(x, 0.63, 0.11);
                 inner.rotation.z = idx === 0 ? 0.25 : -0.25;
-                headGroup.add(inner);
+                headGroup.add(ear, inner);
             });
-            const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.95, 10), bodyMat);
-            tail.position.set(0, 0.72, -0.58);
-            tail.rotation.x = -0.75;
-            rootGroup.add(tail);
 
         } else if (cosmeticId === 'bunny_ears') {
             [-0.32, 0.32].forEach((x, idx) => {
-                const earGeo = new THREE.CylinderGeometry(0.11, 0.13, 0.88, 10);
-                const ear = new THREE.Mesh(earGeo, whiteMat);
+                const ear = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.88, 10), whiteMat);
                 ear.position.set(x, 0.88, 0);
                 ear.rotation.z = idx === 0 ? 0.14 : -0.14;
                 const inner = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.68, 8), pinkMat);
@@ -128,25 +122,18 @@ Object.assign(KaomojiMMORPG.prototype, {
                 inner.rotation.z = idx === 0 ? 0.14 : -0.14;
                 headGroup.add(ear, inner);
             });
-            const puff = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 10), whiteMat);
-            puff.position.set(0, 0.55, -0.48);
-            rootGroup.add(puff);
 
-        } else if (cosmeticId === 'fox_set') {
+        } else if (cosmeticId === 'fox_ears') {
             const foxMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.45 });
             [-0.44, 0.44].forEach((x, idx) => {
                 const ear = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.56, 4), foxMat);
                 ear.position.set(x, 0.7, 0.04);
                 ear.rotation.z = idx === 0 ? 0.28 : -0.28;
-                headGroup.add(ear);
+                const tip = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.24, 4), whiteMat);
+                tip.position.set(x, 0.86, 0.04);
+                tip.rotation.z = idx === 0 ? 0.28 : -0.28;
+                headGroup.add(ear, tip);
             });
-            const bigTail = new THREE.Mesh(new THREE.SphereGeometry(0.36, 12, 12), foxMat);
-            bigTail.scale.set(0.85, 0.85, 1.85);
-            bigTail.position.set(0, 0.68, -0.72);
-            bigTail.rotation.x = 0.45;
-            const tip = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 10), whiteMat);
-            tip.position.set(0, 0.88, -1.12);
-            rootGroup.add(bigTail, tip);
 
         } else if (cosmeticId === 'cat_headphone') {
             const band = new THREE.Mesh(new THREE.TorusGeometry(0.66, 0.06, 8, 24, Math.PI), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
@@ -186,27 +173,12 @@ Object.assign(KaomojiMMORPG.prototype, {
                 horn.rotation.x = 0.25;
                 headGroup.add(horn);
             });
-            const wingMat = new THREE.MeshStandardMaterial({ color: 0x1e1b4b, side: THREE.DoubleSide });
-            [-0.55, 0.55].forEach((x, idx) => {
-                const wing = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.45, 0.06), wingMat);
-                wing.position.set(x, 0.95, -0.45);
-                wing.rotation.y = idx === 0 ? -0.45 : 0.45;
-                wing.rotation.z = idx === 0 ? 0.25 : -0.25;
-                rootGroup.add(wing);
-            });
 
         } else if (cosmeticId === 'angel_halo') {
             const halo = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.05, 10, 24), new THREE.MeshBasicMaterial({ color: 0xfef08a }));
             halo.rotation.x = Math.PI / 2;
             halo.position.set(0, 0.85, 0);
             headGroup.add(halo);
-            [-0.58, 0.58].forEach((x, idx) => {
-                const wing = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.48, 0.07), whiteMat);
-                wing.position.set(x, 1.0, -0.44);
-                wing.rotation.y = idx === 0 ? -0.42 : 0.42;
-                wing.rotation.z = idx === 0 ? 0.22 : -0.22;
-                rootGroup.add(wing);
-            });
 
         } else if (cosmeticId === 'royal_crown') {
             const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.38, 0.34, 8), goldMat);
@@ -217,71 +189,185 @@ Object.assign(KaomojiMMORPG.prototype, {
         }
     },
 
+    // 背中パーツ（6種：頭パーツと同時装着可能！）
+    attachBackCosmetic(backId, rootGroup, bodyHex) {
+        if (!backId || backId === 'back_none') return null;
+        const bodyMat = new THREE.MeshStandardMaterial({ color: bodyHex, roughness: 0.45 });
+        const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35 });
+        const goldMat = new THREE.MeshStandardMaterial({ color: 0xfde047, emissive: 0xd97706, emissiveIntensity: 0.35 });
+
+        if (backId === 'cat_tail') {
+            const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 1.0, 10), bodyMat);
+            tail.position.set(0, 0.72, -0.58);
+            tail.rotation.x = -0.78;
+            rootGroup.add(tail);
+
+        } else if (backId === 'fox_tails') {
+            const foxMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.45 });
+            [-0.35, 0, 0.35].forEach((ang, idx) => {
+                const sub = new THREE.Group();
+                sub.position.set(0, 0.56, -0.45);
+                sub.rotation.y = ang;
+                const tBody = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 10), foxMat);
+                tBody.scale.set(0.85, 0.85, 1.9);
+                tBody.position.set(0, 0.16, -0.35);
+                tBody.rotation.x = 0.45;
+                const tTip = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 8), whiteMat);
+                tTip.position.set(0, 0.36, -0.72);
+                sub.add(tBody, tTip);
+                rootGroup.add(sub);
+            });
+
+        } else if (backId === 'hero_cape') {
+            const cape = new THREE.Mesh(
+                new THREE.BoxGeometry(0.92, 1.05, 0.06),
+                new THREE.MeshStandardMaterial({ color: 0xbe123c, roughness: 0.5 })
+            );
+            cape.position.set(0, 0.65, -0.48);
+            cape.rotation.x = 0.22;
+            const trim = new THREE.Mesh(new THREE.BoxGeometry(0.96, 0.1, 0.07), goldMat);
+            trim.position.set(0, 0.16, -0.58);
+            trim.rotation.x = 0.22;
+            rootGroup.add(cape, trim);
+
+        } else if (backId === 'demon_wings') {
+            const wingMat = new THREE.MeshStandardMaterial({ color: 0x1e1b4b, emissive: 0x3b0764, emissiveIntensity: 0.35, side: THREE.DoubleSide });
+            [-0.64, 0.64].forEach((x, idx) => {
+                const wing = new THREE.Mesh(new THREE.BoxGeometry(0.88, 0.52, 0.06), wingMat);
+                wing.position.set(x, 0.98, -0.48);
+                wing.rotation.y = idx === 0 ? -0.42 : 0.42;
+                wing.rotation.z = idx === 0 ? 0.28 : -0.28;
+                rootGroup.add(wing);
+            });
+
+        } else if (backId === 'angel_wings') {
+            [-0.68, 0.68].forEach((x, idx) => {
+                const wing = new THREE.Mesh(new THREE.BoxGeometry(0.98, 0.56, 0.07), whiteMat);
+                wing.position.set(x, 1.04, -0.48);
+                wing.rotation.y = idx === 0 ? -0.38 : 0.38;
+                wing.rotation.z = idx === 0 ? 0.24 : -0.24;
+                rootGroup.add(wing);
+            });
+
+        } else if (backId === 'flame_aura') {
+            const aura = new THREE.Mesh(
+                new THREE.TorusGeometry(0.96, 0.06, 10, 28),
+                new THREE.MeshBasicMaterial({ color: 0xfde047 })
+            );
+            aura.position.set(0, 1.38, -0.56);
+            rootGroup.add(aura);
+            return aura;
+        }
+        return null;
+    },
+
+    // 上向きに凛々しく構える武器3Dモデル（回転軸をグリップ根元に配置）
     buildWeaponGroup(wpn) {
         const g = new THREE.Group();
         const bladeMat = new THREE.MeshStandardMaterial({
             color: wpn.bladeColor || 0xe2e8f0,
             emissive: wpn.glowColor || 0x38bdf8,
-            emissiveIntensity: 0.38,
-            metalness: 0.55,
-            roughness: 0.25
+            emissiveIntensity: 0.42,
+            metalness: 0.6,
+            roughness: 0.22
         });
+
+        // 柄（グリップ）は Y=0 を中心に上下へ伸びる
         const hilt = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.06, 0.06, 0.42, 8),
+            new THREE.CylinderGeometry(0.055, 0.055, 0.38, 8),
             new THREE.MeshStandardMaterial({ color: 0x78350f })
         );
-        hilt.rotation.x = Math.PI / 2;
-        hilt.position.z = 0.2;
+        hilt.position.y = 0.05;
         g.add(hilt);
 
+        // 鍔（つば）
         const guard = new THREE.Mesh(
-            new THREE.BoxGeometry(0.42, 0.08, 0.08),
-            new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.7 })
+            new THREE.BoxGeometry(0.44, 0.08, 0.12),
+            new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.75 })
         );
-        guard.position.z = 0.4;
+        guard.position.y = 0.24;
         g.add(guard);
 
+        // 刀身は上向き（+Y方向）へ伸びる
         const bladeLen = wpn.shape === 'god' ? 1.85 : (wpn.shape === 'omega' ? 1.65 : 1.35);
-        const bladeW = wpn.shape === 'scythe' ? 0.28 : 0.16;
-        const blade = new THREE.Mesh(new THREE.BoxGeometry(bladeW, 0.06, bladeLen), bladeMat);
-        blade.position.z = 0.42 + bladeLen / 2;
+        const bladeW = wpn.shape === 'scythe' ? 0.14 : 0.18;
+        const blade = new THREE.Mesh(new THREE.BoxGeometry(bladeW, bladeLen, 0.06), bladeMat);
+        blade.position.y = 0.26 + bladeLen / 2;
         g.add(blade);
 
+        // 切っ先
+        const tip = new THREE.Mesh(new THREE.ConeGeometry(bladeW * 0.68, 0.26, 4), bladeMat);
+        tip.position.y = 0.26 + bladeLen + 0.13;
+        g.add(tip);
+
         if (wpn.shape === 'scythe') {
-            const hook = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.06, 0.22), bladeMat);
-            hook.position.set(-0.28, 0, 0.42 + bladeLen);
+            const hook = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.22, 0.82), bladeMat);
+            hook.position.set(0, 0.26 + bladeLen - 0.05, 0.34);
             g.add(hook);
         }
+
+        // 通常時の凛々しい構え角度（少し前傾＋外側傾き）
+        g.rotation.set(0.28, 0, -0.14);
         return g;
     },
 
     buildAvatarGroup(cfg) {
         const group = new THREE.Group();
         const bodyHex = cfg.bodyHex || 0x38bdf8;
+        const faceBgHex = cfg.faceBgHex || '#073b66';
+        const scale = Number(cfg.bodyScale) || 1.0;
         const wpn = WEAPONS[cfg.weaponId] || WEAPONS.wpn_wood;
         const arm = ARMORS[cfg.armorId] || ARMORS.arm_cloth;
 
+        const bodyMat = new THREE.MeshStandardMaterial({ color: bodyHex, roughness: 0.4 });
+        const footMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6 });
+
+        // 可愛い足（左右）
+        [-0.22, 0.22].forEach(x => {
+            const foot = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 10), footMat);
+            foot.scale.set(0.95, 0.72, 1.35);
+            foot.position.set(x, 0.14, 0.06);
+            group.add(foot);
+        });
+
         // 胴体＋防具アーマー
         const torso = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.42, 0.48, 0.85, 14),
+            new THREE.CylinderGeometry(0.40, 0.46, 0.78, 14),
             new THREE.MeshStandardMaterial({ color: arm.plateColor || bodyHex, roughness: 0.45 })
         );
         torso.position.y = 0.62;
         group.add(torso);
 
+        // 左手（可愛い丸手）
+        const leftHand = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 10), bodyMat);
+        leftHand.position.set(0.58, 0.72, 0.14);
+        group.add(leftHand);
+
+        // 右手＆剣グループ（ここを回転させて剣を振る）
+        const rightHandGroup = new THREE.Group();
+        rightHandGroup.position.set(-0.62, 0.74, 0.18);
+        const rightHand = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 10), bodyMat);
+        rightHandGroup.add(rightHand);
+
+        const wpnGroup = this.buildWeaponGroup(wpn);
+        wpnGroup.position.set(0, 0.04, 0.06);
+        rightHandGroup.add(wpnGroup);
+        group.add(rightHandGroup);
+
+        // 防具肩当て・マント（背中パーツ未選択時）
         if ((arm.tierLook || 0) >= 1) {
-            [-0.52, 0.52].forEach(x => {
+            [-0.50, 0.50].forEach(x => {
                 const pad = new THREE.Mesh(
-                    new THREE.SphereGeometry(0.22, 10, 10),
+                    new THREE.SphereGeometry(0.20, 10, 10),
                     new THREE.MeshStandardMaterial({ color: arm.trimColor || 0xfbbf24, metalness: 0.5 })
                 );
                 pad.position.set(x, 0.96, 0);
                 group.add(pad);
             });
         }
-        if ((arm.tierLook || 0) >= 2) {
+        if ((arm.tierLook || 0) >= 2 && (!cfg.backCosmeticId || cfg.backCosmeticId === 'back_none')) {
             const cape = new THREE.Mesh(
-                new THREE.BoxGeometry(0.78, 0.88, 0.06),
+                new THREE.BoxGeometry(0.76, 0.85, 0.06),
                 new THREE.MeshStandardMaterial({ color: arm.capeColor || 0x1d4ed8 })
             );
             cape.position.set(0, 0.62, -0.44);
@@ -289,27 +375,23 @@ Object.assign(KaomojiMMORPG.prototype, {
             group.add(cape);
         }
 
-        // 顔文字ヘッド（正面+Zに顔文字テクスチャ、他5面に体色）
+        // 顔文字ヘッド
         const hexStr = '#' + bodyHex.toString(16).padStart(6, '0');
-        const frontTex = getKaomojiFaceTexture(cfg.kaomoji || '(´・ω・`)', '#073b66', '#ffffff', hexStr);
+        const frontTex = getKaomojiFaceTexture(cfg.kaomoji || '(´・ω・`)', faceBgHex, '#ffffff', hexStr);
         const frontMat = new THREE.MeshBasicMaterial({ map: frontTex });
         const sideMat = new THREE.MeshStandardMaterial({ color: bodyHex, roughness: 0.35 });
         const head = new THREE.Mesh(
             new THREE.BoxGeometry(1.24, 0.96, 1.02),
             [sideMat, sideMat, sideMat, sideMat, frontMat, sideMat]
         );
-        head.position.y = 1.62;
+        head.position.y = 1.58;
         group.add(head);
 
-        // 見た目パーツ装着
-        this.attachCosmeticParts(cfg.cosmeticId || 'none', head, group, bodyHex);
+        // 頭パーツ＆背中パーツのダブル装着
+        this.attachHeadCosmetic(cfg.cosmeticId || 'none', head, bodyHex);
+        const backSpinMesh = this.attachBackCosmetic(cfg.backCosmeticId || 'back_none', group, bodyHex);
 
-        // 武器グループ
-        const wpnGroup = this.buildWeaponGroup(wpn);
-        wpnGroup.position.set(-0.66, 0.78, 0.25);
-        group.add(wpnGroup);
-
-        // 高精錬オーラ＆神装後光
+        // 高精錬浮遊クリスタル
         let orbitPart = null;
         if ((cfg.weaponEnhance || 0) >= 3) {
             orbitPart = new THREE.Mesh(
@@ -320,8 +402,8 @@ Object.assign(KaomojiMMORPG.prototype, {
             group.add(orbitPart);
         }
 
-        let backHalo = null;
-        if ((arm.tierLook || 0) >= 5) {
+        let backHalo = backSpinMesh;
+        if (!backHalo && (arm.tierLook || 0) >= 5) {
             backHalo = new THREE.Mesh(
                 new THREE.TorusGeometry(0.95, 0.05, 8, 24),
                 new THREE.MeshBasicMaterial({ color: 0xfde047 })
@@ -330,7 +412,8 @@ Object.assign(KaomojiMMORPG.prototype, {
             group.add(backHalo);
         }
 
-        return { group, head, frontMat, wpnGroup, orbitPart, backHalo };
+        group.scale.setScalar(scale);
+        return { group, head, frontMat, wpnGroup: rightHandGroup, orbitPart, backHalo };
     },
 
     buildPlayerEntity() {
@@ -351,10 +434,13 @@ Object.assign(KaomojiMMORPG.prototype, {
         const meshParts = this.buildAvatarGroup({
             kaomoji: this.getBasePlayerKaomoji(),
             bodyHex: this.getPlayerBodyHexColor(),
+            faceBgHex: this.getPlayerFaceBgHex(),
+            bodyScale: this.getPlayerBodyScale(),
             weaponId: d.weaponId,
             weaponEnhance: d.weaponEnhance || 0,
             armorId: d.armorId,
-            cosmeticId: d.cosmeticId || 'none'
+            cosmeticId: d.cosmeticId || 'none',
+            backCosmeticId: d.backCosmeticId || 'back_none'
         });
 
         if (this.useWebGL && this.scene) {
@@ -523,7 +609,7 @@ Object.assign(KaomojiMMORPG.prototype, {
         }
 
         this.refreshAllHUD();
-        this.syncFirebaseNow();
+        if (this.syncFirebaseNow) this.syncFirebaseNow();
     },
 
     startTowerMode(startFloor = 1) {
@@ -673,14 +759,20 @@ Object.assign(KaomojiMMORPG.prototype, {
             this.envObjects.push(pillar);
         }
 
-        // 広場のAI仲間冒険者3人
         const npcs = [
-            { name: 'ネコミミ案内人', kaomoji: '(=^・ω・^=)', bodyHex: 0xf472b6, cosmeticId: 'cat_ears', weaponId: 'wpn_iron', pos: new THREE.Vector3(-6.5, 0, -4) },
-            { name: '星詠み見習い', kaomoji: '(☆ω☆)', bodyHex: 0xa855f7, cosmeticId: 'witch_hat', weaponId: 'wpn_forest', pos: new THREE.Vector3(6.5, 0, -4) },
-            { name: '元気な双葉っ子', kaomoji: '(≧▽≦)ﾉ', bodyHex: 0x10b981, cosmeticId: 'sprout', weaponId: 'wpn_wood', pos: new THREE.Vector3(0, 0, -16) }
+            { name: 'ネコミミ案内人', kaomoji: '(=^・ω・^=)', bodyHex: 0xf472b6, cosmeticId: 'cat_ears', backCosmeticId: 'cat_tail', weaponId: 'wpn_iron', pos: new THREE.Vector3(-6.5, 0, -4) },
+            { name: '星詠み見習い', kaomoji: '(☆ω☆)', bodyHex: 0xa855f7, cosmeticId: 'witch_hat', backCosmeticId: 'hero_cape', weaponId: 'wpn_forest', pos: new THREE.Vector3(6.5, 0, -4) },
+            { name: '元気な双葉っ子', kaomoji: '(≧▽≦)ﾉ', bodyHex: 0x10b981, cosmeticId: 'sprout', backCosmeticId: 'angel_wings', weaponId: 'wpn_wood', pos: new THREE.Vector3(0, 0, -16) }
         ];
         npcs.forEach(n => {
-            const av = this.buildAvatarGroup({ kaomoji: n.kaomoji, bodyHex: n.bodyHex, weaponId: n.weaponId, armorId: 'arm_leather', cosmeticId: n.cosmeticId });
+            const av = this.buildAvatarGroup({
+                kaomoji: n.kaomoji,
+                bodyHex: n.bodyHex,
+                weaponId: n.weaponId,
+                armorId: 'arm_leather',
+                cosmeticId: n.cosmeticId,
+                backCosmeticId: n.backCosmeticId
+            });
             av.group.position.copy(n.pos);
             this.scene.add(av.group);
             this.aiAllies.push({
