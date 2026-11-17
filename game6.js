@@ -1,7 +1,7 @@
 'use strict';
 
 // =========================================================================
-// 顔文字ファンタジー3D Firebase通信・操作・イベント制御 (game6.js)
+// 顔文字ファンタジー3D Firebase通信・クラウドセーブ・操作制御 (game6.js)
 // =========================================================================
 
 Object.assign(KaomojiMMORPG.prototype, {
@@ -11,6 +11,10 @@ Object.assign(KaomojiMMORPG.prototype, {
         if (!trimmed) return '';
         if (!/^https?:\/\//i.test(trimmed)) return '';
         return trimmed;
+    },
+
+    sanitizeCloudId(rawId) {
+        return (rawId || '').trim().replace(/[^a-zA-Z0-9_-]/g, '');
     },
 
     async connectFirebase(rawUrl, silent = false) {
@@ -64,6 +68,119 @@ Object.assign(KaomojiMMORPG.prototype, {
         this.showAlertBanner('🔌 オンラインから切断しました', 1600);
     },
 
+    // Firebase クラウドセーブ保存（冒険者ID＋合言葉保護付き）
+    async saveToFirebaseCloud(rawId, rawPin) {
+        if (!this.fbConnected || !this.saveData.firebaseUrl) {
+            this.showAlertBanner('⚠️ 先にStep1でFirebase URLを接続してください', 2200);
+            return;
+        }
+        const safeId = this.sanitizeCloudId(rawId);
+        const pin = (rawPin || '').trim();
+        if (safeId.length < 3) {
+            this.showAlertBanner('⚠️ 冒険者IDは半角英数字3文字以上で入力してください', 2200);
+            return;
+        }
+        if (pin.length < 4) {
+            this.showAlertBanner('⚠️ 合言葉（暗証番号）は4文字以上で入力してください', 2200);
+            return;
+        }
+
+        const baseUrl = this.saveData.firebaseUrl;
+        try {
+            // 既存データがあるか確認（他人のID上書き防止）
+            const checkRes = await fetch(`${baseUrl}/cloudSaves/${safeId}.json`);
+            if (checkRes.ok) {
+                const existing = await checkRes.json();
+                if (existing && existing.pin && existing.pin !== pin) {
+                    this.showAlertBanner('❌ この冒険者IDは既に使われており、合言葉が一致しません', 2800);
+                    return;
+                }
+            }
+
+            this.saveData.cloudId = safeId;
+            this.saveData.cloudPin = pin;
+            this.saveGame(false);
+
+            const payload = {
+                cloudId: safeId,
+                pin,
+                updatedAt: Date.now(),
+                saveData: this.saveData
+            };
+
+            const putRes = await fetch(`${baseUrl}/cloudSaves/${safeId}.json`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!putRes.ok) throw new Error('HTTP ' + putRes.status);
+
+            sfx.playLevelUp();
+            this.showAlertBanner(`☁️ クラウドセーブ完了！（ID: ${safeId}）`, 2400);
+        } catch (e) {
+            this.showAlertBanner('❌ クラウド保存に失敗しました（通信状況を確認してください）', 2400);
+        }
+    },
+
+    // Firebase クラウドセーブからデータ復元
+    async loadFromFirebaseCloud(rawId, rawPin) {
+        if (!this.fbConnected || !this.saveData.firebaseUrl) {
+            this.showAlertBanner('⚠️ 先にStep1でFirebase URLを接続してください', 2200);
+            return;
+        }
+        const safeId = this.sanitizeCloudId(rawId);
+        const pin = (rawPin || '').trim();
+        if (!safeId || !pin) {
+            this.showAlertBanner('⚠️ 冒険者IDと合言葉を入力してください', 2000);
+            return;
+        }
+
+        const baseUrl = this.saveData.firebaseUrl;
+        try {
+            const res = await fetch(`${baseUrl}/cloudSaves/${safeId}.json`);
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const record = await res.json();
+            if (!record || !record.saveData) {
+                this.showAlertBanner('❌ 指定された冒険者IDのデータが見つかりません', 2400);
+                return;
+            }
+            if (record.pin !== pin) {
+                this.showAlertBanner('❌ 合言葉（暗証番号）が違います', 2400);
+                return;
+            }
+
+            const curUrl = this.saveData.firebaseUrl;
+            const curUid = this.saveData.playerUid;
+            const def = this.createDefaultSave();
+            const loaded = record.saveData;
+
+            this.saveData = {
+                ...def,
+                ...loaded,
+                playerUid: curUid,
+                firebaseUrl: curUrl,
+                cloudId: safeId,
+                cloudPin: pin,
+                stats: { ...def.stats, ...(loaded.stats || {}) },
+                skills: { ...def.skills, ...(loaded.skills || {}) },
+                materials: { ...def.materials, ...(loaded.materials || {}) },
+                statsTrack: { ...def.statsTrack, ...(loaded.statsTrack || {}) },
+                ownedCosmetics: loaded.ownedCosmetics || ['none'],
+                ownedBackCosmetics: loaded.ownedBackCosmetics || ['back_none']
+            };
+
+            this.saveGame(false);
+            this.buildPlayerEntity();
+            this.buildPetEntity();
+            this.loadZone('town');
+            this.closeGrowthModal();
+            sfx.playLevelUp();
+            this.showAlertBanner(`🎉 クラウドから「${safeId}」(Lv.${this.saveData.lv}) を完全復元しました！`, 2600);
+        } catch (e) {
+            this.showAlertBanner('❌ クラウド復元中にエラーが発生しました', 2400);
+        }
+    },
+
     buildMyOnlinePayload() {
         const d = this.saveData;
         return {
@@ -71,8 +188,11 @@ Object.assign(KaomojiMMORPG.prototype, {
             lv: d.lv || 1,
             kaomoji: this.getBasePlayerKaomoji(),
             bodyColor: d.bodyColor || '',
+            faceBgColor: this.getPlayerFaceBgHex(),
+            bodyScale: this.getPlayerBodyScale(),
             evolutionId: d.evolutionId || 'novice',
             cosmeticId: d.cosmeticId || 'none',
+            backCosmeticId: d.backCosmeticId || 'back_none',
             weaponId: d.weaponId || 'wpn_wood',
             weaponEnhance: d.weaponEnhance || 0,
             armorId: d.armorId || 'arm_cloth',
@@ -141,7 +261,7 @@ Object.assign(KaomojiMMORPG.prototype, {
 
                 Object.values(playersObj).forEach(p => {
                     if (!p || !p.uid || p.uid === myUid) return;
-                    if (now - (p.ts || 0) > 15000) return; // 15秒以上更新なしは離脱扱い
+                    if (now - (p.ts || 0) > 15000) return;
                     activeUids.add(p.uid);
                     this.upsertRemotePlayer(p);
                 });
@@ -177,7 +297,10 @@ Object.assign(KaomojiMMORPG.prototype, {
     },
 
     upsertRemotePlayer(p) {
-        const appearanceSig = `${p.kaomoji}|${p.bodyColor}|${p.evolutionId}|${p.cosmeticId}|${p.weaponId}|${p.armorId}`;
+        const bScale = Number(p.bodyScale) || 1.0;
+        const fBg = p.faceBgColor || '#073b66';
+        const bCos = p.backCosmeticId || 'back_none';
+        const appearanceSig = `${p.kaomoji}|${p.bodyColor}|${fBg}|${bScale}|${p.evolutionId}|${p.cosmeticId}|${bCos}|${p.weaponId}|${p.armorId}`;
         let rp = this.remotePlayers.get(p.uid);
 
         const evo = EVOLUTIONS[p.evolutionId] || EVOLUTIONS.novice;
@@ -192,10 +315,13 @@ Object.assign(KaomojiMMORPG.prototype, {
             const meshParts = this.buildAvatarGroup({
                 kaomoji: p.kaomoji || '(´・ω・`)',
                 bodyHex,
+                faceBgHex: fBg,
+                bodyScale: bScale,
                 weaponId: p.weaponId || 'wpn_wood',
                 weaponEnhance: p.weaponEnhance || 0,
                 armorId: p.armorId || 'arm_cloth',
-                cosmeticId: p.cosmeticId || 'none'
+                cosmeticId: p.cosmeticId || 'none',
+                backCosmeticId: bCos
             });
 
             const startPos = new THREE.Vector3(p.x || 0, 0, p.z || 5);
@@ -213,6 +339,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             rp = {
                 uid: p.uid,
                 appearanceSig,
+                bodyScale: bScale,
                 pos: startPos,
                 targetPos: startPos.clone(),
                 rotY: p.rotY || 0,
@@ -281,27 +408,22 @@ Object.assign(KaomojiMMORPG.prototype, {
     },
 
     // -----------------------------------------------------------------
-    // 操作＆全UIイベントバインド
+    // 操作＆全UIイベントバインド（index.html の全ボタンID完全対応）
     // -----------------------------------------------------------------
     bindEvents() {
-        // 育成・設定モーダル開閉
+        // ステージ選択＆育成モーダル開閉
+        document.getElementById('btn-open-travel')?.addEventListener('click', () => this.openGrowthModal('travel'));
         document.getElementById('btn-open-growth')?.addEventListener('click', () => this.openGrowthModal('stats'));
-        document.getElementById('btn-close-growth')?.addEventListener('click', () => this.closeGrowthModal());
+        document.getElementById('btn-close-modal')?.addEventListener('click', () => this.closeGrowthModal());
         document.getElementById('growth-modal')?.addEventListener('click', (e) => {
             if (e.target.id === 'growth-modal') this.closeGrowthModal();
         });
 
-        // ドロワーメニュー開閉＆各ショートカット
-        document.getElementById('btn-toggle-menu')?.addEventListener('click', (e) => {
+        // 歯車ドロワーメニュー開閉
+        document.getElementById('btn-toggle-drawer')?.addEventListener('click', (e) => {
             e.stopPropagation();
             document.getElementById('hud-drawer-menu')?.classList.toggle('hidden');
             document.getElementById('emote-palette')?.classList.add('hidden');
-        });
-
-        document.querySelectorAll('[data-open-tab]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                this.openGrowthModal(btn.dataset.openTab);
-            });
         });
 
         // エモートパレット開閉
@@ -311,7 +433,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             document.getElementById('hud-drawer-menu')?.classList.add('hidden');
         });
 
-        // ワープ実行ボタン
+        // 中央ワープ実行ボタン
         document.getElementById('btn-exec-warp')?.addEventListener('click', () => {
             sfx.init();
             sfx.playSkill();
@@ -323,25 +445,39 @@ Object.assign(KaomojiMMORPG.prototype, {
             }
         });
 
-        // オート狩り切替
+        // 歯車メニュー内：オート狩り切替
         document.getElementById('btn-toggle-autohunt')?.addEventListener('click', (e) => {
             sfx.init();
             this.autoHunt = !this.autoHunt;
             e.currentTarget.textContent = this.autoHunt ? '🤖 AUTO:ON' : '🤖 AUTO:OFF';
-            e.currentTarget.style.background = this.autoHunt ? '#059669' : '#1e293b';
+            e.currentTarget.style.background = this.autoHunt ? '#059669' : '';
             this.showAlertBanner(this.autoHunt ? '🤖 オート狩り ON（自動追尾＆スキル発動）' : '🤖 オート狩り OFF', 1400);
         });
 
-        // ターゲット切替
-        document.getElementById('btn-cycle-target')?.addEventListener('click', () => {
+        // 歯車メニュー内：脅威 -1 / +1
+        const adjustThreatQuick = (delta) => {
             sfx.init();
-            this.cycleTarget();
-        });
+            const d = this.saveData;
+            d.threatRank = Math.max(0, Math.min(MAX_THREAT_RANK, (d.threatRank || 0) + delta));
+            this.saveGame(false);
+            if (!this.towerState.active) {
+                this.loadZone(this.currentZoneId);
+            } else {
+                this.refreshAllHUD();
+            }
+            this.showAlertBanner(`🔥 脅威度ランク: +${d.threatRank}`, 1300);
+        };
+        document.getElementById('btn-threat-down')?.addEventListener('click', () => adjustThreatQuick(-1));
+        document.getElementById('btn-threat-up')?.addEventListener('click', () => adjustThreatQuick(1));
 
-        // 手動セーブ・BGM切替・データ初期化
-        document.getElementById('btn-save-game')?.addEventListener('click', () => {
+        // 歯車メニュー内：手動セーブ・クラウドセーブ・BGM・データ初期化
+        document.getElementById('btn-manual-save')?.addEventListener('click', () => {
             this.saveGame(true);
             document.getElementById('hud-drawer-menu')?.classList.add('hidden');
+        });
+
+        document.getElementById('btn-open-cloud')?.addEventListener('click', () => {
+            this.openGrowthModal('online');
         });
 
         document.getElementById('btn-toggle-bgm')?.addEventListener('click', (e) => {
@@ -351,6 +487,7 @@ Object.assign(KaomojiMMORPG.prototype, {
         });
 
         document.getElementById('btn-reset-save')?.addEventListener('click', () => {
+            document.getElementById('hud-drawer-menu')?.classList.add('hidden');
             this.openDialog('⚠️ セーブデータ初期化', '本当にすべての進行データを削除して最初からやり直しますか？', [
                 { text: 'キャンセル', primary: false },
                 { text: '🗑️ 初期化する', primary: true, onClick: () => {
@@ -360,7 +497,31 @@ Object.assign(KaomojiMMORPG.prototype, {
             ]);
         });
 
-        // 画面タップでBGM/AudioCtx有効化＋3Dモンスター選択
+        // 右下アーク型バトルパッド：攻撃ボタン＆標的切替
+        const atkBtn = document.getElementById('btn-basic-attack');
+        if (atkBtn) {
+            let lastAtkTouch = 0;
+            const triggerBasicAtk = (e) => {
+                if (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+                const now = performance.now();
+                if (now - lastAtkTouch < 110) return;
+                lastAtkTouch = now;
+                this.performBasicAttack();
+            };
+            atkBtn.addEventListener('touchstart', triggerBasicAtk, { passive: false });
+            atkBtn.addEventListener('mousedown', triggerBasicAtk);
+        }
+
+        document.getElementById('btn-cycle-target')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            sfx.init();
+            this.cycleTarget();
+        });
+
+        // 画面タップでAudioCtx有効化＋3Dモンスター選択
         this.canvas?.addEventListener('click', (e) => {
             sfx.init();
             document.getElementById('hud-drawer-menu')?.classList.add('hidden');
@@ -372,7 +533,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             const clickY = e.clientY - rect.top;
 
             let bestM = null;
-            let bestDist = 48;
+            let bestDist = 52;
             this.monsters.forEach(m => {
                 if (m.dead) return;
                 const sc = this.projectToScreen(new THREE.Vector3(m.pos.x, (m.scale || 1) * 1.1, m.pos.z));
@@ -389,12 +550,16 @@ Object.assign(KaomojiMMORPG.prototype, {
             }
         });
 
-        // キーボード操作
+        // キーボード操作（PC対応）
         window.addEventListener('keydown', (e) => {
             this.keys[e.code] = true;
             if (this.isModalOpen) {
                 if (e.code === 'Escape') this.closeGrowthModal();
                 return;
+            }
+            if (e.code === 'Space') {
+                e.preventDefault();
+                this.performBasicAttack();
             }
             if (e.code === 'Digit1') this.useSkillSlot(0);
             if (e.code === 'Digit2') this.useSkillSlot(1);
