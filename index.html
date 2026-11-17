@@ -973,7 +973,8 @@
         const KAOMOJI_PRESETS = [
             '(*´ω｀*)', '(｀・ω・´)', '(・∀・)', '(⌐■_■)', '(╬◣д◢)',
             '(☆ω☆)✧', 'Ψ(｀∇´)Ψ', '(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧', 'ᕙ( •̀ ᗜ •́ )ᕗ', '꧁(╬◣д◢)꧂'
-        //-----------------------------------------------------------------
+        ];
+        // -----------------------------------------------------------------
         // ゲーム本体クラス
         // -----------------------------------------------------------------
         class KaomojiMMORPG {
@@ -1950,8 +1951,7 @@
                 if (this.alertTimeout) clearTimeout(this.alertTimeout);
                 this.alertTimeout = setTimeout(() => banner.classList.add('hidden'), duration);
             }
-        ];
-// -----------------------------------------------------------------
+            // -----------------------------------------------------------------
             // メインループ＆フレーム更新処理
             // -----------------------------------------------------------------
             loop(now) {
@@ -2555,7 +2555,7 @@
                 `).join('');
                 tabBar.querySelectorAll('.tab-chip-btn').forEach(btn => {
                     btn.addEventListener('click', () => {
-                        this.activeTab = btn.dataset.tab
+                        this.activeTab = btn.dataset.tab;
                         this.renderModalContent();
                     });
                 });
