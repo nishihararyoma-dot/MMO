@@ -27,25 +27,24 @@ const MATERIALS = {
 };
 
 const WEAPONS = {
-    wpn_wood:    { id: 'wpn_wood',    name: '見習いの木の剣',              atk: 14,   mag: 1.00, costGold: 0,      costMat: {}, desc: '冒険の第一歩となる素朴な木剣。' },
-    wpn_iron:    { id: 'wpn_iron',    name: '精錬ブロードソード',          atk: 45,   mag: 1.18, costGold: 220,    costMat: { slime_gel: 3, ancient_sap: 2 }, desc: '鍛え上げられた鋼の剣。序盤の狩りに最適。' },
-    wpn_flame:   { id: 'wpn_flame',   name: '紅蓮のフレイムブレード',      atk: 135,  mag: 1.50, costGold: 950,    costMat: { goblin_fang: 4, fire_core: 3 }, desc: '灼熱の炎を纏う魔剣。スキル威力も大きく伸びる。' },
-    wpn_frost:   { id: 'wpn_frost',   name: '氷皇のクリスタルサイズ',      atk: 360,  mag: 1.90, costGold: 3200,   costMat: { ice_crystal: 5, fire_core: 4 }, desc: '絶対零度の冷気を放つ大鎌。' },
-    wpn_abyss:   { id: 'wpn_abyss',   name: '深淵の虚無神剣',              atk: 980,  mag: 2.50, costGold: 11000,  costMat: { abyss_shard: 6, ice_crystal: 5 }, desc: '次元を切り裂く漆黒の神剣。' },
-    wpn_omega:   { id: 'wpn_omega',   name: '創世神オメガ・エッジ',          atk: 2700, mag: 3.40, costGold: 38000,  costMat: { void_star: 8, abyss_shard: 8 }, desc: '高レベル帯の主役となる創世の神剣。' },
-    wpn_genesis: { id: 'wpn_genesis', name: '【神話級】十界終焉・創世天剣', atk: 8800, mag: 5.00, costGold: 150000, costMat: { void_star: 18, abyss_shard: 16 }, desc: 'Lv.999の頂へ挑む超越者のための神話天剣。' }
+    wpn_wood:    { id: 'wpn_wood',    icon: '🪵', shape: 'wood',    bladeColor: 0xb45309, glowColor: 0xd97706, name: '見習いの木の剣',              atk: 14,   mag: 1.00, costGold: 0,      costMat: {}, desc: '冒険の第一歩となる素朴な木剣。' },
+    wpn_iron:    { id: 'wpn_iron',    icon: '🗡️', shape: 'broad',   bladeColor: 0xe2e8f0, glowColor: 0x38bdf8, name: '精錬ブロードソード',          atk: 45,   mag: 1.18, costGold: 220,    costMat: { slime_gel: 3, ancient_sap: 2 }, desc: '鍛え上げられた鋼の剣。序盤の狩りに最適。' },
+    wpn_flame:   { id: 'wpn_flame',   icon: '🔥', shape: 'flame',   bladeColor: 0xf97316, glowColor: 0xef4444, name: '紅蓮のフレイムブレード',      atk: 135,  mag: 1.50, costGold: 950,    costMat: { goblin_fang: 4, fire_core: 3 }, desc: '灼熱の炎を纏う魔剣。スキル威力も大きく伸びる。' },
+    wpn_frost:   { id: 'wpn_frost',   icon: '❄️', shape: 'scythe',  bladeColor: 0x38bdf8, glowColor: 0xbae6fd, name: '氷皇のクリスタルサイズ',      atk: 360,  mag: 1.90, costGold: 3200,   costMat: { ice_crystal: 5, fire_core: 4 }, desc: '絶対零度の冷気を放つ三日月大鎌。' },
+    wpn_abyss:   { id: 'wpn_abyss',   icon: '🔮', shape: 'abyss',   bladeColor: 0xa855f7, glowColor: 0xe879f9, name: '深淵の虚無神剣',              atk: 980,  mag: 2.50, costGold: 11000,  costMat: { abyss_shard: 6, ice_crystal: 5 }, desc: '次元を切り裂く漆黒と紫の双刃神剣。' },
+    wpn_omega:   { id: 'wpn_omega',   icon: '⚡', shape: 'omega',   bladeColor: 0xfde047, glowColor: 0xf59e0b, name: '創世神オメガ・エッジ',          atk: 2700, mag: 3.40, costGold: 38000,  costMat: { void_star: 8, abyss_shard: 8 }, desc: '黄金の光輪を宿す創世の聖大剣。' },
+    wpn_genesis: { id: 'wpn_genesis', icon: '🌟', shape: 'genesis', bladeColor: 0xf43f5e, glowColor: 0xfde047, name: '【神話級】十界終焉・創世天剣', atk: 8800, mag: 5.00, costGold: 150000, costMat: { void_star: 18, abyss_shard: 16 }, desc: '星屑のオーブを従える神話の終焉天剣。' }
 };
 
 const ARMORS = {
-    arm_cloth:   { id: 'arm_cloth',   name: '冒険者の布服',                hp: 45,    mp: 12,   def: 0.03, costGold: 0,      costMat: {}, desc: '動きやすい軽装の服。' },
-    arm_chain:   { id: 'arm_chain',   name: '銀糸のチェインメイル',          hp: 170,   mp: 38,   def: 0.09, costGold: 220,    costMat: { slime_gel: 3, ancient_sap: 2 }, desc: '軽量ながら堅牢な鎖帷子。' },
-    arm_dragon:  { id: 'arm_dragon',  name: '炎竜鱗の重鎧',                hp: 520,   mp: 95,   def: 0.16, costGold: 950,    costMat: { fire_core: 4, goblin_fang: 4 }, desc: '竜の鱗で編まれた灼熱耐性重鎧。' },
-    arm_glacier: { id: 'arm_glacier', name: '星氷の聖騎士鎧',              hp: 1450,  mp: 240,  def: 0.24, costGold: 3200,   costMat: { ice_crystal: 5, abyss_shard: 2 }, desc: '氷晶の加護で致命傷を防ぐ聖鎧。' },
-    arm_omega:   { id: 'arm_omega',   name: '十界創世の神装束',            hp: 4500,  mp: 680,  def: 0.34, costGold: 32000,  costMat: { void_star: 6, abyss_shard: 6 }, desc: '神域の攻撃すら受け止める究極防具。' },
-    arm_genesis: { id: 'arm_genesis', name: '【神話級】不滅神話の星辰聖衣', hp: 14500, mp: 2100, def: 0.44, costGold: 130000, costMat: { void_star: 16, abyss_shard: 14 }, desc: '脅威度+99の猛攻をも耐え抜く神話防具。' }
+    arm_cloth:   { id: 'arm_cloth',   icon: '👕', tierLook: 0, plateColor: 0xe2e8f0, trimColor: 0x94a3b8, capeColor: 0xe11d48, name: '冒険者の布服',                hp: 45,    mp: 12,   def: 0.03, costGold: 0,      costMat: {}, desc: '動きやすい軽装の服。' },
+    arm_chain:   { id: 'arm_chain',   icon: '⛓️', tierLook: 1, plateColor: 0xcbd5e1, trimColor: 0x38bdf8, capeColor: 0x0284c7, name: '銀糸のチェインメイル',          hp: 170,   mp: 38,   def: 0.09, costGold: 220,    costMat: { slime_gel: 3, ancient_sap: 2 }, desc: '軽量ながら堅牢な銀の鎖帷子。' },
+    arm_dragon:  { id: 'arm_dragon',  icon: '🐉', tierLook: 2, plateColor: 0xb91c1c, trimColor: 0xfbbf24, capeColor: 0x7f1d1d, name: '炎竜鱗の重鎧',                hp: 520,   mp: 95,   def: 0.16, costGold: 950,    costMat: { fire_core: 4, goblin_fang: 4 }, desc: '紅蓮の竜鱗で編まれた重装甲鎧。' },
+    arm_glacier: { id: 'arm_glacier', icon: '💠', tierLook: 3, plateColor: 0xe0f2fe, trimColor: 0x0ea5e9, capeColor: 0x1d4ed8, name: '星氷の聖騎士鎧',              hp: 1450,  mp: 240,  def: 0.24, costGold: 3200,   costMat: { ice_crystal: 5, abyss_shard: 2 }, desc: '氷晶の肩当てを持つ白銀の聖騎士鎧。' },
+    arm_omega:   { id: 'arm_omega',   icon: '👑', tierLook: 4, plateColor: 0x1e1b4b, trimColor: 0xfde047, capeColor: 0x6d28d9, name: '十界創世の神装束',            hp: 4500,  mp: 680,  def: 0.34, costGold: 32000,  costMat: { void_star: 6, abyss_shard: 6 }, desc: '漆黒と黄金が輝く究極の神装束。' },
+    arm_genesis: { id: 'arm_genesis', icon: '✨', tierLook: 5, plateColor: 0xfef08a, trimColor: 0xf43f5e, capeColor: 0xf59e0b, name: '【神話級】不滅神話の星辰聖衣', hp: 14500, mp: 2100, def: 0.44, costGold: 130000, costMat: { void_star: 16, abyss_shard: 14 }, desc: '背面神光輪を纏う不滅の神話聖衣。' }
 };
 
-// 防具強化時に必要な素材を計算（強化値が高いほど上位素材＆必要数が増加）
 function getArmorEnhanceRequirement(curEnh) {
     const gold = Math.round(200 * Math.pow(1.36, curEnh));
     const mats = {};
@@ -88,29 +87,27 @@ const EVOLUTIONS = {
 };
 
 const SKILLS = {
-    slash_heavy:  { id: 'slash_heavy',  name: '烈空斬',         icon: '⚔️', baseCost: 10, cd: 2.6, type: 'SINGLE_DMG', power: 2.1,  isSupport: false, desc: '単体に鋭い斬撃。Lvごとに威力と会心率が上昇！' },
-    spin_whirl:   { id: 'spin_whirl',   name: '旋風円舞',       icon: '🌪️', baseCost: 18, cd: 4.2, type: 'AOE_DMG',    power: 1.75, isSupport: false, radius: 6.2, desc: '周囲の敵すべてを薙ぎ払う回転斬り。' },
+    slash_heavy:  { id: 'slash_heavy',  name: '烈空斬',         icon: '⚔️', baseCost: 10, cd: 2.6, type: 'SINGLE_DMG', power: 2.1,  isSupport: false, desc: '単体に鋭い跳躍斬撃。Lvごとに威力と会心率が上昇！' },
+    spin_whirl:   { id: 'spin_whirl',   name: '旋風円舞',       icon: '🌪️', baseCost: 18, cd: 4.2, type: 'AOE_DMG',    power: 1.75, isSupport: false, radius: 6.2, desc: '高速回転しながら周囲に光の竜巻を放つ大技。' },
     bash_shield:  { id: 'bash_shield',  name: '破邪の衝撃',     icon: '🛡️', baseCost: 14, cd: 3.8, type: 'INTERRUPT',  power: 1.55, isSupport: false, desc: 'ボスの大技詠唱を中断＋Lv比例で気絶時間延長！' },
-    heal_light:   { id: 'heal_light',   name: '聖光の癒し',     icon: '💚', baseCost: 22, cd: 5.5, type: 'HEAL',       power: 0.35, isSupport: true,  desc: 'HPを即座に大回復し状態異常解除。Lvで回復割合UP！' },
-    meteor_star:  { id: 'meteor_star',  name: '星屑メテオ',     icon: '☄️', baseCost: 34, cd: 6.5, type: 'AOE_DMG',    power: 2.9,  isSupport: false, radius: 7.5, desc: '広範囲に星の隕石を落とす高火力魔法。' },
-    frost_nova:   { id: 'frost_nova',   name: '絶対零度ノヴァ', icon: '❄️', baseCost: 26, cd: 5.2, type: 'AOE_SLOW',   power: 1.95, isSupport: false, radius: 6.8, desc: '周囲を氷結させ大ダメージ＋Lvで減速効果＆時間UP。' },
-    thunder_bolt: { id: 'thunder_bolt', name: '天罰の紫電',     icon: '⚡', baseCost: 24, cd: 3.6, type: 'THUNDER',    power: 2.55, isSupport: false, desc: '標的に超高速の雷撃を落とす必殺魔法。' },
+    heal_light:   { id: 'heal_light',   name: '聖光の癒し',     icon: '💚', baseCost: 22, cd: 5.5, type: 'HEAL',       power: 0.35, isSupport: true,  desc: '天からの聖光柱でHP大回復＆状態異常解除。Lvで回復割合UP！' },
+    meteor_star:  { id: 'meteor_star',  name: '星屑メテオ',     icon: '☄️', baseCost: 34, cd: 6.5, type: 'AOE_DMG',    power: 2.9,  isSupport: false, radius: 7.5, desc: '上空から巨大隕石を落下させる超高火力魔法。' },
+    frost_nova:   { id: 'frost_nova',   name: '絶対零度ノヴァ', icon: '❄️', baseCost: 26, cd: 5.2, type: 'AOE_SLOW',   power: 1.95, isSupport: false, radius: 6.8, desc: '氷柱と冷気波で周囲を凍らせ大ダメージ＋Lvで減速UP。' },
+    thunder_bolt: { id: 'thunder_bolt', name: '天罰の紫電',     icon: '⚡', baseCost: 24, cd: 3.6, type: 'THUNDER',    power: 2.55, isSupport: false, desc: '天から極太の雷柱を落とす超高速必殺魔法。' },
     vamp_drain:   { id: 'vamp_drain',   name: '深淵ドレイン',   icon: '🩸', baseCost: 20, cd: 4.5, type: 'DRAIN',      power: 1.85, isSupport: false, desc: '敵の生命力を奪い、Lv比例で吸収回復量もUP！' },
-    aegis_wall:   { id: 'aegis_wall',   name: '神域イージス',   icon: '🔰', baseCost: 25, cd: 8.5, type: 'DEF_BUFF',   power: 0.25, isSupport: true,  desc: '被ダメージ大幅軽減＋完全無敵！Lvで軽減率＆時間UP。' },
-    warcry_fury:  { id: 'warcry_fury',  name: '覇王の咆哮',     icon: '🔥', baseCost: 28, cd: 9.0, type: 'ATK_BUFF',   power: 0.35, isSupport: true,  desc: '全攻撃力が大幅上昇！Lvで攻撃倍率＆効果時間UP。' },
-    phoenix_dive: { id: 'phoenix_dive', name: '不死鳥の烈火',   icon: '🦅', baseCost: 36, cd: 7.0, type: 'AOE_BURN',   power: 2.4,  isSupport: false, radius: 7.0, desc: '紅蓮の炎で焼き払い、炎上継続ダメージを与える。' },
-    void_blade:   { id: 'void_blade',   name: '虚無次元斬',     icon: '🌌', baseCost: 40, cd: 6.0, type: 'SINGLE_DMG', power: 3.45, isSupport: false, desc: '次元ごと切り裂く単体超火力奥義。' },
-    genesis_nova: { id: 'genesis_nova', name: '創世ビッグバン', icon: '💥', baseCost: 55, cd: 9.5, type: 'AOE_DMG',    power: 4.2,  isSupport: false, radius: 8.8, desc: '画面内の敵を殲滅する究極奥義！' },
-    holy_aurora:  { id: 'holy_aurora',  name: '極光の聖域',     icon: '🌈', baseCost: 38, cd: 8.0, type: 'HEAL_MP',    power: 0.42, isSupport: true,  desc: 'HP＆MPを同時大回復！Lvで両方とも回復割合UP。' }
+    aegis_wall:   { id: 'aegis_wall',   name: '神域イージス',   icon: '🔰', baseCost: 25, cd: 8.5, type: 'DEF_BUFF',   power: 0.25, isSupport: true,  desc: '光のバリアドームを展開！Lvで軽減率＆時間UP。' },
+    warcry_fury:  { id: 'warcry_fury',  name: '覇王の咆哮',     icon: '🔥', baseCost: 28, cd: 9.0, type: 'ATK_BUFF',   power: 0.35, isSupport: true,  desc: '紅蓮の闘気柱を纏い全攻撃力上昇！Lvで倍率＆時間UP。' },
+    phoenix_dive: { id: 'phoenix_dive', name: '不死鳥の烈火',   icon: '🦅', baseCost: 36, cd: 7.0, type: 'AOE_BURN',   power: 2.4,  isSupport: false, radius: 7.0, desc: '紅蓮の火柱と炎波で焼き払い、炎上継続ダメージ付与。' },
+    void_blade:   { id: 'void_blade',   name: '虚無次元斬',     icon: '🌌', baseCost: 40, cd: 6.0, type: 'SINGLE_DMG', power: 3.45, isSupport: false, desc: '次元ごと空間を切り裂く単体超火力奥義。' },
+    genesis_nova: { id: 'genesis_nova', name: '創世ビッグバン', icon: '💥', baseCost: 55, cd: 9.5, type: 'AOE_DMG',    power: 4.2,  isSupport: false, radius: 8.8, desc: '宇宙爆発の多重衝撃波で周囲を殲滅する究極奥義！' },
+    holy_aurora:  { id: 'holy_aurora',  name: '極光の聖域',     icon: '🌈', baseCost: 38, cd: 8.0, type: 'HEAL_MP',    power: 0.42, isSupport: true,  desc: '虹色のオーロラ柱でHP＆MP同時大回復！Lvで回復割合UP。' }
 };
 
-// スキルLvに応じた消費MP計算（Lvが上がるに比例して必要MPが増加）
 function getSkillMpCost(sk, skLv) {
     const lv = Math.max(1, skLv || 1);
     return Math.round(sk.baseCost * (1 + (lv - 1) * 0.18));
 }
 
-// スキルLvに応じた具体的な性能・倍率計算＆表示テキスト生成
 function getSkillEffectStats(sk, skLv, st) {
     const lv = Math.max(1, skLv || 1);
     const treePow = st ? st.treeSkillPowerMult : 1.0;
@@ -118,73 +115,40 @@ function getSkillEffectStats(sk, skLv, st) {
 
     if (sk.type === 'HEAL') {
         const hpPct = Math.min(2.5, (sk.power + (lv - 1) * 0.06) * treeHeal);
-        return {
-            hpPct,
-            summary: `HP回復: 最大HPの ${Math.round(hpPct * 100)}%`
-        };
+        return { hpPct, summary: `HP回復: 最大HPの ${Math.round(hpPct * 100)}%` };
     }
     if (sk.type === 'HEAL_MP') {
         const hpPct = Math.min(2.5, (sk.power + (lv - 1) * 0.06) * treeHeal);
         const mpPct = Math.min(1.0, (0.20 + (lv - 1) * 0.03) * treeHeal);
-        return {
-            hpPct,
-            mpPct,
-            summary: `HP回復: ${Math.round(hpPct * 100)}% / MP回復: ${Math.round(mpPct * 100)}%`
-        };
+        return { hpPct, mpPct, summary: `HP回復: ${Math.round(hpPct * 100)}% / MP回復: ${Math.round(mpPct * 100)}%` };
     }
     if (sk.type === 'DEF_BUFF') {
         const defBonus = Math.min(0.75, (sk.power + (lv - 1) * 0.04) * treeHeal);
         const duration = Number((7.0 + (lv - 1) * 0.6).toFixed(1));
         const invuln = Number(Math.min(3.5, 1.0 + (lv - 1) * 0.15).toFixed(1));
-        return {
-            defBonus,
-            duration,
-            invuln,
-            summary: `軽減+${Math.round(defBonus * 100)}% / 無敵${invuln}s / 持続${duration}s`
-        };
+        return { defBonus, duration, invuln, summary: `軽減+${Math.round(defBonus * 100)}% / 無敵${invuln}s / 持続${duration}s` };
     }
     if (sk.type === 'ATK_BUFF') {
         const atkBonus = Number(((sk.power + (lv - 1) * 0.08) * treeHeal).toFixed(2));
         const duration = Number((8.5 + (lv - 1) * 0.7).toFixed(1));
-        return {
-            atkBonus,
-            duration,
-            summary: `攻撃力 +${Math.round(atkBonus * 100)}% (x${(1 + atkBonus).toFixed(2)}倍) / 持続${duration}s`
-        };
+        return { atkBonus, duration, summary: `攻撃力 +${Math.round(atkBonus * 100)}% (x${(1 + atkBonus).toFixed(2)}倍) / 持続${duration}s` };
     }
 
-    // 攻撃系スキル倍率
     const mult = Number((sk.power * (1 + (lv - 1) * 0.25) * treePow).toFixed(2));
     if (sk.type === 'DRAIN') {
         const drainRate = Math.min(1.0, 0.40 + (lv - 1) * 0.04);
-        return {
-            mult,
-            drainRate,
-            summary: `威力倍率: x${mult.toFixed(2)}倍 / 与ダメの${Math.round(drainRate * 100)}%回復`
-        };
+        return { mult, drainRate, summary: `威力倍率: x${mult.toFixed(2)}倍 / 与ダメの${Math.round(drainRate * 100)}%回復` };
     }
     if (sk.type === 'INTERRUPT') {
         const stunDur = Number(Math.min(6.0, 2.4 + (lv - 1) * 0.25).toFixed(1));
-        return {
-            mult,
-            stunDur,
-            summary: `威力倍率: x${mult.toFixed(2)}倍 / 詠唱中断＋気絶${stunDur}s`
-        };
+        return { mult, stunDur, summary: `威力倍率: x${mult.toFixed(2)}倍 / 詠唱中断＋気絶${stunDur}s` };
     }
     if (sk.type === 'AOE_SLOW') {
         const slowFactor = Math.max(0.2, 0.55 - (lv - 1) * 0.03);
         const slowDur = Number(Math.min(10.0, 4.5 + (lv - 1) * 0.4).toFixed(1));
-        return {
-            mult,
-            slowFactor,
-            slowDur,
-            summary: `威力倍率: x${mult.toFixed(2)}倍 / 速度${Math.round((1 - slowFactor) * 100)}%低下(${slowDur}s)`
-        };
+        return { mult, slowFactor, slowDur, summary: `威力倍率: x${mult.toFixed(2)}倍 / 速度${Math.round((1 - slowFactor) * 100)}%低下(${slowDur}s)` };
     }
-    return {
-        mult,
-        summary: `スキル威力倍率: x${mult.toFixed(2)}倍`
-    };
+    return { mult, summary: `スキル威力倍率: x${mult.toFixed(2)}倍` };
 }
 
 const SKILL_TREE_NODES = [
