@@ -1,7 +1,7 @@
 'use strict';
 
 // =========================================================================
-// 顔文字ファンタジー3D メインループ・AUTO支援・全育成UI・操作系 (game2.js)
+// 顔文字ファンタジー3D メインループ・全身技モーション・全育成UI (game2.js)
 // =========================================================================
 
 Object.assign(KaomojiMMORPG.prototype, {
@@ -42,15 +42,18 @@ Object.assign(KaomojiMMORPG.prototype, {
     },
 
     // -----------------------------------------------------------------
-    // プレイヤー更新（スマートAUTO回復・バフ・移動・攻撃）
+    // プレイヤー更新（全身スキルモーション・武器オーブ回転・スマートAUTO）
     // -----------------------------------------------------------------
     updatePlayer(dt, elapsed) {
         if (!this.player) return;
         const st = this.calcDerivedStats();
 
-        // 各種タイマー減算
         if (this.player.invulnTimer > 0) this.player.invulnTimer = Math.max(0, this.player.invulnTimer - dt);
         if (this.player.stunTimer > 0) this.player.stunTimer = Math.max(0, this.player.stunTimer - dt);
+        if (this.player.skillAnimTimer > 0) {
+            this.player.skillAnimTimer = Math.max(0, this.player.skillAnimTimer - dt);
+            if (this.player.skillAnimTimer <= 0) this.player.skillAnimType = 'none';
+        }
         if (this.player.defBuffTimer > 0) {
             this.player.defBuffTimer = Math.max(0, this.player.defBuffTimer - dt);
             if (this.player.defBuffTimer <= 0) this.player.defBuffBonus = 0;
@@ -118,7 +121,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             this.clampPosition(this.player.pos);
             this.player.rotY = Math.atan2(wx, wz);
         } else if (this.autoHunt && this.player.stunTimer <= 0 && !this.isModalOpen && !this.isDead && !inTown) {
-            // スマートAUTO狩り（回復・サポート呪文も状況に応じて自動使用！）
             this.autoSkillTimer -= dt;
             if (this.autoSkillTimer <= 0) {
                 this.autoSkillTimer = 0.45;
@@ -140,24 +142,70 @@ Object.assign(KaomojiMMORPG.prototype, {
             }
         }
 
-        // プレイヤー3D姿勢・モーション反映
+        // プレイヤー3D姿勢・技モーション・エモート反映
         if (this.player.group) {
             this.player.group.position.copy(this.player.pos);
-            if (this.emoteTimer > 0 && this.emoteMotion === 'jump') {
-                this.player.group.position.y = Math.abs(Math.sin(elapsed * 12)) * 0.65;
-            } else if (this.emoteTimer > 0 && this.emoteMotion === 'spin') {
-                this.player.rotY += dt * 10.5;
-            } else if (this.emoteTimer > 0 && this.emoteMotion === 'flip') {
-                this.player.group.position.y = Math.abs(Math.sin(elapsed * 16)) * 0.85;
-                this.player.rotY += dt * 7.5;
-                if (this.player.wpnGroup) this.player.wpnGroup.rotation.x = Math.sin(elapsed * 24) * 1.4;
-            } else if (this.emoteTimer > 0 && this.emoteMotion === 'beam') {
-                if (this.player.wpnGroup) this.player.wpnGroup.rotation.x = 1.45;
-            } else if (this.emoteTimer > 0 && this.emoteMotion === 'bow' && this.player.head) {
-                this.player.head.position.y = 1.15;
-                this.player.head.rotation.x = 0.65;
-            } else if (this.emoteTimer > 0 && this.emoteMotion === 'shake' && this.player.head) {
-                this.player.head.rotation.z = Math.sin(elapsed * 26) * 0.22;
+            this.player.group.rotation.x = 0;
+            this.player.group.rotation.z = 0;
+
+            if (this.player.orbitPart) {
+                this.player.orbitPart.rotation.y += dt * 4.5;
+                this.player.orbitPart.rotation.x += dt * 2.8;
+            }
+
+            if (this.player.skillAnimTimer > 0) {
+                const prog = 1 - (this.player.skillAnimTimer / Math.max(0.01, this.player.skillAnimDur));
+                const sType = this.player.skillAnimType;
+                if (sType === 'jump_slash') {
+                    this.player.group.position.y = Math.sin(prog * Math.PI) * 1.45;
+                    this.player.group.rotation.x = Math.sin(prog * Math.PI) * 0.35;
+                    if (this.player.wpnGroup) {
+                        this.player.wpnGroup.rotation.x = -0.8 + prog * 2.6;
+                        this.player.wpnGroup.rotation.z = 0;
+                    }
+                } else if (sType === 'spin_whirl') {
+                    this.player.group.position.y = Math.sin(prog * Math.PI) * 0.45;
+                    this.player.rotY += dt * 22.0;
+                    if (this.player.wpnGroup) {
+                        this.player.wpnGroup.rotation.x = 1.35;
+                        this.player.wpnGroup.rotation.z = 1.25;
+                    }
+                } else if (sType === 'cast_up') {
+                    this.player.group.position.y = Math.sin(prog * Math.PI) * 0.42;
+                    if (this.player.wpnGroup) {
+                        this.player.wpnGroup.rotation.x = -0.55;
+                        this.player.wpnGroup.rotation.z = -0.25;
+                    }
+                } else if (sType === 'slam_ground') {
+                    this.player.group.position.y = Math.sin(prog * Math.PI) * 0.85;
+                    if (this.player.wpnGroup) {
+                        this.player.wpnGroup.rotation.x = prog < 0.4 ? -0.9 : 1.65;
+                        this.player.wpnGroup.rotation.z = 0;
+                    }
+                } else if (sType === 'dash_thrust') {
+                    this.player.group.rotation.x = 0.28;
+                    if (this.player.wpnGroup) {
+                        this.player.wpnGroup.rotation.x = 1.55;
+                        this.player.wpnGroup.rotation.z = 0;
+                    }
+                }
+            } else if (this.emoteTimer > 0) {
+                if (this.emoteMotion === 'jump') {
+                    this.player.group.position.y = Math.abs(Math.sin(elapsed * 12)) * 0.65;
+                } else if (this.emoteMotion === 'spin') {
+                    this.player.rotY += dt * 10.5;
+                } else if (this.emoteMotion === 'flip') {
+                    this.player.group.position.y = Math.abs(Math.sin(elapsed * 16)) * 0.85;
+                    this.player.rotY += dt * 7.5;
+                    if (this.player.wpnGroup) this.player.wpnGroup.rotation.x = Math.sin(elapsed * 24) * 1.4;
+                } else if (this.emoteMotion === 'beam') {
+                    if (this.player.wpnGroup) this.player.wpnGroup.rotation.x = 1.45;
+                } else if (this.emoteMotion === 'bow' && this.player.head) {
+                    this.player.head.position.y = 1.15;
+                    this.player.head.rotation.x = 0.65;
+                } else if (this.emoteMotion === 'shake' && this.player.head) {
+                    this.player.head.rotation.z = Math.sin(elapsed * 26) * 0.22;
+                }
             } else {
                 if (mag > 0.05) {
                     this.player.group.position.y = Math.abs(Math.sin(elapsed * 14)) * 0.14;
@@ -167,11 +215,13 @@ Object.assign(KaomojiMMORPG.prototype, {
                     this.player.head.rotation.x = 0;
                     this.player.head.rotation.z = 0;
                 }
+                if (this.player.wpnGroup) {
+                    this.player.wpnGroup.rotation.x *= 0.80;
+                    this.player.wpnGroup.rotation.z *= 0.80;
+                }
             }
+
             this.player.group.rotation.y = this.player.rotY;
-            if (this.player.wpnGroup && this.emoteMotion !== 'beam' && this.emoteMotion !== 'flip') {
-                this.player.wpnGroup.rotation.x *= 0.82;
-            }
         }
 
         // オート通常攻撃
@@ -185,7 +235,9 @@ Object.assign(KaomojiMMORPG.prototype, {
                     const crit = Math.random() < st.critChance;
                     this.damageMonster(target, st.physAtk * (crit ? st.critDmg : 1), crit);
                     this.spawnSlashEffect(target.pos, 0x38bdf8);
-                    if (this.player.wpnGroup) this.player.wpnGroup.rotation.x = 1.25;
+                    if (this.player.wpnGroup && this.player.skillAnimTimer <= 0) {
+                        this.player.wpnGroup.rotation.x = 1.3;
+                    }
                 }
             }
         }
@@ -200,7 +252,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         const mpRatio = this.player.mp / Math.max(1, st.maxMp);
         const nearEnemy = this.getNearestMonster(9.5);
 
-        // 1. 最優先：HP68%以下またはMP35%以下なら回復魔法を発動
         for (let i = 0; i < 5; i++) {
             const skId = d.equippedSkills[i];
             const sk = skId ? SKILLS[skId] : null;
@@ -218,7 +269,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             }
         }
 
-        // 2. 敵が近くにいる場合：防御バフ・攻撃バフが切れていれば自動掛け直し
         if (nearEnemy && !nearEnemy.dead) {
             for (let i = 0; i < 5; i++) {
                 const skId = d.equippedSkills[i];
@@ -237,7 +287,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                 }
             }
 
-            // 3. 射程内に敵がいれば攻撃スキル発動（ボス詠唱中は中断スキル優先）
             const dist = this.player.pos.distanceTo(nearEnemy.pos);
             if (dist <= 5.5) {
                 if (nearEnemy.casting) {
@@ -394,6 +443,9 @@ Object.assign(KaomojiMMORPG.prototype, {
         };
     },
 
+    // -----------------------------------------------------------------
+    // 豪華3Dエフェクト駆動（隕石落下・ちゃぶ台回転飛行・光柱・星上昇）
+    // -----------------------------------------------------------------
     updateEffectsAndOverlays(dt) {
         for (let i = this.effects.length - 1; i >= 0; i--) {
             const ef = this.effects[i];
@@ -403,10 +455,36 @@ Object.assign(KaomojiMMORPG.prototype, {
                 this.effects.splice(i, 1);
             } else {
                 const ratio = ef.life / ef.maxLife;
-                if (ef.mesh && ef.mesh.material) ef.mesh.material.opacity = ratio;
-                if (ef.expand && ef.mesh) {
-                    const s = 1 + (1 - ratio) * 0.35;
+                const prog = 1 - ratio;
+
+                if (ef.kind === 'expand' && ef.mesh) {
+                    const s = 1 + prog * 0.42;
                     ef.mesh.scale.set(s, s, 1);
+                } else if (ef.kind === 'pillar' && ef.mesh) {
+                    ef.mesh.rotation.y += dt * 7.0;
+                    const s = Math.max(0.2, ratio);
+                    ef.mesh.scale.set(s, 1, s);
+                } else if (ef.kind === 'fall' && ef.mesh) {
+                    ef.mesh.position.y = Math.max(0.8, (ef.startY || 12) * ratio);
+                    ef.mesh.rotation.x += dt * 9.0;
+                    ef.mesh.rotation.z += dt * 7.0;
+                } else if (ef.kind === 'toss' && ef.mesh) {
+                    ef.mesh.position.x += (ef.vx || 0) * dt;
+                    ef.mesh.position.z += (ef.vz || 0) * dt;
+                    ef.mesh.position.y = 1.0 + Math.sin(prog * Math.PI) * 3.8;
+                    ef.mesh.rotation.x += dt * 15.0;
+                    ef.mesh.rotation.z += dt * 8.0;
+                } else if (ef.kind === 'rise' && ef.mesh) {
+                    ef.mesh.position.y += dt * 2.6;
+                    ef.mesh.rotation.y += dt * 6.0;
+                }
+
+                if (ef.mesh && ef.mesh.material) {
+                    ef.mesh.material.opacity = ratio;
+                } else if (ef.mesh && ef.mesh.children) {
+                    ef.mesh.children.forEach(ch => {
+                        if (ch.material && ch.material.transparent) ch.material.opacity = ratio;
+                    });
                 }
             }
         }
@@ -418,7 +496,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             this.camera.position.set(cx, cy, cz);
             this.camera.lookAt(this.player.pos.x, this.player.pos.y + 1.2, this.player.pos.z);
 
-            // プレイヤー頭上HP/MP/EXPバーの位置投影
             if (this.player.headPlateEl) {
                 const pSc = this.projectToScreen(new THREE.Vector3(this.player.pos.x, 2.38, this.player.pos.z));
                 if (pSc) {
@@ -551,7 +628,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             alertDot?.classList.add('hidden');
         }
 
-        // スキルパッド5枠（現在のスキルLvに応じた消費MPを表示）
         const slotWrap = document.getElementById('skill-slots-container');
         slotWrap.innerHTML = [0, 1, 2, 3, 4].map(i => {
             const skId = d.equippedSkills[i];
@@ -613,7 +689,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             : `${formatBigNum(d.exp)}/${formatBigNum(needExp)}`;
         document.getElementById('hud-exp-bar').style.width = `${expPct}%`;
 
-        // キャラクター頭上のリアルタイムHP/MP/EXPゲージ更新
         const pHeadLv = document.getElementById('p-head-lv');
         const pHeadHp = document.getElementById('p-head-hp');
         const pHeadMp = document.getElementById('p-head-mp');
@@ -637,7 +712,7 @@ Object.assign(KaomojiMMORPG.prototype, {
     },
 
     // -----------------------------------------------------------------
-    // モーダル・全育成タブ描画
+    // モーダル・全育成タブ描画（装備変更時の3D見た目即時反映対応）
     // -----------------------------------------------------------------
     canEvolveTo(evo) {
         const d = this.saveData;
@@ -846,14 +921,14 @@ Object.assign(KaomojiMMORPG.prototype, {
                     <div class="grid-2">
                         <div class="card-box" style="display:flex; flex-direction:column; justify-content:space-between; gap:6px;">
                             <div>
-                                <div style="font-size:12px; font-weight:900; color:#fb7185;">⚔️ 装備中武器: ${curWpn.name} <span style="color:#fde047;">+${d.weaponEnhance || 0}</span></div>
-                                <div style="font-size:10px; color:#94a3b8; margin-top:3px;">精錬ごとに武器攻撃力 +14%＆剣の輝きが進化！</div>
+                                <div style="font-size:12px; font-weight:900; color:#fb7185;">${curWpn.icon} 装備中武器: ${curWpn.name} <span style="color:#fde047;">+${d.weaponEnhance || 0}</span></div>
+                                <div style="font-size:10px; color:#94a3b8; margin-top:3px;">精錬ごとに武器攻撃力 +14%＆3Dオーラが進化！</div>
                             </div>
                             <button id="btn-enh-wpn" class="btn-ui btn-amber" ${d.gold < wpnCost ? 'disabled' : ''}>🔨 武器を無限精錬 (+1) [${formatBigNum(wpnCost)}G]</button>
                         </div>
                         <div class="card-box" style="display:flex; flex-direction:column; justify-content:space-between; gap:6px;">
                             <div>
-                                <div style="font-size:12px; font-weight:900; color:#38bdf8;">🛡️ 装備中防具: ${curArm.name} <span style="color:#fde047;">+${d.armorEnhance || 0}</span></div>
+                                <div style="font-size:12px; font-weight:900; color:#38bdf8;">${curArm.icon} 装備中防具: ${curArm.name} <span style="color:#fde047;">+${d.armorEnhance || 0}</span></div>
                                 <div style="font-size:10px; color:#94a3b8; margin-top:3px;">精錬ごとに防具HP・MP・防御 +14%（ゴールド＋素材が必要）</div>
                                 <div style="font-size:10px; margin-top:3px;">必要素材: ${armMatStr}</div>
                             </div>
@@ -861,7 +936,7 @@ Object.assign(KaomojiMMORPG.prototype, {
                         </div>
                     </div>
 
-                    <div style="font-size:12px; font-weight:900; color:#fde047;">🗡️ 武器の鍛造・装備</div>
+                    <div style="font-size:12px; font-weight:900; color:#fde047;">🗡️ 武器の鍛造・装備（3Dの武器見た目も変化！）</div>
                     <div class="grid-2">
                         ${Object.values(WEAPONS).map(w => {
                             const owned = d.ownedWeapons.includes(w.id);
@@ -871,7 +946,7 @@ Object.assign(KaomojiMMORPG.prototype, {
                             return `
                                 <div class="card-box flex-between">
                                     <div>
-                                        <div style="font-size:12px; font-weight:900; color:#fff;">${w.name}</div>
+                                        <div style="font-size:12px; font-weight:900; color:#fff;">${w.icon} ${w.name}</div>
                                         <div style="font-size:10px; color:#fda4af;">基礎ATK:${w.atk} / 魔力倍率:x${w.mag}</div>
                                         <div style="font-size:10px; color:#94a3b8;">必要: ${formatBigNum(w.costGold)}G ${matTxt}</div>
                                     </div>
@@ -885,7 +960,7 @@ Object.assign(KaomojiMMORPG.prototype, {
                         }).join('')}
                     </div>
 
-                    <div style="font-size:12px; font-weight:900; color:#7dd3fc;">🛡️ 防具の鍛造・装備</div>
+                    <div style="font-size:12px; font-weight:900; color:#7dd3fc;">🛡️ 防具の鍛造・装備（3Dの鎧・肩当て・盾・マントも変化！）</div>
                     <div class="grid-2">
                         ${Object.values(ARMORS).map(a => {
                             const owned = d.ownedArmors.includes(a.id);
@@ -895,7 +970,7 @@ Object.assign(KaomojiMMORPG.prototype, {
                             return `
                                 <div class="card-box flex-between">
                                     <div>
-                                        <div style="font-size:12px; font-weight:900; color:#fff;">${a.name}</div>
+                                        <div style="font-size:12px; font-weight:900; color:#fff;">${a.icon} ${a.name}</div>
                                         <div style="font-size:10px; color:#6ee7b7;">HP+${a.hp} / MP+${a.mp} / 軽減+${Math.round(a.def * 100)}%</div>
                                         <div style="font-size:10px; color:#94a3b8;">必要: ${formatBigNum(a.costGold)}G ${matTxt}</div>
                                     </div>
@@ -926,6 +1001,7 @@ Object.assign(KaomojiMMORPG.prototype, {
                     d.materials[mk] -= c;
                 }
                 d.armorEnhance = (d.armorEnhance || 0) + 1;
+                this.buildPlayerEntity();
                 sfx.playSkill();
                 this.saveGame(false);
                 this.renderModalContent();
@@ -936,12 +1012,15 @@ Object.assign(KaomojiMMORPG.prototype, {
                 for (const [mk, c] of Object.entries(w.costMat)) d.materials[mk] -= c;
                 d.ownedWeapons.push(w.id);
                 d.weaponId = w.id;
+                this.buildPlayerEntity();
                 sfx.playLevelUp();
                 this.saveGame(false);
                 this.renderModalContent();
             }));
             body.querySelectorAll('.btn-eq-wpn').forEach(btn => btn.addEventListener('click', () => {
                 d.weaponId = btn.dataset.id;
+                this.buildPlayerEntity();
+                this.saveGame(false);
                 this.renderModalContent();
             }));
             body.querySelectorAll('.btn-craft-arm').forEach(btn => btn.addEventListener('click', () => {
@@ -950,12 +1029,15 @@ Object.assign(KaomojiMMORPG.prototype, {
                 for (const [mk, c] of Object.entries(a.costMat)) d.materials[mk] -= c;
                 d.ownedArmors.push(a.id);
                 d.armorId = a.id;
+                this.buildPlayerEntity();
                 sfx.playLevelUp();
                 this.saveGame(false);
                 this.renderModalContent();
             }));
             body.querySelectorAll('.btn-eq-arm').forEach(btn => btn.addEventListener('click', () => {
                 d.armorId = btn.dataset.id;
+                this.buildPlayerEntity();
+                this.saveGame(false);
                 this.renderModalContent();
             }));
 
@@ -1194,7 +1276,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             body.innerHTML = `
                 <div style="display:flex; flex-direction:column; gap:10px;">
                     <div class="card-box">
-                        <div style="font-size:12px; font-weight:900; color:#f9a8d4; margin-bottom:6px;">😊 16種エモートアクション（ちゃぶ台返し・ビーム・土下座など）</div>
+                        <div style="font-size:12px; font-weight:900; color:#f9a8d4; margin-bottom:6px;">😊 16種エモートアクション（3Dちゃぶ台飛行・極太ビーム・星屑バーストなど！）</div>
                         <div style="display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:6px;">
                             ${EMOTES.map(em => `
                                 <button class="btn-modal-emote btn-ui btn-slate" style="flex-direction:column; padding:8px 4px;" data-emote="${em.id}">
@@ -1322,7 +1404,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             }
         });
 
-        // 3Dキャンバスドラッグ視点回転
         let camDragId = null;
         let lastCamX = 0;
         this.canvas.addEventListener('touchstart', (e) => {
@@ -1371,7 +1452,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         });
         window.addEventListener('keyup', (e) => { this.keys[e.code] = false; });
 
-        // 上部HUDボタン
         document.getElementById('btn-open-travel')?.addEventListener('click', () => this.openGrowthModal('travel'));
         document.getElementById('btn-open-growth')?.addEventListener('click', () => this.openGrowthModal('stats'));
         document.getElementById('btn-close-modal')?.addEventListener('click', () => this.closeGrowthModal());
@@ -1446,7 +1526,9 @@ Object.assign(KaomojiMMORPG.prototype, {
                 const crit = Math.random() < st.critChance;
                 this.damageMonster(target, st.physAtk * (crit ? st.critDmg : 1), crit);
                 this.spawnSlashEffect(target.pos, 0x38bdf8);
-                if (this.player.wpnGroup) this.player.wpnGroup.rotation.x = 1.3;
+                if (this.player.wpnGroup && this.player.skillAnimTimer <= 0) {
+                    this.player.wpnGroup.rotation.x = 1.3;
+                }
             } else {
                 this.showAlertBanner('攻撃範囲内に敵がいません！近づこう！', 1100);
             }
