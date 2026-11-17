@@ -1,23 +1,33 @@
 'use strict';
 
 // =========================================================================
-// 顔文字ファンタジー3D オンライン部屋・チャット同期・全操作制御 (game6.js)
+// 顔文字ファンタジー3D ntfyリアルタイム通信・部屋同期・全操作制御 (game6.js)
 // =========================================================================
+
+const NTFY_BASE_URL = 'https://ntfy.sh';
+const NTFY_GLOBAL_TOPIC = 'kaomoji_fantasy_3d_global_chat_v2';
 
 Object.assign(KaomojiMMORPG.prototype, {
 
-    getCleanFirebaseBaseUrl(rawUrl) {
-        const trimmed = (rawUrl || '').trim().replace(/\/+$/, '');
-        if (!trimmed) return '';
-        if (!/^https?:\/\//i.test(trimmed)) return '';
-        return trimmed;
+    encodeRoomTopicSuffix(rawPass) {
+        const str = String(rawPass || '').trim();
+        if (!str) return 'EMPTY';
+        let hex = '';
+        for (let i = 0; i < str.length; i++) {
+            hex += str.charCodeAt(i).toString(16);
+        }
+        return hex.slice(0, 48);
     },
 
-    sanitizeCloudId(rawId) {
-        return (rawId || '').trim().replace(/[^a-zA-Z0-9_-]/g, '');
+    getNtfyRoomTopic() {
+        const d = this.saveData;
+        if (!d.roomPassEnabled) {
+            return 'kaomoji_fantasy_3d_room_PUBLIC_OPEN_v2';
+        }
+        return 'kaomoji_fantasy_3d_room_PASS_' + this.encodeRoomTopicSuffix(d.roomPassword);
     },
 
-    // ワンタッチ オンライン / オフライン切替
+    // ワンタッチ オンライン / オフライン切替（URL入力不要で即接続）
     toggleOnlineMode() {
         sfx.init();
         const d = this.saveData;
@@ -31,195 +41,125 @@ Object.assign(KaomojiMMORPG.prototype, {
             this.saveGame(false);
             this.refreshTitleScreen();
             this.refreshAllHUD();
-            if (d.firebaseUrl) {
-                this.connectFirebase(d.firebaseUrl, false);
-            } else {
-                if (this.inTitleScreen) {
-                    this.inTitleScreen = false;
-                    document.getElementById('title-screen')?.classList.add('hidden');
-                }
-                this.openGrowthModal('online');
-                this.showAlertBanner('🌐 初回のみFirebase URLを入力して接続してください', 2400);
-            }
+            this.connectNtfy(false);
         }
     },
 
-    async connectFirebase(rawUrl, silent = false) {
-        const baseUrl = this.getCleanFirebaseBaseUrl(rawUrl);
-        if (!baseUrl) {
-            this.saveData.onlineEnabled = false;
-            this.refreshTitleScreen();
-            this.refreshAllHUD();
-            if (!silent) this.showAlertBanner('⚠️ 有効なFirebase Realtime DatabaseのURLを入力してください', 2200);
-            return;
+    // game1.js 等からの互換呼び出し口
+    connectFirebase(rawUrl, silent = false) {
+        this.connectNtfy(silent);
+    },
+
+    connectNtfy(silent = false) {
+        this.closeNtfyStreams();
+        this.saveData.onlineEnabled = true;
+        this.fbConnected = true;
+        this.fbLastEventTs = Date.now();
+        this.saveGame(false);
+
+        this.openNtfyGlobalStream();
+        this.openNtfyRoomStream();
+        this.syncFirebaseNow();
+
+        this.refreshTitleScreen();
+        this.refreshAllHUD();
+        if (this.isModalOpen && this.activeTab === 'online') {
+            this.renderModalContent();
         }
-
-        try {
-            const testRes = await fetch(`${baseUrl}/players/${this.saveData.playerUid}.json`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(this.buildMyOnlinePayload())
-            });
-            if (!testRes.ok) throw new Error('HTTP ' + testRes.status);
-
-            this.saveData.firebaseUrl = baseUrl;
-            this.saveData.onlineEnabled = true;
-            this.fbConnected = true;
-            this.fbLastEventTs = Date.now();
-            this.saveGame(false);
-            this.refreshTitleScreen();
-            this.refreshAllHUD();
-            if (this.isModalOpen && this.activeTab === 'online') this.renderModalContent();
-            if (!silent) {
-                sfx.playHeal();
-                const roomLabel = this.saveData.roomPassEnabled ? '🔒 パスワード部屋' : '🌐 公開オンライン';
-                this.showAlertBanner(`${roomLabel}に接続しました！`, 2200);
-            }
-        } catch (e) {
-            this.fbConnected = false;
-            this.refreshTitleScreen();
-            this.refreshAllHUD();
-            if (!silent) {
-                this.showAlertBanner('❌ 接続に失敗しました（URLまたはデータベースの公開ルールを確認してください）', 2800);
-            }
+        if (!silent) {
+            sfx.playHeal();
+            const roomLabel = this.saveData.roomPassEnabled
+                ? `🔒 パスワード部屋（${this.saveData.roomPassword || '未設定'}）`
+                : '🌐 公開オンライン広場';
+            this.showAlertBanner(`${roomLabel}に接続しました！`, 2200);
         }
     },
 
-    disconnectFirebase() {
-        if (this.saveData.firebaseUrl) {
-            const baseUrl = this.saveData.firebaseUrl;
-            fetch(`${baseUrl}/players/${this.saveData.playerUid}.json`, { method: 'DELETE' }).catch(() => {});
+    reconnectNtfyRoom() {
+        if (!this.fbConnected) return;
+        this.broadcastNtfyPacket(this.currentNtfyRoomTopic || this.getNtfyRoomTopic(), {
+            type: 'leave',
+            uid: this.saveData.playerUid,
+            ts: Date.now()
+        });
+        this.clearRemotePlayers();
+        if (this.ntfyRoomEs) {
+            try { this.ntfyRoomEs.close(); } catch (e) {}
+            this.ntfyRoomEs = null;
         }
-        this.fbConnected = false;
-        this.saveData.onlineEnabled = false;
+        this.openNtfyRoomStream();
+        this.syncFirebaseNow();
+    },
+
+    closeNtfyStreams() {
+        if (this.ntfyGlobalEs) {
+            try { this.ntfyGlobalEs.close(); } catch (e) {}
+            this.ntfyGlobalEs = null;
+        }
+        if (this.ntfyRoomEs) {
+            try { this.ntfyRoomEs.close(); } catch (e) {}
+            this.ntfyRoomEs = null;
+        }
+    },
+
+    clearRemotePlayers() {
         this.remotePlayers.forEach(rp => {
             if (rp.group && this.scene) this.scene.remove(rp.group);
             if (rp.plateEl) rp.plateEl.remove();
         });
         this.remotePlayers.clear();
+    },
+
+    openNtfyGlobalStream() {
+        if (typeof EventSource === 'undefined') return;
+        try {
+            const es = new EventSource(`${NTFY_BASE_URL}/${NTFY_GLOBAL_TOPIC}/sse?since=10s`);
+            es.onmessage = (ev) => this.handleNtfySseEvent(ev.data, 'global');
+            this.ntfyGlobalEs = es;
+        } catch (e) {}
+    },
+
+    openNtfyRoomStream() {
+        if (typeof EventSource === 'undefined') return;
+        const topic = this.getNtfyRoomTopic();
+        this.currentNtfyRoomTopic = topic;
+        try {
+            const es = new EventSource(`${NTFY_BASE_URL}/${topic}/sse?since=10s`);
+            es.onmessage = (ev) => this.handleNtfySseEvent(ev.data, 'room');
+            this.ntfyRoomEs = es;
+        } catch (e) {}
+    },
+
+    disconnectFirebase() {
+        if (this.fbConnected) {
+            this.broadcastNtfyPacket(this.currentNtfyRoomTopic || this.getNtfyRoomTopic(), {
+                type: 'leave',
+                uid: this.saveData.playerUid,
+                ts: Date.now()
+            });
+        }
+        this.closeNtfyStreams();
+        this.fbConnected = false;
+        this.saveData.onlineEnabled = false;
+        this.clearRemotePlayers();
         this.saveGame(false);
         this.refreshTitleScreen();
         this.refreshAllHUD();
         this.showAlertBanner('📴 オフラインモードに切り替えました', 1600);
     },
 
-    // Firebase クラウドセーブ保存（冒険者ID＋合言葉保護付き）
-    async saveToFirebaseCloud(rawId, rawPin) {
-        if (!this.fbConnected || !this.saveData.firebaseUrl) {
-            this.showAlertBanner('⚠️ 先にFirebase URLを接続してください', 2200);
-            return;
-        }
-        const safeId = this.sanitizeCloudId(rawId);
-        const pin = (rawPin || '').trim();
-        if (safeId.length < 3) {
-            this.showAlertBanner('⚠️ 冒険者IDは半角英数字3文字以上で入力してください', 2200);
-            return;
-        }
-        if (pin.length < 4) {
-            this.showAlertBanner('⚠️ 合言葉（暗証番号）は4文字以上で入力してください', 2200);
-            return;
-        }
-
-        const baseUrl = this.saveData.firebaseUrl;
-        try {
-            const checkRes = await fetch(`${baseUrl}/cloudSaves/${safeId}.json`);
-            if (checkRes.ok) {
-                const existing = await checkRes.json();
-                if (existing && existing.pin && existing.pin !== pin) {
-                    this.showAlertBanner('❌ この冒険者IDは既に使われており、合言葉が一致しません', 2800);
-                    return;
-                }
-            }
-
-            this.saveData.cloudId = safeId;
-            this.saveData.cloudPin = pin;
-            this.saveGame(false);
-
-            const payload = {
-                cloudId: safeId,
-                pin,
-                updatedAt: Date.now(),
-                saveData: this.saveData
-            };
-
-            const putRes = await fetch(`${baseUrl}/cloudSaves/${safeId}.json`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            if (!putRes.ok) throw new Error('HTTP ' + putRes.status);
-
-            sfx.playLevelUp();
-            this.showAlertBanner(`☁️ クラウドセーブ完了！（ID: ${safeId}）`, 2400);
-        } catch (e) {
-            this.showAlertBanner('❌ クラウド保存に失敗しました', 2400);
-        }
-    },
-
-    // Firebase クラウドセーブからデータ復元
-    async loadFromFirebaseCloud(rawId, rawPin) {
-        if (!this.fbConnected || !this.saveData.firebaseUrl) {
-            this.showAlertBanner('⚠️ 先にFirebase URLを接続してください', 2200);
-            return;
-        }
-        const safeId = this.sanitizeCloudId(rawId);
-        const pin = (rawPin || '').trim();
-        if (!safeId || !pin) {
-            this.showAlertBanner('⚠️ 冒険者IDと合言葉を入力してください', 2000);
-            return;
-        }
-
-        const baseUrl = this.saveData.firebaseUrl;
-        try {
-            const res = await fetch(`${baseUrl}/cloudSaves/${safeId}.json`);
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            const record = await res.json();
-            if (!record || !record.saveData) {
-                this.showAlertBanner('❌ 指定された冒険者IDのデータが見つかりません', 2400);
-                return;
-            }
-            if (record.pin !== pin) {
-                this.showAlertBanner('❌ 合言葉（暗証番号）が違います', 2400);
-                return;
-            }
-
-            const curUrl = this.saveData.firebaseUrl;
-            const curUid = this.saveData.playerUid;
-            const def = this.createDefaultSave();
-            const loaded = record.saveData;
-
-            this.saveData = {
-                ...def,
-                ...loaded,
-                isNewSave: false,
-                playerUid: curUid,
-                firebaseUrl: curUrl,
-                onlineEnabled: true,
-                cloudId: safeId,
-                cloudPin: pin,
-                stats: { ...def.stats, ...(loaded.stats || {}) },
-                skills: { ...def.skills, ...(loaded.skills || {}) },
-                materials: { ...def.materials, ...(loaded.materials || {}) },
-                statsTrack: { ...def.statsTrack, ...(loaded.statsTrack || {}) },
-                ownedCosmetics: loaded.ownedCosmetics || ['none'],
-                ownedBackCosmetics: loaded.ownedBackCosmetics || ['back_none']
-            };
-
-            this.saveGame(false);
-            this.buildPlayerEntity();
-            this.buildPetEntity();
-            this.loadZone('town');
-            this.closeGrowthModal();
-            sfx.playLevelUp();
-            this.showAlertBanner(`🎉 クラウドから「${safeId}」(Lv.${this.saveData.lv}) を復元しました！`, 2600);
-        } catch (e) {
-            this.showAlertBanner('❌ クラウド復元中にエラーが発生しました', 2400);
-        }
+    broadcastNtfyPacket(topic, obj) {
+        if (!topic || !obj) return;
+        fetch(`${NTFY_BASE_URL}/${topic}`, {
+            method: 'POST',
+            body: JSON.stringify(obj)
+        }).catch(() => {});
     },
 
     buildMyOnlinePayload() {
         const d = this.saveData;
         return {
+            type: 'sync',
             uid: d.playerUid,
             roomKey: this.getCurrentRoomKey(),
             lv: d.lv || 1,
@@ -243,101 +183,134 @@ Object.assign(KaomojiMMORPG.prototype, {
     },
 
     syncFirebaseNow() {
-        if (!this.fbConnected || !this.saveData.firebaseUrl) return;
-        const baseUrl = this.saveData.firebaseUrl;
-        fetch(`${baseUrl}/players/${this.saveData.playerUid}.json`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(this.buildMyOnlinePayload())
-        }).catch(() => {});
+        if (!this.fbConnected) return;
+        const topic = this.getNtfyRoomTopic();
+        if (this.currentNtfyRoomTopic && this.currentNtfyRoomTopic !== topic) {
+            this.reconnectNtfyRoom();
+            return;
+        }
+        this.broadcastNtfyPacket(topic, this.buildMyOnlinePayload());
     },
 
     broadcastFirebaseEvent(type, payload) {
-        if (!this.fbConnected || !this.saveData.firebaseUrl) return;
-        const baseUrl = this.saveData.firebaseUrl;
-        const body = {
+        if (!this.fbConnected) return;
+        const packet = {
+            type,
             senderUid: this.saveData.playerUid,
             roomKey: this.getCurrentRoomKey(),
-            type,
             payload,
             ts: Date.now()
         };
-        fetch(`${baseUrl}/events.json`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-        }).catch(() => {});
+        if (type === 'chat_global') {
+            this.broadcastNtfyPacket(NTFY_GLOBAL_TOPIC, packet);
+        } else {
+            this.broadcastNtfyPacket(this.getNtfyRoomTopic(), packet);
+        }
     },
 
     updateFirebaseSync(dt) {
-        if (!this.fbConnected || !this.saveData.firebaseUrl) return;
+        if (!this.fbConnected) return;
 
         this.fbSyncTimer += dt;
-        if (this.fbSyncTimer >= 0.85) {
+        if (this.fbSyncTimer >= 1.25) {
             this.fbSyncTimer = 0;
             this.syncFirebaseNow();
         }
 
         this.fbPollTimer += dt;
-        if (this.fbPollTimer >= 1.0) {
+        if (this.fbPollTimer >= 2.0) {
             this.fbPollTimer = 0;
-            this.pollFirebaseState();
+            const now = Date.now();
+            let changed = false;
+            for (const [uid, rp] of this.remotePlayers.entries()) {
+                if (now - (rp.lastSeenTs || 0) > 15000) {
+                    if (rp.group && this.scene) this.scene.remove(rp.group);
+                    if (rp.plateEl) rp.plateEl.remove();
+                    this.remotePlayers.delete(uid);
+                    changed = true;
+                }
+            }
+            if (changed) {
+                this.refreshAllHUD();
+                if (this.isModalOpen && this.activeTab === 'online') this.renderModalContent();
+            }
         }
     },
 
-    async pollFirebaseState() {
-        const baseUrl = this.saveData.firebaseUrl;
-        if (!baseUrl) return;
-        const myUid = this.saveData.playerUid;
-        const myRoomKey = this.getCurrentRoomKey();
-        const now = Date.now();
-
+    handleNtfySseEvent(rawSseData, streamKind) {
+        if (!rawSseData) return;
+        let wrapper;
         try {
-            const pRes = await fetch(`${baseUrl}/players.json`);
-            if (pRes.ok) {
-                const playersObj = (await pRes.json()) || {};
-                const activeUids = new Set();
+            wrapper = JSON.parse(rawSseData);
+        } catch (e) {
+            return;
+        }
+        if (!wrapper || wrapper.event !== 'message' || !wrapper.message) return;
 
-                Object.values(playersObj).forEach(p => {
-                    if (!p || !p.uid || p.uid === myUid) return;
-                    if (now - (p.ts || 0) > 15000) return;
+        let msg;
+        try {
+            msg = JSON.parse(wrapper.message);
+        } catch (e) {
+            return;
+        }
+        if (!msg || typeof msg !== 'object') return;
 
-                    // 同じ部屋キー（公開部屋同士 または 同じパスワード同士）の人のみ表示！
-                    const pRoom = p.roomKey || 'PUBLIC_OPEN_ROOM';
-                    if (pRoom !== myRoomKey) return;
+        const myUid = this.saveData.playerUid;
+        const senderUid = msg.uid || msg.senderUid;
+        if (senderUid === myUid) return;
 
-                    activeUids.add(p.uid);
-                    this.upsertRemotePlayer(p);
-                });
+        // 重複イベント防止
+        const msgId = wrapper.id || `${senderUid}_${msg.ts}`;
+        if (!this._seenNtfyIds) this._seenNtfyIds = new Set();
+        if (this._seenNtfyIds.has(msgId)) return;
+        this._seenNtfyIds.add(msgId);
+        if (this._seenNtfyIds.size > 300) {
+            const first = this._seenNtfyIds.values().next().value;
+            this._seenNtfyIds.delete(first);
+        }
 
-                for (const [uid, rp] of this.remotePlayers.entries()) {
-                    if (!activeUids.has(uid)) {
-                        if (rp.group && this.scene) this.scene.remove(rp.group);
-                        if (rp.plateEl) rp.plateEl.remove();
-                        this.remotePlayers.delete(uid);
-                    }
-                }
+        // 1. 全体チャット（どの部屋にいても受信）
+        if (msg.type === 'chat_global' && msg.payload) {
+            this.addChatMessage('global', msg.payload.kaomoji, msg.payload.name, msg.payload.text, false);
+            return;
+        }
+
+        // 2. 部屋同期・部屋イベント（同じ部屋キーのみ）
+        const myRoomKey = this.getCurrentRoomKey();
+        const msgRoomKey = msg.roomKey || 'PUBLIC_OPEN_ROOM';
+        if (msgRoomKey !== myRoomKey) return;
+
+        if (msg.type === 'sync') {
+            const isNew = !this.remotePlayers.has(msg.uid);
+            this.upsertRemotePlayer(msg);
+            if (isNew) {
+                this.syncFirebaseNow();
                 this.refreshAllHUD();
+                if (this.isModalOpen && this.activeTab === 'online') this.renderModalContent();
             }
-
-            const evRes = await fetch(`${baseUrl}/events.json`);
-            if (evRes.ok) {
-                const evObj = (await evRes.json()) || {};
-                let maxTs = this.fbLastEventTs;
-                Object.entries(evObj).forEach(([key, ev]) => {
-                    if (!ev || !ev.ts) return;
-                    if (now - ev.ts > 20000) {
-                        fetch(`${baseUrl}/events/${key}.json`, { method: 'DELETE' }).catch(() => {});
-                        return;
-                    }
-                    if (ev.ts > this.fbLastEventTs && ev.senderUid !== myUid) {
-                        if (ev.ts > maxTs) maxTs = ev.ts;
-                        this.handleIncomingRemoteEvent(ev);
-                    }
-                });
-                this.fbLastEventTs = maxTs;
+        } else if (msg.type === 'leave') {
+            const rp = this.remotePlayers.get(msg.uid);
+            if (rp) {
+                if (rp.group && this.scene) this.scene.remove(rp.group);
+                if (rp.plateEl) rp.plateEl.remove();
+                this.remotePlayers.delete(msg.uid);
+                this.refreshAllHUD();
+                if (this.isModalOpen && this.activeTab === 'online') this.renderModalContent();
             }
-        } catch (e) {}
+        } else if (msg.type === 'chat_room' && msg.payload) {
+            this.addChatMessage('room', msg.payload.kaomoji, msg.payload.name, msg.payload.text, false);
+        } else if (msg.type === 'kill' && msg.payload) {
+            if (this.receiveCoopReward) this.receiveCoopReward(msg.payload);
+        } else if (msg.type === 'emote' && msg.payload) {
+            const rp = this.remotePlayers.get(senderUid);
+            if (rp && rp.visible && this.spawnEmoteBubble) {
+                this.spawnEmoteBubble(
+                    rp.pos.clone().add(new THREE.Vector3(0, 2.7, 0)),
+                    msg.payload.kaomoji || '(≧▽≦)',
+                    msg.payload.msg || 'やっほー！'
+                );
+            }
+        }
     },
 
     upsertRemotePlayer(p) {
@@ -347,7 +320,7 @@ Object.assign(KaomojiMMORPG.prototype, {
         const appearanceSig = `${p.kaomoji}|${p.bodyColor}|${fBg}|${bScale}|${p.evolutionId}|${p.cosmeticId}|${bCos}|${p.weaponId}|${p.armorId}`;
         let rp = this.remotePlayers.get(p.uid);
 
-        const evo = EVOLUTIONS[p.evolutionId] || EVOLUTIONS.novice;
+        const evo = (typeof EVOLUTIONS !== 'undefined' && EVOLUTIONS[p.evolutionId]) || (typeof EVOLUTIONS !== 'undefined' && EVOLUTIONS.novice) || { hexColor: 0x38bdf8 };
         const bodyHex = (p.bodyColor && /^#[0-9a-fA-F]{6}$/.test(p.bodyColor))
             ? parseInt(p.bodyColor.slice(1), 16)
             : (evo.hexColor || 0x38bdf8);
@@ -369,7 +342,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             });
 
             const startPos = new THREE.Vector3(p.x || 0, 0, p.z || 5);
-            if (this.useWebGL && this.scene) {
+            if (this.useWebGL && this.scene && meshParts.group) {
                 meshParts.group.position.copy(startPos);
                 meshParts.group.rotation.y = p.rotY || 0;
                 this.scene.add(meshParts.group);
@@ -378,7 +351,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             const plate = document.createElement('div');
             plate.className = 'world-plate';
             plate.innerHTML = `<div style="font-size:9px; font-weight:900; color:#f9a8d4;">Lv.${p.lv || 1} 仲間 (脅威+${p.threatRank || 0})</div>`;
-            this.overlayLayer.appendChild(plate);
+            this.overlayLayer?.appendChild(plate);
 
             rp = {
                 uid: p.uid,
@@ -392,6 +365,7 @@ Object.assign(KaomojiMMORPG.prototype, {
                 kaomoji: p.kaomoji || '(´・ω・`)',
                 zoneId: p.zoneId || 'town',
                 threatRank: p.threatRank || 0,
+                lastSeenTs: Date.now(),
                 visible: true,
                 headPlateEl: plate,
                 plateEl: plate,
@@ -404,6 +378,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             rp.lv = p.lv || 1;
             rp.zoneId = p.zoneId || 'town';
             rp.threatRank = p.threatRank || 0;
+            rp.lastSeenTs = Date.now();
             if (rp.plateEl) {
                 rp.plateEl.innerHTML = `<div style="font-size:9px; font-weight:900; color:#f9a8d4;">Lv.${rp.lv} 仲間 (脅威+${rp.threatRank})</div>`;
             }
@@ -435,38 +410,8 @@ Object.assign(KaomojiMMORPG.prototype, {
         return count;
     },
 
-    handleIncomingRemoteEvent(ev) {
-        if (!ev || !ev.payload) return;
-        const myRoomKey = this.getCurrentRoomKey();
-        const evRoomKey = ev.roomKey || 'PUBLIC_OPEN_ROOM';
-
-        // 全体チャットは部屋に関係なく全員に届く！
-        if (ev.type === 'chat_global') {
-            this.addChatMessage('global', ev.payload.kaomoji, ev.payload.name, ev.payload.text, false);
-            return;
-        }
-
-        // 以下は同じ部屋のメンバーのみ反映
-        if (evRoomKey !== myRoomKey) return;
-
-        if (ev.type === 'chat_room') {
-            this.addChatMessage('room', ev.payload.kaomoji, ev.payload.name, ev.payload.text, false);
-        } else if (ev.type === 'kill') {
-            this.receiveCoopReward(ev.payload);
-        } else if (ev.type === 'emote') {
-            const rp = this.remotePlayers.get(ev.senderUid);
-            if (rp && rp.visible) {
-                this.spawnEmoteBubble(
-                    rp.pos.clone().add(new THREE.Vector3(0, 2.7, 0)),
-                    ev.payload.kaomoji || '(≧▽≦)',
-                    ev.payload.msg || 'やっほー！'
-                );
-            }
-        }
-    },
-
     // -----------------------------------------------------------------
-    // 全UI・タイトル画面・チャット・操作イベントバインド（完全修正版）
+    // 全UI・タイトル画面・チャット・操作イベントバインド
     // -----------------------------------------------------------------
     bindEvents() {
         // 1. タイトル画面のボタン群
@@ -478,7 +423,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             sfx.init();
             this.saveData.roomPassEnabled = !this.saveData.roomPassEnabled;
             this.saveGame(false);
-            if (this.syncFirebaseNow) this.syncFirebaseNow();
+            if (this.fbConnected) this.reconnectNtfyRoom();
             this.refreshTitleScreen();
             this.refreshAllHUD();
         });
@@ -486,6 +431,7 @@ Object.assign(KaomojiMMORPG.prototype, {
         document.getElementById('title-input-room-pass')?.addEventListener('input', (e) => {
             this.saveData.roomPassword = e.target.value.trim();
             this.saveGame(false);
+            if (this.fbConnected) this.reconnectNtfyRoom();
         });
 
         document.getElementById('btn-title-start')?.addEventListener('click', () => {
@@ -584,7 +530,8 @@ Object.assign(KaomojiMMORPG.prototype, {
         const adjustThreatQuick = (delta) => {
             sfx.init();
             const d = this.saveData;
-            d.threatRank = Math.max(0, Math.min(MAX_THREAT_RANK, (d.threatRank || 0) + delta));
+            const maxT = (typeof MAX_THREAT_RANK !== 'undefined') ? MAX_THREAT_RANK : 99;
+            d.threatRank = Math.max(0, Math.min(maxT, (d.threatRank || 0) + delta));
             this.saveGame(false);
             if (!this.towerState.active) {
                 this.loadZone(this.currentZoneId);
@@ -700,7 +647,7 @@ Object.assign(KaomojiMMORPG.prototype, {
                 const now = performance.now();
                 if (now - lastAtkTouch < 110) return;
                 lastAtkTouch = now;
-                this.performBasicAttack();
+                if (this.performBasicAttack) this.performBasicAttack();
             };
             atkBtn.addEventListener('touchstart', triggerBasicAtk, { passive: false });
             atkBtn.addEventListener('mousedown', triggerBasicAtk);
@@ -709,7 +656,7 @@ Object.assign(KaomojiMMORPG.prototype, {
         document.getElementById('btn-cycle-target')?.addEventListener('click', (e) => {
             e.stopPropagation();
             sfx.init();
-            this.cycleTarget();
+            if (this.cycleTarget) this.cycleTarget();
         });
 
         // 5. 画面タップでポップアップ閉じ＋3Dモンスター選択
@@ -741,7 +688,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             }
         });
 
-        // 6. キーボード操作（文字入力欄フォーカス中は誤爆防止）
+        // 6. キーボード操作
         window.addEventListener('keydown', (e) => {
             const tag = (document.activeElement && document.activeElement.tagName) || '';
             if (tag === 'INPUT' || tag === 'TEXTAREA') return;
@@ -754,16 +701,16 @@ Object.assign(KaomojiMMORPG.prototype, {
             }
             if (e.code === 'Space') {
                 e.preventDefault();
-                this.performBasicAttack();
+                if (this.performBasicAttack) this.performBasicAttack();
             }
-            if (e.code === 'Digit1') this.useSkillSlot(0);
-            if (e.code === 'Digit2') this.useSkillSlot(1);
-            if (e.code === 'Digit3') this.useSkillSlot(2);
-            if (e.code === 'Digit4') this.useSkillSlot(3);
-            if (e.code === 'Digit5') this.useSkillSlot(4);
+            if (e.code === 'Digit1' && this.useSkillSlot) this.useSkillSlot(0);
+            if (e.code === 'Digit2' && this.useSkillSlot) this.useSkillSlot(1);
+            if (e.code === 'Digit3' && this.useSkillSlot) this.useSkillSlot(2);
+            if (e.code === 'Digit4' && this.useSkillSlot) this.useSkillSlot(3);
+            if (e.code === 'Digit5' && this.useSkillSlot) this.useSkillSlot(4);
             if (e.code === 'Tab') {
                 e.preventDefault();
-                this.cycleTarget();
+                if (this.cycleTarget) this.cycleTarget();
             }
         });
 
@@ -920,20 +867,35 @@ Object.assign(KaomojiMMORPG.prototype, {
                 pinchDist = 0;
             });
         }
+
+        // ページを閉じる際に退出パケットを送信
+        window.addEventListener('pagehide', () => {
+            if (this.fbConnected) {
+                this.broadcastNtfyPacket(this.currentNtfyRoomTopic || this.getNtfyRoomTopic(), {
+                    type: 'leave',
+                    uid: this.saveData.playerUid,
+                    ts: Date.now()
+                });
+            }
+        });
     }
 });
 
 // player.skillCds 初期化保証ラッパー
-const _origBuildPlayerEntity = KaomojiMMORPG.prototype.buildPlayerEntity;
-KaomojiMMORPG.prototype.buildPlayerEntity = function () {
-    const prevCds = (this.player && this.player.skillCds) ? this.player.skillCds : [0, 0, 0, 0, 0];
-    _origBuildPlayerEntity.call(this);
-    if (this.player) {
-        this.player.skillCds = prevCds;
-    }
-};
+if (typeof KaomojiMMORPG !== 'undefined' && KaomojiMMORPG.prototype.buildPlayerEntity) {
+    const _origBuildPlayerEntity = KaomojiMMORPG.prototype.buildPlayerEntity;
+    KaomojiMMORPG.prototype.buildPlayerEntity = function () {
+        const prevCds = (this.player && this.player.skillCds) ? this.player.skillCds : [0, 0, 0, 0, 0];
+        _origBuildPlayerEntity.call(this);
+        if (this.player) {
+            this.player.skillCds = prevCds;
+        }
+    };
+}
 
 // ゲーム起動
 window.addEventListener('DOMContentLoaded', () => {
-    window.game = new KaomojiMMORPG();
+    if (!window.game && typeof KaomojiMMORPG !== 'undefined') {
+        window.game = new KaomojiMMORPG();
+    }
 });
