@@ -1,7 +1,7 @@
 'use strict';
 
 // =========================================================================
-// 顔文字ファンタジー3D 全育成・鍛冶錬金・見た目・オンライン部屋UI (game5.js)
+// 顔文字ファンタジー3D 全育成・鍛冶錬金・見た目・ntfyオンラインUI (game5.js)
 // =========================================================================
 
 Object.assign(KaomojiMMORPG.prototype, {
@@ -116,12 +116,15 @@ Object.assign(KaomojiMMORPG.prototype, {
                     <div class="card-box" style="border-color:${this.fbConnected ? '#10b981' : '#38bdf8'};">
                         <div class="flex-between" style="flex-wrap:wrap; margin-bottom:8px;">
                             <div>
-                                <div style="font-size:13px; font-weight:900; color:#38bdf8;">🌐 オンラインマルチ共闘 ＆ 部屋パスワード</div>
+                                <div style="font-size:13px; font-weight:900; color:#38bdf8;">🌐 オンラインマルチ共闘（ntfy高速通信）</div>
                                 <div style="font-size:11px; color:${this.fbConnected ? '#34d399' : '#94a3b8'}; font-weight:900; margin-top:2px;">
-                                    状態: ${this.fbConnected ? `● オンライン接続中（同じ部屋: ${1 + remotes.length}人）` : (isOnline ? '⏳ 接続中 / URL未設定' : '📴 オフライン（ソロプレイ）')}
+                                    状態: ${this.fbConnected ? `● オンライン接続中（同じ部屋: ${1 + remotes.length}人）` : '📴 オフライン（右のボタンで即接続！）'}
+                                </div>
+                                <div style="font-size:10px; color:#7dd3fc; margin-top:2px;">
+                                    ✨ アカウント登録・URL入力不要！ボタン1つでみんなと共闘＆チャットできます
                                 </div>
                             </div>
-                            <button id="m-btn-toggle-online" class="btn-ui ${isOnline ? 'btn-emerald' : 'btn-slate'}" style="padding:9px 14px; font-size:12px;">
+                            <button id="m-btn-toggle-online" class="btn-ui ${isOnline ? 'btn-emerald' : 'btn-slate'}" style="padding:10px 14px; font-size:12px;">
                                 ${isOnline ? '🌐 オンライン: ON' : '📴 オフライン: OFF'}
                             </button>
                         </div>
@@ -149,20 +152,7 @@ Object.assign(KaomojiMMORPG.prototype, {
                         </div>
                     </div>
 
-                    <!-- 2. Firebase データベースURL設定 -->
-                    <div class="card-box">
-                        <div style="font-size:12px; font-weight:900; color:#7dd3fc; margin-bottom:4px;">🔗 Firebase Realtime Database URL（初回のみ設定）</div>
-                        <p style="font-size:10px; color:#94a3b8; line-height:1.4; margin-bottom:6px;">
-                            URLを一度接続すると自動保存され、次回からは上の「オンライン ON/OFF」ボタンだけで即座にみんなと合流できます。
-                        </p>
-                        <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                            <input id="input-firebase-url" class="input-ui" style="flex:1; min-width:210px;" type="text" value="${d.firebaseUrl || ''}" placeholder="https://your-project-default-rtdb.firebaseio.com">
-                            <button id="btn-fb-connect" class="btn-ui btn-sky">接続＆保存</button>
-                            ${this.fbConnected ? '<button id="btn-fb-disconnect" class="btn-ui btn-rose">切断</button>' : ''}
-                        </div>
-                    </div>
-
-                    <!-- 3. 同じ部屋のオンライン仲間一覧 -->
+                    <!-- 2. 同じ部屋のオンライン仲間一覧 -->
                     <div class="card-box">
                         <div style="font-size:12px; font-weight:900; color:#f472b6; margin-bottom:6px;">
                             👥 ${isPassOn ? `パスワード部屋「${d.roomPassword || '未入力'}」のメンバー` : '公開オンラインの冒険者一覧'}（${1 + remotes.length}人）
@@ -187,31 +177,15 @@ Object.assign(KaomojiMMORPG.prototype, {
                         </div>
                     </div>
 
-                    <!-- 4. Firebase クラウドセーブ＆別端末データ復元 -->
-                    <div class="card-box" style="border-color:rgba(251,191,36,0.5);">
-                        <div style="font-size:12px; font-weight:900; color:#fde047; margin-bottom:4px;">☁️ クラウドセーブ＆別端末データ復元</div>
-                        <div class="grid-2" style="margin-bottom:6px;">
-                            <div>
-                                <div style="font-size:10px; color:#94a3b8; margin-bottom:2px;">冒険者ID（半角英数字 3文字以上）</div>
-                                <input id="input-cloud-id" class="input-ui" type="text" maxlength="20" value="${d.cloudId || ''}" placeholder="例: neko_hero77">
-                            </div>
-                            <div>
-                                <div style="font-size:10px; color:#94a3b8; margin-bottom:2px;">合言葉 / 暗証番号（4文字以上）</div>
-                                <input id="input-cloud-pin" class="input-ui" type="text" maxlength="12" value="${d.cloudPin || ''}" placeholder="例: 1234">
-                            </div>
-                        </div>
-                        <div class="flex-wrap-gap">
-                            <button id="btn-cloud-save" class="btn-ui btn-amber" ${!this.fbConnected ? 'disabled' : ''}>☁️ クラウド保存</button>
-                            <button id="btn-cloud-load" class="btn-ui btn-sky" ${!this.fbConnected ? 'disabled' : ''}>📥 クラウド復元</button>
-                        </div>
-                    </div>
-
-                    <!-- 5. 引き継ぎコード -->
-                    <div class="card-box">
-                        <div style="font-size:12px; font-weight:900; color:#6ee7b7; margin-bottom:4px;">📜 引き継ぎコード（オフラインバックアップ）</div>
+                    <!-- 3. 引き継ぎコード（別端末へのデータ移行・バックアップ） -->
+                    <div class="card-box" style="border-color:rgba(52,211,153,0.5);">
+                        <div style="font-size:12px; font-weight:900; color:#6ee7b7; margin-bottom:4px;">📜 セーブデータ引き継ぎコード（別端末移行・バックアップ）</div>
+                        <p style="font-size:10px; color:#94a3b8; line-height:1.4; margin-bottom:6px;">
+                            「書き出し」を押すと今の強さ・装備・見た目がコード化されてコピーされます。別の端末で貼り付けて「コード復元」を押すと続きから遊べます。
+                        </p>
                         <div style="display:flex; gap:6px; flex-wrap:wrap;">
                             <input id="input-backup-code" class="input-ui" style="flex:1; min-width:200px;" type="text" placeholder="ここに引き継ぎコードを貼り付けて復元">
-                            <button id="btn-export-code" class="btn-ui btn-emerald">📋 書き出し</button>
+                            <button id="btn-export-code" class="btn-ui btn-emerald">📋 書き出し＆コピー</button>
                             <button id="btn-import-code" class="btn-ui btn-fuchsia">📥 コード復元</button>
                         </div>
                     </div>
@@ -221,9 +195,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             document.getElementById('m-btn-toggle-online')?.addEventListener('click', () => {
                 if (this.toggleOnlineMode) {
                     this.toggleOnlineMode();
-                } else {
-                    d.onlineEnabled = !d.onlineEnabled;
-                    this.saveGame(false);
                 }
                 this.renderModalContent();
             });
@@ -231,7 +202,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             document.getElementById('m-btn-toggle-pass')?.addEventListener('click', () => {
                 d.roomPassEnabled = !d.roomPassEnabled;
                 this.saveGame(false);
-                if (this.syncFirebaseNow) this.syncFirebaseNow();
+                if (this.reconnectNtfyRoom) this.reconnectNtfyRoom();
                 this.refreshTitleScreen();
                 this.refreshAllHUD();
                 this.renderModalContent();
@@ -242,33 +213,13 @@ Object.assign(KaomojiMMORPG.prototype, {
                 const pw = document.getElementById('m-input-room-pass')?.value.trim() || '';
                 d.roomPassword = pw;
                 this.saveGame(false);
-                if (this.syncFirebaseNow) this.syncFirebaseNow();
+                if (this.reconnectNtfyRoom) this.reconnectNtfyRoom();
                 this.refreshTitleScreen();
                 this.refreshAllHUD();
                 this.renderModalContent();
                 this.showAlertBanner(pw ? `🔑 部屋パスワード「${pw}」を設定しました！` : '⚠️ パスワードが空欄です', 1600);
             });
 
-            document.getElementById('btn-fb-connect')?.addEventListener('click', () => {
-                const url = document.getElementById('input-firebase-url')?.value.trim() || '';
-                d.onlineEnabled = true;
-                this.connectFirebase(url, false);
-            });
-            document.getElementById('btn-fb-disconnect')?.addEventListener('click', () => {
-                d.onlineEnabled = false;
-                this.disconnectFirebase();
-                this.renderModalContent();
-            });
-            document.getElementById('btn-cloud-save')?.addEventListener('click', () => {
-                const cid = document.getElementById('input-cloud-id')?.value.trim() || '';
-                const cpin = document.getElementById('input-cloud-pin')?.value.trim() || '';
-                if (this.saveToFirebaseCloud) this.saveToFirebaseCloud(cid, cpin);
-            });
-            document.getElementById('btn-cloud-load')?.addEventListener('click', () => {
-                const cid = document.getElementById('input-cloud-id')?.value.trim() || '';
-                const cpin = document.getElementById('input-cloud-pin')?.value.trim() || '';
-                if (this.loadFromFirebaseCloud) this.loadFromFirebaseCloud(cid, cpin);
-            });
             document.getElementById('btn-export-code')?.addEventListener('click', () => {
                 try {
                     const json = JSON.stringify(this.saveData);
@@ -284,6 +235,7 @@ Object.assign(KaomojiMMORPG.prototype, {
                     this.showAlertBanner('⚠️ コード生成に失敗しました', 1800);
                 }
             });
+
             document.getElementById('btn-import-code')?.addEventListener('click', () => {
                 const rawCode = document.getElementById('input-backup-code')?.value.trim() || '';
                 if (!rawCode) {
