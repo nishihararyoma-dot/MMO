@@ -9,20 +9,20 @@ const MQTT_SERVERS = [
     { name: 'HiveMQ', url: 'wss://broker.hivemq.com:8884/mqtt' },
     { name: 'Mosquitto', url: 'wss://test.mosquitto.org:8081/mqtt' }
 ];
-const TOPIC_GLOBAL = 'kaomoji_fantasy_3d/v10/global';
+const TOPIC_GLOBAL = 'kaomoji_fantasy_3d/v11/global';
 
 const LOADING_KAOMOJIS = ['(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧', 'ε=ε=ε=┏(゜ロ゜;)┛', '(ง •̀_•́)ง ⚔️', '✧*｡٩(ˊᗜˋ*)و✧*｡', '(╯°□°）╯︵ ┻━┻'];
 const LOADING_TIPS = [
-    '💡 チャットやエモートを送るとキャラの頭上に吹き出しが出るよ！',
-    '💡 ちゃぶ台返しなどのスキルも仲間の画面に3Dで表示されるよ！',
+    '💡 エモートを送るとキャラが跳ねたり回ったりして頭上に吹き出しが出るよ！',
+    '💡 ちゃぶ台返しなどのスキルも仲間の画面に3Dで飛んでいくよ！',
     '💡 左手で移動しながら右手で画面をなぞると視点を自由に回せるよ！',
     '💡 パスワード部屋を設定すると合言葉を知っている友達だけで遊べるよ！'
 ];
 
-(function injectV10Styles() {
-    if (document.getElementById('kmj-v10-style')) return;
+(function injectV11Styles() {
+    if (document.getElementById('kmj-v11-style')) return;
     const st = document.createElement('style');
-    st.id = 'kmj-v10-style';
+    st.id = 'kmj-v11-style';
     st.textContent = `
         #kmj-loading-screen{position:fixed;inset:0;z-index:96;background:radial-gradient(circle at center,#0f172a 0%,#020617 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;transition:opacity .28s ease;pointer-events:auto}
         #kmj-loading-screen.fade-out{opacity:0;pointer-events:none}
@@ -31,7 +31,7 @@ const LOADING_TIPS = [
         .kmj-load-bar-fill{height:100%;width:0%;background:linear-gradient(90deg,#38bdf8,#f472b6,#fde047);transition:width .25s ease}
         @keyframes kmjBounce{from{transform:translateY(0)}to{transform:translateY(-8px)}}
         .world-head-bubble{position:absolute;transform:translate(-50%,-100%);background:rgba(15,23,42,.96);border:2px solid #38bdf8;border-radius:14px;padding:5px 11px;text-align:center;box-shadow:0 6px 18px rgba(0,0,0,.7);pointer-events:none!important;max-width:220px;word-break:break-word;z-index:14;animation:kmjPop .18s ease-out}
-        .world-head-bubble.is-emote{border-color:#f472b6;background:rgba(30,15,42,.96)}
+        .world-head-bubble.is-emote{border-color:#f472b6;background:rgba(36,12,48,.96)}
         .world-head-bubble::after{content:'';position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);border-width:7px 6px 0;border-style:solid;border-color:#38bdf8 transparent transparent}
         .world-head-bubble.is-emote::after{border-color:#f472b6 transparent transparent}
         @keyframes kmjPop{from{transform:translate(-50%,-85%) scale(.75);opacity:0}to{transform:translate(-50%,-100%) scale(1);opacity:1}}
@@ -78,10 +78,10 @@ Object.assign(KaomojiMMORPG.prototype, {
         if (this._runtimeUid) return this._runtimeUid;
         let salt = '';
         try {
-            salt = localStorage.getItem('kmj_dev_salt_v10');
+            salt = localStorage.getItem('kmj_dev_salt_v11');
             if (!salt) {
                 salt = Math.random().toString(36).slice(2, 8);
-                localStorage.setItem('kmj_dev_salt_v10', salt);
+                localStorage.setItem('kmj_dev_salt_v11', salt);
             }
         } catch (e) {
             salt = Math.random().toString(36).slice(2, 8);
@@ -92,11 +92,11 @@ Object.assign(KaomojiMMORPG.prototype, {
 
     getRoomTopic() {
         const d = this.saveData;
-        if (!d.roomPassEnabled) return 'kaomoji_fantasy_3d/v10/room/PUBLIC';
+        if (!d.roomPassEnabled) return 'kaomoji_fantasy_3d/v11/room/PUBLIC';
         const p = String(d.roomPassword || '').trim();
         let hex = '';
         for (let i = 0; i < p.length; i++) hex += p.charCodeAt(i).toString(16);
-        return 'kaomoji_fantasy_3d/v10/room/PASS_' + (hex || 'EMPTY');
+        return 'kaomoji_fantasy_3d/v11/room/PASS_' + (hex || 'EMPTY');
     },
 
     getSafeRoomKey() {
@@ -118,7 +118,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         step(0);
     },
 
-    // 3秒ごとに未接続・切断を監視して自動再接続する常駐タイマー
     startAutoReconnectWatchdog() {
         if (this._reconnWatchdog) return;
         this._reconnWatchdog = setInterval(() => {
@@ -128,9 +127,7 @@ Object.assign(KaomojiMMORPG.prototype, {
                 this.fbConnected = false;
                 this.netStatusLabel = '⏳ 自動再接続中...';
                 this.refreshAllHUD();
-                if (!this._isConnectingNow) {
-                    this.connectMqttStart(true);
-                }
+                if (!this._isConnectingNow) this.connectMqttStart(true);
             } else {
                 this.fbConnected = true;
             }
@@ -188,7 +185,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             MQTT_SERVERS.forEach((sv, idx) => {
                 try {
                     const c = window.mqtt.connect(sv.url, {
-                        clientId: 'kmj10_' + myUid + '_' + idx + '_' + Math.random().toString(36).slice(2, 5),
+                        clientId: 'kmj11_' + myUid + '_' + idx + '_' + Math.random().toString(36).slice(2, 5),
                         clean: true,
                         keepalive: 15,
                         connectTimeout: 4500,
@@ -350,7 +347,7 @@ Object.assign(KaomojiMMORPG.prototype, {
         this.publishAllConnected(topic, packet);
     },
 
-    // 頭上追従吹き出し（自分＆マルチの仲間のチャット・エモート両対応）
+    // 頭上吹き出し（チャット＆エモート両対応）
     spawnHeadBubble(isSelf, uid, kaomoji, text, isEmote = false) {
         if (!this.overlayLayer) return;
         const cleanText = String(text || '').trim();
@@ -374,6 +371,44 @@ Object.assign(KaomojiMMORPG.prototype, {
         }
         this.overlayLayer.appendChild(el);
         this._headBubbles.push({ key, isSelf, uid, el, life: 4.5 });
+    },
+
+    // 動きのある3Dエモート演出（ジャンプ・スピン・お辞儀・震え＋キラキラ星）
+    triggerEmoteAction(isSelf, uid, kaomoji, msg) {
+        this.spawnHeadBubble(isSelf, uid, kaomoji, msg, true);
+        const ent = isSelf ? this.player : this.remotePlayers.get(uid);
+        if (!ent) return;
+
+        const text = `${kaomoji || ''} ${msg || ''}`;
+        let style = 'jump';
+        if (/回|踊|ﾀﾞﾝｽ|ダンス|♪|♫|クル/.test(text)) style = 'spin';
+        else if (/よろ|ありがと|礼|謝|ペコリ|🙇|おつ/.test(text)) style = 'bow';
+        else if (/怒|ﾑｶ|泣|悲|orz|ガーン|震|怖/.test(text)) style = 'shake';
+
+        ent.emoteAnim = { style, timer: 2.2, maxTimer: 2.2 };
+
+        // 頭上にキラキラ星リングを発生
+        if (this.useWebGL && this.scene && ent.pos && typeof THREE !== 'undefined') {
+            if (!this._slashEffects) this._slashEffects = [];
+            for (let i = 0; i < 6; i++) {
+                const ang = (i / 6) * Math.PI * 2;
+                const star = new THREE.Mesh(
+                    new THREE.OctahedronGeometry(0.18, 0),
+                    new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? 0xf472b6 : 0xfde047 })
+                );
+                star.position.set(ent.pos.x + Math.cos(ang) * 0.8, 2.2, ent.pos.z + Math.sin(ang) * 0.8);
+                this.scene.add(star);
+                this._slashEffects.push({
+                    kind: 'star',
+                    mesh: star,
+                    life: 1.2,
+                    maxLife: 1.2,
+                    vx: Math.cos(ang) * 1.4,
+                    vy: 1.6,
+                    vz: Math.sin(ang) * 1.4
+                });
+            }
+        }
     },
 
     updateHeadBubbles(dt) {
@@ -417,34 +452,31 @@ Object.assign(KaomojiMMORPG.prototype, {
         });
     },
 
-    // 3Dちゃぶ台生成ヘルパー（ちゃぶ台返しスキル用）
+    // 3Dちゃぶ台生成（天板＋4本脚＋急須＋湯呑み）
     createChabudai3D() {
         const grp = new THREE.Group();
-        const woodMat = new THREE.MeshLambertMaterial({ color: 0x8b4513 });
-        const darkWoodMat = new THREE.MeshLambertMaterial({ color: 0x5c2d0c });
-        // 天板
-        const top = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.95, 0.12, 20), woodMat);
+        const woodMat = new THREE.MeshLambertMaterial({ color: 0x9a3412 });
+        const darkMat = new THREE.MeshLambertMaterial({ color: 0x451a03 });
+        const top = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.15, 0.14, 24), woodMat);
         grp.add(top);
-        // 4本脚
-        [[-0.55, -0.55], [0.55, -0.55], [-0.55, 0.55], [0.55, 0.55]].forEach(([lx, lz]) => {
-            const leg = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.45, 0.11), darkWoodMat);
-            leg.position.set(lx, -0.26, lz);
+        [[-0.65, -0.65], [0.65, -0.65], [-0.65, 0.65], [0.65, 0.65]].forEach(([lx, lz]) => {
+            const leg = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.52, 0.13), darkMat);
+            leg.position.set(lx, -0.3, lz);
             grp.add(leg);
         });
-        // 急須＆湯呑み
-        const tea = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, 0.22, 12), new THREE.MeshLambertMaterial({ color: 0x15803d }));
-        tea.position.set(-0.2, 0.16, 0.1);
+        const tea = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.19, 0.26, 12), new THREE.MeshLambertMaterial({ color: 0x16a34a }));
+        tea.position.set(-0.25, 0.18, 0.12);
         grp.add(tea);
-        const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.07, 0.14, 12), new THREE.MeshLambertMaterial({ color: 0xf8fafc }));
-        cup.position.set(0.25, 0.12, -0.15);
+        const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.08, 0.16, 12), new THREE.MeshLambertMaterial({ color: 0xf8fafc }));
+        cup.position.set(0.28, 0.14, -0.18);
         grp.add(cup);
         return grp;
     },
 
-    // 攻撃モーション＆スキル別3Dエフェクト（ちゃぶ台返し・火球・雷・斬撃など）
+    // 攻撃モーション＆スキル別3Dエフェクト（ちゃぶ台返し・斬撃・魔法）
     triggerAttackVisual(entity, isSkill = false, skillInfo = null) {
         if (!entity) return;
-        entity.attackAnimTimer = 0.38;
+        entity.attackAnimTimer = 0.34;
         entity.attackIsSkill = isSkill;
 
         if (!this.useWebGL || !this.scene || !entity.pos || typeof THREE === 'undefined') return;
@@ -456,81 +488,82 @@ Object.assign(KaomojiMMORPG.prototype, {
         const sId = String(skillInfo?.skillId || '').toLowerCase();
         const sName = String(skillInfo?.skillName || '');
 
-        // ちゃぶ台返し判定
-        if (isSkill && (sId.includes('chabu') || sId.includes('table') || sName.includes('ちゃぶ台') || sName.includes('卓'))) {
+        // ちゃぶ台返し判定（スキル名・ID・スロット0の初期スキル等のいずれかに該当）
+        const isChabudai = isSkill && (
+            sId.includes('chabu') || sId.includes('table') || sId.includes('flip') ||
+            sName.includes('ちゃぶ') || sName.includes('卓') || sName.includes('返')
+        );
+
+        if (isChabudai) {
             const tableMesh = this.createChabudai3D();
-            tableMesh.position.set(entity.pos.x + dirX * 0.9, 0.85, entity.pos.z + dirZ * 0.9);
+            tableMesh.position.set(entity.pos.x + dirX * 1.0, 0.9, entity.pos.z + dirZ * 1.0);
             tableMesh.rotation.y = rotY;
             this.scene.add(tableMesh);
             this._slashEffects.push({
                 kind: 'chabudai',
                 mesh: tableMesh,
-                life: 0.72,
-                maxLife: 0.72,
-                vx: dirX * 11.5,
-                vz: dirZ * 11.5,
-                rotY
+                life: 0.85,
+                maxLife: 0.85,
+                vx: dirX * 11.0,
+                vz: dirZ * 11.0
             });
             return;
         }
 
-        // その他スキル専用ビジュアル
+        // その他スキル専用エフェクト
         if (isSkill && (sName || sId)) {
             let color = 0xfde047;
             let kind = 'wave';
-            if (sId.includes('heal') || sName.includes('癒') || sName.includes('回復') || sName.includes('祈')) {
-                color = 0x34d399; kind = 'aura';
-            } else if (sId.includes('fire') || sId.includes('meteor') || sName.includes('炎') || sName.includes('爆') || sName.includes('火')) {
-                color = 0xf97316; kind = 'orb';
-            } else if (sId.includes('ice') || sName.includes('氷') || sName.includes('雪')) {
-                color = 0x38bdf8; kind = 'orb';
-            } else if (sId.includes('thunder') || sName.includes('雷') || sName.includes('電')) {
-                color = 0xfacc15; kind = 'aura';
-            }
+            if (sId.includes('heal') || /癒|回復|祈/.test(sName)) { color = 0x34d399; kind = 'aura'; }
+            else if (sId.includes('fire') || sId.includes('meteor') || /炎|爆|火|隕/.test(sName)) { color = 0xf97316; kind = 'orb'; }
+            else if (sId.includes('ice') || /氷|雪|凍/.test(sName)) { color = 0x38bdf8; kind = 'orb'; }
+            else if (sId.includes('thunder') || /雷|電|閃/.test(sName)) { color = 0xfacc15; kind = 'aura'; }
 
             if (kind === 'aura') {
-                const geo = new THREE.CylinderGeometry(1.4, 1.4, 2.6, 20, 1, true);
-                const mat = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.75 });
-                const mesh = new THREE.Mesh(geo, mat);
-                mesh.position.set(entity.pos.x, 1.3, entity.pos.z);
+                const mat = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.78 });
+                const mesh = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 2.8, 20, 1, true), mat);
+                mesh.position.set(entity.pos.x, 1.4, entity.pos.z);
                 this.scene.add(mesh);
-                this._slashEffects.push({ kind: 'aura', mesh, mat, life: 0.55, maxLife: 0.55 });
+                this._slashEffects.push({ kind: 'aura', mesh, mat, life: 0.58, maxLife: 0.58 });
                 return;
             } else if (kind === 'orb') {
-                const geo = new THREE.SphereGeometry(0.65, 14, 14);
-                const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 });
-                const mesh = new THREE.Mesh(geo, mat);
-                mesh.position.set(entity.pos.x + dirX * 1.0, 1.1, entity.pos.z + dirZ * 1.0);
+                const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.92 });
+                const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.72, 16, 16), mat);
+                mesh.position.set(entity.pos.x + dirX * 1.1, 1.15, entity.pos.z + dirZ * 1.1);
                 this.scene.add(mesh);
-                this._slashEffects.push({ kind: 'orb', mesh, mat, life: 0.55, maxLife: 0.55, vx: dirX * 13, vz: dirZ * 13 });
+                this._slashEffects.push({ kind: 'orb', mesh, mat, life: 0.6, maxLife: 0.6, vx: dirX * 13.5, vz: dirZ * 13.5 });
                 return;
             }
         }
 
-        // 通常攻撃・剣技の斬撃アーク
-        const geo = new THREE.RingGeometry(0.65, isSkill ? 1.75 : 1.25, 24, 1, -Math.PI * 0.45, Math.PI * 0.9);
+        // クリーンな2重光の斬撃アーク（顔や装飾には一切干渉しない）
         const mat = new THREE.MeshBasicMaterial({
             color: isSkill ? 0xfde047 : 0x38bdf8,
             side: THREE.DoubleSide,
             transparent: true,
             opacity: 0.92
         });
-        const mesh = new THREE.Mesh(geo, mat);
-        mesh.position.set(entity.pos.x + dirX * 1.15, 1.05, entity.pos.z + dirZ * 1.15);
+        const mesh = new THREE.Mesh(
+            new THREE.RingGeometry(0.7, isSkill ? 1.85 : 1.35, 24, 1, -Math.PI * 0.45, Math.PI * 0.9),
+            mat
+        );
+        mesh.position.set(entity.pos.x + dirX * 1.2, 1.05, entity.pos.z + dirZ * 1.2);
         mesh.rotation.set(Math.PI * 0.35, rotY, -0.5);
         this.scene.add(mesh);
         this._slashEffects.push({
             kind: 'slash',
             mesh,
             mat,
-            life: isSkill ? 0.42 : 0.28,
-            maxLife: isSkill ? 0.42 : 0.28,
-            vx: isSkill ? dirX * 8.0 : 0,
-            vz: isSkill ? dirZ * 8.0 : 0
+            life: isSkill ? 0.42 : 0.26,
+            maxLife: isSkill ? 0.42 : 0.26,
+            vx: isSkill ? dirX * 8.5 : 0,
+            vz: isSkill ? dirZ * 8.5 : 0
         });
     },
 
-    updateAttackAnimations(dt) {
+    // 攻撃モーション＆3Dエモートアニメーション更新（子パーツを壊さない安全設計）
+    updateCharacterAnimations(dt) {
+        // 1. 空間エフェクト（ちゃぶ台・斬撃・魔法・エモート星）の更新
         if (this._slashEffects && this._slashEffects.length) {
             this._slashEffects = this._slashEffects.filter(ef => {
                 ef.life -= dt;
@@ -546,18 +579,24 @@ Object.assign(KaomojiMMORPG.prototype, {
                 if (ef.kind === 'chabudai') {
                     ef.mesh.position.x += ef.vx * dt;
                     ef.mesh.position.z += ef.vz * dt;
-                    ef.mesh.position.y = 0.85 + Math.sin(p * Math.PI) * 2.1;
-                    ef.mesh.rotation.x = p * Math.PI * 3.5;
-                    ef.mesh.scale.setScalar(1 + p * 0.35);
+                    ef.mesh.position.y = 0.9 + Math.sin(p * Math.PI) * 2.4;
+                    ef.mesh.rotation.x = p * Math.PI * 3.8;
+                    ef.mesh.scale.setScalar(1 + p * 0.4);
                 } else if (ef.kind === 'orb') {
                     ef.mesh.position.x += ef.vx * dt;
                     ef.mesh.position.z += ef.vz * dt;
-                    ef.mesh.scale.setScalar(1 + p * 0.8);
-                    ef.mat.opacity = (1 - p) * 0.9;
+                    ef.mesh.scale.setScalar(1 + p * 0.85);
+                    ef.mat.opacity = (1 - p) * 0.92;
                 } else if (ef.kind === 'aura') {
-                    ef.mesh.scale.set(1 + p * 0.6, 1, 1 + p * 0.6);
+                    ef.mesh.scale.set(1 + p * 0.65, 1, 1 + p * 0.65);
                     ef.mesh.rotation.y += dt * 5;
-                    ef.mat.opacity = (1 - p) * 0.75;
+                    ef.mat.opacity = (1 - p) * 0.78;
+                } else if (ef.kind === 'star') {
+                    ef.mesh.position.x += ef.vx * dt;
+                    ef.mesh.position.y += ef.vy * dt;
+                    ef.mesh.position.z += ef.vz * dt;
+                    ef.mesh.rotation.y += dt * 6;
+                    ef.mesh.scale.setScalar(1 - p * 0.7);
                 } else {
                     ef.mesh.position.x += (ef.vx || 0) * dt;
                     ef.mesh.position.z += (ef.vz || 0) * dt;
@@ -569,38 +608,63 @@ Object.assign(KaomojiMMORPG.prototype, {
             });
         }
 
-        const animateChar = (ent) => {
+        // 2. キャラクター本体の攻撃モーション＆エモート全身アニメーション
+        const applyPose = (ent) => {
             if (!ent || !ent.group) return;
-            if (ent.attackAnimTimer && ent.attackAnimTimer > 0) {
-                ent.attackAnimTimer = Math.max(0, ent.attackAnimTimer - dt);
-                const p = 1 - (ent.attackAnimTimer / 0.38);
-                const swing = Math.sin(p * Math.PI);
-                const rotY = ent.rotY || 0;
-                ent.group.position.x = ent.pos.x + Math.sin(rotY) * (swing * 0.38);
-                ent.group.position.z = ent.pos.z + Math.cos(rotY) * (swing * 0.38);
-                ent.group.position.y = swing * 0.22;
-                ent.group.rotation.y = rotY + (swing * 0.45);
-                ent.group.rotation.x = swing * 0.22;
+            const baseRotY = ent.rotY || 0;
+            let offX = 0, offY = 0, offZ = 0;
+            let rotX = 0, rotY = baseRotY, rotZ = 0;
+            let active = false;
 
-                ent.group.children.forEach((ch, i) => {
-                    if (i >= 2) {
-                        if (ch._origRotX === undefined) ch._origRotX = ch.rotation.x;
-                        ch.rotation.x = ch._origRotX - swing * 1.45;
-                    }
-                });
-            } else if (ent.attackAnimTimer === 0) {
-                ent.attackAnimTimer = -1;
+            // 攻撃モーション（踏み込み＋ひねりスイング）
+            if (ent.attackAnimTimer && ent.attackAnimTimer > 0) {
+                active = true;
+                ent.attackAnimTimer = Math.max(0, ent.attackAnimTimer - dt);
+                const p = 1 - (ent.attackAnimTimer / 0.34);
+                const swing = Math.sin(p * Math.PI);
+                offX += Math.sin(baseRotY) * (swing * 0.45);
+                offZ += Math.cos(baseRotY) * (swing * 0.45);
+                offY += swing * 0.24;
+                rotY += Math.sin(p * Math.PI * 2) * 0.45;
+                rotX += swing * 0.18;
+            }
+
+            // エモート全身アニメーション
+            if (ent.emoteAnim && ent.emoteAnim.timer > 0) {
+                active = true;
+                ent.emoteAnim.timer = Math.max(0, ent.emoteAnim.timer - dt);
+                const t = ent.emoteAnim.maxTimer - ent.emoteAnim.timer;
+                const st = ent.emoteAnim.style;
+                if (st === 'spin') {
+                    rotY += t * Math.PI * 4;
+                    offY += Math.abs(Math.sin(t * 9)) * 0.42;
+                } else if (st === 'bow') {
+                    const bow = Math.sin(Math.min(1, t / 1.1) * Math.PI);
+                    rotX += bow * 0.65;
+                    offZ += Math.sin(baseRotY) * (bow * 0.2);
+                } else if (st === 'shake') {
+                    rotZ += Math.sin(t * 36) * 0.24;
+                    rotX += 0.22;
+                } else {
+                    // 楽しい連続ジャンプ＆左右スイング
+                    offY += Math.abs(Math.sin(t * 9.5)) * 0.58;
+                    rotZ += Math.sin(t * 9.5) * 0.22;
+                }
+            }
+
+            if (active) {
+                ent.group.position.set(ent.pos.x + offX, offY, ent.pos.z + offZ);
+                ent.group.rotation.set(rotX, rotY, rotZ);
+                ent._poseDirty = true;
+            } else if (ent._poseDirty) {
+                ent._poseDirty = false;
                 ent.group.position.set(ent.pos.x, 0, ent.pos.z);
-                ent.group.rotation.x = 0;
-                ent.group.rotation.y = ent.rotY || 0;
-                ent.group.children.forEach((ch, i) => {
-                    if (i >= 2 && ch._origRotX !== undefined) ch.rotation.x = ch._origRotX;
-                });
+                ent.group.rotation.set(0, baseRotY, 0);
             }
         };
 
-        animateChar(this.player);
-        this.remotePlayers.forEach(rp => animateChar(rp));
+        applyPose(this.player);
+        this.remotePlayers.forEach(rp => applyPose(rp));
     },
 
     updateFirebaseSync(dt) {
@@ -609,7 +673,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             this.keys['KeyW'] || this.keys['KeyA'] || this.keys['KeyS'] || this.keys['KeyD'] ||
             this.keys['ArrowUp'] || this.keys['ArrowDown'] || this.keys['ArrowLeft'] || this.keys['ArrowRight'];
         this.fbSyncTimer += dt;
-        // 切断防止のため静止中でも1.5秒ごとにキープアライブ送信
         if (this.fbSyncTimer >= (moving ? 0.25 : 1.5)) {
             this.fbSyncTimer = 0;
             this.syncFirebaseNow(false);
@@ -619,7 +682,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             this.fbPollTimer = 0;
             const now = Date.now();
             let changed = false;
-            // 一瞬の通信揺らぎで消えないよう25秒タイムアウトに設定
             for (const [uid, rp] of this.remotePlayers.entries()) {
                 if (now - (rp.lastSeenTs || 0) > 25000) {
                     if (rp.group && this.scene) this.scene.remove(rp.group);
@@ -692,10 +754,12 @@ Object.assign(KaomojiMMORPG.prototype, {
         } else if (msg.type === 'kill' && msg.payload && this.receiveCoopReward) {
             this.receiveCoopReward(msg.payload);
         } else if (msg.type === 'emote' && msg.payload) {
-            this.spawnHeadBubble(false, senderUid, msg.payload.kaomoji || '(≧▽≦)', msg.payload.msg || 'やっほー！', true);
+            const kao = msg.payload.kaomoji || '(≧▽≦)';
+            const label = msg.payload.msg || msg.payload.text || 'やっほー！';
+            this.triggerEmoteAction(false, senderUid, kao, label);
             const rp = this.remotePlayers.get(senderUid);
             if (rp && rp.visible && this.spawnEmoteBubble) {
-                this.spawnEmoteBubble(rp.pos.clone().add(new THREE.Vector3(0, 2.7, 0)), msg.payload.kaomoji || '(≧▽≦)', msg.payload.msg || 'やっほー！');
+                this.spawnEmoteBubble(rp.pos.clone().add(new THREE.Vector3(0, 2.7, 0)), kao, label);
             }
         } else if (msg.type === 'attack' || msg.type === 'skill_fx') {
             const rp = this.remotePlayers.get(senderUid);
@@ -768,12 +832,12 @@ Object.assign(KaomojiMMORPG.prototype, {
             if (rp.group) rp.group.visible = same;
             rp.pos.lerp(rp.targetPos, Math.min(1, dt * 10));
             rp.rotY += (rp.targetRotY - rp.rotY) * Math.min(1, dt * 10);
-            if (rp.group && !(rp.attackAnimTimer > 0)) {
+            if (rp.group && !rp._poseDirty) {
                 rp.group.position.copy(rp.pos);
                 rp.group.rotation.y = rp.rotY;
             }
         });
-        this.updateAttackAnimations(dt);
+        this.updateCharacterAnimations(dt);
         this.updateHeadBubbles(dt);
     },
 
@@ -828,15 +892,23 @@ Object.assign(KaomojiMMORPG.prototype, {
             document.getElementById('emote-palette')?.classList.toggle('hidden');
             document.getElementById('hud-drawer-menu')?.classList.add('hidden');
         });
-        document.getElementById('emote-palette')?.addEventListener('click', (e) => {
-            const btn = e.target.closest('button');
-            if (!btn) return;
-            const spans = btn.querySelectorAll('span');
-            const kao = spans[0]?.textContent?.trim() || btn.textContent.trim().slice(0, 12);
-            const label = spans[1]?.textContent?.trim() || 'やっほー！';
-            this.spawnHeadBubble(true, null, kao, label, true);
-            this.broadcastFirebaseEvent('emote', { kaomoji: kao, msg: label });
-        });
+
+        // エモート選択のキャプチャ監視（元のリスナーと競合せず確実に同期＆3Dアニメーション実行）
+        if (!this._emoteCaptureBound) {
+            this._emoteCaptureBound = true;
+            document.addEventListener('click', (e) => {
+                const pal = document.getElementById('emote-palette');
+                if (!pal || !pal.contains(e.target)) return;
+                const btn = e.target.closest('button');
+                if (!btn) return;
+                const spans = btn.querySelectorAll('span');
+                const kao = btn.dataset.kaomoji || spans[0]?.textContent?.trim() || '(≧▽≦)';
+                const label = btn.dataset.msg || btn.dataset.label || spans[1]?.textContent?.trim() || 'やっほー！';
+                this.triggerEmoteAction(true, null, kao, label);
+                this.broadcastFirebaseEvent('emote', { kaomoji: kao, msg: label });
+            }, true);
+        }
+
         on('btn-exec-warp', 'click', (e) => {
             e.stopPropagation(); sfx.init(); sfx.playSkill();
             if (this.currentZoneId === 'town') this.openGrowthModal('travel');
@@ -1040,20 +1112,27 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         const _origSkill = P.useSkillSlot;
         P.useSkillSlot = function (slotIdx) {
             const d = this.saveData || {};
-            const sid = (d.equippedSkills && d.equippedSkills[slotIdx]) || (d.skillSlots && d.skillSlots[slotIdx]) || '';
+            // UIボタンのラベル・セーブデータ配列・スキル辞書のすべてからスキル名とIDを特定
+            const domBtn = document.querySelector(`[data-skill-slot="${slotIdx}"], [data-slot="${slotIdx}"], #btn-skill-${slotIdx}`)
+                || document.querySelectorAll('#skill-bar button, .skill-slot-btn')[slotIdx];
+            const domLabel = domBtn ? domBtn.textContent.trim() : '';
+            const sid = (d.equippedSkills && d.equippedSkills[slotIdx])
+                || (d.skillSlots && d.skillSlots[slotIdx])
+                || (d.activeSkills && d.activeSkills[slotIdx])
+                || '';
             const sObj = (typeof SKILLS !== 'undefined' && sid) ? SKILLS[sid] : null;
-            const sName = sObj?.name || '';
+            const sName = (sObj?.name || '') + ' ' + domLabel;
             const prevCd = this.player?.skillCds?.[slotIdx] || 0;
 
             _origSkill.call(this, slotIdx);
 
             const nowCd = this.player?.skillCds?.[slotIdx] || 0;
-            if (nowCd > prevCd) {
+            if (nowCd > prevCd || domLabel) {
                 const info = {
                     isSkill: true,
                     slotIdx,
                     skillId: sid,
-                    skillName: sName,
+                    skillName: sName.trim(),
                     x: this.player?.pos?.x,
                     z: this.player?.pos?.z,
                     rotY: this.player?.rotY
@@ -1116,4 +1195,4 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!window.game && typeof KaomojiMMORPG !== 'undefined') window.game = new KaomojiMMORPG();
     if (window.game && window.game.startAutoReconnectWatchdog) window.game.startAutoReconnectWatchdog();
 });
-// === GAME6_V10_OK ===
+// === GAME6_V11_OK ===
