@@ -1,13 +1,17 @@
 'use strict';
 
 // =========================================================================
-// 顔文字ファンタジー3D コアエンジン・装備3D造形・豪華技＆エモート演出 (game1.js)
+// 顔文字ファンタジー3D コアエンジン・BGM・装備3D造形・ペット・試練の塔 (game1.js)
 // =========================================================================
 
 class SoundEngine {
     constructor() {
         this.ctx = null;
         this.muted = false;
+        this.bgmMuted = false;
+        this.bgmMode = 'town';
+        this.bgmStep = 0;
+        this.bgmTimer = 0;
     }
     init() {
         if (!this.ctx) {
@@ -18,8 +22,8 @@ class SoundEngine {
             this.ctx.resume().catch(() => {});
         }
     }
-    playTone(freq, dur = 0.08, type = 'sine', vol = 0.06) {
-        if (this.muted) return;
+    playTone(freq, dur = 0.08, type = 'sine', vol = 0.05) {
+        if (this.muted || !freq) return;
         this.init();
         if (!this.ctx) return;
         try {
@@ -36,22 +40,62 @@ class SoundEngine {
             osc.stop(now + dur);
         } catch (e) {}
     }
+    setBgmMode(mode) {
+        if (this.bgmMode !== mode) {
+            this.bgmMode = mode;
+            this.bgmStep = 0;
+            this.bgmTimer = 0;
+        }
+    }
+    updateBgm(dt) {
+        if (this.muted || this.bgmMuted || !this.ctx || this.ctx.state !== 'running') return;
+        const melodies = {
+            town: {
+                tempo: 0.42,
+                type: 'sine',
+                vol: 0.022,
+                notes: [523.25, 659.25, 783.99, 659.25, 587.33, 698.46, 880.00, 698.46, 523.25, 659.25, 783.99, 987.77, 1046.50, 783.99, 659.25, 0]
+            },
+            field: {
+                tempo: 0.28,
+                type: 'triangle',
+                vol: 0.024,
+                notes: [392.00, 523.25, 659.25, 523.25, 587.33, 659.25, 783.99, 659.25, 440.00, 523.25, 659.25, 783.99, 880.00, 783.99, 659.25, 587.33]
+            },
+            boss: {
+                tempo: 0.21,
+                type: 'sawtooth',
+                vol: 0.020,
+                notes: [220.00, 220.00, 261.63, 246.94, 220.00, 220.00, 329.63, 293.66, 220.00, 220.00, 261.63, 329.63, 349.23, 329.63, 293.66, 246.94]
+            }
+        };
+        const track = melodies[this.bgmMode] || melodies.town;
+        this.bgmTimer -= dt;
+        if (this.bgmTimer <= 0) {
+            this.bgmTimer = track.tempo;
+            const note = track.notes[this.bgmStep % track.notes.length];
+            this.bgmStep++;
+            if (note > 0) {
+                this.playTone(note, track.tempo * 0.85, track.type, track.vol);
+            }
+        }
+    }
     playHit(crit = false) {
-        this.playTone(crit ? 560 : 240, crit ? 0.11 : 0.06, crit ? 'sawtooth' : 'triangle', crit ? 0.08 : 0.05);
+        this.playTone(crit ? 560 : 240, crit ? 0.11 : 0.06, crit ? 'sawtooth' : 'triangle', crit ? 0.07 : 0.045);
     }
     playSkill() {
-        this.playTone(580, 0.10, 'triangle', 0.07);
-        setTimeout(() => this.playTone(880, 0.13, 'sine', 0.07), 50);
-        setTimeout(() => this.playTone(1180, 0.15, 'triangle', 0.06), 110);
+        this.playTone(580, 0.10, 'triangle', 0.065);
+        setTimeout(() => this.playTone(880, 0.13, 'sine', 0.065), 50);
+        setTimeout(() => this.playTone(1180, 0.15, 'triangle', 0.055), 110);
     }
     playLevelUp() {
         [523, 659, 784, 1046].forEach((f, i) => {
-            setTimeout(() => this.playTone(f, 0.16, 'triangle', 0.08), i * 85);
+            setTimeout(() => this.playTone(f, 0.16, 'triangle', 0.075), i * 85);
         });
     }
     playDeath() {
         [330, 260, 195, 130].forEach((f, i) => {
-            setTimeout(() => this.playTone(f, 0.24, 'sawtooth', 0.09), i * 130);
+            setTimeout(() => this.playTone(f, 0.24, 'sawtooth', 0.08), i * 130);
         });
     }
 }
@@ -85,7 +129,7 @@ function getKaomojiFaceTexture(kaomoji, bg = '#073b66', fg = '#ffffff', border =
     tex.minFilter = THREE.LinearFilter;
     tex.magFilter = THREE.LinearFilter;
 
-    if (faceTexCache.size >= 24) {
+    if (faceTexCache.size >= 28) {
         const oldestKey = faceTexCache.keys().next().value;
         const oldTex = faceTexCache.get(oldestKey);
         if (oldTex) oldTex.dispose();
@@ -104,6 +148,7 @@ class KaomojiMMORPG {
         this.FIELD_LIMIT = 27.0;
 
         this.currentZoneId = 'town';
+        this.towerState = { active: false, floor: 1, clearing: false };
         this.isModalOpen = false;
         this.isDead = false;
         this.activeTab = 'stats';
@@ -131,10 +176,12 @@ class KaomojiMMORPG {
         this.floatTexts = [];
         this.emoteBubbles = [];
         this.selectedTarget = null;
+        this.petEntity = null;
 
         this.saveData = this.loadSave();
         this.initThree();
         this.buildPlayerEntity();
+        this.buildPetEntity();
         this.buildEmotePalette();
         this.bindEvents();
         this.loadZone('town');
@@ -156,13 +203,22 @@ class KaomojiMMORPG {
             evolutionId: 'novice',
             customKaomoji: '',
             exTitle: '',
+            equippedTitleId: 'title_none',
+            unlockedTitles: ['title_none'],
+            claimedAchievements: [],
+            statsTrack: { kills: 0, bossKills: 0, bestTowerFloor: 0, maxThreatKill: 0 },
             stats: { str: 5, int: 5, vit: 5, agi: 5 },
             weaponId: 'wpn_wood',
             armorId: 'arm_cloth',
+            accessoryId: 'acc_none',
             ownedWeapons: ['wpn_wood'],
             ownedArmors: ['arm_cloth'],
+            ownedAccessories: ['acc_none'],
             weaponEnhance: 0,
             armorEnhance: 0,
+            petId: null,
+            ownedPets: [],
+            petLevel: 1,
             materials: {
                 slime_gel: 0, ancient_sap: 0, goblin_fang: 0,
                 fire_core: 0, ice_crystal: 0, abyss_shard: 0, void_star: 0
@@ -188,10 +244,15 @@ class KaomojiMMORPG {
                 ...def,
                 ...parsed,
                 stats: { ...def.stats, ...(parsed.stats || {}) },
+                statsTrack: { ...def.statsTrack, ...(parsed.statsTrack || {}) },
                 materials: { ...def.materials, ...(parsed.materials || {}) },
                 skills: { ...def.skills, ...(parsed.skills || {}) },
                 tree: { ...(parsed.tree || {}) },
-                equippedSkills: Array.isArray(parsed.equippedSkills) ? parsed.equippedSkills.slice(0, 5) : def.equippedSkills
+                equippedSkills: Array.isArray(parsed.equippedSkills) ? parsed.equippedSkills.slice(0, 5) : def.equippedSkills,
+                ownedAccessories: Array.isArray(parsed.ownedAccessories) ? parsed.ownedAccessories : def.ownedAccessories,
+                ownedPets: Array.isArray(parsed.ownedPets) ? parsed.ownedPets : def.ownedPets,
+                unlockedTitles: Array.isArray(parsed.unlockedTitles) ? parsed.unlockedTitles : def.unlockedTitles,
+                claimedAchievements: Array.isArray(parsed.claimedAchievements) ? parsed.claimedAchievements : def.claimedAchievements
             };
         } catch (e) {
             return def;
@@ -228,8 +289,8 @@ class KaomojiMMORPG {
         this.scene.fog = new THREE.FogExp2(0x0c2d48, 0.015);
         this.camera = new THREE.PerspectiveCamera(52, window.innerWidth / window.innerHeight, 0.5, 110);
 
-        this.scene.add(new THREE.AmbientLight(0xffffff, 0.82));
-        const dir = new THREE.DirectionalLight(0xfffbeb, 0.75);
+        this.scene.add(new THREE.AmbientLight(0xffffff, 0.85));
+        const dir = new THREE.DirectionalLight(0xfffbeb, 0.78);
         dir.position.set(16, 28, 18);
         this.scene.add(dir);
 
@@ -293,6 +354,8 @@ class KaomojiMMORPG {
         const evo = EVOLUTIONS[d.evolutionId] || EVOLUTIONS.novice;
         const wpn = WEAPONS[d.weaponId] || WEAPONS.wpn_wood;
         const arm = ARMORS[d.armorId] || ARMORS.arm_cloth;
+        const acc = ACCESSORIES[d.accessoryId] || ACCESSORIES.acc_none;
+        const ttl = TITLES[d.equippedTitleId] || TITLES.title_none;
 
         const tMight   = d.tree.t_might || 0;
         const tArcana  = d.tree.t_arcana || 0;
@@ -309,55 +372,57 @@ class KaomojiMMORPG {
         const armEnhMult  = 1 + (d.armorEnhance || 0) * 0.14;
 
         const baseHp = (110 + d.lv * 26 + d.stats.vit * 24 + arm.hp * armEnhMult);
-        const maxHp = Math.round(baseHp * evo.hpMult * (1 + tVital * 0.08) * warlordMult * rebirthMult);
+        const maxHp = Math.round(baseHp * evo.hpMult * (1 + tVital * 0.08 + acc.hpBonus + ttl.hp) * warlordMult * rebirthMult);
 
         const baseMp = (45 + d.lv * 7 + d.stats.int * 10 + arm.mp * armEnhMult);
-        const maxMp = Math.round(baseMp * evo.mpMult * warlordMult * rebirthMult);
+        const maxMp = Math.round(baseMp * evo.mpMult * (1 + acc.hpBonus * 0.5) * warlordMult * rebirthMult);
 
         const baseAtk = (16 + d.lv * 4.5 + d.stats.str * 4.2 + d.stats.int * 1.4 + wpn.atk * wpnEnhMult);
         const warcryMult = (this.player && this.player.warcryTimer > 0) ? (this.player.warcryBonus || 1.0) : 1.0;
-        const physAtk = Math.round(baseAtk * evo.atkMult * (1 + tMight * 0.06) * warlordMult * rebirthMult * warcryMult);
+        const physAtk = Math.round(baseAtk * evo.atkMult * (1 + tMight * 0.06 + acc.atkBonus + ttl.atk) * warlordMult * rebirthMult * warcryMult);
 
         const magMult = Number((wpn.mag * (1 + d.stats.int * 0.014) * (1 + tArcana * 0.08)).toFixed(2));
 
         const defBuff = (this.player && this.player.defBuffTimer > 0) ? (this.player.defBuffBonus || 0) : 0;
         const defMitigation = Math.min(0.88, 0.04 + d.stats.vit * 0.008 + arm.def * armEnhMult + tAegis * 0.03 + (evo.exDefBonus || 0) + defBuff);
 
-        const rawCritChance = 0.06 + d.stats.str * 0.008 + d.stats.agi * 0.012 + tCrit * 0.05 + (evo.exCritBonus || 0);
+        const rawCritChance = 0.06 + d.stats.str * 0.008 + d.stats.agi * 0.012 + tCrit * 0.05 + (evo.exCritBonus || 0) + (ttl.crit || 0);
         const critChance = Math.min(1.0, rawCritChance);
         const overflowCrit = Math.max(0, rawCritChance - 1.0);
         const overflowCritDmgBonus = overflowCrit * 1.5;
         const critDmg = 1.65 + d.stats.str * 0.015 + tCrit * 0.12 + (evo.isExJob ? 0.35 : 0) + overflowCritDmgBonus;
 
-        const cdReduction = Math.min(0.68, d.stats.agi * 0.012 + tChant * 0.05 + tWarlord * 0.03 + (evo.exCdBonus || 0));
+        const cdReduction = Math.min(0.72, d.stats.agi * 0.012 + tChant * 0.05 + tWarlord * 0.03 + (evo.exCdBonus || 0) + (acc.cdBonus || 0));
         const moveSpeed = (9.5 + Math.min(5.5, d.stats.agi * 0.15)) * evo.spdMult;
 
         return {
             maxHp, maxMp, physAtk, magMult, defMitigation,
             rawCritChance, critChance, overflowCrit, overflowCritDmgBonus, critDmg,
             cdReduction, moveSpeed,
+            lifesteal: acc.lifesteal || 0,
+            doubleCast: acc.doubleCast || 0,
+            bossDmgMult: 1 + (acc.bossDmg || 0),
             treeSkillPowerMult: 1 + tArcana * 0.08,
             treeHealPowerMult: 1 + tAegis * 0.08,
             treeHpRegenBonus: tVital * 0.004,
-            treeMpRegenMult: 1 + tChant * 0.10,
-            treeRewardMult: 1 + tFortune * 0.10,
+            treeMpRegenMult: 1 + tChant * 0.10 + (acc.id === 'acc_chrono_orb' ? 0.50 : 0),
+            treeRewardMult: 1 + tFortune * 0.10 + (acc.rewardBonus || 0) + (ttl.reward || 0),
             rebirthMult
         };
     }
 
     // -----------------------------------------------------------------
-    // 武器ごとの専用3Dメッシュ生成（装備を変えると見た目も激変！）
+    // 武器ごとの専用3Dメッシュ生成
     // -----------------------------------------------------------------
     buildWeaponMesh(wpn, enh) {
         const wpnGroup = new THREE.Group();
         wpnGroup.position.set(0.76, 0.88, 0.22);
 
         const bladeMat = new THREE.MeshBasicMaterial({ color: wpn.bladeColor });
-        const glowMat = new THREE.MeshBasicMaterial({ color: wpn.glowColor, transparent: true, opacity: 0.72 });
+        const glowMat = new THREE.MeshBasicMaterial({ color: wpn.glowColor, transparent: true, opacity: 0.78 });
         const hiltMat = new THREE.MeshLambertMaterial({ color: 0xf59e0b });
-        const scaleBonus = 1 + Math.min(0.45, enh * 0.02);
+        const scaleBonus = 1 + Math.min(0.42, enh * 0.02);
 
-        // 柄＆鍔
         const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.36, 8), hiltMat);
         wpnGroup.add(grip);
         const guard = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.11, 0.18), hiltMat);
@@ -371,67 +436,62 @@ class KaomojiMMORPG {
             blade.position.y = 0.78 * scaleBonus;
             wpnGroup.add(blade);
         } else if (wpn.shape === 'broad') {
-            const blade = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.48 * scaleBonus, 0.28), bladeMat);
-            blade.position.y = 0.88 * scaleBonus;
-            const edge = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.52 * scaleBonus, 0.34), glowMat);
-            edge.position.y = 0.88 * scaleBonus;
+            const blade = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.50 * scaleBonus, 0.28), bladeMat);
+            blade.position.y = 0.90 * scaleBonus;
+            const edge = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.55 * scaleBonus, 0.35), glowMat);
+            edge.position.y = 0.90 * scaleBonus;
             wpnGroup.add(blade, edge);
         } else if (wpn.shape === 'flame') {
-            const blade = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.62 * scaleBonus, 0.30), bladeMat);
-            blade.position.y = 0.95 * scaleBonus;
+            const blade = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.65 * scaleBonus, 0.30), bladeMat);
+            blade.position.y = 0.96 * scaleBonus;
             wpnGroup.add(blade);
             for (let i = 0; i < 4; i++) {
-                const spike = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.35, 5), glowMat);
-                spike.position.set(0, (0.45 + i * 0.34) * scaleBonus, 0.18);
+                const spike = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.38, 5), glowMat);
+                spike.position.set(0, (0.45 + i * 0.35) * scaleBonus, 0.19);
                 spike.rotation.x = 0.7;
                 wpnGroup.add(spike);
             }
         } else if (wpn.shape === 'scythe') {
-            // 氷皇のクリスタル大鎌
-            const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 2.05 * scaleBonus, 8), hiltMat);
-            shaft.position.y = 0.92 * scaleBonus;
-            const scytheBlade = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.26, 1.18 * scaleBonus), bladeMat);
-            scytheBlade.position.set(0, 1.88 * scaleBonus, 0.42 * scaleBonus);
+            const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 2.08 * scaleBonus, 8), hiltMat);
+            shaft.position.y = 0.94 * scaleBonus;
+            const scytheBlade = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.26, 1.22 * scaleBonus), bladeMat);
+            scytheBlade.position.set(0, 1.90 * scaleBonus, 0.44 * scaleBonus);
             scytheBlade.rotation.x = 0.22;
-            const frostEdge = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.65, 6), glowMat);
-            frostEdge.position.set(0, 1.78 * scaleBonus, 0.95 * scaleBonus);
+            const frostEdge = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.68, 6), glowMat);
+            frostEdge.position.set(0, 1.80 * scaleBonus, 0.98 * scaleBonus);
             frostEdge.rotation.x = Math.PI * 0.75;
             wpnGroup.add(shaft, scytheBlade, frostEdge);
         } else if (wpn.shape === 'abyss') {
-            // 深淵の双刃神剣
-            [-0.11, 0.11].forEach(ox => {
-                const subBlade = new THREE.Mesh(new THREE.BoxGeometry(0.09, 1.78 * scaleBonus, 0.24), bladeMat);
-                subBlade.position.set(ox, 1.02 * scaleBonus, 0);
+            [-0.12, 0.12].forEach(ox => {
+                const subBlade = new THREE.Mesh(new THREE.BoxGeometry(0.09, 1.82 * scaleBonus, 0.25), bladeMat);
+                subBlade.position.set(ox, 1.04 * scaleBonus, 0);
                 wpnGroup.add(subBlade);
             });
-            const voidCore = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 0), glowMat);
-            voidCore.position.y = 0.26;
+            const voidCore = new THREE.Mesh(new THREE.OctahedronGeometry(0.24, 0), glowMat);
+            voidCore.position.y = 0.28;
             wpnGroup.add(voidCore);
             orbitPart = voidCore;
         } else if (wpn.shape === 'omega') {
-            // 創世神オメガ・エッジ（光輪付き聖大剣）
-            const blade = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.92 * scaleBonus, 0.36), bladeMat);
-            blade.position.y = 1.12 * scaleBonus;
-            const haloRing = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.05, 8, 20), glowMat);
+            const blade = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.95 * scaleBonus, 0.38), bladeMat);
+            blade.position.y = 1.14 * scaleBonus;
+            const haloRing = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.05, 8, 20), glowMat);
             haloRing.position.y = 0.34;
             wpnGroup.add(blade, haloRing);
             orbitPart = haloRing;
         } else {
-            // 神話級・創世天剣（巨大光剣＋浮遊星屑オーブ）
-            const blade = new THREE.Mesh(new THREE.BoxGeometry(0.20, 2.15 * scaleBonus, 0.42), bladeMat);
-            blade.position.y = 1.24 * scaleBonus;
-            const auraBlade = new THREE.Mesh(new THREE.BoxGeometry(0.32, 2.25 * scaleBonus, 0.54), glowMat);
-            auraBlade.position.y = 1.24 * scaleBonus;
-            const starOrb = new THREE.Mesh(new THREE.OctahedronGeometry(0.26, 0), glowMat);
-            starOrb.position.y = 2.45 * scaleBonus;
+            const blade = new THREE.Mesh(new THREE.BoxGeometry(0.20, 2.18 * scaleBonus, 0.44), bladeMat);
+            blade.position.y = 1.25 * scaleBonus;
+            const auraBlade = new THREE.Mesh(new THREE.BoxGeometry(0.34, 2.28 * scaleBonus, 0.56), glowMat);
+            auraBlade.position.y = 1.25 * scaleBonus;
+            const starOrb = new THREE.Mesh(new THREE.OctahedronGeometry(0.28, 0), glowMat);
+            starOrb.position.y = 2.48 * scaleBonus;
             wpnGroup.add(blade, auraBlade, starOrb);
             orbitPart = starOrb;
         }
 
-        // 精錬+5以上で追加オーラクリスタル
         if (enh >= 5) {
             const enhAura = new THREE.Mesh(
-                new THREE.TorusGeometry(0.24, 0.04, 6, 16),
+                new THREE.TorusGeometry(0.26, 0.045, 6, 16),
                 new THREE.MeshBasicMaterial({ color: enh >= 15 ? 0xf43f5e : (enh >= 10 ? 0xfde047 : 0x38bdf8) })
             );
             enhAura.rotation.x = Math.PI / 2;
@@ -443,7 +503,7 @@ class KaomojiMMORPG {
     }
 
     // -----------------------------------------------------------------
-    // プレイヤー＆防具3D造形（防具ごとに鎧カラー・肩当て・背負い盾・光輪が変化！）
+    // プレイヤー＆防具3D造形（マント貫通完全修正＋防具6種ビジュアル変化！）
     // -----------------------------------------------------------------
     buildPlayerEntity() {
         const d = this.saveData;
@@ -451,6 +511,7 @@ class KaomojiMMORPG {
         const evo = EVOLUTIONS[d.evolutionId] || EVOLUTIONS.novice;
         const wpn = WEAPONS[d.weaponId] || WEAPONS.wpn_wood;
         const arm = ARMORS[d.armorId] || ARMORS.arm_cloth;
+        const acc = ACCESSORIES[d.accessoryId] || ACCESSORIES.acc_none;
 
         const pos = this.player ? this.player.pos.clone() : new THREE.Vector3(0, 0, 0);
         const rotY = this.player ? this.player.rotY : Math.PI;
@@ -462,7 +523,7 @@ class KaomojiMMORPG {
             this.player.headPlateEl.remove();
         }
 
-        let group = null, head = null, frontMat = null, wpnGroup = null, orbitPart = null;
+        let group = null, head = null, frontMat = null, wpnGroup = null, orbitPart = null, backHalo = null;
         if (this.useWebGL) {
             if (this.player && this.player.group) {
                 this.scene.remove(this.player.group);
@@ -471,7 +532,7 @@ class KaomojiMMORPG {
             group.position.copy(pos);
             group.rotation.y = rotY;
 
-            // 足元の蒼穹魔法陣
+            // 足元魔法陣
             const ring = new THREE.Mesh(
                 new THREE.RingGeometry(0.82, 1.15, 24),
                 new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.9 })
@@ -480,9 +541,9 @@ class KaomojiMMORPG {
             ring.position.y = 0.04;
             group.add(ring);
 
-            if (evo.tier >= 2 || (d.rebirthCount || 0) > 0 || arm.tierLook >= 4) {
+            if (evo.tier >= 2 || (d.rebirthCount || 0) > 0 || arm.tierLook >= 3) {
                 const exRing = new THREE.Mesh(
-                    new THREE.RingGeometry(1.24, 1.46, 28),
+                    new THREE.RingGeometry(1.24, 1.48, 28),
                     new THREE.MeshBasicMaterial({ color: arm.trimColor, side: THREE.DoubleSide, transparent: true, opacity: 0.88 })
                 );
                 exRing.rotation.x = -Math.PI / 2;
@@ -490,83 +551,114 @@ class KaomojiMMORPG {
                 group.add(exRing);
             }
 
-            // 胴体ベース（職業カラー）＋ 防具プレート（防具ごとに色が変化！）
+            // 胴体（半径をスリム化してマントや鎧と干渉しない設計）
             const body = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.38, 0.52, 0.98, 12),
+                new THREE.CylinderGeometry(0.32, 0.42, 0.96, 12),
                 new THREE.MeshLambertMaterial({ color: evo.hexColor })
             );
             body.position.y = 0.56;
             group.add(body);
 
-            const chestPlate = new THREE.Mesh(
-                new THREE.BoxGeometry(0.60, 0.50, 0.48),
-                new THREE.MeshLambertMaterial({ color: arm.plateColor })
-            );
-            chestPlate.position.set(0, 0.72, 0.08);
+            // 防具チェストプレート＆バックプレート（前後から胴体をしっかり覆う）
+            const chestMat = new THREE.MeshLambertMaterial({ color: arm.plateColor });
+            const trimMat = new THREE.MeshBasicMaterial({ color: arm.trimColor });
+            const chestPlate = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.54, 0.56), chestMat);
+            chestPlate.position.set(0, 0.72, 0.02);
             group.add(chestPlate);
 
-            // 防具の紋章コア（胸中央の装飾）
-            const chestTrim = new THREE.Mesh(
-                new THREE.BoxGeometry(0.24, 0.28, 0.52),
-                new THREE.MeshBasicMaterial({ color: arm.trimColor })
-            );
-            chestTrim.position.set(0, 0.74, 0.09);
-            group.add(chestTrim);
+            const chestEmblem = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.30, 0.60), trimMat);
+            chestEmblem.position.set(0, 0.74, 0.02);
+            group.add(chestEmblem);
 
-            // マント（防具のcapeColorを反映）
+            // 防具Tier3以上：腰当て装甲（タセット）
+            if (arm.tierLook >= 3) {
+                [-0.36, 0.36].forEach(wx => {
+                    const tasset = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.38, 0.46), chestMat);
+                    tasset.position.set(wx, 0.36, 0);
+                    tasset.rotation.z = wx < 0 ? 0.22 : -0.22;
+                    group.add(tasset);
+                });
+            }
+
+            // マント（貫通ゼロ！背中の後ろ z = -0.46 に配置し、下端が後ろへ広がるよう rotation.x = -0.26 に設定）
+            const mantleCollar = new THREE.Mesh(
+                new THREE.BoxGeometry(0.76, 0.14, 0.36),
+                new THREE.MeshLambertMaterial({ color: arm.trimColor })
+            );
+            mantleCollar.position.set(0, 0.98, -0.22);
+            group.add(mantleCollar);
+
             const cape = new THREE.Mesh(
-                new THREE.BoxGeometry(0.80, 0.96, 0.08),
+                new THREE.BoxGeometry(0.84, 0.94, 0.07),
                 new THREE.MeshLambertMaterial({ color: arm.capeColor })
             );
-            cape.position.set(0, 0.56, -0.34);
-            cape.rotation.x = 0.22;
+            cape.position.set(0, 0.54, -0.46);
+            cape.rotation.x = -0.26;
             group.add(cape);
 
-            // 防具Tier1以上：重装甲ショルダーガード（防具ランクで巨大化＆スパイク追加）
-            const shoulderMat = new THREE.MeshLambertMaterial({ color: arm.trimColor });
-            const shSize = 0.19 + arm.tierLook * 0.022;
+            // 肩当てアーマー（防具Tierに応じてサイズ・角・輝きが変化）
+            const shSize = 0.20 + arm.tierLook * 0.025;
             [-0.50, 0.50].forEach(sx => {
-                const sh = new THREE.Mesh(new THREE.SphereGeometry(shSize, 10, 8), shoulderMat);
+                const sh = new THREE.Mesh(new THREE.SphereGeometry(shSize, 10, 8), arm.tierLook >= 3 ? trimMat : chestMat);
                 sh.position.set(sx, 0.96, 0);
                 group.add(sh);
                 if (arm.tierLook >= 2) {
-                    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.34, 6), new THREE.MeshBasicMaterial({ color: arm.plateColor }));
-                    horn.position.set(sx * 1.18, 1.16, 0);
-                    horn.rotation.z = sx < 0 ? 0.35 : -0.35;
+                    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.095, 0.38, 6), trimMat);
+                    horn.position.set(sx * 1.18, 1.18, 0);
+                    horn.rotation.z = sx < 0 ? 0.36 : -0.36;
                     group.add(horn);
                 }
             });
 
-            // 左腕の紋章シールド（防具Tier1以上で出現！）
+            // 左腕のシールド（防具Tier1以上で出現し、上位防具ほど大型＆豪華に！）
             if (arm.tierLook >= 1) {
+                const shRad = 0.30 + arm.tierLook * 0.035;
                 const shield = new THREE.Mesh(
-                    new THREE.CylinderGeometry(0.32 + arm.tierLook * 0.03, 0.28, 0.09, 8),
-                    new THREE.MeshLambertMaterial({ color: arm.plateColor })
+                    new THREE.CylinderGeometry(shRad, shRad * 0.82, 0.09, arm.tierLook >= 4 ? 6 : 10),
+                    chestMat
                 );
                 shield.rotation.z = Math.PI / 2;
-                shield.position.set(-0.62, 0.76, 0.15);
+                shield.position.set(-0.62, 0.76, 0.14);
                 const shieldCore = new THREE.Mesh(
-                    new THREE.CylinderGeometry(0.15, 0.15, 0.11, 8),
-                    new THREE.MeshBasicMaterial({ color: arm.trimColor })
+                    new THREE.CylinderGeometry(shRad * 0.48, shRad * 0.48, 0.11, 8),
+                    trimMat
                 );
                 shieldCore.rotation.z = Math.PI / 2;
-                shieldCore.position.set(-0.63, 0.76, 0.15);
+                shieldCore.position.set(-0.63, 0.76, 0.14);
                 group.add(shield, shieldCore);
             }
 
-            // 進化Tier4以上 or 神話防具の背面光輪・光の翼
-            if (evo.tier >= 4 || arm.tierLook >= 5) {
+            // 背面神光輪＆翼（上級職または上位防具で出現）
+            if (evo.tier >= 4 || arm.tierLook >= 4) {
                 const wingColor = (evo.tier >= 5 || arm.tierLook >= 5) ? 0xfde047 : 0x38bdf8;
-                const wingMat = new THREE.MeshBasicMaterial({ color: wingColor, transparent: true, opacity: 0.85 });
+                const wingMat = new THREE.MeshBasicMaterial({ color: wingColor, transparent: true, opacity: 0.88 });
                 [-1, 1].forEach(side => {
-                    const wing = new THREE.Mesh(new THREE.BoxGeometry(0.98, 0.26, 0.06), wingMat);
-                    wing.position.set(side * 0.80, 0.96, -0.38);
-                    wing.rotation.z = side * 0.42;
+                    const wing = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.26, 0.06), wingMat);
+                    wing.position.set(side * 0.82, 1.02, -0.42);
+                    wing.rotation.z = side * 0.44;
                     group.add(wing);
                 });
+                if (arm.tierLook >= 5 || evo.tier >= 5) {
+                    backHalo = new THREE.Mesh(
+                        new THREE.TorusGeometry(0.68, 0.045, 6, 18),
+                        new THREE.MeshBasicMaterial({ color: 0xfde047 })
+                    );
+                    backHalo.position.set(0, 1.15, -0.52);
+                    group.add(backHalo);
+                }
             }
 
-            // 顔文字ヘッド＋頭上の光輪
+            // 装飾品装備時の浮遊オーブエフェクト
+            if (acc.id !== 'acc_none') {
+                const accOrb = new THREE.Mesh(
+                    new THREE.OctahedronGeometry(0.16, 0),
+                    new THREE.MeshBasicMaterial({ color: 0xf472b6 })
+                );
+                accOrb.position.set(-0.78, 1.38, 0.2);
+                group.add(accOrb);
+            }
+
+            // 顔文字ヘッド＋頭上光輪
             const faceTex = getKaomojiFaceTexture(this.getBasePlayerKaomoji(), '#073b66', '#ffffff', '#38bdf8');
             frontMat = new THREE.MeshBasicMaterial({ map: faceTex });
             const sideMat = new THREE.MeshLambertMaterial({ color: 0xe0f2fe });
@@ -585,7 +677,6 @@ class KaomojiMMORPG {
             halo.position.y = 0.42;
             head.add(halo);
 
-            // 武器3Dモデル追加
             const builtWpn = this.buildWeaponMesh(wpn, d.weaponEnhance || 0);
             wpnGroup = builtWpn.wpnGroup;
             orbitPart = builtWpn.orbitPart;
@@ -605,12 +696,68 @@ class KaomojiMMORPG {
         this.overlayLayer.appendChild(headPlateEl);
 
         this.player = {
-            pos, rotY, group, head, frontMat, wpnGroup, orbitPart, headPlateEl,
+            pos, rotY, group, head, frontMat, wpnGroup, orbitPart, backHalo, headPlateEl,
             hp, mp, skillCds: cds,
             invulnTimer: 0, stunTimer: 0,
             defBuffTimer: 0, defBuffBonus: 0,
             warcryTimer: 0, warcryBonus: 1.0,
             skillAnimType: 'none', skillAnimTimer: 0, skillAnimDur: 0.4
+        };
+    }
+
+    // -----------------------------------------------------------------
+    // ① 相棒・ペット3D造形（後ろを付いてきて攻撃＆回復援護！）
+    // -----------------------------------------------------------------
+    buildPetEntity() {
+        if (this.petEntity && this.petEntity.group && this.scene) {
+            this.scene.remove(this.petEntity.group);
+        }
+        this.petEntity = null;
+
+        const d = this.saveData;
+        const petDef = d.petId ? PETS[d.petId] : null;
+        if (!petDef || !this.player) return;
+
+        const pos = new THREE.Vector3(this.player.pos.x - 1.4, 0, this.player.pos.z - 1.4);
+        let group = null;
+        if (this.useWebGL) {
+            group = new THREE.Group();
+            group.position.copy(pos);
+
+            const ring = new THREE.Mesh(
+                new THREE.RingGeometry(0.42, 0.58, 18),
+                new THREE.MeshBasicMaterial({ color: petDef.color, side: THREE.DoubleSide, transparent: true, opacity: 0.85 })
+            );
+            ring.rotation.x = -Math.PI / 2;
+            ring.position.y = 0.04;
+            group.add(ring);
+
+            const hexStr = '#' + petDef.color.toString(16).padStart(6, '0');
+            const tex = getKaomojiFaceTexture(petDef.kaomoji, '#1e1b4b', '#ffffff', hexStr);
+            const sideMat = new THREE.MeshLambertMaterial({ color: petDef.color });
+            const cube = new THREE.Mesh(
+                new THREE.BoxGeometry(0.86, 0.52, 0.52),
+                [sideMat, sideMat, sideMat, sideMat, new THREE.MeshBasicMaterial({ map: tex }), sideMat]
+            );
+            cube.position.y = 0.65;
+            group.add(cube);
+
+            const crown = new THREE.Mesh(
+                new THREE.OctahedronGeometry(0.16, 0),
+                new THREE.MeshBasicMaterial({ color: 0xfde047 })
+            );
+            crown.position.y = 1.08;
+            group.add(crown);
+
+            this.scene.add(group);
+        }
+
+        this.petEntity = {
+            def: petDef,
+            pos,
+            group,
+            atkTimer: 1.5,
+            healTimer: 4.5
         };
     }
 
@@ -783,11 +930,8 @@ class KaomojiMMORPG {
         });
     }
 
-    loadZone(zoneId) {
-        const zone = ZONES[zoneId] || ZONES.town;
-        this.currentZoneId = zone.id;
+    clearZoneEntities() {
         this.selectedTarget = null;
-
         this.monsters.forEach(m => {
             if (m.group && this.scene) this.scene.remove(m.group);
             if (m.plateEl) m.plateEl.remove();
@@ -806,6 +950,16 @@ class KaomojiMMORPG {
 
         document.getElementById('boss-cast-box')?.classList.add('hidden');
         document.getElementById('warp-prompt-box')?.classList.add('hidden');
+    }
+
+    loadZone(zoneId) {
+        this.towerState.active = false;
+        this.towerState.clearing = false;
+        const zone = ZONES[zoneId] || ZONES.town;
+        this.currentZoneId = zone.id;
+        this.clearZoneEntities();
+
+        sfx.setBgmMode(zone.safe ? 'town' : 'field');
 
         if (this.useWebGL) {
             this.scene.background = new THREE.Color(zone.skyColor);
@@ -834,6 +988,9 @@ class KaomojiMMORPG {
         if (this.player) {
             this.player.pos.set(0, 0, zone.safe ? 0 : 4.2);
             if (this.player.group) this.player.group.position.copy(this.player.pos);
+        }
+        if (this.petEntity && this.player) {
+            this.petEntity.pos.set(this.player.pos.x - 1.4, 0, this.player.pos.z - 1.4);
         }
 
         if (zone.safe) {
@@ -864,575 +1021,78 @@ class KaomojiMMORPG {
         this.refreshAllHUD();
     }
 
-    isOnWarpPortal(pos) {
-        if (!pos || this.currentZoneId === 'town') return false;
-        return Math.hypot(pos.x, pos.z) <= this.WARP_PORTAL_RADIUS;
-    }
-
-    clampPosition(pos) {
-        const maxR = this.FIELD_LIMIT - 1.0;
-        const d = Math.hypot(pos.x, pos.z);
-        if (d > maxR) {
-            pos.x = (pos.x / d) * maxR;
-            pos.z = (pos.z / d) * maxR;
-        }
-    }
-
-    getNearestMonster(maxRange = 999) {
-        if (!this.player) return null;
-        let best = null;
-        let bestDist = maxRange;
-        for (const m of this.monsters) {
-            if (m.dead) continue;
-            const d = this.player.pos.distanceTo(m.pos);
-            if (d < bestDist) {
-                bestDist = d;
-                best = m;
-            }
-        }
-        return best;
-    }
-
-    getValidTarget() {
-        if (this.selectedTarget && !this.selectedTarget.dead) return this.selectedTarget;
-        this.selectedTarget = this.getNearestMonster(24);
-        return this.selectedTarget;
-    }
-
-    cycleTarget() {
-        const alive = this.monsters.filter(m => !m.dead);
-        if (alive.length === 0) {
-            this.showAlertBanner('近くに敵がいません', 1100);
-            return;
-        }
-        const curIdx = alive.indexOf(this.selectedTarget);
-        this.selectedTarget = alive[(curIdx + 1) % alive.length];
-        this.spawnRingEffect(this.selectedTarget.pos, 0x38bdf8, 1.8);
-        this.showAlertBanner(`🎯 標的: ${this.selectedTarget.name} (Lv.${this.selectedTarget.lv})`, 1200);
-    }
-
-    getLevelDiffDamageMultiplier(targetLv) {
-        const myLv = this.saveData.lv || 1;
-        if (targetLv <= myLv) return 1.0;
-        const diff = targetLv - myLv;
-        return Math.max(0.06, 1 / (1 + diff * 0.09));
-    }
-
-    damageMonster(m, rawDmg, isCrit = false) {
-        if (!m || m.dead) return 0;
-        const lvMult = this.getLevelDiffDamageMultiplier(m.lv);
-        const dmg = Math.max(1, Math.round(rawDmg * lvMult));
-        m.aggro = true;
-        this.selectedTarget = m;
-        m.hp = Math.max(0, m.hp - dmg);
-
-        sfx.playHit(isCrit);
-        const isResisted = lvMult < 0.85;
-        const label = isCrit
-            ? `💥${formatBigNum(dmg)}!${isResisted ? '(格上耐性)' : ''}`
-            : `${formatBigNum(dmg)}${isResisted ? '🛡️' : ''}`;
-        const color = isResisted ? '#94a3b8' : (isCrit ? '#fde047' : '#ffffff');
-        this.spawnFloatingText(m.pos, label, color, isCrit ? 1.25 : 1.0);
-
-        if (m.hp <= 0) {
-            m.dead = true;
-            m.casting = null;
-            m.respawnTimer = m.isBoss ? 8.0 : 3.5;
-            if (m.group) m.group.visible = false;
-            if (m.plateEl) m.plateEl.style.display = 'none';
-            if (m.isRaidBoss) document.getElementById('boss-cast-box')?.classList.add('hidden');
-            if (this.selectedTarget === m) this.selectedTarget = null;
-            this.grantKillRewards(m);
-        }
-        return dmg;
-    }
-
-    grantKillRewards(m) {
-        const d = this.saveData;
-        const st = this.calcDerivedStats();
-        const gainExp = Math.round(m.exp * st.treeRewardMult);
-        const gainGold = Math.round(m.gold * st.treeRewardMult);
-
-        d.exp += gainExp;
-        d.gold += gainGold;
-
-        if (m.drop && MATERIALS[m.drop]) {
-            const dropAmt = m.isBoss ? (2 + Math.floor((d.threatRank || 0) / 3)) : 1;
-            d.materials[m.drop] = (d.materials[m.drop] || 0) + dropAmt;
-            this.spawnFloatingText(m.pos, `${MATERIALS[m.drop].icon}+${dropAmt}`, '#6ee7b7', 0.95);
-        }
-
-        if (m.isBoss) {
-            const dropChance = Math.min(1.0, 0.30 + m.lv * 0.008);
-            if (Math.random() < dropChance) {
-                const bonusAp = 1 + Math.floor(m.lv / 25);
-                const bonusSp = (m.lv >= 20 && Math.random() < Math.min(0.95, 0.25 + m.lv * 0.006))
-                    ? (1 + Math.floor(m.lv / 50))
-                    : 0;
-                d.ap += bonusAp;
-                d.sp += bonusSp;
-                const dropTxt = bonusSp > 0 ? `✨AP+${bonusAp} / SP+${bonusSp}` : `✨AP+${bonusAp}`;
-                this.spawnFloatingText(m.pos, dropTxt, '#f0abfc', 1.2);
-                this.showAlertBanner(`👑 ボス討伐報酬！ ${dropTxt} をドロップ獲得！`, 2200);
-            }
-        }
-
-        let leveledUp = false;
-        while (d.lv < MAX_PLAYER_LEVEL && d.exp >= this.getExpNeeded(d.lv)) {
-            d.exp -= this.getExpNeeded(d.lv);
-            d.lv += 1;
-            d.ap += 3;
-            d.sp += 1;
-            leveledUp = true;
-        }
-        if (d.lv >= MAX_PLAYER_LEVEL) {
-            d.exp = Math.min(d.exp, this.getExpNeeded(MAX_PLAYER_LEVEL));
-        }
-
-        if (leveledUp) {
-            const newSt = this.calcDerivedStats();
-            this.player.hp = newSt.maxHp;
-            this.player.mp = newSt.maxMp;
-            sfx.playLevelUp();
-            this.spawnPillarEffect(this.player.pos, 0xfde047, 1.8, 7.0);
-            this.spawnRingEffect(this.player.pos, 0xfde047, 4.2);
-            this.showAlertBanner(`🎉 LEVEL UP! Lv.${d.lv} 到達！(AP+3 / SP+1)`, 2400);
-            this.saveGame(false);
-        }
-    }
-
-    triggerDeathSequence() {
-        if (this.isDead) return;
-        this.isDead = true;
-        this.autoHunt = false;
-        const autoBtn = document.getElementById('btn-toggle-autohunt');
-        if (autoBtn) autoBtn.textContent = '🤖 AUTO:OFF';
-
-        sfx.playDeath();
-        const overlay = document.getElementById('death-overlay');
-        if (overlay) overlay.classList.remove('hidden');
-
-        setTimeout(() => {
-            if (overlay) overlay.classList.add('hidden');
-            this.loadZone('town');
-            const resetSt = this.calcDerivedStats();
-            this.player.hp = resetSt.maxHp;
-            this.player.mp = resetSt.maxMp;
-            this.isDead = false;
-            this.showAlertBanner('🏠 「始まりの顔文字広場」で復活しました！装備やLvを整えよう', 2800);
-        }, 2100);
-    }
-
-    damagePlayer(rawAtk) {
-        if (!this.player || this.currentZoneId === 'town' || this.isDead) return;
-        if (this.player.invulnTimer > 0) return;
-
-        const st = this.calcDerivedStats();
-        const dmg = Math.max(1, Math.round(rawAtk * (1 - st.defMitigation)));
-        this.player.hp = Math.max(0, this.player.hp - dmg);
-        this.spawnFloatingText(this.player.pos, `-${formatBigNum(dmg)}`, '#fb7185', 1.05);
-
-        if (this.player.hp <= 0) {
-            this.triggerDeathSequence();
-        }
-    }
-
     // -----------------------------------------------------------------
-    // スキル発動（スキルごとの専用全身モーション＆豪華3D演出！）
+    // ⑤ 無限の試練の塔モード起動＆階層ウェーブ生成
     // -----------------------------------------------------------------
-    useSkillSlot(slotIdx) {
-        if (!this.player || this.isModalOpen || this.isDead) return;
-        const d = this.saveData;
-        const skId = d.equippedSkills[slotIdx];
-        const sk = skId ? SKILLS[skId] : null;
-        if (!sk) return;
+    startTowerMode(startFloor = 1) {
+        this.currentZoneId = 'tower';
+        this.towerState = { active: true, floor: Math.max(1, startFloor), clearing: false };
+        this.clearZoneEntities();
+        sfx.setBgmMode('boss');
 
-        const skLv = d.skills[skId] || 1;
-        const mpCost = getSkillMpCost(sk, skLv);
-
-        if ((this.player.skillCds[slotIdx] || 0) > 0) return;
-        if (this.player.mp < mpCost) {
-            this.showAlertBanner(`MPが足りません！(必要MP: ${mpCost})`, 950);
-            return;
+        if (this.useWebGL) {
+            this.scene.background = new THREE.Color(0x1f0933);
+            this.scene.fog = new THREE.FogExp2(0x1f0933, 0.015);
+            this.groundMat.color.setHex(0x2e1065);
+            this.warpPortalMesh.visible = true;
         }
 
-        const pPos = this.player.pos;
-        const target = this.getValidTarget();
-        const needsTarget = ['SINGLE_DMG', 'INTERRUPT', 'THUNDER', 'DRAIN'].includes(sk.type);
-        if (needsTarget && (!target || target.dead)) {
-            this.showAlertBanner('攻撃対象の敵がいません！', 1000);
-            return;
+        if (this.player) {
+            this.player.pos.set(0, 0, 5.5);
+            if (this.player.group) this.player.group.position.copy(this.player.pos);
         }
 
-        const st = this.calcDerivedStats();
-        const eff = getSkillEffectStats(sk, skLv, st);
+        this.spawnTowerFloor(this.towerState.floor);
+        this.refreshAllHUD();
+        this.showAlertBanner(`🗼 無限の試練の塔 第${this.towerState.floor}階層 挑戦開始！`, 2000);
+    }
 
-        this.player.mp -= mpCost;
-        this.player.skillCds[slotIdx] = Math.max(0.6, sk.cd * (1 - st.cdReduction));
-        sfx.playSkill();
+    spawnTowerFloor(floor) {
+        const isBossFloor = (floor % 5 === 0);
+        const scaleMult = Math.pow(1.22, floor - 1);
+        const matKeys = Object.keys(MATERIALS);
+        const dropMat = matKeys[Math.min(matKeys.length - 1, Math.floor((floor - 1) / 3))];
 
-        const extraCrit = sk.type === 'SINGLE_DMG' ? skLv * 0.025 : 0;
-        const totalSkCrit = st.rawCritChance + extraCrit;
-        const crit = Math.random() < Math.min(1.0, totalSkCrit);
-        const skOverflowBonus = Math.max(0, totalSkCrit - 1.0) * 1.5;
-        const critMult = crit ? (st.critDmg + (skOverflowBonus - st.overflowCritDmgBonus)) : 1.0;
-
-        if (target && !target.dead) {
-            const dx = target.pos.x - pPos.x;
-            const dz = target.pos.z - pPos.z;
-            if (dx * dx + dz * dz > 0.01) this.player.rotY = Math.atan2(dx, dz);
-        }
-
-        // スキル別豪華モーション＆3Dビジュアル
-        if (sk.id === 'void_blade') {
-            this.playSkillMotion('jump_slash', 0.48);
-            const dmg = st.physAtk * st.magMult * eff.mult;
-            this.damageMonster(target, dmg * critMult, crit);
-            this.spawnCrossSlashEffect(target.pos, 0xc084fc, 3.8);
-            this.spawnPillarEffect(target.pos, 0x9333ea, 1.3, 6.5);
-        } else if (sk.type === 'SINGLE_DMG') {
-            this.playSkillMotion('jump_slash', 0.42);
-            const dmg = st.physAtk * st.magMult * eff.mult;
-            this.damageMonster(target, dmg * critMult, crit);
-            this.spawnCrossSlashEffect(target.pos, 0x38bdf8, 2.8);
-        } else if (sk.type === 'THUNDER') {
-            this.playSkillMotion('cast_up', 0.45);
-            const dmg = st.physAtk * st.magMult * eff.mult;
-            this.damageMonster(target, dmg * critMult, crit);
-            this.spawnPillarEffect(target.pos, 0xfde047, 1.1, 12.0);
-            this.spawnRingEffect(target.pos, 0xfef08a, 3.6);
-        } else if (sk.type === 'INTERRUPT') {
-            this.playSkillMotion('slam_ground', 0.44);
-            const dmg = st.physAtk * st.magMult * eff.mult;
-            this.damageMonster(target, dmg * critMult, crit);
-            target.stunTimer = eff.stunDur;
-            if (target.casting) {
-                target.casting = null;
-                document.getElementById('boss-cast-box')?.classList.add('hidden');
-                this.showAlertBanner(`🛡️ ボス詠唱中断＋気絶 ${eff.stunDur}秒！`, 1800);
-            }
-            this.spawnRingEffect(target.pos, 0xfbbf24, 3.4);
-            this.spawnCrossSlashEffect(target.pos, 0xf59e0b, 2.6);
-        } else if (sk.type === 'DRAIN') {
-            this.playSkillMotion('dash_thrust', 0.42);
-            const dmg = st.physAtk * st.magMult * eff.mult;
-            const dealt = this.damageMonster(target, dmg * critMult, crit);
-            const heal = Math.round(dealt * eff.drainRate);
-            this.player.hp = Math.min(st.maxHp, this.player.hp + heal);
-            this.spawnFloatingText(pPos, `🩸+${formatBigNum(heal)}`, '#34d399', 1.05);
-            this.spawnBeamEffect(target.pos, pPos, 0xe11d48, 0.25);
-            this.spawnRingEffect(pPos, 0xf43f5e, 2.4);
-        } else if (sk.type === 'AOE_DMG' || sk.type === 'AOE_SLOW' || sk.type === 'AOE_BURN') {
-            const rad = sk.radius || 6.5;
-            const dmg = st.physAtk * st.magMult * eff.mult;
-
-            if (sk.id === 'spin_whirl') {
-                this.playSkillMotion('spin_whirl', 0.52);
-                this.spawnRingEffect(pPos, 0x38bdf8, rad);
-                this.spawnRingEffect(pPos, 0xe0f2fe, rad * 0.65);
-            } else if (sk.id === 'meteor_star') {
-                this.playSkillMotion('cast_up', 0.55);
-                this.spawnMeteorEffect(pPos, 0xf97316, rad);
-            } else if (sk.id === 'genesis_nova') {
-                this.playSkillMotion('cast_up', 0.65);
-                this.spawnPillarEffect(pPos, 0xfde047, 2.4, 14.0);
-                this.spawnRingEffect(pPos, 0xf43f5e, rad);
-                this.spawnRingEffect(pPos, 0xfde047, rad * 0.7);
-            } else if (sk.type === 'AOE_SLOW') {
-                this.playSkillMotion('slam_ground', 0.48);
-                this.spawnIceSpikesEffect(pPos, rad);
-                this.spawnRingEffect(pPos, 0x38bdf8, rad);
-            } else {
-                this.playSkillMotion('jump_slash', 0.52);
-                this.spawnPillarEffect(pPos, 0xf97316, 2.0, 9.0);
-                this.spawnRingEffect(pPos, 0xef4444, rad);
-            }
-
-            this.monsters.forEach(m => {
-                if (!m.dead && pPos.distanceTo(m.pos) <= rad) {
-                    this.damageMonster(m, dmg * critMult, crit);
-                    if (sk.type === 'AOE_SLOW') {
-                        m.slowTimer = eff.slowDur;
-                        m.slowFactor = eff.slowFactor;
-                    } else if (sk.type === 'AOE_BURN') {
-                        m.burnTimer = 4.5;
-                        m.burnDps = dmg * 0.38;
-                    }
-                }
+        if (isBossFloor) {
+            const ang = 0;
+            const spawnPos = new THREE.Vector3(Math.cos(ang) * 11, 0, -9);
+            this.spawnMonsterEntity({
+                name: `塔の守護神・第${floor}層`,
+                kaomoji: '🗼꧁(╬◣д◢)꧂',
+                lv: floor * 4,
+                maxHp: Math.round(950 * scaleMult),
+                atk: Math.round(55 * Math.pow(1.16, floor - 1)),
+                exp: Math.round(350 * Math.pow(1.18, floor - 1)),
+                gold: Math.round(300 * Math.pow(1.18, floor - 1)),
+                color: 0xf43f5e,
+                scale: 2.15,
+                isBoss: true,
+                isRaidBoss: true,
+                noRespawn: true,
+                drop: dropMat,
+                spawnPos
             });
-        } else if (sk.type === 'HEAL' || sk.type === 'HEAL_MP') {
-            this.playSkillMotion('cast_up', 0.48);
-            const healHp = Math.round(st.maxHp * eff.hpPct);
-            this.player.hp = Math.min(st.maxHp, this.player.hp + healHp);
-            this.player.stunTimer = 0;
-            if (sk.type === 'HEAL_MP') {
-                const healMp = Math.round(st.maxMp * eff.mpPct);
-                this.player.mp = Math.min(st.maxMp, this.player.mp + healMp);
-                this.spawnFloatingText(pPos, `🌈HP+${formatBigNum(healHp)} / MP+${formatBigNum(healMp)}`, '#6ee7b7', 1.1);
-                this.spawnPillarEffect(pPos, 0xe879f9, 1.5, 8.0);
-            } else {
-                this.spawnFloatingText(pPos, `💚+${formatBigNum(healHp)}`, '#34d399', 1.1);
-                this.spawnPillarEffect(pPos, 0x34d399, 1.3, 7.5);
-            }
-            this.spawnRingEffect(pPos, 0x34d399, 3.2);
-        } else if (sk.type === 'DEF_BUFF') {
-            this.playSkillMotion('slam_ground', 0.45);
-            this.player.defBuffTimer = eff.duration;
-            this.player.defBuffBonus = eff.defBonus;
-            this.player.invulnTimer = Math.max(this.player.invulnTimer, eff.invuln);
-            this.spawnDomeEffect(pPos, 0x38bdf8, 2.3);
-            this.spawnRingEffect(pPos, 0x7dd3fc, 3.4);
-            this.spawnFloatingText(pPos, `🔰 軽減+${Math.round(eff.defBonus * 100)}% (${eff.duration}s)`, '#7dd3fc', 1.05);
-        } else if (sk.type === 'ATK_BUFF') {
-            this.playSkillMotion('cast_up', 0.48);
-            this.player.warcryTimer = eff.duration;
-            this.player.warcryBonus = 1 + eff.atkBonus;
-            this.spawnPillarEffect(pPos, 0xf97316, 1.6, 8.5);
-            this.spawnRingEffect(pPos, 0xfbbf24, 3.4);
-            this.spawnFloatingText(pPos, `🔥 攻撃+${Math.round(eff.atkBonus * 100)}% (${eff.duration}s)`, '#fbbf24', 1.05);
-        }
-    }
-
-    // -----------------------------------------------------------------
-    // 豪華3Dエモート（本物の3Dちゃぶ台飛行・極太ビーム・星パーティクル！）
-    // -----------------------------------------------------------------
-    triggerEmote(emoteId) {
-        const em = EMOTES.find(e => e.id === emoteId);
-        if (!em || !this.player) return;
-
-        document.getElementById('emote-palette')?.classList.add('hidden');
-        this.emoteTimer = 2.6;
-        this.emoteMotion = em.motion;
-
-        if (this.useWebGL && this.player.frontMat) {
-            this.player.frontMat.map = getKaomojiFaceTexture(em.kaomoji, '#073b66', '#ffffff', '#f472b6');
-            this.player.frontMat.needsUpdate = true;
-        }
-
-        sfx.playTone(587, 0.09, 'sine', 0.07);
-        setTimeout(() => sfx.playTone(880, 0.12, 'triangle', 0.07), 65);
-
-        const pPos = this.player.pos;
-        const fwdX = Math.sin(this.player.rotY);
-        const fwdZ = Math.cos(this.player.rotY);
-
-        if (em.id === 'tableflip') {
-            // 本物の3Dちゃぶ台を生成して前方へ回転させながら吹っ飛ばす！
-            this.spawnTableFlipEffect(pPos, fwdX, fwdZ);
-            this.spawnRingEffect(pPos, 0xf97316, 3.8);
-            this.spawnFloatingText(pPos, '┻━┻ 彡(°□°)', '#fbbf24', 1.3);
-        } else if (em.id === 'beam') {
-            // 前方12mに極太カオモジレーザービーム発射！
-            const endPos = new THREE.Vector3(pPos.x + fwdX * 12, 1.2, pPos.z + fwdZ * 12);
-            this.spawnBeamEffect(new THREE.Vector3(pPos.x, 1.2, pPos.z), endPos, 0x38bdf8, 0.55);
-            this.spawnRingEffect(pPos, 0x7dd3fc, 4.0);
-            this.spawnFloatingText(pPos, '━☆・*。⚡', '#7dd3fc', 1.25);
-        } else if (em.id === 'joy' || em.id === 'love' || em.id === 'victory' || em.id === 'dance') {
-            this.spawnSparkleBurst(pPos, em.id === 'love' ? 0xf472b6 : 0xfde047, 10);
-            this.spawnPillarEffect(pPos, 0xf472b6, 1.2, 5.5);
-            this.spawnRingEffect(pPos, 0xfde047, 3.2);
-        } else if (em.id === 'fire' || em.id === 'flex' || em.id === 'cool') {
-            this.spawnPillarEffect(pPos, 0xf97316, 1.4, 6.5);
-            this.spawnRingEffect(pPos, 0xfbbf24, 3.0);
-        } else if (em.id === 'dogeza') {
-            this.spawnRingEffect(pPos, 0x94a3b8, 3.4);
-            this.spawnFloatingText(pPos, '＿|￣|○ ｽﾐﾏｾﾝ!!', '#e2e8f0', 1.2);
         } else {
-            this.spawnSparkleBurst(pPos, 0xf472b6, 6);
-            this.spawnRingEffect(pPos, 0xf472b6, 2.5);
+            const count = 3 + Math.min(3, Math.floor(floor / 4));
+            for (let i = 0; i < count; i++) {
+                const ang = ((i + 0.5) / count) * Math.PI - Math.PI;
+                const spawnPos = new THREE.Vector3(Math.cos(ang) * 11.5, 0, Math.sin(ang) * 11.5 - 3);
+                this.spawnMonsterEntity({
+                    name: `試練の番人[${floor}F]`,
+                    kaomoji: '【▼皿▼】',
+                    lv: floor * 3,
+                    maxHp: Math.round(220 * scaleMult),
+                    atk: Math.round(28 * Math.pow(1.15, floor - 1)),
+                    exp: Math.round(90 * Math.pow(1.16, floor - 1)),
+                    gold: Math.round(80 * Math.pow(1.16, floor - 1)),
+                    color: 0xa855f7,
+                    scale: 1.15,
+                    isBoss: false,
+                    noRespawn: true,
+                    drop: dropMat,
+                    spawnPos
+                });
+            }
         }
-
-        this.spawnEmoteBubble(pPos, em.kaomoji, em.msg, 2.8);
-
-        if (this.currentZoneId === 'town' && this.aiAllies.length > 0) {
-            this.aiAllies.forEach((ally, i) => {
-                setTimeout(() => {
-                    if (this.currentZoneId === 'town') {
-                        this.spawnEmoteBubble(ally.pos, ally.kaomoji, em.allyReply, 2.6);
-                    }
-                }, 350 + i * 280);
-            });
-        }
-    }
-
-    // -----------------------------------------------------------------
-    // 豪華3Dエフェクトビルダー群
-    // -----------------------------------------------------------------
-    spawnSlashEffect(pos, colorHex = 0x38bdf8) {
-        if (!this.useWebGL) return;
-        const mesh = new THREE.Mesh(
-            new THREE.BoxGeometry(2.4, 0.14, 0.28),
-            new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.95 })
-        );
-        mesh.position.set(pos.x, 1.1, pos.z);
-        mesh.rotation.y = Math.random() * Math.PI;
-        mesh.rotation.z = 0.55;
-        this.scene.add(mesh);
-        this.effects.push({ mesh, life: 0.24, maxLife: 0.24, kind: 'fade' });
-    }
-
-    spawnCrossSlashEffect(pos, colorHex = 0x38bdf8, size = 3.0) {
-        if (!this.useWebGL) return;
-        const grp = new THREE.Group();
-        grp.position.set(pos.x, 1.25, pos.z);
-        grp.rotation.y = this.player ? this.player.rotY : 0;
-        const mat = new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.95 });
-        const b1 = new THREE.Mesh(new THREE.BoxGeometry(size, 0.16, 0.22), mat);
-        b1.rotation.z = 0.65;
-        const b2 = new THREE.Mesh(new THREE.BoxGeometry(size, 0.16, 0.22), mat);
-        b2.rotation.z = -0.65;
-        grp.add(b1, b2);
-        this.scene.add(grp);
-        this.effects.push({ mesh: grp, life: 0.32, maxLife: 0.32, kind: 'expand' });
-    }
-
-    spawnRingEffect(pos, colorHex = 0x38bdf8, radius = 3.0) {
-        if (!this.useWebGL) return;
-        const mesh = new THREE.Mesh(
-            new THREE.RingGeometry(0.3, radius, 28),
-            new THREE.MeshBasicMaterial({ color: colorHex, side: THREE.DoubleSide, transparent: true, opacity: 0.85 })
-        );
-        mesh.rotation.x = -Math.PI / 2;
-        mesh.position.set(pos.x, 0.12, pos.z);
-        this.scene.add(mesh);
-        this.effects.push({ mesh, life: 0.38, maxLife: 0.38, kind: 'expand' });
-    }
-
-    spawnPillarEffect(pos, colorHex = 0xfde047, radius = 1.4, height = 8.0) {
-        if (!this.useWebGL) return;
-        const mesh = new THREE.Mesh(
-            new THREE.CylinderGeometry(radius * 0.5, radius, height, 14, 1, true),
-            new THREE.MeshBasicMaterial({ color: colorHex, side: THREE.DoubleSide, transparent: true, opacity: 0.72 })
-        );
-        mesh.position.set(pos.x, height * 0.5, pos.z);
-        this.scene.add(mesh);
-        this.effects.push({ mesh, life: 0.48, maxLife: 0.48, kind: 'pillar' });
-    }
-
-    spawnDomeEffect(pos, colorHex = 0x38bdf8, radius = 2.2) {
-        if (!this.useWebGL) return;
-        const mesh = new THREE.Mesh(
-            new THREE.SphereGeometry(radius, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.55),
-            new THREE.MeshBasicMaterial({ color: colorHex, wireframe: true, transparent: true, opacity: 0.85 })
-        );
-        mesh.position.set(pos.x, 0.1, pos.z);
-        this.scene.add(mesh);
-        this.effects.push({ mesh, life: 0.65, maxLife: 0.65, kind: 'expand' });
-    }
-
-    spawnMeteorEffect(pos, colorHex = 0xf97316, rad = 6.5) {
-        if (!this.useWebGL) return;
-        const meteor = new THREE.Mesh(
-            new THREE.DodecahedronGeometry(1.65, 0),
-            new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.95 })
-        );
-        meteor.position.set(pos.x, 12.0, pos.z);
-        this.scene.add(meteor);
-        this.effects.push({ mesh: meteor, life: 0.42, maxLife: 0.42, kind: 'fall', startY: 12.0 });
-        setTimeout(() => {
-            this.spawnRingEffect(pos, colorHex, rad);
-            this.spawnPillarEffect(pos, 0xfde047, 2.0, 8.5);
-        }, 280);
-    }
-
-    spawnIceSpikesEffect(pos, rad = 6.0) {
-        if (!this.useWebGL) return;
-        const mat = new THREE.MeshBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.88 });
-        for (let i = 0; i < 8; i++) {
-            const ang = (i / 8) * Math.PI * 2;
-            const dist = rad * 0.55;
-            const spike = new THREE.Mesh(new THREE.ConeGeometry(0.45, 2.8, 6), mat);
-            spike.position.set(pos.x + Math.cos(ang) * dist, 1.3, pos.z + Math.sin(ang) * dist);
-            spike.rotation.z = Math.cos(ang) * -0.25;
-            spike.rotation.x = Math.sin(ang) * 0.25;
-            this.scene.add(spike);
-            this.effects.push({ mesh: spike, life: 0.55, maxLife: 0.55, kind: 'fade' });
-        }
-    }
-
-    spawnBeamEffect(fromPos, toPos, colorHex = 0x38bdf8, dur = 0.45) {
-        if (!this.useWebGL) return;
-        const dx = toPos.x - fromPos.x;
-        const dz = toPos.z - fromPos.z;
-        const dist = Math.max(0.5, Math.hypot(dx, dz));
-        const beam = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.28, 0.28, dist, 10),
-            new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.92 })
-        );
-        beam.position.set((fromPos.x + toPos.x) * 0.5, 1.25, (fromPos.z + toPos.z) * 0.5);
-        beam.rotation.z = Math.PI / 2;
-        beam.rotation.y = -Math.atan2(dz, dx);
-        this.scene.add(beam);
-        this.effects.push({ mesh: beam, life: dur, maxLife: dur, kind: 'fade' });
-    }
-
-    spawnTableFlipEffect(pos, fwdX, fwdZ) {
-        if (!this.useWebGL) return;
-        const table = new THREE.Group();
-        const woodMat = new THREE.MeshLambertMaterial({ color: 0xb45309 });
-        const top = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.15, 0.14, 14), woodMat);
-        table.add(top);
-        [[-0.6, -0.6], [0.6, -0.6], [-0.6, 0.6], [0.6, 0.6]].forEach(([lx, lz]) => {
-            const leg = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.55, 0.14), woodMat);
-            leg.position.set(lx, -0.32, lz);
-            table.add(leg);
-        });
-        table.position.set(pos.x + fwdX * 1.2, 1.0, pos.z + fwdZ * 1.2);
-        this.scene.add(table);
-        this.effects.push({
-            mesh: table,
-            life: 0.95,
-            maxLife: 0.95,
-            kind: 'toss',
-            vx: fwdX * 9.5,
-            vz: fwdZ * 9.5
-        });
-    }
-
-    spawnSparkleBurst(pos, colorHex = 0xfde047, count = 8) {
-        if (!this.useWebGL) return;
-        const mat = new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.95 });
-        for (let i = 0; i < count; i++) {
-            const ang = (i / count) * Math.PI * 2;
-            const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.24, 0), mat);
-            star.position.set(pos.x + Math.cos(ang) * 1.1, 1.2 + (i % 3) * 0.4, pos.z + Math.sin(ang) * 1.1);
-            this.scene.add(star);
-            this.effects.push({ mesh: star, life: 0.75, maxLife: 0.75, kind: 'rise' });
-        }
-    }
-
-    spawnFloatingText(pos, text, color = '#ffffff', scale = 1.0) {
-        const el = document.createElement('div');
-        el.className = 'world-float-text';
-        el.style.color = color;
-        el.style.fontSize = `${Math.round(15 * scale)}px`;
-        el.textContent = text;
-        this.overlayLayer.appendChild(el);
-        this.floatTexts.push({
-            el,
-            worldPos: new THREE.Vector3(pos.x + (Math.random() - 0.5) * 0.8, 2.2, pos.z),
-            life: 0.88
-        });
-    }
-
-    spawnEmoteBubble(pos, kaomoji, msg, life = 2.6) {
-        const el = document.createElement('div');
-        el.className = 'world-emote-bubble';
-        el.innerHTML = `<div class="font-kaomoji" style="font-size:12px; font-weight:900; color:#f9a8d4;">${kaomoji}</div><div style="font-size:10px; font-weight:800; color:#fff;">${msg}</div>`;
-        this.overlayLayer.appendChild(el);
-        this.emoteBubbles.push({
-            el,
-            worldPos: new THREE.Vector3(pos.x, 2.85, pos.z),
-            life
-        });
-    }
-
-    showAlertBanner(msg, duration = 2000) {
-        const banner = document.getElementById('alert-banner');
-        if (!banner) return;
-        banner.textContent = msg;
-        banner.classList.remove('hidden');
-        if (this.alertTimeout) clearTimeout(this.alertTimeout);
-        this.alertTimeout = setTimeout(() => banner.classList.add('hidden'), duration);
     }
 }
