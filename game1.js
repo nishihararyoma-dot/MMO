@@ -7,8 +7,6 @@
 const MAX_PLAYER_LEVEL = 999;
 const MAX_THREAT_RANK = 99;
 const REBIRTH_REQ_LEVEL = 100;
-
-// 公開用デフォルトFirebase URL（空欄の場合は各自のURLを入力して接続可能）
 const DEFAULT_PUBLIC_FIREBASE_URL = '';
 
 function formatBigNum(num) {
@@ -54,7 +52,6 @@ function getKaomojiFaceTexture(kaomoji, bgHex = '#073b66', textHex = '#ffffff', 
     return tex;
 }
 
-// 軽量WebAudio効果音システム
 const sfx = {
     ctx: null,
     bgmMuted: false,
@@ -152,7 +149,7 @@ function getSkillEffectStats(sk, skLv = 1) {
 function getWeaponEnhanceRequirement(curEnh = 0) {
     const lv = Math.max(0, curEnh);
     const gold = Math.round(180 * Math.pow(1.38, lv));
-    const matKeys = Object.keys(MATERIALS || { slime_gel: 1 });
+    const matKeys = Object.keys((typeof MATERIALS !== 'undefined' && MATERIALS) ? MATERIALS : { slime_gel: 1 });
     const mk = matKeys[Math.min(matKeys.length - 1, Math.floor(lv / 3))];
     const cnt = 2 + (lv % 3);
     return { gold, mats: { [mk]: cnt } };
@@ -161,7 +158,7 @@ function getWeaponEnhanceRequirement(curEnh = 0) {
 function getArmorEnhanceRequirement(curEnh = 0) {
     const lv = Math.max(0, curEnh);
     const gold = Math.round(160 * Math.pow(1.36, lv));
-    const matKeys = Object.keys(MATERIALS || { slime_gel: 1 });
+    const matKeys = Object.keys((typeof MATERIALS !== 'undefined' && MATERIALS) ? MATERIALS : { slime_gel: 1 });
     const mk = matKeys[Math.min(matKeys.length - 1, Math.floor(lv / 3))];
     const cnt = 2 + (lv % 3);
     return { gold, mats: { [mk]: cnt } };
@@ -175,7 +172,6 @@ class KaomojiMMORPG {
 
         this.saveData = this.loadSaveData();
 
-        // 3D＆エンティティ状態
         this.scene = null;
         this.camera = null;
         this.renderer = null;
@@ -194,7 +190,6 @@ class KaomojiMMORPG {
         this.emoteBubbles = [];
         this.remotePlayers = new Map();
 
-        // 進行・戦闘状態
         this.currentZoneId = 'town';
         this.towerState = { active: false, floor: 1, wave: 1 };
         this.selectedTarget = null;
@@ -211,7 +206,6 @@ class KaomojiMMORPG {
         this.emoteTimer = 0;
         this.emoteMotion = 'none';
 
-        // 入力・カメラ状態
         this.joyVec = { x: 0, y: 0 };
         this.keys = {};
         this.camYaw = 0;
@@ -219,7 +213,6 @@ class KaomojiMMORPG {
         this.camDist = 14.5;
         this.camShake = 0;
 
-        // オンライン＆チャット状態
         this.fbConnected = false;
         this.fbSyncTimer = 0;
         this.fbPollTimer = 0;
@@ -235,22 +228,26 @@ class KaomojiMMORPG {
 
         this.lastTime = performance.now();
 
-        this.initThree();
-        this.buildPlayerEntity();
-        this.buildPetEntity();
-        this.loadZone('town');
-        this.buildEmotePalette();
-        this.renderChatMessages();
-        this.bindEvents();
-        this.refreshTitleScreen();
-        this.refreshAllHUD();
+        // 最優先でタイトル画面の表示と全ボタンイベント登録を実行（絶対にボタンが固まらないようにする）
+        try { this.refreshTitleScreen(); } catch (e) { console.error(e); }
+        try { if (this.bindEvents) this.bindEvents(); } catch (e) { console.error(e); }
 
-        // 前回オンラインONだった場合は自動接続
-        if (this.saveData.onlineEnabled && this.saveData.firebaseUrl) {
+        // 3D初期化・キャラクター構築を安全に実行
+        try { if (this.initThree) this.initThree(); } catch (e) { console.error(e); }
+        try { if (this.buildPlayerEntity) this.buildPlayerEntity(); } catch (e) { console.error(e); }
+        try { if (this.buildPetEntity) this.buildPetEntity(); } catch (e) { console.error(e); }
+        try { if (this.loadZone) this.loadZone('town'); } catch (e) { console.error(e); }
+        try { if (this.buildEmotePalette) this.buildEmotePalette(); } catch (e) { console.error(e); }
+        try { this.renderChatMessages(); } catch (e) { console.error(e); }
+        try { if (this.refreshAllHUD) this.refreshAllHUD(); } catch (e) { console.error(e); }
+
+        if (this.saveData.onlineEnabled && this.saveData.firebaseUrl && this.connectFirebase) {
             this.connectFirebase(this.saveData.firebaseUrl, true);
         }
 
-        requestAnimationFrame((t) => this.loop(t));
+        requestAnimationFrame((t) => {
+            if (this.loop) this.loop(t);
+        });
     }
 
     createDefaultSave() {
@@ -309,7 +306,6 @@ class KaomojiMMORPG {
                 bestTowerFloor: 0,
                 maxThreatKill: 0
             },
-            // オンライン＆パスワード部屋＆クラウド設定
             firebaseUrl: DEFAULT_PUBLIC_FIREBASE_URL,
             onlineEnabled: false,
             roomPassEnabled: false,
@@ -355,12 +351,11 @@ class KaomojiMMORPG {
             localStorage.setItem(this.saveKey, JSON.stringify(this.saveData));
             if (showToast) {
                 sfx.playHeal();
-                this.showAlertBanner('💾 セーブデータを保存しました！', 1500);
+                if (this.showAlertBanner) this.showAlertBanner('💾 セーブデータを保存しました！', 1500);
             }
         } catch (e) {}
     }
 
-    // 完全データ初期化（確認ダイアログ後に即座に新品状態へリセット）
     hardResetGame() {
         const keepUrl = this.saveData.firebaseUrl || DEFAULT_PUBLIC_FIREBASE_URL;
         if (this.fbConnected && this.disconnectFirebase) {
@@ -397,19 +392,16 @@ class KaomojiMMORPG {
         ];
         this.renderChatMessages();
 
-        this.buildPlayerEntity();
-        this.buildPetEntity();
-        this.loadZone('town');
+        try { if (this.buildPlayerEntity) this.buildPlayerEntity(); } catch (e) {}
+        try { if (this.buildPetEntity) this.buildPetEntity(); } catch (e) {}
+        try { if (this.loadZone) this.loadZone('town'); } catch (e) {}
         this.refreshTitleScreen();
-        this.refreshAllHUD();
+        if (this.refreshAllHUD) this.refreshAllHUD();
         this.showTitleScreen();
         sfx.playLevelUp();
-        this.showAlertBanner('💥 セーブデータを完全に初期化しました！', 2200);
+        if (this.showAlertBanner) this.showAlertBanner('💥 セーブデータを完全に初期化しました！', 2200);
     }
 
-    // -----------------------------------------------------------------
-    // タイトル画面表示・更新
-    // -----------------------------------------------------------------
     showTitleScreen() {
         this.inTitleScreen = true;
         this.refreshTitleScreen();
@@ -422,20 +414,21 @@ class KaomojiMMORPG {
         this.inTitleScreen = false;
         document.getElementById('title-screen')?.classList.add('hidden');
         this.saveGame(false);
-        this.refreshAllHUD();
+        if (this.refreshAllHUD) this.refreshAllHUD();
         if (this.saveData.onlineEnabled) {
-            if (this.saveData.firebaseUrl) {
+            if (this.saveData.firebaseUrl && this.connectFirebase) {
                 this.connectFirebase(this.saveData.firebaseUrl, false);
-            } else {
+            } else if (this.openGrowthModal) {
                 this.openGrowthModal('online');
-                this.showAlertBanner('🌐 オンラインを使うにはFirebase URLを設定してください', 2400);
+                if (this.showAlertBanner) this.showAlertBanner('🌐 オンラインを使うにはFirebase URLを設定してください', 2400);
             }
         }
     }
 
     refreshTitleScreen() {
         const d = this.saveData;
-        const evo = EVOLUTIONS[d.evolutionId] || EVOLUTIONS.novice;
+        const evoMap = (typeof EVOLUTIONS !== 'undefined' && EVOLUTIONS) ? EVOLUTIONS : { novice: { name: '見習い顔文字' } };
+        const evo = evoMap[d.evolutionId] || evoMap.novice || { name: '見習い顔文字' };
         const infoEl = document.getElementById('title-save-info');
         if (infoEl) {
             if (d.isNewSave && d.lv === 1 && d.exp === 0) {
@@ -478,9 +471,6 @@ class KaomojiMMORPG {
         }
     }
 
-    // -----------------------------------------------------------------
-    // チャットシステム（🌍 全体チャット / 🏠 部屋･オフラインチャット）
-    // -----------------------------------------------------------------
     addChatMessage(channel, senderKaomoji, senderName, text, isSystem = false) {
         const clean = String(text || '').trim().slice(0, 80);
         if (!clean) return;
@@ -551,7 +541,7 @@ class KaomojiMMORPG {
             }
         }
 
-        if (this.player) {
+        if (this.player && this.spawnEmoteBubble) {
             this.spawnEmoteBubble(this.player.pos.clone().add(new THREE.Vector3(0, 2.7, 0)), myK, msg.slice(0, 16));
         }
     },
@@ -560,42 +550,41 @@ class KaomojiMMORPG {
         const d = this.saveData;
         if (!d.roomPassEnabled) return 'PUBLIC_OPEN_ROOM';
         return 'PASS_' + (d.roomPassword || '').trim();
-    },
+    }
 
-    // -----------------------------------------------------------------
-    // プレイヤー見た目＆ステータス計算
-    // -----------------------------------------------------------------
     getBasePlayerKaomoji() {
         const d = this.saveData;
         if (d.customKaomoji && d.customKaomoji.trim()) return d.customKaomoji.trim();
-        const evo = EVOLUTIONS[d.evolutionId] || EVOLUTIONS.novice;
+        const evoMap = (typeof EVOLUTIONS !== 'undefined' && EVOLUTIONS) ? EVOLUTIONS : { novice: { kaomoji: '(´・ω・`)' } };
+        const evo = evoMap[d.evolutionId] || evoMap.novice || { kaomoji: '(´・ω・`)' };
         return evo.kaomoji || '(´・ω・`)';
-    },
+    }
 
     getPlayerBodyHexColor() {
         const d = this.saveData;
         if (d.bodyColor && /^#[0-9a-fA-F]{6}$/.test(d.bodyColor)) {
             return parseInt(d.bodyColor.slice(1), 16);
         }
-        const evo = EVOLUTIONS[d.evolutionId] || EVOLUTIONS.novice;
+        const evoMap = (typeof EVOLUTIONS !== 'undefined' && EVOLUTIONS) ? EVOLUTIONS : { novice: { hexColor: 0x38bdf8 } };
+        const evo = evoMap[d.evolutionId] || evoMap.novice || { hexColor: 0x38bdf8 };
         return evo.hexColor || 0x38bdf8;
-    },
+    }
 
     getPlayerFaceBgHex() {
         return this.saveData.faceBgColor || '#073b66';
-    },
+    }
 
     getPlayerBodyScale() {
         return Number(this.saveData.bodyScale) || 1.0;
-    },
+    }
 
     getExpNeeded(lv) {
         return Math.round(90 + Math.pow(lv, 1.55) * 42);
-    },
+    }
 
     getSkillUpgradeCost(curLv) {
         return 1 + Math.floor(curLv / 4);
-    },
+    }
 
     calcDerivedStats() {
         const d = this.saveData;
