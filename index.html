@@ -3,200 +3,905 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>顔文字ファンタジー3D MMORPG</title>
+    <title>顔文字ファンタジー3D - オンライン共闘RPG</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
-        html, body { width: 100%; height: 100%; overflow: hidden; background: #020617; font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif; color: #f8fafc; touch-action: none; }
-        .font-kaomoji { font-family: 'MS PGothic', 'Hiragino Kaku Gothic ProN', monospace; letter-spacing: -0.5px; }
-        #game-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 1; }
-        #overlay-layer { position: fixed; inset: 0; pointer-events: none; z-index: 5; overflow: hidden; }
-        .hidden { display: none !important; }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #090d16;
+            color: #f8fafc;
+            font-family: "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+            touch-action: none;
+        }
+        .font-kaomoji {
+            font-family: "MS PGothic", "Hiragino Kaku Gothic ProN", sans-serif;
+        }
+        .hidden {
+            display: none !important;
+        }
 
-        /* 頭上プレート・フローティングテキスト */
-        .world-plate { position: absolute; transform: translate(-50%, -100%); background: rgba(15, 23, 42, 0.84); border: 1px solid rgba(148, 163, 184, 0.55); border-radius: 6px; padding: 2px 6px; text-align: center; white-space: nowrap; pointer-events: none; }
-        .m-hp-bg { width: 64px; height: 5px; background: #1e293b; border-radius: 3px; overflow: hidden; margin-top: 2px; }
-        .m-hp-fill { height: 100%; background: linear-gradient(90deg, #ef4444, #f97316); width: 100%; }
-        .world-float-text { position: absolute; transform: translate(-50%, -50%); font-weight: 900; text-shadow: 0 2px 4px rgba(0,0,0,0.95); pointer-events: none; white-space: nowrap; }
-        .world-emote-bubble { position: absolute; transform: translate(-50%, -100%); background: rgba(15, 23, 42, 0.92); border: 1.5px solid #f472b6; border-radius: 12px; padding: 4px 9px; text-align: center; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.6); }
+        /* 3Dキャンバス＆ワールドオーバーレイ（タップ貫通徹底） */
+        #game-canvas {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            z-index: 1;
+        }
+        #overlay-layer {
+            position: fixed;
+            inset: 0;
+            pointer-events: none !important;
+            z-index: 5;
+            overflow: hidden;
+        }
+        .world-plate {
+            position: absolute;
+            transform: translate(-50%, -100%);
+            background: rgba(15, 23, 42, 0.82);
+            border: 1px solid rgba(56, 189, 248, 0.55);
+            border-radius: 6px;
+            padding: 2px 6px;
+            text-align: center;
+            white-space: nowrap;
+            pointer-events: none !important;
+        }
+        .m-hp-bg {
+            width: 64px;
+            height: 5px;
+            background: #1e293b;
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 2px auto 0;
+        }
+        .m-hp-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ef4444, #f97316);
+            width: 100%;
+        }
+        .world-float-text {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            font-weight: 900;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.95), 0 0 2px #000;
+            pointer-events: none !important;
+            white-space: nowrap;
+        }
+        .world-emote-bubble {
+            position: absolute;
+            transform: translate(-50%, -100%);
+            background: rgba(15, 23, 42, 0.92);
+            border: 1.5px solid #f472b6;
+            border-radius: 12px;
+            padding: 4px 10px;
+            text-align: center;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.6);
+            pointer-events: none !important;
+            white-space: nowrap;
+        }
 
-        /* HUDトップ */
-        #hud-top { position: fixed; top: 8px; left: 8px; right: 8px; z-index: 20; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; pointer-events: none; }
-        .hud-panel { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 12px; padding: 7px 10px; pointer-events: auto; box-shadow: 0 4px 16px rgba(0,0,0,0.45); }
-        .bar-wrap { width: 132px; height: 7px; background: #1e293b; border-radius: 4px; overflow: hidden; margin-top: 2px; }
-        .bar-fill { height: 100%; transition: width 0.15s ease-out; }
-
-        /* 汎用ボタン・バッジ */
-        .btn-ui { border: none; border-radius: 8px; padding: 6px 10px; font-size: 11px; font-weight: 900; color: #fff; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 4px; transition: transform 0.08s, opacity 0.15s; box-shadow: 0 2px 6px rgba(0,0,0,0.35); }
-        .btn-ui:active { transform: scale(0.94); }
-        .btn-ui:disabled { opacity: 0.4; cursor: not-allowed; }
+        /* 共通ボタンスタイル */
+        .btn-ui {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            border: none;
+            border-radius: 8px;
+            padding: 7px 11px;
+            font-size: 11px;
+            font-weight: 900;
+            color: #fff;
+            cursor: pointer;
+            pointer-events: auto;
+            transition: transform 0.08s ease, filter 0.12s ease;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+        }
+        .btn-ui:active:not(:disabled) {
+            transform: scale(0.95);
+        }
+        .btn-ui:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
         .btn-sky { background: linear-gradient(135deg, #0284c7, #2563eb); }
         .btn-emerald { background: linear-gradient(135deg, #059669, #10b981); }
-        .btn-amber { background: linear-gradient(135deg, #d97706, #f59e0b); color: #0f172a; }
+        .btn-amber { background: linear-gradient(135deg, #d97706, #f59e0b); }
         .btn-rose { background: linear-gradient(135deg, #e11d48, #f43f5e); }
-        .btn-fuchsia { background: linear-gradient(135deg, #c026d3, #9333ea); }
-        .btn-slate { background: #334155; color: #e2e8f0; }
-        .badge-pill { font-size: 9px; font-weight: 900; padding: 2px 6px; border-radius: 999px; display: inline-block; }
+        .btn-fuchsia { background: linear-gradient(135deg, #9333ea, #c026d3); }
+        .btn-slate { background: #334155; border: 1px solid #475569; }
 
-        /* 中央アラート・ワープ・ボス詠唱 */
-        #alert-banner { position: fixed; top: 92px; left: 50%; transform: translateX(-50%); z-index: 30; background: rgba(15, 23, 42, 0.94); border: 1.5px solid #fde047; color: #fde047; font-size: 12px; font-weight: 900; padding: 6px 16px; border-radius: 999px; white-space: nowrap; pointer-events: none; box-shadow: 0 4px 16px rgba(0,0,0,0.6); }
-        #boss-cast-box { position: fixed; top: 128px; left: 50%; transform: translateX(-50%); z-index: 28; width: min(340px, 88vw); background: rgba(69, 10, 10, 0.92); border: 1.5px solid #fb7185; border-radius: 10px; padding: 6px 10px; text-align: center; }
-        #warp-prompt-box { position: fixed; bottom: 185px; left: 50%; transform: translateX(-50%); z-index: 25; }
-
-        /* 左下ジョイスティック＆エモート */
-        #joystick-zone { position: fixed; bottom: 22px; left: 18px; width: 104px; height: 104px; border-radius: 50%; background: rgba(15, 23, 42, 0.55); border: 2px solid rgba(56, 189, 248, 0.45); z-index: 20; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 14px rgba(56, 189, 248, 0.25); }
-        #joystick-knob { width: 42px; height: 42px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #7dd3fc, #0284c7); border: 2px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.5); pointer-events: none; }
-        #emote-palette { position: fixed; bottom: 172px; left: 14px; z-index: 26; width: 256px; background: rgba(15, 23, 42, 0.94); border: 1.5px solid #f472b6; border-radius: 12px; padding: 8px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
-        .emote-quick-btn { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 5px 2px; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; }
-
-        /* 右下親指アーク（扇形）バトルパッド */
-        #action-pad { position: fixed; right: 0; bottom: 0; width: 215px; height: 225px; z-index: 20; pointer-events: none; }
-        .atk-btn-circle {
-            position: absolute; right: 16px; bottom: 16px; width: 76px; height: 76px; border-radius: 50%;
-            background: radial-gradient(circle at 32% 28%, #fb7185, #be123c 70%, #881337);
-            border: 3px solid #fecdd3; color: #fff; font-size: 13px; font-weight: 900; line-height: 1.15;
-            box-shadow: 0 6px 20px rgba(225, 29, 72, 0.65), inset 0 2px 6px rgba(255,255,255,0.45);
-            cursor: pointer; pointer-events: auto; transition: transform 0.07s;
+        .input-ui {
+            width: 100%;
+            background: #0f172a;
+            border: 1px solid #38bdf8;
+            border-radius: 8px;
+            padding: 7px 10px;
+            font-size: 12px;
+            color: #fff;
+            outline: none;
+            pointer-events: auto;
+            user-select: text;
         }
-        .atk-btn-circle:active { transform: scale(0.9); }
 
-        .skill-slot-btn {
-            position: absolute; width: 48px; height: 48px; border-radius: 50%;
-            background: radial-gradient(circle at 30% 30%, #1e293b, #0f172a);
-            border: 2px solid rgba(56, 189, 248, 0.75); color: #fff;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            cursor: pointer; overflow: hidden; pointer-events: auto;
-            box-shadow: 0 4px 12px rgba(2, 6, 23, 0.75); transition: transform 0.07s;
+        /* =========================================================
+           タイトル画面（z-index: 90）
+           ========================================================= */
+        #title-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 90;
+            background: radial-gradient(circle at center, rgba(15, 23, 42, 0.55) 0%, rgba(2, 6, 23, 0.88) 100%);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            pointer-events: auto;
         }
-        .skill-slot-btn:active { transform: scale(0.88); }
-        /* 攻撃ボタンを囲む扇形アーク座標 */
-        .skill-arc-0 { right: 146px; bottom: 20px; }
-        .skill-arc-1 { right: 137px; bottom: 69px; }
-        .skill-arc-2 { right: 112px; bottom: 112px; }
-        .skill-arc-3 { right: 69px;  bottom: 137px; }
-        .skill-arc-4 { right: 20px;  bottom: 146px; }
-        .skill-cd-overlay { position: absolute; inset: 0; border-radius: 50%; background: rgba(2, 6, 23, 0.85); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900; color: #fde047; }
+        .title-card {
+            width: 100%;
+            max-width: 440px;
+            background: rgba(15, 23, 42, 0.92);
+            border: 2px solid rgba(56, 189, 248, 0.65);
+            border-radius: 20px;
+            padding: 20px 18px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.75), 0 0 30px rgba(56, 189, 248, 0.25);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .title-logo-kaomoji {
+            font-size: 28px;
+            font-weight: 900;
+            color: #38bdf8;
+            text-shadow: 0 0 14px rgba(56, 189, 248, 0.7);
+            letter-spacing: 1px;
+        }
+        .title-main-heading {
+            font-size: 22px;
+            font-weight: 900;
+            background: linear-gradient(90deg, #fde047, #38bdf8, #f472b6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1.25;
+        }
+        .title-save-preview {
+            background: rgba(30, 41, 59, 0.85);
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 10px;
+            font-size: 12px;
+        }
+        .title-room-box {
+            background: rgba(30, 41, 59, 0.75);
+            border: 1px solid rgba(56, 189, 248, 0.35);
+            border-radius: 12px;
+            padding: 10px;
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+        }
 
+        /* =========================================================
+           ゲーム内HUD（透明部分はpointer-events: none、操作パーツのみauto）
+           ========================================================= */
+        #hud-layer {
+            position: fixed;
+            inset: 0;
+            z-index: 20;
+            pointer-events: none;
+        }
+
+        /* 上部ステータス＆メニューバー */
+        .hud-top-bar {
+            position: fixed;
+            top: 8px;
+            left: 8px;
+            right: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 8px;
+            pointer-events: none;
+            z-index: 25;
+        }
+        .hud-status-card {
+            background: rgba(15, 23, 42, 0.86);
+            border: 1px solid rgba(56, 189, 248, 0.45);
+            border-radius: 12px;
+            padding: 6px 10px;
+            min-width: 195px;
+            max-width: 260px;
+            pointer-events: auto;
+            backdrop-filter: blur(4px);
+        }
+        .bar-row {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 3px;
+            font-size: 10px;
+            font-weight: 900;
+        }
+        .bar-track {
+            flex: 1;
+            height: 6px;
+            background: #1e293b;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .bar-fill-hp { height: 100%; background: linear-gradient(90deg, #10b981, #34d399); width: 100%; }
+        .bar-fill-mp { height: 100%; background: linear-gradient(90deg, #0284c7, #38bdf8); width: 100%; }
+        .bar-fill-exp { height: 100%; background: linear-gradient(90deg, #d97706, #fde047); width: 0%; }
+
+        .hud-top-right {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 5px;
+            pointer-events: none;
+        }
+        .hud-zone-pill {
+            background: rgba(15, 23, 42, 0.88);
+            border: 1px solid rgba(148, 163, 184, 0.4);
+            border-radius: 10px;
+            padding: 4px 9px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 900;
+            pointer-events: auto;
+        }
+        .hud-action-row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 5px;
+            pointer-events: none;
+        }
+        .hud-action-row > button {
+            pointer-events: auto;
+            position: relative;
+        }
+        .alert-dot {
+            position: absolute;
+            top: -3px;
+            right: -3px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ef4444;
+            border: 1.5px solid #fff;
+        }
+
+        /* ドロワーメニュー＆エモートパレット */
+        #hud-drawer-menu {
+            position: fixed;
+            top: 84px;
+            right: 8px;
+            width: 210px;
+            background: rgba(15, 23, 42, 0.96);
+            border: 1.5px solid #38bdf8;
+            border-radius: 14px;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            z-index: 45;
+            pointer-events: auto;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.7);
+        }
+        #emote-palette {
+            position: fixed;
+            top: 84px;
+            right: 8px;
+            width: 240px;
+            background: rgba(15, 23, 42, 0.96);
+            border: 1.5px solid #f472b6;
+            border-radius: 14px;
+            padding: 8px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 5px;
+            z-index: 45;
+            pointer-events: auto;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.7);
+        }
+        .emote-quick-btn {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 6px 2px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+
+        /* アラートバナー＆ボス詠唱バー */
+        #alert-banner {
+            position: fixed;
+            top: 96px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.94);
+            border: 1.5px solid #fde047;
+            border-radius: 999px;
+            padding: 6px 16px;
+            font-size: 12px;
+            font-weight: 900;
+            color: #fde047;
+            z-index: 40;
+            pointer-events: none;
+            white-space: nowrap;
+            max-width: 92vw;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+        }
+        #boss-cast-box {
+            position: fixed;
+            top: 132px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(340px, 88vw);
+            background: rgba(69, 10, 10, 0.92);
+            border: 1.5px solid #f43f5e;
+            border-radius: 10px;
+            padding: 6px 10px;
+            z-index: 38;
+            pointer-events: none;
+        }
+
+        /* ワープ実行プロンプト（画面中央下部・ジョイスティックと被らない位置） */
+        #warp-prompt-box {
+            position: fixed;
+            bottom: 135px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 32;
+            pointer-events: auto;
+        }
+
+        /* =========================================================
+           チャットウィンドウ（左下：ジョイスティックの上・邪魔にならないコンパクト設計）
+           ========================================================= */
+        #chat-wrapper {
+            position: fixed;
+            left: 10px;
+            bottom: 146px;
+            width: min(290px, 66vw);
+            z-index: 30;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
+        }
+        #chat-panel {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.88);
+            border: 1px solid rgba(56, 189, 248, 0.45);
+            border-radius: 12px;
+            padding: 6px;
+            pointer-events: auto;
+            backdrop-filter: blur(4px);
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .chat-tabs {
+            display: flex;
+            gap: 4px;
+        }
+        .chat-tab-btn {
+            flex: 1;
+            border: none;
+            border-radius: 6px;
+            padding: 4px 6px;
+            font-size: 10px;
+            font-weight: 900;
+            color: #cbd5e1;
+            background: #1e293b;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+        .chat-tab-btn.active {
+            background: #0284c7;
+            color: #fff;
+        }
+        #chat-messages {
+            height: 82px;
+            overflow-y: auto;
+            font-size: 11px;
+            line-height: 1.35;
+            padding: 3px 4px;
+            background: rgba(2, 6, 23, 0.55);
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            user-select: text;
+        }
+        .chat-quick-row {
+            display: flex;
+            gap: 3px;
+            overflow-x: auto;
+        }
+        .chat-quick-chip {
+            background: #334155;
+            border: none;
+            border-radius: 5px;
+            padding: 2px 6px;
+            font-size: 10px;
+            font-weight: 800;
+            color: #f8fafc;
+            white-space: nowrap;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+        .chat-input-row {
+            display: flex;
+            gap: 4px;
+        }
+
+        /* =========================================================
+           左下バーチャルジョイスティック
+           ========================================================= */
+        #joystick-zone {
+            position: fixed;
+            left: 18px;
+            bottom: 18px;
+            width: 114px;
+            height: 114px;
+            border-radius: 50%;
+            background: rgba(15, 23, 42, 0.55);
+            border: 2px solid rgba(56, 189, 248, 0.45);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 28;
+            pointer-events: auto;
+        }
+        #joystick-knob {
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #7dd3fc, #0284c7);
+            border: 2px solid #fff;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            pointer-events: none;
+        }
+
+        /* =========================================================
+           右下アーク型バトルパッド（透明枠は貫通、丸ボタンのみ反応）
+           ========================================================= */
+        #battle-pad {
+            position: fixed;
+            right: 12px;
+            bottom: 12px;
+            width: 215px;
+            height: 215px;
+            z-index: 28;
+            pointer-events: none !important;
+        }
+        #btn-basic-attack {
+            position: absolute;
+            right: 6px;
+            bottom: 6px;
+            width: 76px;
+            height: 76px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #fb7185, #e11d48);
+            border: 3px solid #fde047;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 900;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 20px rgba(225, 29, 72, 0.65);
+            cursor: pointer;
+            pointer-events: auto !important;
+            z-index: 30;
+        }
+        #btn-basic-attack:active {
+            transform: scale(0.92);
+        }
         #btn-cycle-target {
-            position: absolute; right: 14px; bottom: 204px; pointer-events: auto;
-            border-radius: 999px; padding: 6px 11px; border: 1px solid #64748b;
+            position: absolute;
+            right: 12px;
+            bottom: 168px;
+            border-radius: 999px;
+            padding: 6px 11px;
+            font-size: 11px;
+            pointer-events: auto !important;
+            z-index: 30;
+        }
+        .skill-slot-btn {
+            position: absolute;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: rgba(15, 23, 42, 0.92);
+            border: 2px solid #38bdf8;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+            cursor: pointer;
+            pointer-events: auto !important;
+            overflow: hidden;
+            z-index: 29;
+        }
+        .skill-slot-btn:active {
+            transform: scale(0.92);
+        }
+        .skill-arc-0 { right: 94px; bottom: 8px; }
+        .skill-arc-1 { right: 86px; bottom: 62px; }
+        .skill-arc-2 { right: 62px; bottom: 108px; }
+        .skill-arc-3 { right: 16px; bottom: 114px; }
+        .skill-arc-4 { right: 146px; bottom: 10px; }
+
+        .skill-cd-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(2, 6, 23, 0.82);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 900;
+            color: #fde047;
+            pointer-events: none;
         }
 
-        /* ドロワーメニュー */
-        #hud-drawer-menu { position: fixed; top: 54px; right: 10px; z-index: 35; width: 185px; background: rgba(15, 23, 42, 0.96); border: 1px solid #475569; border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.7); }
+        /* =========================================================
+           育成＆メニューモーダル（z-index: 70）
+           ========================================================= */
+        #growth-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 70;
+            background: rgba(2, 6, 23, 0.78);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+            pointer-events: auto;
+        }
+        .modal-window {
+            width: 100%;
+            max-width: 780px;
+            max-height: 88vh;
+            background: #0f172a;
+            border: 2px solid #38bdf8;
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.85);
+            pointer-events: auto;
+        }
+        .modal-header {
+            padding: 10px 14px;
+            background: #1e293b;
+            border-bottom: 1px solid #334155;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #modal-tabs {
+            display: flex;
+            gap: 5px;
+            padding: 8px 10px;
+            background: #0b1120;
+            border-bottom: 1px solid #1e293b;
+            overflow-x: auto;
+            flex-shrink: 0;
+        }
+        .tab-chip-btn {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 6px 10px;
+            font-size: 11px;
+            font-weight: 900;
+            color: #cbd5e1;
+            white-space: nowrap;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+        .tab-chip-btn.active {
+            background: #0284c7;
+            border-color: #7dd3fc;
+            color: #fff;
+        }
+        #modal-body {
+            padding: 12px;
+            overflow-y: auto;
+            flex: 1;
+        }
 
-        /* 育成・ステージ選択モーダル */
-        #growth-modal { position: fixed; inset: 0; z-index: 50; background: rgba(2, 6, 23, 0.82); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; padding: 10px; }
-        .modal-window { width: min(860px, 98vw); height: min(88vh, 680px); background: #0f172a; border: 1.5px solid #38bdf8; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,0.75); }
-        #modal-tabs { display: flex; gap: 5px; padding: 8px 10px; background: #020617; border-bottom: 1px solid #1e293b; overflow-x: auto; flex-shrink: 0; }
-        .tab-chip-btn { background: #1e293b; color: #cbd5e1; border: 1px solid #334155; border-radius: 8px; padding: 6px 10px; font-size: 11px; font-weight: 900; white-space: nowrap; cursor: pointer; }
-        .tab-chip-btn.active { background: #0284c7; color: #fff; border-color: #7dd3fc; }
-        #modal-body { flex: 1; overflow-y: auto; padding: 12px; }
-        .card-box { background: rgba(30, 41, 59, 0.65); border: 1px solid #1e293b; border-radius: 12px; padding: 10px; }
-        .flex-between { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-        .flex-wrap-gap { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-        .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px; }
-        .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; }
-        .input-ui { width: 100%; background: #020617; border: 1px solid #475569; border-radius: 8px; padding: 7px 9px; color: #fff; font-size: 12px; user-select: text; -webkit-user-select: text; }
+        .card-box {
+            background: rgba(30, 41, 59, 0.72);
+            border: 1px solid #334155;
+            border-radius: 10px;
+            padding: 9px 10px;
+        }
+        .flex-between {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+        .flex-wrap-gap {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 8px;
+        }
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 8px;
+        }
+        .badge-pill {
+            display: inline-block;
+            border-radius: 999px;
+            padding: 2px 8px;
+            font-size: 10px;
+            font-weight: 900;
+        }
 
-        #dialog-modal { position: fixed; inset: 0; z-index: 70; background: rgba(0,0,0,0.78); display: flex; align-items: center; justify-content: center; padding: 16px; }
-        #death-overlay { position: fixed; inset: 0; z-index: 60; background: rgba(69, 10, 10, 0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+        /* 確認ダイアログ＆戦闘不能オーバーレイ */
+        #dialog-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            background: rgba(2, 6, 23, 0.82);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            pointer-events: auto;
+        }
+        .dialog-box {
+            width: 100%;
+            max-width: 360px;
+            background: #0f172a;
+            border: 2px solid #f59e0b;
+            border-radius: 14px;
+            padding: 16px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        #death-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 85;
+            background: rgba(127, 29, 29, 0.72);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
     <canvas id="game-canvas"></canvas>
     <div id="overlay-layer"></div>
 
-    <!-- トップHUD -->
-    <div id="hud-top">
-        <div class="hud-panel" style="min-width: 192px;">
-            <div style="display:flex; align-items:center; gap:6px;">
-                <span id="hud-kaomoji" class="font-kaomoji" style="font-size:13px; font-weight:900; color:#38bdf8;">(´・ω・`)</span>
-                <div>
-                    <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
-                        <span id="hud-name" style="font-size:11px; font-weight:900; color:#fff;">見習い冒険者</span>
-                        <span id="hud-title-badge" class="badge-pill hidden" style="background:#701a75; color:#f0abfc;">称号</span>
-                    </div>
-                    <div style="display:flex; align-items:center; gap:6px; font-size:10px; font-weight:900;">
-                        <span id="hud-lv" style="color:#fde047;">Lv.1</span>
-                        <span id="hud-gold" style="color:#34d399;">0G</span>
-                        <span id="hud-online-badge" class="badge-pill" style="background:#1e293b; color:#94a3b8;">オフライン</span>
-                    </div>
+    <!-- =========================================================
+         タイトル画面
+         ========================================================= -->
+    <div id="title-screen">
+        <div class="title-card">
+            <div class="title-logo-kaomoji font-kaomoji">(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧ ⚔️ (=^・ω・^=)</div>
+            <h1 class="title-main-heading">顔文字ファンタジー3D<br><span style="font-size:13px; -webkit-text-fill-color:#94a3b8;">KAOMOJI FANTASY 3D ONLINE</span></h1>
+
+            <div class="title-save-preview" id="title-save-info">
+                読み込み中...
+            </div>
+
+            <!-- オンライン / パスワード部屋 クイック設定 -->
+            <div class="title-room-box">
+                <div class="flex-between">
+                    <span style="font-size:12px; font-weight:900; color:#38bdf8;">🌐 プレイモード設定</span>
+                    <button id="title-btn-toggle-online" class="btn-ui btn-slate">📴 オフライン</button>
+                </div>
+                <div class="flex-between">
+                    <span style="font-size:11px; font-weight:900; color:#fde047;">🔒 パスワード部屋（合言葉制限）</span>
+                    <button id="title-btn-toggle-pass" class="btn-ui btn-slate">🔓 パスワード: OFF</button>
+                </div>
+                <div id="title-pass-input-wrap" class="hidden" style="display:flex; gap:6px; align-items:center;">
+                    <input id="title-input-room-pass" class="input-ui" type="text" maxlength="16" placeholder="部屋のパスワードを入力（例: 7777）">
+                </div>
+                <div style="font-size:10px; color:#94a3b8; line-height:1.35;">
+                    ※ パスワードOFFならオンラインのみんなと合流！ONにすると同じパスワードを知っている人だけ入れます。
                 </div>
             </div>
-            <div style="margin-top:5px; font-size:9px; font-weight:800;">
-                <div class="flex-between"><span style="color:#34d399;">HP</span><span id="hud-hp-text">100/100</span></div>
-                <div class="bar-wrap"><div id="hud-hp-bar" class="bar-fill" style="background:#10b981; width:100%;"></div></div>
-                <div class="flex-between" style="margin-top:2px;"><span style="color:#38bdf8;">MP</span><span id="hud-mp-text">50/50</span></div>
-                <div class="bar-wrap"><div id="hud-mp-bar" class="bar-fill" style="background:#0ea5e9; width:100%;"></div></div>
-                <div class="flex-between" style="margin-top:2px;"><span style="color:#fde047;">EXP</span><span id="hud-exp-text">0/100</span></div>
-                <div class="bar-wrap"><div id="hud-exp-bar" class="bar-fill" style="background:#eab308; width:0%;"></div></div>
+
+            <button id="btn-title-start" class="btn-ui btn-emerald" style="padding:12px; font-size:15px; border-radius:12px;">
+                ▶ 冒険を始める（続きから）
+            </button>
+
+            <div style="display:flex; gap:8px;">
+                <button id="btn-title-cloud" class="btn-ui btn-sky" style="flex:1; padding:9px;">
+                    ☁️ 通信･クラウド設定
+                </button>
+                <button id="btn-title-hard-reset" class="btn-ui btn-rose" style="flex:1; padding:9px;">
+                    💥 完全初期化して新規開始
+                </button>
             </div>
         </div>
+    </div>
 
-        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
-            <div class="hud-panel" style="text-align:right;">
-                <div style="display:flex; align-items:center; justify-content:flex-end; gap:4px; flex-wrap:wrap;">
+    <!-- =========================================================
+         ゲーム内HUD
+         ========================================================= -->
+    <div id="hud-layer">
+        <div class="hud-top-bar">
+            <!-- 左上ステータスカード -->
+            <div class="hud-status-card">
+                <div class="flex-between">
+                    <div style="display:flex; align-items:center; gap:5px; overflow:hidden;">
+                        <span id="hud-kaomoji" class="font-kaomoji" style="font-size:13px; font-weight:900; color:#38bdf8;">(´・ω・`)</span>
+                        <span id="hud-name" style="font-size:11px; font-weight:900; color:#fff; white-space:nowrap;">見習い顔文字</span>
+                    </div>
+                    <span id="hud-lv" style="font-size:11px; font-weight:900; color:#fde047;">Lv.1</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:5px; margin-top:2px;">
+                    <span id="hud-title-badge" class="badge-pill hidden" style="background:#7e22ce; color:#f3e8ff; font-size:9px;">称号</span>
+                    <span id="hud-gold" style="font-size:11px; font-weight:900; color:#fbbf24;">200G</span>
+                </div>
+                <div class="bar-row">
+                    <span style="color:#34d399; width:20px;">HP</span>
+                    <div class="bar-track"><div id="hud-hp-bar" class="bar-fill-hp"></div></div>
+                    <span id="hud-hp-text" style="min-width:58px; text-align:right;">100/100</span>
+                </div>
+                <div class="bar-row">
+                    <span style="color:#38bdf8; width:20px;">MP</span>
+                    <div class="bar-track"><div id="hud-mp-bar" class="bar-fill-mp"></div></div>
+                    <span id="hud-mp-text" style="min-width:58px; text-align:right;">50/50</span>
+                </div>
+                <div class="bar-row">
+                    <span style="color:#fde047; width:20px;">EXP</span>
+                    <div class="bar-track"><div id="hud-exp-bar" class="bar-fill-exp"></div></div>
+                    <span id="hud-exp-text" style="min-width:58px; text-align:right;">0/100</span>
+                </div>
+            </div>
+
+            <!-- 右上エリア情報＆メニューボタン群 -->
+            <div class="hud-top-right">
+                <div class="hud-zone-pill">
                     <span id="hud-stage-badge" class="badge-pill" style="background:#0284c7; color:#fff;">STAGE 0</span>
+                    <span id="hud-zone-name">始まりの顔文字広場</span>
                     <span id="hud-safe-badge" class="badge-pill" style="background:#059669; color:#fff;">🛡️安全街</span>
                     <span id="hud-threat-badge" class="badge-pill hidden" style="background:#be123c; color:#fff;">脅威+1</span>
                 </div>
-                <div id="hud-zone-name" style="font-size:12px; font-weight:900; color:#fff; margin-top:2px;">始まりの顔文字広場</div>
-                <div style="display:flex; gap:5px; margin-top:5px; justify-content:flex-end;">
-                    <button id="btn-open-travel" class="btn-ui btn-emerald">🌀 ステージ選択</button>
-                    <button id="btn-open-growth" class="btn-ui btn-sky" style="position:relative;">
+
+                <div class="hud-action-row">
+                    <button id="btn-hud-online-toggle" class="btn-ui btn-slate">📴 オフライン</button>
+                    <button id="btn-hud-room-lock" class="btn-ui btn-slate hidden">🔓 公開</button>
+                    <button id="btn-open-travel" class="btn-ui btn-emerald">🗺️ ステージ</button>
+                    <button id="btn-open-growth" class="btn-ui btn-sky">
                         ⚔️ 育成･見た目
-                        <span id="badge-growth-alert" class="hidden" style="position:absolute; top:-4px; right:-4px; width:10px; height:10px; border-radius:50%; background:#f43f5e; border:1.5px solid #fff;"></span>
+                        <span id="badge-growth-alert" class="alert-dot hidden"></span>
                     </button>
+                    <button id="btn-toggle-emote" class="btn-ui btn-fuchsia">😊</button>
                     <button id="btn-toggle-drawer" class="btn-ui btn-slate">⚙️</button>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- サブメニュー（歯車） -->
-    <div id="hud-drawer-menu" class="hidden">
-        <button id="btn-toggle-autohunt" class="btn-ui btn-amber" style="width:100%;">🤖 AUTO:OFF</button>
-        <div style="display:flex; gap:4px;">
-            <button id="btn-threat-down" class="btn-ui btn-slate" style="flex:1;">脅威 -1</button>
-            <button id="btn-threat-up" class="btn-ui btn-rose" style="flex:1;">脅威 +1</button>
+        <!-- 歯車ドロワーメニュー -->
+        <div id="hud-drawer-menu" class="hidden">
+            <button id="btn-toggle-autohunt" class="btn-ui btn-slate" style="width:100%;">🤖 AUTO:OFF</button>
+            <div style="display:flex; gap:5px;">
+                <button id="btn-threat-down" class="btn-ui btn-slate" style="flex:1;">🔥脅威 -1</button>
+                <button id="btn-threat-up" class="btn-ui btn-rose" style="flex:1;">🔥脅威 +1</button>
+            </div>
+            <button id="btn-open-cloud" class="btn-ui btn-sky" style="width:100%;">🌐 通信･部屋･クラウド</button>
+            <button id="btn-manual-save" class="btn-ui btn-emerald" style="width:100%;">💾 手動セーブ</button>
+            <button id="btn-toggle-bgm" class="btn-ui btn-slate" style="width:100%;">🔊 BGM:ON</button>
+            <button id="btn-back-title" class="btn-ui btn-amber" style="width:100%;">🏠 タイトル画面へ戻る</button>
+            <button id="btn-reset-save" class="btn-ui btn-rose" style="width:100%;">💥 完全データ初期化</button>
         </div>
-        <button id="btn-manual-save" class="btn-ui btn-emerald" style="width:100%;">💾 手動セーブ</button>
-        <button id="btn-open-cloud" class="btn-ui btn-sky" style="width:100%;">☁️ クラウドセーブ･引継</button>
-        <button id="btn-toggle-bgm" class="btn-ui btn-slate" style="width:100%;">🔊 BGM:ON</button>
-        <button id="btn-reset-save" class="btn-ui btn-rose" style="width:100%;">🗑️ データ初期化</button>
-    </div>
 
-    <div id="alert-banner" class="hidden"></div>
-    <div id="boss-cast-box" class="hidden">
-        <div id="boss-cast-title" style="font-size:11px; font-weight:900; color:#fecdd3;">⚠️ ボス大技詠唱中！</div>
-        <div style="width:100%; height:7px; background:#450a0a; border-radius:4px; overflow:hidden; margin-top:4px;">
-            <div id="boss-cast-bar" style="height:100%; background:#fde047; width:0%;"></div>
+        <!-- エモートパレット -->
+        <div id="emote-palette" class="hidden"></div>
+
+        <!-- アラートバナー＆ボス詠唱 -->
+        <div id="alert-banner" class="hidden"></div>
+        <div id="boss-cast-box" class="hidden">
+            <div id="boss-cast-title" style="font-size:10px; font-weight:900; color:#fecdd3; margin-bottom:3px;">⚠️ ボス大技詠唱中！</div>
+            <div style="width:100%; height:7px; background:#450a0a; border-radius:4px; overflow:hidden;">
+                <div id="boss-cast-bar" style="height:100%; background:#fde047; width:0%;"></div>
+            </div>
+        </div>
+
+        <!-- ワープボタン -->
+        <div id="warp-prompt-box" class="hidden">
+            <button id="btn-exec-warp" class="btn-ui btn-emerald" style="padding:10px 18px; font-size:13px; border:2px solid #fde047;">
+                🌀 ステージ選択
+            </button>
+        </div>
+
+        <!-- チャットウィンドウ（左下） -->
+        <div id="chat-wrapper">
+            <button id="btn-toggle-chat" class="btn-ui btn-slate" style="padding:5px 10px; font-size:11px;">
+                💬 チャット開閉
+            </button>
+            <div id="chat-panel">
+                <div class="chat-tabs">
+                    <button id="btn-chat-tab-global" class="chat-tab-btn active">🌍 全体チャット</button>
+                    <button id="btn-chat-tab-room" class="chat-tab-btn">🏠 部屋/オフライン</button>
+                </div>
+                <div id="chat-messages"></div>
+                <div class="chat-quick-row">
+                    <button class="chat-quick-chip" data-msg="よろしくー！(=^・ω・^=)">よろしく！</button>
+                    <button class="chat-quick-chip" data-msg="一緒にボス倒そう！⚔️">ボス行こう！</button>
+                    <button class="chat-quick-chip" data-msg="ありがとう！✧*｡٩(ˊᗜˋ*)و✧*｡">ありがとう！</button>
+                    <button class="chat-quick-chip" data-msg="おつかれさま！(≧▽≦)ﾉ">おつかれ！</button>
+                </div>
+                <div class="chat-input-row">
+                    <input id="input-chat-msg" class="input-ui" style="padding:5px 8px; font-size:11px;" type="text" maxlength="60" placeholder="メッセージを入力...">
+                    <button id="btn-send-chat" class="btn-ui btn-sky" style="padding:5px 10px; white-space:nowrap;">送信</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 左下ジョイスティック -->
+        <div id="joystick-zone">
+            <div id="joystick-knob"></div>
+        </div>
+
+        <!-- 右下バトルパッド -->
+        <div id="battle-pad">
+            <button id="btn-cycle-target" class="btn-ui btn-slate">🎯 標的切替</button>
+            <div id="skill-slots-container"></div>
+            <button id="btn-basic-attack">
+                <span style="font-size:22px; line-height:1;">⚔️</span>
+                <span style="font-size:11px; margin-top:2px;">攻撃</span>
+            </button>
         </div>
     </div>
 
-    <!-- 中央ワープボタン -->
-    <div id="warp-prompt-box" class="hidden">
-        <button id="btn-exec-warp" class="btn-ui btn-emerald" style="padding:10px 18px; font-size:13px; border:2px solid #a7f3d0; box-shadow:0 0 20px rgba(16,185,129,0.75);">🌀 ステージ選択</button>
-    </div>
-
-    <!-- 左下ジョイスティック＆エモート -->
-    <div id="joystick-zone"><div id="joystick-knob"></div></div>
-    <button id="btn-toggle-emote" class="btn-ui btn-fuchsia" style="position:fixed; bottom:134px; left:22px; z-index:20;">😊 表情</button>
-    <div id="emote-palette" class="hidden"></div>
-
-    <!-- 右下アーク型バトルパッド -->
-    <div id="action-pad">
-        <button id="btn-cycle-target" class="btn-ui btn-slate">🎯 標的切替</button>
-        <div id="skill-slots-container"></div>
-        <button id="btn-basic-attack" class="atk-btn-circle">⚔️<br>攻撃</button>
-    </div>
-
-    <!-- メイン育成・ステージ・見た目・クラウドモーダル -->
+    <!-- 育成・設定モーダル -->
     <div id="growth-modal" class="hidden">
         <div class="modal-window">
-            <div class="flex-between" style="padding:8px 12px; background:#020617; border-bottom:1px solid #1e293b;">
-                <span style="font-size:13px; font-weight:900; color:#38bdf8;">✨ 冒険者メニュー（ステージ・育成・見た目・クラウド）</span>
+            <div class="modal-header">
+                <span style="font-size:14px; font-weight:900; color:#38bdf8;">⚔️ 冒険者メニュー（ステージ･育成･見た目･通信）</span>
                 <button id="btn-close-modal" class="btn-ui btn-rose">✕ 閉じる</button>
             </div>
             <div id="modal-tabs"></div>
@@ -206,18 +911,17 @@
 
     <!-- 確認ダイアログ -->
     <div id="dialog-modal" class="hidden">
-        <div class="card-box" style="width:min(400px, 92vw); background:#0f172a; border:1.5px solid #fde047; padding:16px;">
-            <div id="dialog-title" style="font-size:14px; font-weight:900; color:#fde047; margin-bottom:8px;">確認</div>
-            <div id="dialog-message" style="font-size:12px; color:#e2e8f0; white-space:pre-line; line-height:1.5; margin-bottom:14px;"></div>
-            <div id="dialog-buttons" style="display:flex; justify-content:flex-end; gap:8px;"></div>
+        <div class="dialog-box">
+            <div id="dialog-title" style="font-size:15px; font-weight:900; color:#fde047;">確認</div>
+            <div id="dialog-message" style="font-size:12px; color:#e2e8f0; white-space:pre-line; line-height:1.5;"></div>
+            <div id="dialog-buttons" style="display:flex; justify-content:center; gap:8px;"></div>
         </div>
     </div>
 
-    <!-- 戦闘不能演出 -->
+    <!-- 戦闘不能表示 -->
     <div id="death-overlay" class="hidden">
-        <div class="font-kaomoji" style="font-size:32px; font-weight:900; color:#fecdd3;">(×_×;)</div>
-        <div style="font-size:16px; font-weight:900; color:#fff;">力尽きてしまった……！</div>
-        <div style="font-size:12px; color:#fda4af;">始まりの顔文字広場へ帰還します</div>
+        <div class="font-kaomoji" style="font-size:32px; font-weight:900; color:#fecdd3;">(×_×) チーン…</div>
+        <div style="font-size:14px; font-weight:900; color:#fff;">力尽きた！始まりの顔文字広場へ帰還します…</div>
     </div>
 
     <script src="data.js"></script>
