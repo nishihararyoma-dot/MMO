@@ -96,6 +96,7 @@ class KaomojiMMORPG {
         this.overlayLayer = document.getElementById('overlay-layer');
 
         this.saveData = this.loadSaveData();
+        this.enforceJobWeaponRule();
 
         this.scene = null;
         this.camera = null;
@@ -182,7 +183,6 @@ class KaomojiMMORPG {
             gold: 250,
             ap: 3,
             sp: 1,
-            rebirthCount: 0,
             threatRank: 0,
             evolutionId: 'novice',
             customKaomoji: '',
@@ -199,7 +199,7 @@ class KaomojiMMORPG {
             equippedSkills: ['slash_heavy', null, null, null, null],
             tree: {},
             weaponId: 'wpn_wood',
-            ownedWeapons: ['wpn_wood'],
+            ownedWeapons: ['wpn_wood', 'staff_wood'],
             weaponEnhance: 0,
             weaponEnchant: null,
             armorId: 'arm_cloth',
@@ -266,6 +266,10 @@ class KaomojiMMORPG {
             delete mergedMats.void_shard;
             delete mergedMats.star_fragment;
 
+            const ownedWpns = Array.isArray(parsed.ownedWeapons) ? [...parsed.ownedWeapons] : ['wpn_wood', 'staff_wood'];
+            if (!ownedWpns.includes('wpn_wood')) ownedWpns.push('wpn_wood');
+            if (!ownedWpns.includes('staff_wood')) ownedWpns.push('staff_wood');
+
             return {
                 ...def,
                 ...parsed,
@@ -278,7 +282,7 @@ class KaomojiMMORPG {
                 statsTrack: { ...def.statsTrack, ...(parsed.statsTrack || {}) },
                 ownedCosmetics: Array.isArray(parsed.ownedCosmetics) ? parsed.ownedCosmetics : ['none'],
                 ownedBackCosmetics: Array.isArray(parsed.ownedBackCosmetics) ? parsed.ownedBackCosmetics : ['back_none'],
-                ownedWeapons: Array.isArray(parsed.ownedWeapons) ? parsed.ownedWeapons : ['wpn_wood'],
+                ownedWeapons: ownedWpns,
                 ownedArmors: Array.isArray(parsed.ownedArmors) ? parsed.ownedArmors : ['arm_cloth'],
                 ownedAccessories: Array.isArray(parsed.ownedAccessories) ? parsed.ownedAccessories : ['acc_none'],
                 ownedPets: Array.isArray(parsed.ownedPets) ? parsed.ownedPets : [],
@@ -288,6 +292,31 @@ class KaomojiMMORPG {
         } catch (e) {
             return def;
         }
+    }
+
+    // 魔道士系は杖のみ・物理職は剣のみに自動調整する安全ガード
+    enforceJobWeaponRule() {
+        const d = this.saveData;
+        if (!d) return false;
+        if (!Array.isArray(d.ownedWeapons)) d.ownedWeapons = ['wpn_wood', 'staff_wood'];
+        if (!d.ownedWeapons.includes('wpn_wood')) d.ownedWeapons.push('wpn_wood');
+        if (!d.ownedWeapons.includes('staff_wood')) d.ownedWeapons.push('staff_wood');
+
+        const evo = EVOLUTIONS[d.evolutionId] || EVOLUTIONS.novice;
+        const curWpn = WEAPONS[d.weaponId] || WEAPONS.wpn_wood;
+        if (canEquipWeaponForJob(curWpn, evo)) return false;
+
+        const candidates = d.ownedWeapons
+            .map(id => WEAPONS[id])
+            .filter(w => w && canEquipWeaponForJob(w, evo))
+            .sort((a, b) => (b.atk || 0) - (a.atk || 0));
+
+        if (candidates.length > 0) {
+            d.weaponId = candidates[0].id;
+        } else {
+            d.weaponId = evo.isMageJob ? 'staff_wood' : 'wpn_wood';
+        }
+        return true;
     }
 
     saveGame(showToast = false) {
@@ -377,11 +406,11 @@ class KaomojiMMORPG {
         const infoEl = document.getElementById('title-save-info');
         if (infoEl) {
             if (d.isNewSave && d.lv === 1 && d.exp === 0) {
-                infoEl.innerHTML = `<span style="color:#6ee7b7; font-weight:900;">✨ 新規冒険データ（Lv.1 見習い顔文字）</span>`;
+                infoEl.innerHTML = `<span style="color:#6ee7b7; font-weight:900;">✨ 新規冒険データ（Lv.1 見習い冒険者）</span>`;
             } else {
                 infoEl.innerHTML = `
                     <div class="font-kaomoji" style="font-size:15px; font-weight:900; color:#38bdf8;">${this.getBasePlayerKaomoji()} <span style="color:#fff;">${evo.name}</span></div>
-                    <div style="font-size:11px; color:#fde047; font-weight:900; margin-top:2px;">Lv.${d.lv} / 転生${d.rebirthCount || 0}回 / 所持金 ${formatBigNum(d.gold)}G</div>
+                    <div style="font-size:11px; color:#fde047; font-weight:900; margin-top:2px;">Lv.${d.lv} / 所持金 ${formatBigNum(d.gold)}G</div>
                 `;
             }
         }
@@ -549,7 +578,6 @@ class KaomojiMMORPG {
         const evo = EVOLUTIONS[d.evolutionId] || EVOLUTIONS.novice;
         const ttl = TITLES[d.equippedTitleId] || TITLES.title_none || {};
 
-        const rebirthMult = 1 + (d.rebirthCount || 0) * 0.35;
         const wpnEnhMult = 1 + (d.weaponEnhance || 0) * 0.14;
         const armEnhMult = 1 + (d.armorEnhance || 0) * 0.14;
 
@@ -574,15 +602,24 @@ class KaomojiMMORPG {
         const warcryMult = (this.player && this.player.warcryTimer > 0) ? (this.player.warcryBonus || 1.0) : 1.0;
         const defBuffExtra = (this.player && this.player.defBuffTimer > 0) ? (this.player.defBuffBonus || 0) : 0;
 
-        const baseAtk = (14 + s.str * 3.4 + (wpn.atk || 12) * wpnEnhMult) * rebirthMult * (evo.atkMult || 1.0);
         const totalAtkMult = 1 + (acc.atkBonus || 0) + (ttl.atk || 0) + treeAtkPct + getEnchVal('atkBonus');
+
+        // 物理攻撃力（剣・近接武器用）
+        const baseAtk = (14 + s.str * 3.4 + (wpn.atk || 12) * wpnEnhMult) * (evo.atkMult || 1.0);
         const physAtk = Math.round(baseAtk * totalAtkMult * warcryMult);
 
-        const baseHp = (110 + d.lv * 18 + s.vit * 24 + (arm.hp || 40) * armEnhMult) * rebirthMult * (evo.hpMult || 1.0);
+        // 魔法攻撃力（杖の通常攻撃魔法判定用：INTと杖の魔力倍率が直結）
+        const baseMagAtk = (14 + s.int * 3.6 + (wpn.atk || 12) * wpnEnhMult) * (evo.atkMult || 1.0);
+        const magAtk = Math.round(baseMagAtk * totalAtkMult * warcryMult * (1 + ((wpn.mag || 1.0) - 1.0) * 0.45));
+
+        const isStaffEquipped = wpn.category === 'staff';
+        const basicAtkPower = isStaffEquipped ? magAtk : physAtk;
+
+        const baseHp = (110 + d.lv * 18 + s.vit * 24 + (arm.hp || 40) * armEnhMult) * (evo.hpMult || 1.0);
         const totalHpMult = 1 + (acc.hpBonus || 0) + (ttl.hp || 0) + treeHpPct + getEnchVal('hpBonus');
         const maxHp = Math.max(50, Math.round(baseHp * totalHpMult));
 
-        const maxMp = Math.max(30, Math.round((50 + d.lv * 6 + s.int * 10 + (arm.mp || 20) * armEnhMult) * rebirthMult * (evo.mpMult || 1.0)));
+        const maxMp = Math.max(30, Math.round((50 + d.lv * 6 + s.int * 10 + (arm.mp || 20) * armEnhMult) * (evo.mpMult || 1.0)));
         const magMult = Number(((wpn.mag || 1.0) * (1 + s.int * 0.025) * treeSkillPowerMult).toFixed(2));
 
         const critChance = Math.min(0.85, 0.06 + s.agi * 0.004 + s.str * 0.002 + (evo.exCritBonus || 0) + (ttl.crit || 0) + treeCrit + getEnchVal('critBonus'));
@@ -602,6 +639,9 @@ class KaomojiMMORPG {
             maxHp,
             maxMp,
             physAtk,
+            magAtk,
+            basicAtkPower,
+            isStaffEquipped,
             magMult,
             critChance,
             critDmg,
@@ -616,7 +656,6 @@ class KaomojiMMORPG {
             treeHealPowerMult,
             treeHpRegenBonus,
             treeMpRegenMult,
-            rebirthMult,
             wpnGlowColor: wpn.glowColor || 0x38bdf8
         };
     }
