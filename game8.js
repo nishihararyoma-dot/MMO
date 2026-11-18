@@ -2439,5 +2439,41 @@ window.addEventListener('resize', () => {
     setInterval(fixStickCenterV36, 300);
 })();
 setInterval(() => { document.querySelectorAll('[id="kmj-chat-resize-handle-v34"]').forEach(el => el.remove()); }, 200);
-// === GAME8_V36_OK ===
+// ▼▼▼ 移動スティック重複修正パッチ（v39） ▼▼▼
+(function () {
+    const keepSingleMoveStickV39 = () => {
+        const vw = window.innerWidth;
+        // 元の古い移動スティック要素をすべて隠す
+        document.querySelectorAll('#joystick, #joy-base, #joystick-zone, #move-pad, .joystick, .joy-base').forEach(el => {
+            if (el.id !== 'kmj-v33-movepad') {
+                el.style.setProperty('display', 'none', 'important');
+            }
+        });
+
+        // 左半分にある kmj-v33-movepad 以外の丸いパッドも隠す
+        document.querySelectorAll('div').forEach(el => {
+            if (el.id === 'kmj-v33-movepad') return;
+            if (el.closest?.('#kmj-secret-debug-modal') || el.closest?.('#kmj-ui-custom-bar')) return;
+            const r = el.getBoundingClientRect();
+            if (r.left < vw * 0.4 && r.width >= 55 && r.width <= 165 && Math.abs(r.width - r.height) <= 14) {
+                const cs = window.getComputedStyle(el);
+                const br = parseFloat(cs.borderRadius) || 0;
+                if (br >= 25 || cs.borderRadius.includes('%')) {
+                    el.style.setProperty('display', 'none', 'important');
+                }
+            }
+        });
+    };
+
+    if (typeof KaomojiMMORPG !== 'undefined') {
+        const origEnsure = KaomojiMMORPG.prototype.ensureStandardMoveStickV33;
+        KaomojiMMORPG.prototype.ensureStandardMoveStickV33 = function () {
+            if (origEnsure) origEnsure.call(this);
+            keepSingleMoveStickV39();
+        };
+    }
+
+    setInterval(keepSingleMoveStickV39, 250);
+})();
+// === GAME8_V39_OK ===
 // ▲▲▲ ここまで【3/3】 ▲▲▲
