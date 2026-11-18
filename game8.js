@@ -45,7 +45,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         return /mage|wizard|sorcerer|witch|sage|warlock|archmage|spell|magic|魔道|魔導|魔法|賢者|術師|メイジ|ウィザード/.test(combined);
     };
 
-    // 2. 魔道士進化時の「杖（スタッフ）」3Dモデル（武器ID・強化値に応じた5段階の見た目差分！）
+    // 2. 魔道士進化時の「杖（スタッフ）」3Dモデル（5段階の見た目差分）
     P.buildMageStaff3D = function (weaponId = 'wpn_wood', enhance = 0) {
         const grp = new THREE.Group();
         grp.name = 'mage_staff_weapon';
@@ -67,7 +67,6 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         };
         const cfg = configs[tier];
 
-        // 杖の柄（シャフト）
         const shaft = new THREE.Mesh(
             new THREE.CylinderGeometry(0.045, 0.055, cfg.len, 10),
             new THREE.MeshLambertMaterial({ color: cfg.shaftCol })
@@ -75,7 +74,6 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         shaft.position.y = cfg.len * 0.42;
         grp.add(shaft);
 
-        // 先端の台座・装飾ヘッド（ティアごとに形が変わる！）
         const topY = cfg.len * 0.88;
         if (tier === 1) {
             const forkL = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.22, 0.05), new THREE.MeshLambertMaterial({ color: cfg.headCol }));
@@ -92,7 +90,6 @@ if (typeof KaomojiMMORPG !== 'undefined') {
             crescent.rotation.z = -Math.PI * 0.15;
             grp.add(crescent);
         } else if (tier >= 3) {
-            // 天使の翼・竜翼ガード装飾
             [-1, 1].forEach(side => {
                 const wing = new THREE.Mesh(
                     new THREE.ConeGeometry(0.11 + tier * 0.02, 0.42 + tier * 0.06, 5),
@@ -104,13 +101,11 @@ if (typeof KaomojiMMORPG !== 'undefined') {
             });
         }
 
-        // 先端の魔力オーブ（コアクリスタル）
         const orbGeo = tier >= 3 ? new THREE.OctahedronGeometry(cfg.orbR, 0) : new THREE.SphereGeometry(cfg.orbR, 12, 12);
         const orb = new THREE.Mesh(orbGeo, new THREE.MeshBasicMaterial({ color: cfg.orbCol }));
         orb.position.y = topY + 0.16;
         grp.add(orb);
 
-        // Tier 2以上はオーブ周囲に魔法リング、Tier 5は二重衛星オーブ付き！
         if (cfg.ringCol) {
             const halo = new THREE.Mesh(
                 new THREE.TorusGeometry(cfg.orbR * 1.65, 0.028, 8, 22),
@@ -128,20 +123,17 @@ if (typeof KaomojiMMORPG !== 'undefined') {
             });
         }
 
-        // 構え角度（少し前に傾けて杖らしく持つ）
         grp.rotation.x = 0.35;
         return grp;
     };
 
-    // アバター生成時に魔道士なら武器を「杖」へ自動差し替え
     if (P.buildAvatarGroup) {
-        const _prevBuildAvatarV22 = P.buildAvatarGroup;
+        const _prevBuildAvatarV23 = P.buildAvatarGroup;
         P.buildAvatarGroup = function (opts) {
-            const res = _prevBuildAvatarV22.call(this, opts);
+            const res = _prevBuildAvatarV23.call(this, opts);
             if (res && res.group && typeof THREE !== 'undefined') {
                 const evoId = opts?.evolutionId || this.saveData?.evolutionId || '';
                 if (this.isMageEvolution(evoId)) {
-                    // 既存の剣メッシュを削除
                     const toRemove = [];
                     res.group.traverse(c => {
                         if (c !== res.group && (c === res.weaponMesh || /wpn|weapon|sword/i.test(c.name || '') || c.position.x > 0.52)) {
@@ -200,7 +192,6 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         this._v22MagicShots = this._v22MagicShots.filter(s => {
             s.life -= dt;
             if (s.life <= 0) {
-                // 着弾時に小さな魔法スパークリングを発生
                 if (this.scene && this._slashEffects) {
                     const hitMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.95 });
                     const hitRing = new THREE.Mesh(new THREE.RingGeometry(0.25, 0.95, 20), hitMat);
@@ -225,8 +216,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         });
     };
 
-    // 通常攻撃のビジュアル差し替え（魔道士なら斬撃ではなく魔法弾を発射！）
-    const _prevTriggerV22 = P.triggerAttackVisual;
+    const _prevTriggerV23 = P.triggerAttackVisual;
     P.triggerAttackVisual = function (entity, isSkill = false, skillInfo = null) {
         const isMage = (entity === this.player)
             ? this.isMageEvolution()
@@ -240,28 +230,58 @@ if (typeof KaomojiMMORPG !== 'undefined') {
             this.spawnMageBasicMagicShot(entity);
             return;
         }
-        if (_prevTriggerV22) {
-            _prevTriggerV22.call(this, entity, isSkill, skillInfo);
+        if (_prevTriggerV23) {
+            _prevTriggerV23.call(this, entity, isSkill, skillInfo);
         }
     };
 
-    // 4. 敵モンスターの状態異常（炎上・凍結・毒・麻痺）3Dエフェクト常時更新
+    // 4. 敵モンスターの状態異常判定（キー名への誤反応を完全に排除し、有効なタイマー/フラグのみ判定）
     P.detectMonsterStatus = function (m) {
         if (!m) return null;
-        if (m._visualStatus && m._visualStatus.timer > 0) return m._visualStatus.type;
 
-        const stRaw = JSON.stringify({
-            status: m.status, statuses: m.statuses, debuffs: m.debuffs,
-            effects: m.effects, burn: m.burn, burnTimer: m.burnTimer,
-            freeze: m.freeze, freezeTimer: m.freezeTimer,
-            poison: m.poison, poisonTimer: m.poisonTimer,
-            stun: m.stun, paralyze: m.paralyze
-        }).toLowerCase();
+        // 明示的なビジュアルタイマーがある場合のみ最優先
+        if (m._visualStatus && Number(m._visualStatus.timer) > 0) {
+            return m._visualStatus.type;
+        }
 
-        if ((Number(m.burn) > 0 || Number(m.burnTimer) > 0 || m.isBurning || /burn|ignite|fire|flame|炎上|火傷|燃焼/.test(stRaw))) return 'burn';
-        if ((Number(m.freeze) > 0 || Number(m.freezeTimer) > 0 || m.isFrozen || /freeze|frozen|ice|chill|凍結|氷結/.test(stRaw))) return 'freeze';
-        if ((Number(m.poison) > 0 || Number(m.poisonTimer) > 0 || m.isPoisoned || /poison|venom|toxic|毒/.test(stRaw))) return 'poison';
-        if ((Number(m.stun) > 0 || Number(m.paralyze) > 0 || m.isStunned || /stun|paraly|shock|麻痺|感電|気絶/.test(stRaw))) return 'shock';
+        // 数値タイマー・明示フラグが > 0 / true の場合のみ判定
+        if (Number(m.burnTimer) > 0 || Number(m.burn) > 0 || m.isBurning === true) return 'burn';
+        if (Number(m.freezeTimer) > 0 || Number(m.freeze) > 0 || m.isFrozen === true) return 'freeze';
+        if (Number(m.poisonTimer) > 0 || Number(m.poison) > 0 || m.isPoisoned === true) return 'poison';
+        if (Number(m.stunTimer) > 0 || Number(m.paralyzeTimer) > 0 || Number(m.stun) > 0 || Number(m.paralyze) > 0 || m.isStunned === true) return 'shock';
+
+        // 配列型の状態異常リストがある場合は、有効な要素のみチェック
+        const arrList = [m.debuffs, m.statuses, m.effects].filter(Array.isArray);
+        for (const arr of arrList) {
+            for (const item of arr) {
+                if (!item) continue;
+                if (typeof item === 'string') {
+                    const s = item.toLowerCase();
+                    if (s === 'burn' || s === 'burning' || s === 'ignite') return 'burn';
+                    if (s === 'freeze' || s === 'frozen') return 'freeze';
+                    if (s === 'poison' || s === 'poisoned') return 'poison';
+                    if (s === 'stun' || s === 'paralyze' || s === 'shock') return 'shock';
+                } else if (typeof item === 'object') {
+                    const dur = Number(item.timer ?? item.duration ?? item.turns ?? item.remain ?? 1);
+                    if (dur <= 0) continue;
+                    const t = String(item.type || item.id || item.name || '').toLowerCase();
+                    if (/^(burn|burning|ignite)$/.test(t)) return 'burn';
+                    if (/^(freeze|frozen)$/.test(t)) return 'freeze';
+                    if (/^(poison|poisoned)$/.test(t)) return 'poison';
+                    if (/^(stun|paralyze|shock)$/.test(t)) return 'shock';
+                }
+            }
+        }
+
+        // 文字列型の単一ステータスがある場合
+        if (typeof m.status === 'string') {
+            const s = m.status.toLowerCase();
+            if (s === 'burn' || s === 'burning') return 'burn';
+            if (s === 'freeze' || s === 'frozen') return 'freeze';
+            if (s === 'poison' || s === 'poisoned') return 'poison';
+            if (s === 'stun' || s === 'paralyze' || s === 'shock') return 'shock';
+        }
+
         return null;
     };
 
@@ -269,10 +289,11 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         if (!this.useWebGL || !Array.isArray(this.monsters) || typeof THREE === 'undefined') return;
         const now = performance.now() * 0.001;
 
-        this.monsters.forEach((m, idx) => {
+        this.monsters.forEach((m) => {
             if (!m) return;
-            if (m._visualStatus && m._visualStatus.timer > 0) {
+            if (m._visualStatus && Number(m._visualStatus.timer) > 0) {
                 m._visualStatus.timer = Math.max(0, m._visualStatus.timer - dt);
+                if (m._visualStatus.timer <= 0) m._visualStatus = null;
             }
             const grp = m.group || m.mesh;
             if (!grp) return;
@@ -289,7 +310,6 @@ if (typeof KaomojiMMORPG !== 'undefined') {
                 return;
             }
 
-            // 状態異常の種類が変わったら3Dエフェクトを再構築
             if (grp.userData._curStatusType !== stType || !curHolder) {
                 if (curHolder) grp.remove(curHolder);
                 grp.userData._curStatusType = stType;
@@ -300,7 +320,6 @@ if (typeof KaomojiMMORPG !== 'undefined') {
                 fxGrp.userData.items = [];
 
                 if (stType === 'burn') {
-                    // 足元の灼熱炎リング＋立ち上る8本の炎パーティクル
                     const baseRing = new THREE.Mesh(
                         new THREE.RingGeometry(0.65 * sc, 1.25 * sc, 24),
                         new THREE.MeshBasicMaterial({ color: 0xf97316, side: THREE.DoubleSide, transparent: true, opacity: 0.88 })
@@ -321,7 +340,6 @@ if (typeof KaomojiMMORPG !== 'undefined') {
                         fxGrp.userData.items.push({ mesh: fMesh, ang, dist: 0.68 * sc, phase: i * 0.8, sc });
                     }
                 } else if (stType === 'freeze') {
-                    // 氷結クリスタルブロック
                     const iceBox = new THREE.Mesh(
                         new THREE.BoxGeometry(1.45 * sc, 1.85 * sc, 1.45 * sc),
                         new THREE.MeshBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.45 })
@@ -334,7 +352,6 @@ if (typeof KaomojiMMORPG !== 'undefined') {
                     iceWire.position.y = 0.95 * sc;
                     fxGrp.add(iceBox, iceWire);
                 } else if (stType === 'poison') {
-                    // 紫の毒沼リング＋上昇する毒の泡
                     const pRing = new THREE.Mesh(
                         new THREE.RingGeometry(0.6 * sc, 1.2 * sc, 24),
                         new THREE.MeshBasicMaterial({ color: 0xa855f7, side: THREE.DoubleSide, transparent: true, opacity: 0.85 })
@@ -352,7 +369,6 @@ if (typeof KaomojiMMORPG !== 'undefined') {
                         fxGrp.userData.items.push({ mesh: bub, ang, dist: 0.62 * sc, phase: i * 1.1, sc });
                     }
                 } else if (stType === 'shock') {
-                    // バチバチ飛び交う黄色い稲妻スパーク
                     for (let i = 0; i < 6; i++) {
                         const ang = (i / 6) * Math.PI * 2;
                         const bolt = new THREE.Mesh(
@@ -366,7 +382,6 @@ if (typeof KaomojiMMORPG !== 'undefined') {
                 grp.add(fxGrp);
             }
 
-            // 毎フレームのアニメーション更新
             const holder = grp.getObjectByName?.('status_fx_3d');
             if (holder && holder.userData.items) {
                 holder.userData.items.forEach(it => {
@@ -446,15 +461,91 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         }
     };
 
-    // スキル使用時：MP消費反映 ＋ 攻撃ヒット範囲の敵へ状態異常エフェクト（炎上・凍結・麻痺・毒）連動
+    // 7. デバッグモード有効時の「物資・ポイント・MP無限維持エンジン」
+    P.maintainInfiniteResources = function () {
+        if (!this._debugInfiniteMode || !this.saveData) return;
+        const d = this.saveData;
+        const INF_VAL = 999999;
+
+        // ゴールド・各種ポイントを常に999999以上に維持
+        const pointKeys = [
+            'gold', 'coins', 'money', 'gem', 'gems', 'diamond', 'diamonds',
+            'statPoints', 'skillPoints', 'sp', 'ap', 'tp', 'points',
+            'evoPoints', 'soulPoints', 'upgradeStones', 'smithStones', 'enhanceStones'
+        ];
+        pointKeys.forEach(k => {
+            if (typeof d[k] === 'number' && d[k] < INF_VAL) {
+                d[k] = INF_VAL;
+            }
+        });
+        if (typeof d.gold !== 'number' && typeof d.coins !== 'number') {
+            d.gold = INF_VAL;
+        }
+
+        // すべての所持素材・アイテム容器（オブジェクト型・配列型両対応）を9999個に補充
+        const bagKeys = ['materials', 'items', 'inventory', 'bag', 'ores', 'stones', 'crystals', 'drops', 'consumables'];
+        bagKeys.forEach(bk => {
+            const bag = d[bk];
+            if (!bag || typeof bag !== 'object') return;
+            if (Array.isArray(bag)) {
+                bag.forEach(entry => {
+                    if (!entry || typeof entry !== 'object') return;
+                    if (typeof entry.count === 'number' && entry.count < 9999) entry.count = 9999;
+                    if (typeof entry.qty === 'number' && entry.qty < 9999) entry.qty = 9999;
+                    if (typeof entry.num === 'number' && entry.num < 9999) entry.num = 9999;
+                    if (typeof entry.amount === 'number' && entry.amount < 9999) entry.amount = 9999;
+                });
+            } else {
+                Object.keys(bag).forEach(itemKey => {
+                    if (typeof bag[itemKey] === 'number' && bag[itemKey] < 9999) {
+                        bag[itemKey] = 9999;
+                    } else if (bag[itemKey] && typeof bag[itemKey] === 'object') {
+                        if (typeof bag[itemKey].count === 'number' && bag[itemKey].count < 9999) bag[itemKey].count = 9999;
+                        if (typeof bag[itemKey].qty === 'number' && bag[itemKey].qty < 9999) bag[itemKey].qty = 9999;
+                    }
+                });
+            }
+        });
+
+        // グローバルマスター定義（ITEMS / MATERIALS 等）が存在する場合、未所持素材も全種9999個登録
+        const masterBags = [];
+        if (typeof MATERIALS !== 'undefined' && MATERIALS) masterBags.push(MATERIALS);
+        if (typeof ITEMS !== 'undefined' && ITEMS) masterBags.push(ITEMS);
+        masterBags.forEach(mObj => {
+            const entries = Array.isArray(mObj)
+                ? mObj.map((v, i) => [v?.id || String(i), v])
+                : Object.entries(mObj);
+            entries.forEach(([id, def]) => {
+                if (!id || !def) return;
+                if (d.materials && typeof d.materials === 'object' && !Array.isArray(d.materials)) {
+                    if ((Number(d.materials[id]) || 0) < 9999) d.materials[id] = 9999;
+                }
+                if (d.items && typeof d.items === 'object' && !Array.isArray(d.items)) {
+                    if ((Number(d.items[id]) || 0) < 9999) d.items[id] = 9999;
+                }
+            });
+        });
+
+        // MPも減らないように自動補充（強化された重い消費MPのスキルも連発可能）
+        const maxMp = Math.max(9999, Number(d.maxMp) || 100);
+        if ((Number(d.mp) || 0) < maxMp) d.mp = maxMp;
+        if (this.player) {
+            if ((Number(this.player.maxMp) || 0) < maxMp) this.player.maxMp = maxMp;
+            if ((Number(this.player.mp) || 0) < this.player.maxMp) this.player.mp = this.player.maxMp;
+        }
+    };
+
+    // スキル使用時：MP消費反映 ＋ 属性に応じた状態異常エフェクト付与
     if (P.useSkillSlot) {
-        const _prevUseSkillV22 = P.useSkillSlot;
+        const _prevUseSkillV23 = P.useSkillSlot;
         P.useSkillSlot = function (slotIdx) {
+            this.maintainInfiniteResources();
             this.syncSkillMpCostsV22();
             const meta = this.resolveSkillMeta ? this.resolveSkillMeta(slotIdx) : null;
             const curCd = (this.player?.skillCds?.[slotIdx] ?? this.skillCds?.[slotIdx] ?? 0);
 
-            _prevUseSkillV22.call(this, slotIdx);
+            _prevUseSkillV23.call(this, slotIdx);
+            this.maintainInfiniteResources();
 
             // スキルが実際に発動した場合、属性に応じた状態異常ビジュアルを近くの敵へ付与
             if (curCd <= 0.05 && meta && this.player?.pos && Array.isArray(this.monsters)) {
@@ -483,18 +574,18 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         };
     }
 
-    // 鍛冶・装備・進化モーダル表示時に武器名を杖へ書き換え＆進化直後に3D武器（杖）を即更新
+    // モーダル表示時の武器名「杖」変換＆進化直後の3D武器更新
     if (P.renderModalContent) {
-        const _prevRenderModalV22 = P.renderModalContent;
+        const _prevRenderModalV23 = P.renderModalContent;
         P.renderModalContent = function () {
+            this.maintainInfiniteResources();
             this.syncSkillMpCostsV22();
             this.syncMageWeaponNamesV22();
-            _prevRenderModalV22.call(this);
+            _prevRenderModalV23.call(this);
 
             const body = document.getElementById('modal-body');
             if (!body) return;
 
-            // 鍛冶・装備タブが開かれている場合、魔道士ならDOM内の武器名も「杖」表記へ変換
             if (this.isMageEvolution() && /smith|forge|craft|equip|weapon|gear|item|鍛冶|装備|武器/i.test(String(this.activeTab || ''))) {
                 const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT, null);
                 let node;
@@ -505,7 +596,6 @@ if (typeof KaomojiMMORPG !== 'undefined') {
                 }
             }
 
-            // 進化ボタン押下直後にアバター（手持ちの杖）を即座に再構築
             if (/evo|class|job|進化|転職/i.test(String(this.activeTab || ''))) {
                 body.querySelectorAll('button').forEach(btn => {
                     if (btn.dataset.v22EvoHook) return;
@@ -522,22 +612,22 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         };
     }
 
-    // 毎フレーム更新へ魔法弾＆状態異常3Dエフェクトを組み込み
-    const _prevUpdateAnimV22 = P.updateCharacterAnimations;
+    // 毎フレーム更新へ魔法弾・状態異常エフェクト・デバッグ無限リソース維持を組み込み
+    const _prevUpdateAnimV23 = P.updateCharacterAnimations;
     P.updateCharacterAnimations = function (dt) {
-        if (_prevUpdateAnimV22) _prevUpdateAnimV22.call(this, dt);
+        if (_prevUpdateAnimV23) _prevUpdateAnimV23.call(this, dt);
+        this.maintainInfiniteResources();
         this.updateMageBasicMagicShots(dt);
         this.updateMonsterStatusVisuals(dt);
     };
 
-    // オンライン同期パケットに「魔道士かどうか」を含めて味方の通常攻撃魔法弾も同期
     if (P.broadcastFirebaseEvent) {
-        const _prevBroadcastV22 = P.broadcastFirebaseEvent;
+        const _prevBroadcastV23 = P.broadcastFirebaseEvent;
         P.broadcastFirebaseEvent = function (type, payload) {
             if (type === 'attack' && payload && typeof payload === 'object') {
                 payload.isMage = this.isMageEvolution();
             }
-            _prevBroadcastV22.call(this, type, payload);
+            _prevBroadcastV23.call(this, type, payload);
         };
     }
 }
@@ -546,7 +636,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
 if (typeof KaomojiMMORPG !== 'undefined') {
     const P = KaomojiMMORPG.prototype;
 
-    // 7. 隠しデバッグモード（暗号: debug777）
+    // 8. 隠しデバッグモード（暗号: debug777）
     P.setAllSkillsLevelDebug = function (targetLv) {
         const d = this.saveData || {};
         if (!d.skillLevels) d.skillLevels = {};
@@ -564,7 +654,6 @@ if (typeof KaomojiMMORPG !== 'undefined') {
                 if ('level' in sk) sk.level = lv;
             });
         }
-        // スロットID直接指定形式にも対応
         for (let i = 0; i < 12; i++) {
             d.skillLevels[`slot_${i}`] = lv;
             d.skillLvs[`slot_${i}`] = lv;
@@ -575,6 +664,25 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         this.saveGame?.(false);
         this.refreshAllHUD?.();
         this.showAlertBanner?.(`🛠️ [DEBUG] 全スキルを Lv.${lv} に設定しました！`, 2000);
+    };
+
+    // キャラLv・スキルLv・武器強化値を元のLv.1 / +0 に戻す機能
+    P.resetLevelsToBaseDebug = function () {
+        const d = this.saveData || {};
+        d.lv = 1;
+        d.level = 1;
+        d.exp = 0;
+        d.weaponEnhance = 0;
+        d.armorEnhance = 0;
+        if (this.player) {
+            this.player.lv = 1;
+            this.player.level = 1;
+        }
+        this.setAllSkillsLevelDebug(1);
+        this.buildPlayerEntity?.();
+        this.saveGame?.(false);
+        this.refreshAllHUD?.();
+        this.showAlertBanner?.('↺ [DEBUG] キャラLv・全スキルLv・装備強化を Lv.1 / +0 に戻しました！', 2200);
     };
 
     P.forceEvolveToMageDebug = function () {
@@ -604,6 +712,15 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         let count = 0;
         this.monsters.forEach(m => {
             if (!m || m.dead) return;
+            if (!stType) {
+                m._visualStatus = null;
+                m.burnTimer = 0;
+                m.freezeTimer = 0;
+                m.poisonTimer = 0;
+                m.stun = 0;
+                count++;
+                return;
+            }
             m._visualStatus = { type: stType, timer: 8.0 };
             if (stType === 'burn') m.burnTimer = 8.0;
             if (stType === 'freeze') m.freezeTimer = 8.0;
@@ -612,10 +729,19 @@ if (typeof KaomojiMMORPG !== 'undefined') {
             count++;
         });
         const labelMap = { burn: '🔥炎上', freeze: '❄️凍結', poison: '☠️毒', shock: '⚡麻痺' };
-        this.showAlertBanner?.(`🛠️ [DEBUG] 周囲の敵 ${count}体 を「${labelMap[stType] || stType}」状態にしました！`, 1800);
+        if (!stType) {
+            this.showAlertBanner?.(`✨ [DEBUG] 周囲の敵 ${count}体 の状態異常を解除しました！`, 1800);
+        } else {
+            this.showAlertBanner?.(`🛠️ [DEBUG] 周囲の敵 ${count}体 を「${labelMap[stType] || stType}」状態にしました！`, 1800);
+        }
     };
 
     P.openSecretDebugModal = function () {
+        // デバッグモード起動と同時に「物資・ポイント・MP無限モード」を自動ON！
+        this._debugInfiniteMode = true;
+        this.maintainInfiniteResources();
+        this.refreshAllHUD?.();
+
         let modal = document.getElementById('kmj-secret-debug-modal');
         if (modal) modal.remove();
 
@@ -629,19 +755,27 @@ if (typeof KaomojiMMORPG !== 'undefined') {
                     <button type="button" id="btn-close-secret-debug" style="background:#334155;border:none;color:#fff;border-radius:6px;padding:4px 10px;font-weight:900;cursor:pointer;">✕ 閉じる</button>
                 </div>
 
-                <div style="font-size:11px;font-weight:900;color:#fde047;margin-bottom:5px;">⚡ スキルLv一括変更（進化＆新奥義テスト）</div>
+                <div style="background:rgba(16,185,129,0.16);border:1px solid #10b981;border-radius:8px;padding:7px 9px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                    <div style="font-size:10px;color:#a7f3d0;line-height:1.35;">
+                        <b>♾️ 物資・ポイント・MP無限：稼働中</b><br>
+                        G・各種P・全素材・MPが減らなくなります
+                    </div>
+                    <button type="button" id="dbg-toggle-inf" class="btn-ui btn-emerald" style="font-size:10px;padding:5px 8px;white-space:nowrap;">ON中</button>
+                </div>
+
+                <div style="font-size:11px;font-weight:900;color:#fde047;margin-bottom:5px;">⚡ スキルLv一括変更 ＆ レベル戻し</div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">
                     <button type="button" id="dbg-sk-10" class="btn-ui btn-sky" style="font-size:11px;padding:7px;">✨ 全スキル Lv.10【真】</button>
                     <button type="button" id="dbg-sk-50" class="btn-ui btn-amber" style="font-size:11px;padding:7px;">🔥 全スキル Lv.50【極】</button>
                     <button type="button" id="dbg-sk-100" class="btn-ui btn-emerald" style="font-size:11px;padding:7px;grid-column:span 2;border:1px solid #fde047;">👑 全スキル Lv.100【覚醒奥義解放】</button>
-                    <button type="button" id="dbg-sk-1" class="btn-ui" style="font-size:10px;padding:5px;grid-column:span 2;background:#1e293b;">↺ 全スキル Lv.1 にリセット</button>
+                    <button type="button" id="dbg-sk-1" class="btn-ui" style="font-size:10px;padding:6px;background:#1e293b;border:1px solid #475569;">↺ 全スキル Lv.1 に戻す</button>
+                    <button type="button" id="dbg-lv-reset-all" class="btn-ui" style="font-size:10px;padding:6px;background:#3f1d2e;border:1px solid #f43f5e;">↺ キャラ＆スキル全Lv.1に戻す</button>
                 </div>
 
-                <div style="font-size:11px;font-weight:900;color:#7dd3fc;margin-bottom:5px;">🧙‍♂️ 職業・杖・ステータス操作</div>
+                <div style="font-size:11px;font-weight:900;color:#7dd3fc;margin-bottom:5px;">🧙‍♂️ 職業・杖・強化操作</div>
                 <div style="display:grid;grid-template-columns:1fr;gap:6px;margin-bottom:10px;">
                     <button type="button" id="dbg-evo-mage" class="btn-ui btn-sky" style="font-size:11px;padding:7px;">🪄 魔道士へ即進化（杖装備＆魔法通常攻撃）</button>
                     <button type="button" id="dbg-wpn-up" class="btn-ui btn-amber" style="font-size:11px;padding:7px;">✨ 武器強化 +3（杖の見た目差分を確認）</button>
-                    <button type="button" id="dbg-mp-max" class="btn-ui btn-emerald" style="font-size:11px;padding:7px;">💧 最大MP+9999 ＆ HP/MP全回復 ＆ +10万G</button>
                 </div>
 
                 <div style="font-size:11px;font-weight:900;color:#f97316;margin-bottom:5px;">🔥 敵への状態異常エフェクト強制付与（8秒）</div>
@@ -650,6 +784,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
                     <button type="button" id="dbg-st-freeze" class="btn-ui" style="background:#0369a1;font-size:11px;padding:6px;">❄️ 全敵を凍結</button>
                     <button type="button" id="dbg-st-poison" class="btn-ui" style="background:#6b21a8;font-size:11px;padding:6px;">☠️ 全敵を毒</button>
                     <button type="button" id="dbg-st-shock" class="btn-ui" style="background:#854d0e;font-size:11px;padding:6px;">⚡ 全敵を麻痺</button>
+                    <button type="button" id="dbg-st-clear" class="btn-ui" style="background:#1e293b;font-size:10px;padding:5px;grid-column:span 2;">✨ 全敵の状態異常を解除</button>
                 </div>
             </div>
         `;
@@ -659,10 +794,21 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         document.getElementById('btn-close-secret-debug')?.addEventListener('click', close);
         modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
 
+        const infBtn = document.getElementById('dbg-toggle-inf');
+        infBtn?.addEventListener('click', () => {
+            sfx?.init?.();
+            this._debugInfiniteMode = !this._debugInfiniteMode;
+            if (this._debugInfiniteMode) this.maintainInfiniteResources();
+            infBtn.textContent = this._debugInfiniteMode ? 'ON中' : 'OFF';
+            infBtn.className = this._debugInfiniteMode ? 'btn-ui btn-emerald' : 'btn-ui';
+            this.showAlertBanner?.(`♾️ 物資・ポイント無限モード: ${this._debugInfiniteMode ? 'ON' : 'OFF'}`, 1600);
+        });
+
         document.getElementById('dbg-sk-10')?.addEventListener('click', () => { sfx?.init?.(); this.setAllSkillsLevelDebug(10); });
         document.getElementById('dbg-sk-50')?.addEventListener('click', () => { sfx?.init?.(); this.setAllSkillsLevelDebug(50); });
         document.getElementById('dbg-sk-100')?.addEventListener('click', () => { sfx?.init?.(); this.setAllSkillsLevelDebug(100); });
         document.getElementById('dbg-sk-1')?.addEventListener('click', () => { sfx?.init?.(); this.setAllSkillsLevelDebug(1); });
+        document.getElementById('dbg-lv-reset-all')?.addEventListener('click', () => { sfx?.init?.(); this.resetLevelsToBaseDebug(); });
 
         document.getElementById('dbg-evo-mage')?.addEventListener('click', () => { sfx?.init?.(); this.forceEvolveToMageDebug(); });
         document.getElementById('dbg-wpn-up')?.addEventListener('click', () => {
@@ -675,28 +821,12 @@ if (typeof KaomojiMMORPG !== 'undefined') {
                 this.showAlertBanner?.(`🪄 [DEBUG] 武器強化値が +${this.saveData.weaponEnhance} になりました！`, 1800);
             }
         });
-        document.getElementById('dbg-mp-max')?.addEventListener('click', () => {
-            sfx?.init?.();
-            const d = this.saveData || {};
-            d.maxMp = (Number(d.maxMp) || 100) + 9999;
-            d.mp = d.maxMp;
-            if ('gold' in d) d.gold = (Number(d.gold) || 0) + 100000;
-            else if ('coins' in d) d.coins = (Number(d.coins) || 0) + 100000;
-            else d.gold = 100000;
-            if (this.player) {
-                this.player.maxMp = d.maxMp;
-                this.player.mp = d.maxMp;
-                this.player.hp = this.player.maxHp || d.maxHp || 100;
-            }
-            this.saveGame?.(false);
-            this.refreshAllHUD?.();
-            this.showAlertBanner?.('💧 [DEBUG] 最大MP+9999 ＆ 全回復 ＆ +100,000G！', 1800);
-        });
 
         document.getElementById('dbg-st-burn')?.addEventListener('click', () => { sfx?.init?.(); this.applyDebugStatusToMonsters('burn'); });
         document.getElementById('dbg-st-freeze')?.addEventListener('click', () => { sfx?.init?.(); this.applyDebugStatusToMonsters('freeze'); });
         document.getElementById('dbg-st-poison')?.addEventListener('click', () => { sfx?.init?.(); this.applyDebugStatusToMonsters('poison'); });
         document.getElementById('dbg-st-shock')?.addEventListener('click', () => { sfx?.init?.(); this.applyDebugStatusToMonsters('shock'); });
+        document.getElementById('dbg-st-clear')?.addEventListener('click', () => { sfx?.init?.(); this.applyDebugStatusToMonsters(null); });
     };
 
     P.promptSecretDebugUnlock = function () {
@@ -707,6 +837,8 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         const code = window.prompt('🔐 隠しデバッグ暗号を入力してください:');
         if (code && code.trim() === SECRET_DEBUG_CODE) {
             this._debugUnlocked = true;
+            this._debugInfiniteMode = true;
+            this.maintainInfiniteResources();
             sfx?.playHeal?.();
             this.openSecretDebugModal();
         } else if (code !== null) {
@@ -714,22 +846,22 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         }
     };
 
-    // チャット欄に暗号「debug777」を打ち込んで送信すると、他人に送信せず隠しデバッグ画面を起動！
     if (P.sendChatMessage) {
-        const _prevSendChatV22 = P.sendChatMessage;
+        const _prevSendChatV23 = P.sendChatMessage;
         P.sendChatMessage = function (rawText) {
             const txt = String(rawText || '').trim();
             if (txt === SECRET_DEBUG_CODE) {
                 this._debugUnlocked = true;
+                this._debugInfiniteMode = true;
+                this.maintainInfiniteResources();
                 sfx?.playHeal?.();
                 this.openSecretDebugModal();
                 return;
             }
-            _prevSendChatV22.call(this, rawText);
+            _prevSendChatV23.call(this, rawText);
         };
     }
 
-    // 隠しコマンド2：成長モーダルのタイトル文字を5回連続タップで暗号入力ダイアログ出現
     P.bindSecretDebugGesture = function () {
         if (this._secretDebugGestureBound) return;
         this._secretDebugGestureBound = true;
@@ -763,5 +895,5 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     }, 220);
 });
-// === GAME8_V22_OK ===
+// === GAME8_V23_OK ===
 // ▲▲▲ ここまで【3/3】 ▲▲▲
