@@ -2542,5 +2542,126 @@ setInterval(() => { document.querySelectorAll('[id="kmj-chat-resize-handle-v34"]
     window.addEventListener('resize', enforceOneStickV40);
     setInterval(enforceOneStickV40, 200);
 })();
-// === GAME8_V40_OK ===
+// ▼▼▼ 移動スティック1個固定・消滅防止パッチ（v41） ▼▼▼
+(function () {
+    const createPadV41 = () => {
+        const pad = document.createElement('div');
+        pad.id = 'kmj-v33-movepad';
+        pad.style.cssText = 'position:fixed;left:24px;bottom:24px;width:96px;height:96px;border-radius:50%;background:radial-gradient(circle,rgba(15,23,42,0.55),rgba(30,41,59,0.82));border:2px solid rgba(148,163,184,0.9);box-shadow:0 3px 12px rgba(0,0,0,0.6);z-index:86;touch-action:none;user-select:none;display:flex;align-items:center;justify-content:center;';
+
+        const knob = document.createElement('div');
+        knob.style.cssText = 'width:40px;height:40px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#38bdf8,#0284c7);border:2px solid #e0f2fe;box-shadow:0 2px 8px rgba(0,0,0,0.5);pointer-events:none;position:relative;';
+        pad.appendChild(knob);
+
+        let activePid = null;
+        const setKey = (k, c, down) => {
+            const g = window.game;
+            if (g && g.keys && typeof g.keys === 'object') {
+                g.keys[k] = down;
+                g.keys[k.toLowerCase()] = down;
+                g.keys[k.toUpperCase()] = down;
+                g.keys[c] = down;
+            }
+            try {
+                window.dispatchEvent(new KeyboardEvent(down ? 'keydown' : 'keyup', { key: k, code: c, bubbles: true }));
+            } catch (e) {}
+        };
+
+        const update = (cx0, cy0) => {
+            const g = window.game;
+            const rect = pad.getBoundingClientRect();
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+            const maxR = rect.width * 0.36;
+            let dx = cx0 - cx;
+            let dy = cy0 - cy;
+            const dist = Math.hypot(dx, dy);
+            if (dist > maxR) {
+                dx = (dx / dist) * maxR;
+                dy = (dy / dist) * maxR;
+            }
+            knob.style.transform = `translate(${dx}px, ${dy}px)`;
+
+            const nx = dx / maxR;
+            const ny = dy / maxR;
+            if (g) {
+                if ('joyX' in g) g.joyX = nx;
+                if ('joyY' in g) g.joyY = ny;
+                if (g.joy && typeof g.joy === 'object') { g.joy.x = nx; g.joy.y = ny; g.joy.active = true; }
+            }
+            setKey('w', 'KeyW', ny < -0.28);
+            setKey('s', 'KeyS', ny > 0.28);
+            setKey('a', 'KeyA', nx < -0.28);
+            setKey('d', 'KeyD', nx > 0.28);
+            setKey('ArrowUp', 'ArrowUp', ny < -0.28);
+            setKey('ArrowDown', 'ArrowDown', ny > 0.28);
+            setKey('ArrowLeft', 'ArrowLeft', nx < -0.28);
+            setKey('ArrowRight', 'ArrowRight', nx > 0.28);
+        };
+
+        const reset = () => {
+            const g = window.game;
+            activePid = null;
+            knob.style.transform = 'translate(0px, 0px)';
+            if (g) {
+                if ('joyX' in g) g.joyX = 0;
+                if ('joyY' in g) g.joyY = 0;
+                if (g.joy && typeof g.joy === 'object') { g.joy.x = 0; g.joy.y = 0; g.joy.active = false; }
+            }
+            ['w', 's', 'a', 'd', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].forEach(k => {
+                setKey(k, k.length === 1 ? `Key${k.toUpperCase()}` : k, false);
+            });
+        };
+
+        pad.addEventListener('pointerdown', (e) => {
+            if (window.game?._uiEditModeV31) return;
+            e.preventDefault();
+            e.stopPropagation();
+            activePid = e.pointerId;
+            pad.setPointerCapture?.(e.pointerId);
+            update(e.clientX, e.clientY);
+        });
+        pad.addEventListener('pointermove', (e) => {
+            if (window.game?._uiEditModeV31 || activePid !== e.pointerId) return;
+            e.preventDefault();
+            update(e.clientX, e.clientY);
+        });
+        pad.addEventListener('pointerup', (e) => {
+            if (activePid !== e.pointerId) return;
+            pad.releasePointerCapture?.(e.pointerId);
+            reset();
+        });
+        pad.addEventListener('pointercancel', reset);
+
+        document.body.appendChild(pad);
+        return pad;
+    };
+
+    const syncSinglePadV41 = () => {
+        // 1. 元のゲーム側スティックだけを非表示にする
+        document.querySelectorAll('#joystick, #joy-base, #joystick-zone, #move-pad, .joystick, .joy-base').forEach(el => {
+            if (el.id !== 'kmj-v33-movepad') {
+                el.style.setProperty('display', 'none', 'important');
+            }
+        });
+
+        // 2. 自作スティックを必ず1個だけ維持＆強制表示
+        const pads = document.querySelectorAll('#kmj-v33-movepad');
+        pads.forEach((p, i) => { if (i > 0) p.remove(); });
+        const pad = document.getElementById('kmj-v33-movepad') || createPadV41();
+        pad.style.setProperty('display', 'flex', 'important');
+        pad.style.setProperty('visibility', 'visible', 'important');
+        pad.style.setProperty('opacity', '1', 'important');
+        pad.style.setProperty('pointer-events', 'auto', 'important');
+    };
+
+    if (typeof KaomojiMMORPG !== 'undefined') {
+        KaomojiMMORPG.prototype.ensureStandardMoveStickV33 = syncSinglePadV41;
+    }
+
+    setTimeout(syncSinglePadV41, 150);
+    setTimeout(syncSinglePadV41, 800);
+    setInterval(syncSinglePadV41, 200);
+})();
+// === GAME8_V41_OK ===
 // ▲▲▲ ここまで【3/3】 ▲▲▲
