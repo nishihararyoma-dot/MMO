@@ -19,13 +19,12 @@ const ALL_EMOTE_MOTIONS = [
 
 const LOADING_KAOMOJIS = ['(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧', 'ε=ε=ε=┏(゜ロ゜;)┛', '(ง •̀_•́)ง ⚔️', '✧*｡٩(ˊᗜˋ*)و✧*｡', '(╯°□°）╯︵ ┻━┻'];
 const LOADING_TIPS = [
-    '💡 ペットタブから「ペット装備」を購入・装着すると相棒の見た目とステータスが強化されるよ！',
+    '💡 スキルは Lv.10・Lv.50・Lv.100以上で魔法陣や公転オーブが増えて超豪華に進化するよ！',
+    '💡 ペットタブの「ペット装備」を着けると相棒の3D見た目とステータスがパワーアップ！',
     '💡 チャット欄の上部をドラッグで移動、右下つまみでサイズ変更、「↺ 戻す」で初期位置に戻るよ！',
-    '💡 「極光の聖域」はフィールドを展開して範囲内の自分と味方を継続回復＆強化するよ！',
-    '💡 AUTOモード中は攻撃スキルだけでなく回復や極光の聖域・バフも自動で使ってくれるよ！'
+    '💡 「極光の聖域」はフィールドを展開して範囲内の自分と味方を継続回復＆強化するよ！'
 ];
 
-// ペット装備マスターデータ
 const PET_EQUIPS = [
     { id: 'none', name: '装備なし', icon: '➖', cost: 0, atkPct: 0, defPct: 0, hpPct: 0, spdPct: 0, desc: '標準状態' },
     { id: 'pe_ribbon', name: '勇気の赤いリボン', icon: '🎀', cost: 300, atkPct: 0.08, defPct: 0.05, hpPct: 0.10, spdPct: 0.05, desc: 'ATK+8% DEF+5% HP+10% SPD+5%' },
@@ -37,10 +36,10 @@ const PET_EQUIPS = [
     { id: 'pe_halo', name: '聖なる創世光輪', icon: '😇', cost: 25000, atkPct: 0.38, defPct: 0.35, hpPct: 0.38, spdPct: 0.30, desc: 'ATK+38% DEF+35% HP+38% SPD+30%' }
 ];
 
-(function injectV19Styles() {
-    if (document.getElementById('kmj-v19-style')) return;
+(function injectV20Styles() {
+    if (document.getElementById('kmj-v20-style')) return;
     const st = document.createElement('style');
-    st.id = 'kmj-v19-style';
+    st.id = 'kmj-v20-style';
     st.textContent = `
         #kmj-loading-screen{position:fixed;inset:0;z-index:96;background:radial-gradient(circle at center,#0f172a 0%,#020617 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;transition:opacity .28s ease;pointer-events:auto}
         #kmj-loading-screen.fade-out{opacity:0;pointer-events:none}
@@ -62,49 +61,10 @@ const PET_EQUIPS = [
 
 Object.assign(KaomojiMMORPG.prototype, {
 
-    // 操作キャラ＆マルチ味方の顔パネル位置ズレ・めり込みを自動補正
-    fixAvatarFaceAlignment(group) {
-        if (!group || typeof THREE === 'undefined') return;
-        let headMesh = null;
-        let faceMesh = null;
-
-        group.traverse(obj => {
-            if (!obj.isMesh || !obj.geometry) return;
-            const gType = obj.geometry.type || '';
-            if (!headMesh && (gType.includes('Box') || gType.includes('Sphere')) && obj.position.y >= 0.6 && obj.position.y <= 1.8) {
-                if (!obj.material?.map) headMesh = obj;
-            }
-            if (!faceMesh && (gType.includes('Plane') || (obj.material && obj.material.map && obj.material.map.image))) {
-                if (obj.position.y >= 0.6 && obj.position.y <= 1.8) faceMesh = obj;
-            }
-        });
-
-        if (faceMesh) {
-            if (headMesh) {
-                headMesh.geometry.computeBoundingBox?.();
-                const bb = headMesh.geometry.boundingBox;
-                const halfD = bb ? (bb.max.z - bb.min.z) * 0.5 * (headMesh.scale.z || 1) : 0.5;
-                faceMesh.position.x = headMesh.position.x;
-                faceMesh.position.y = headMesh.position.y;
-                faceMesh.position.z = headMesh.position.z + halfD + 0.025;
-            } else {
-                faceMesh.position.x = 0;
-                if (faceMesh.position.z > 0) faceMesh.position.z += 0.015;
-            }
-            faceMesh.rotation.set(0, 0, 0);
-            if (faceMesh.material) {
-                faceMesh.material.polygonOffset = true;
-                faceMesh.material.polygonOffsetFactor = -2;
-                faceMesh.material.needsUpdate = true;
-            }
-        }
-    },
-
-    // チャットの自由ドラッグ移動・自由リサイズ・元の位置へ戻すボタン初期化
     initChatFreeTransform() {
         const panel = document.getElementById('chat-panel');
-        if (!panel || panel.dataset.v19Movable) return;
-        panel.dataset.v19Movable = '1';
+        if (!panel || panel.dataset.v20Movable) return;
+        panel.dataset.v20Movable = '1';
 
         const cs = window.getComputedStyle(panel);
         if (cs.position === 'static') panel.style.position = 'fixed';
@@ -147,10 +107,8 @@ Object.assign(KaomojiMMORPG.prototype, {
         const saveBox = () => {
             try {
                 localStorage.setItem('kmj_chat_box_v18', JSON.stringify({
-                    left: panel.style.left,
-                    top: panel.style.top,
-                    width: panel.style.width,
-                    height: panel.style.height
+                    left: panel.style.left, top: panel.style.top,
+                    width: panel.style.width, height: panel.style.height
                 }));
             } catch (e) {}
         };
@@ -181,9 +139,8 @@ Object.assign(KaomojiMMORPG.prototype, {
         const moveDrag = (cx, cy) => {
             if (!dragging) return;
             const r = panel.getBoundingClientRect();
-            const nx = Math.max(2, Math.min(window.innerWidth - r.width - 2, sl + (cx - sx)));
-            const ny = Math.max(2, Math.min(window.innerHeight - r.height - 2, st + (cy - sy)));
-            panel.style.left = `${nx}px`; panel.style.top = `${ny}px`;
+            panel.style.left = `${Math.max(2, Math.min(window.innerWidth - r.width - 2, sl + (cx - sx)))}px`;
+            panel.style.top = `${Math.max(2, Math.min(window.innerHeight - r.height - 2, st + (cy - sy)))}px`;
         };
         const endDrag = () => { if (dragging) { dragging = false; saveBox(); } };
 
@@ -210,9 +167,8 @@ Object.assign(KaomojiMMORPG.prototype, {
         };
         const moveResize = (cx, cy) => {
             if (!resizing) return;
-            const nw = Math.max(210, Math.min(window.innerWidth * 0.94, rw + (cx - rx)));
-            const nh = Math.max(115, Math.min(window.innerHeight * 0.78, rh + (cy - ry)));
-            panel.style.width = `${Math.round(nw)}px`; panel.style.height = `${Math.round(nh)}px`;
+            panel.style.width = `${Math.max(210, Math.min(window.innerWidth * 0.94, Math.round(rw + (cx - rx))))}px`;
+            panel.style.height = `${Math.max(115, Math.min(window.innerHeight * 0.78, Math.round(rh + (cy - ry))))}px`;
         };
         const endResize = () => { if (resizing) { resizing = false; saveBox(); } };
 
@@ -229,7 +185,7 @@ Object.assign(KaomojiMMORPG.prototype, {
 // ▼▼▼ ここから【2/4】 ▼▼▼
 Object.assign(KaomojiMMORPG.prototype, {
 
-    // 敵の見た目を四角い顔文字箱から「本格3Dモンスター造形」へ一新
+    // 敵の見た目を本格3Dモンスター造形へ一新
     rebuildMonstersAs3DMonsters(dt = 0.016) {
         if (!this.useWebGL || !this.monsters || typeof THREE === 'undefined') return;
         const now = performance.now() * 0.001;
@@ -239,19 +195,16 @@ Object.assign(KaomojiMMORPG.prototype, {
             const grp = m.group || m.mesh;
             if (!grp) return;
 
-            if (!grp.userData.v19Monster3D) {
-                grp.userData.v19Monster3D = true;
-                // 既存の四角い顔文字ボックスをクリア
+            if (!grp.userData.v20Monster3D) {
+                grp.userData.v20Monster3D = true;
                 while (grp.children.length > 0) {
-                    const ch = grp.children[0];
-                    grp.remove(ch);
+                    grp.remove(grp.children[0]);
                 }
 
                 const sc = Number(m.scale) || 1.0;
                 const nameStr = String(m.name || m.id || '');
                 const isBoss = !!(m.isBoss || m.boss || sc >= 1.45 || /ボス|王|魔王|竜|ドラゴン|神|極|覇/.test(nameStr));
 
-                // 種族判定
                 let kind = 'demon';
                 if (/スライム|ぷよ|ゼリー|slime/i.test(nameStr)) kind = 'slime';
                 else if (/竜|ドラゴン|ワイバーン|鳥|コウモリ|dragon|wyvern|bat/i.test(nameStr)) kind = 'dragon';
@@ -281,7 +234,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                     grp.add(dome, core);
                     grp.userData.slimeDome = dome;
                 } else if (kind === 'dragon') {
-                    // ドラゴン・ワイバーン造形
                     const torso = new THREE.Mesh(new THREE.ConeGeometry(0.55 * sc, 1.45 * sc, 10), bodyMat);
                     torso.rotation.x = Math.PI * 0.35;
                     torso.position.set(0, 0.95 * sc, 0);
@@ -293,7 +245,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                     tail.position.set(0, 0.62 * sc, -0.85 * sc);
                     grp.add(torso, head, tail);
 
-                    // 左右のコウモリ翼
                     const wings = [];
                     [-1, 1].forEach(side => {
                         const wPivot = new THREE.Group();
@@ -306,7 +257,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                     });
                     grp.userData.monsterWings = wings;
                 } else if (kind === 'golem') {
-                    // 重装甲ゴーレム造形
                     const chest = new THREE.Mesh(new THREE.DodecahedronGeometry(0.75 * sc, 0), bodyMat);
                     chest.position.y = 1.05 * sc;
                     const head = new THREE.Mesh(new THREE.BoxGeometry(0.52 * sc, 0.42 * sc, 0.52 * sc), darkMat);
@@ -320,7 +270,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                         grp.add(sh, arm);
                     });
                 } else if (kind === 'reaper') {
-                    // 浮遊する死神・霊体モンスター
                     const cloak = new THREE.Mesh(new THREE.ConeGeometry(0.68 * sc, 1.65 * sc, 12, 1, true), darkMat);
                     cloak.position.y = 1.05 * sc;
                     const hood = new THREE.Mesh(new THREE.SphereGeometry(0.42 * sc, 12, 12), bodyMat);
@@ -332,7 +281,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                     scytheBlade.position.set(0.48 * sc, 1.95 * sc, 0.2 * sc);
                     grp.add(cloak, hood, scytheHandle, scytheBlade);
                 } else {
-                    // 魔獣・デーモン造形（標準モンスター）
                     const torso = new THREE.Mesh(new THREE.OctahedronGeometry(0.66 * sc, 1), bodyMat);
                     torso.scale.set(1.05, 1.18, 0.95);
                     torso.position.y = 0.88 * sc;
@@ -354,7 +302,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                     });
                 }
 
-                // 全モンスター共通：悪魔のツノ＆赤く光る眼光
                 const eyeY = (kind === 'slime') ? 0.68 * sc : (kind === 'dragon' ? 1.46 * sc : 1.56 * sc);
                 const eyeZ = (kind === 'slime') ? 0.76 * sc : (kind === 'dragon' ? 0.82 * sc : 0.52 * sc);
                 [-1, 1].forEach(side => {
@@ -368,7 +315,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                     grp.add(eye);
                 });
 
-                // 足元の邪悪ダーク魔法陣
                 const auraMat = new THREE.MeshBasicMaterial({
                     color: isBoss ? 0xef4444 : 0x9333ea,
                     side: THREE.DoubleSide,
@@ -384,7 +330,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                 grp.add(auraRing);
                 grp.userData.enemyAuraRing = auraRing;
 
-                // ボス専用背後の邪気スパイク輪
                 if (isBoss) {
                     const spikeWheel = new THREE.Group();
                     for (let i = 0; i < 6; i++) {
@@ -403,7 +348,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                 }
             }
 
-            // モンスターのアニメーション
             if (grp.userData.enemyAuraRing) grp.userData.enemyAuraRing.rotation.z -= dt * 2.2;
             if (grp.userData.bossSpikeWheel) grp.userData.bossSpikeWheel.rotation.z += dt * 1.8;
             if (grp.userData.slimeDome) {
@@ -418,7 +362,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         });
     },
 
-    // ペット装備データ取得
     getPetEquipDef(eqId) {
         return PET_EQUIPS.find(e => e.id === eqId) || PET_EQUIPS[0];
     },
@@ -455,70 +398,84 @@ Object.assign(KaomojiMMORPG.prototype, {
         if (petId) d.petEquips[petId] = item.id;
         d.equippedPetEquip = item.id;
 
+        if (this.pet) this.pet._v20PetSig = '';
         this.saveGame?.(false);
         this.syncLocalPetAppearance?.();
         this.syncFirebaseNow?.(false);
         this.refreshAllHUD?.();
     },
 
-    // ペット3Dモデルへ「ペット装備」を装着
+    // ペット3Dモデルへ「ペット装備」を大きくハッキリ装着
     attachPetEquip3D(petGrp, eqId) {
-        if (!petGrp || !eqId || eqId === 'none' || typeof THREE === 'undefined') return;
+        if (!petGrp || typeof THREE === 'undefined') return;
+        const oldEq = petGrp.getObjectByName?.('pet_equip_3d');
+        if (oldEq) petGrp.remove(oldEq);
+        if (!eqId || eqId === 'none') return;
+
         const eqGrp = new THREE.Group();
         eqGrp.name = 'pet_equip_3d';
 
         if (eqId === 'pe_ribbon') {
             const mat = new THREE.MeshBasicMaterial({ color: 0xf43f5e });
-            const l = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.22, 6), mat);
-            l.position.set(-0.11, 0.98, 0.24); l.rotation.z = -Math.PI / 2;
-            const r = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.22, 6), mat);
-            r.position.set(0.11, 0.98, 0.24); r.rotation.z = Math.PI / 2;
-            const c = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), new THREE.MeshBasicMaterial({ color: 0xfef08a }));
-            c.position.set(0, 0.98, 0.25);
+            const l = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.28, 6), mat);
+            l.position.set(-0.14, 1.02, 0.28); l.rotation.z = -Math.PI / 2;
+            const r = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.28, 6), mat);
+            r.position.set(0.14, 1.02, 0.28); r.rotation.z = Math.PI / 2;
+            const c = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 10), new THREE.MeshBasicMaterial({ color: 0xfef08a }));
+            c.position.set(0, 1.02, 0.30);
             eqGrp.add(l, r, c);
         } else if (eqId === 'pe_bell') {
-            const collar = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.04, 8, 20), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
+            const collar = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.055, 8, 22), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
             collar.rotation.x = Math.PI / 2; collar.position.y = 0.28;
-            const bell = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 12), new THREE.MeshBasicMaterial({ color: 0xfacc15 }));
-            bell.position.set(0, 0.24, 0.38);
+            const bell = new THREE.Mesh(new THREE.SphereGeometry(0.15, 14, 14), new THREE.MeshBasicMaterial({ color: 0xfacc15 }));
+            bell.position.set(0, 0.22, 0.44);
             eqGrp.add(collar, bell);
         } else if (eqId === 'pe_visor') {
-            const visor = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.16, 0.12), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.85 }));
-            visor.position.set(0, 0.68, 0.39);
-            eqGrp.add(visor);
+            const visor = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.20, 0.14), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.88 }));
+            visor.position.set(0, 0.72, 0.41);
+            const frame = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.23, 0.10), new THREE.MeshBasicMaterial({ color: 0x0f172a }));
+            frame.position.set(0, 0.72, 0.38);
+            eqGrp.add(frame, visor);
         } else if (eqId === 'pe_scarf') {
-            const scarfMat = new THREE.MeshLambertMaterial({ color: 0xdc2626 });
-            const ring = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.075, 8, 20), scarfMat);
-            ring.rotation.x = Math.PI / 2; ring.position.y = 0.28;
-            const tail = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.12, 0.55), scarfMat);
-            tail.position.set(-0.22, 0.24, -0.45); tail.rotation.y = 0.3;
+            const scarfMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+            const ring = new THREE.Mesh(new THREE.TorusGeometry(0.44, 0.095, 10, 22), scarfMat);
+            ring.rotation.x = Math.PI / 2; ring.position.y = 0.26;
+            const tail = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.14, 0.68), scarfMat);
+            tail.position.set(-0.24, 0.22, -0.52); tail.rotation.y = 0.32;
             eqGrp.add(ring, tail);
         } else if (eqId === 'pe_crown') {
-            const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.18, 0.2, 8), new THREE.MeshBasicMaterial({ color: 0xfacc15 }));
-            crown.position.set(0, 1.02, 0);
-            const gem = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), new THREE.MeshBasicMaterial({ color: 0xf43f5e }));
-            gem.position.set(0, 1.03, 0.21);
+            const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.30, 0.22, 0.26, 8), new THREE.MeshBasicMaterial({ color: 0xfacc15 }));
+            crown.position.set(0, 1.08, 0);
+            const gem = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), new THREE.MeshBasicMaterial({ color: 0xf43f5e }));
+            gem.position.set(0, 1.09, 0.26);
             eqGrp.add(crown, gem);
         } else if (eqId === 'pe_wings') {
-            const wMat = new THREE.MeshBasicMaterial({ color: 0xf8fafc, side: THREE.DoubleSide });
+            const wMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+            const edgeMat = new THREE.MeshBasicMaterial({ color: 0x7dd3fc, side: THREE.DoubleSide });
             [-1, 1].forEach(side => {
-                const wing = new THREE.Mesh(new THREE.PlaneGeometry(0.48, 0.34), wMat);
-                wing.position.set(side * 0.52, 0.66, -0.18);
-                wing.rotation.y = side * 0.45;
-                wing.rotation.z = side * 0.25;
-                eqGrp.add(wing);
+                const wing = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.44), wMat);
+                wing.position.set(side * 0.62, 0.68, -0.16);
+                wing.rotation.y = side * 0.42;
+                wing.rotation.z = side * 0.26;
+                const sub = new THREE.Mesh(new THREE.PlaneGeometry(0.45, 0.28), edgeMat);
+                sub.position.set(side * 0.56, 0.52, -0.18);
+                sub.rotation.y = side * 0.42;
+                eqGrp.add(wing, sub);
             });
         } else if (eqId === 'pe_halo') {
-            const halo = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.045, 10, 24), new THREE.MeshBasicMaterial({ color: 0xfde047 }));
+            const halo = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.06, 12, 28), new THREE.MeshBasicMaterial({ color: 0xfde047 }));
             halo.rotation.x = Math.PI / 2;
-            halo.position.set(0, 1.16, 0);
-            eqGrp.add(halo);
+            halo.position.set(0, 1.24, 0);
+            const innerHalo = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.03, 8, 20), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+            innerHalo.rotation.x = Math.PI / 2;
+            innerHalo.position.set(0, 1.24, 0);
+            eqGrp.add(halo, innerHalo);
         }
 
         petGrp.add(eqGrp);
     },
 
-    // 自分のペット＆マルチ味方ペットで100%同一デザインを描画する共通ビルダー
+    // 自分のペット＆マルチ味方ペットで100%同一デザイン（手足なしの浮遊顔文字キューブ＋装備）
     buildUnifiedPetMesh(petInfo) {
         const grp = new THREE.Group();
         let hex = 0x38bdf8;
@@ -527,31 +484,23 @@ Object.assign(KaomojiMMORPG.prototype, {
             hex = parseInt(petInfo.color.slice(1), 16);
         }
 
-        // 胴体キューブ
+        // 浮遊する胴体キューブ（手足なし）
         const body = new THREE.Mesh(
-            new THREE.BoxGeometry(0.74, 0.66, 0.70),
+            new THREE.BoxGeometry(0.76, 0.68, 0.72),
             new THREE.MeshLambertMaterial({ color: hex })
         );
-        body.position.y = 0.56;
+        body.position.y = 0.62;
         grp.add(body);
 
         // ちょこんとした耳パーツ
         const earMat = new THREE.MeshLambertMaterial({ color: hex });
         [-0.22, 0.22].forEach(ex => {
             const ear = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.24, 6), earMat);
-            ear.position.set(ex, 0.96, 0.06);
+            ear.position.set(ex, 1.04, 0.06);
             grp.add(ear);
         });
 
-        // 4本の手足
-        const limbMat = new THREE.MeshLambertMaterial({ color: 0xf8fafc });
-        [[-0.23, 0.16, 0.16], [0.23, 0.16, 0.16], [-0.23, 0.16, -0.16], [0.23, 0.16, -0.16]].forEach(([lx, ly, lz]) => {
-            const foot = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 10), limbMat);
-            foot.position.set(lx, ly, lz);
-            grp.add(foot);
-        });
-
-        // 顔文字スクリーン（前面にぴったり貼付・Zファイティング防止）
+        // 顔文字スクリーン（前面にぴったり貼付）
         const cvs = document.createElement('canvas');
         cvs.width = 256;
         cvs.height = 160;
@@ -574,8 +523,8 @@ Object.assign(KaomojiMMORPG.prototype, {
             polygonOffset: true,
             polygonOffsetFactor: -2
         });
-        const facePlane = new THREE.Mesh(new THREE.PlaneGeometry(0.66, 0.42), faceMat);
-        facePlane.position.set(0, 0.58, 0.365);
+        const facePlane = new THREE.Mesh(new THREE.PlaneGeometry(0.68, 0.44), faceMat);
+        facePlane.position.set(0, 0.64, 0.375);
         grp.add(facePlane);
 
         // ペット装備を3D装着
@@ -591,24 +540,31 @@ Object.assign(KaomojiMMORPG.prototype, {
         return this.buildUnifiedPetMesh(petInfo);
     },
 
-    // 自分のペット3Dモデルも共通デザイン＋ペット装備に同期
+    // 自分のペット3Dモデルも共通デザイン＋ペット装備に確実に同期（group / mesh 両対応）
     syncLocalPetAppearance() {
         if (!this.useWebGL || !this.scene || !this.pet || typeof THREE === 'undefined') return;
         const info = this.getMyPetSyncInfo();
         if (!info) return;
-        const sig = `${info.petId}|${info.kaomoji}|${info.color}|${info.equipId}`;
-        if (this.pet._v19PetSig === sig) return;
-        this.pet._v19PetSig = sig;
 
-        const oldPos = this.pet.group ? this.pet.group.position.clone() : new THREE.Vector3(0, 0, 4);
-        const oldRotY = this.pet.group ? this.pet.group.rotation.y : 0;
-        if (this.pet.group) this.scene.remove(this.pet.group);
+        const targetObj = this.pet.group || this.pet.mesh;
+        const sig = `${info.petId}|${info.kaomoji}|${info.color}|${info.equipId}`;
+        if (this.pet._v20PetSig === sig && targetObj && targetObj.parent === this.scene) {
+            return;
+        }
+        this.pet._v20PetSig = sig;
+
+        const oldPos = targetObj ? targetObj.position.clone() : new THREE.Vector3(0, 0, 4);
+        const oldRotY = targetObj ? targetObj.rotation.y : 0;
+        if (this.pet.group && this.pet.group.parent) this.scene.remove(this.pet.group);
+        if (this.pet.mesh && this.pet.mesh !== this.pet.group && this.pet.mesh.parent) this.scene.remove(this.pet.mesh);
 
         const newGrp = this.buildUnifiedPetMesh(info);
         newGrp.position.copy(oldPos);
         newGrp.rotation.y = oldRotY;
         this.scene.add(newGrp);
-        this.pet.group = newGrp;
+
+        if ('group' in this.pet || !('mesh' in this.pet)) this.pet.group = newGrp;
+        if ('mesh' in this.pet) this.pet.mesh = newGrp;
     },
 
     getPetCustomName(petId, fallbackName = 'ペット') {
@@ -672,17 +628,17 @@ Object.assign(KaomojiMMORPG.prototype, {
             if (/aurora|sanctuary|polar|極光|聖域|オーロラ/.test(key)) {
                 sk.type = 'buff';
                 sk.target = 'self';
-                const newDesc = '【フィールド展開】8秒間、極光の聖域を展開し範囲内の自分と味方のHPを毎秒回復＋ATK/DEF/SPD強化！(Lv上昇で範囲・回復量UP)';
+                const newDesc = '【フィールド展開】8秒間、極光の聖域を展開し範囲内の自分と味方のHPを毎秒回復＋ATK/DEF/SPD強化！(Lv10/50/100で超進化)';
                 if ('desc' in sk) sk.desc = newDesc;
                 if ('description' in sk) sk.description = newDesc;
             } else if (/bigbang|big_bang|genesis|cosmos|creation|supernova|ビッグバン|びっくばん|そうせい|創世|創星|創生/.test(key)) {
-                const newDesc = '【創世超爆発】宇宙のビッグバンを引き起こし広範囲の敵に絶大なダメージ！(Lv3で魔法陣、Lv5で公転オーブ追加)';
+                const newDesc = '【創世超爆発】宇宙のビッグバンを引き起こし広範囲の敵に絶大なダメージ！(Lv10/50/100で神話級エフェクトへ進化)';
                 if ('desc' in sk) sk.desc = newDesc;
                 if ('description' in sk) sk.description = newDesc;
             } else {
                 const cur = sk.desc || sk.description || '';
-                if (cur && !cur.includes('Lv.3')) {
-                    const updated = `${cur} (Lv.3で魔法陣・Lv.5で公転オーブ進化)`;
+                if (cur && !cur.includes('Lv.10')) {
+                    const updated = `${cur} (Lv.10/50/100で魔法陣＆オーブ超進化)`;
                     if ('desc' in sk) sk.desc = updated;
                     if ('description' in sk) sk.description = updated;
                 }
@@ -1274,6 +1230,13 @@ Object.assign(KaomojiMMORPG.prototype, {
         return { slotIdx, skillId, skillName, skillLv, skillCategory, isChabudai };
     },
 
+    getSkillLvScale(skillLv) {
+        if (skillLv >= 100) return 2.75 + Math.min(0.75, (skillLv - 100) * 0.005);
+        if (skillLv >= 50) return 2.15 + (skillLv - 50) * 0.01;
+        if (skillLv >= 10) return 1.65 + (skillLv - 10) * 0.01;
+        return 1.0 + (skillLv - 1) * 0.05;
+    },
+
     getSkillAccentColor(skillId, fallbackHex) {
         if (!skillId) return fallbackHex;
         let h = 0;
@@ -1294,10 +1257,92 @@ Object.assign(KaomojiMMORPG.prototype, {
         return grp;
     },
 
+    // Lv.10 / Lv.50 / Lv.100以上の超豪華スキル見た目進化
+    attachSkillLevelEvolution(rootGroup, skillLv, mainColor) {
+        if (skillLv < 10) return null;
+
+        const tier = skillLv >= 100 ? 3 : (skillLv >= 50 ? 2 : 1);
+        const rings = [];
+        const gyroRings = [];
+        const orbs = [];
+
+        // 1. 多重回転魔法陣（Lv.10: 二重 / Lv.50: 三重 / Lv.100+: 四重）
+        const ringSpecs = [
+            { rIn: 1.5, rOut: 2.05, col: mainColor, spd: 4.5, y: 0.14 },
+            { rIn: 2.35, rOut: 2.95, col: 0xfde047, spd: -3.8, y: 0.17 }
+        ];
+        if (tier >= 2) {
+            ringSpecs.push({ rIn: 3.3, rOut: 4.05, col: 0xf472b6, spd: 5.2, y: 0.20 });
+        }
+        if (tier >= 3) {
+            ringSpecs.push({ rIn: 4.4, rOut: 5.3, col: 0x38bdf8, spd: -6.0, y: 0.23 });
+        }
+
+        ringSpecs.forEach(sp => {
+            const mat = new THREE.MeshBasicMaterial({ color: sp.col, side: THREE.DoubleSide, transparent: true, opacity: 0.92 });
+            const mesh = new THREE.Mesh(new THREE.RingGeometry(sp.rIn, sp.rOut, 36), mat);
+            mesh.rotation.x = -Math.PI / 2;
+            mesh.position.y = sp.y;
+            rootGroup.add(mesh);
+            rings.push({ mesh, mat, spd: sp.spd });
+        });
+
+        // 2. 公転クリスタル・スターオーブ（Lv.10: 4個 / Lv.50: 8個 / Lv.100+: 12個）
+        const orbCount = tier === 3 ? 12 : (tier === 2 ? 8 : 4);
+        const rainbowCols = [0xfde047, 0xf472b6, 0x38bdf8, 0x34d399, 0xa855f7, 0xf97316];
+        for (let i = 0; i < orbCount; i++) {
+            const ang = (i / orbCount) * Math.PI * 2;
+            const radius = (tier === 3 && i >= 6) ? 3.8 : (tier >= 2 ? 2.8 : 2.1);
+            const size = tier === 3 ? 0.36 : (tier === 2 ? 0.30 : 0.24);
+            const col = tier >= 2 ? rainbowCols[i % rainbowCols.length] : (i % 2 === 0 ? 0xfde047 : mainColor);
+            const orb = new THREE.Mesh(
+                new THREE.OctahedronGeometry(size, 0),
+                new THREE.MeshBasicMaterial({ color: col })
+            );
+            const baseY = 1.25 + (i % 3) * 0.45;
+            orb.position.set(Math.cos(ang) * radius, baseY, Math.sin(ang) * radius);
+            rootGroup.add(orb);
+            orbs.push({ orb, ang, radius, baseY, spd: (i % 2 === 0 ? 1 : -1) * (5.5 + tier * 1.4) });
+        }
+
+        // 3. 立体ジャイロリング（Lv.50で1基、Lv.100+で交差2基）
+        if (tier >= 2) {
+            const g1Mat = new THREE.MeshBasicMaterial({ color: 0xfde047, transparent: true, opacity: 0.85 });
+            const g1 = new THREE.Mesh(new THREE.TorusGeometry(2.6 + tier * 0.5, 0.11, 10, 36), g1Mat);
+            g1.position.y = 1.8;
+            g1.rotation.x = Math.PI * 0.28;
+            rootGroup.add(g1);
+            gyroRings.push({ mesh: g1, mat: g1Mat, rx: 3.5, ry: 4.5, rz: 2.0 });
+        }
+        if (tier >= 3) {
+            const g2Mat = new THREE.MeshBasicMaterial({ color: 0xf472b6, transparent: true, opacity: 0.9 });
+            const g2 = new THREE.Mesh(new THREE.TorusGeometry(3.4, 0.13, 10, 36), g2Mat);
+            g2.position.y = 2.0;
+            g2.rotation.z = Math.PI * 0.28;
+            rootGroup.add(g2);
+            gyroRings.push({ mesh: g2, mat: g2Mat, rx: -4.0, ry: 5.0, rz: -3.2 });
+        }
+
+        // 4. 昇天する聖光柱（Lv.10から発動、Lvが上がるほど太く高く輝く）
+        const pillarR = 1.4 + tier * 0.85;
+        const pillarH = 5.5 + tier * 2.5;
+        const pillarMat = new THREE.MeshBasicMaterial({
+            color: tier === 3 ? 0xfef08a : (tier === 2 ? 0xf472b6 : mainColor),
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.30 + tier * 0.06
+        });
+        const pillar = new THREE.Mesh(new THREE.CylinderGeometry(pillarR * 0.75, pillarR, pillarH, 24, 1, true), pillarMat);
+        pillar.position.y = pillarH * 0.5;
+        rootGroup.add(pillar);
+
+        return { tier, rings, gyroRings, orbs, pillar, pillarMat };
+    },
+
     spawnSupportSkillVisual(entity, skillLv = 1, mainColor = 0x34d399) {
         if (!this.useWebGL || !this.scene || !entity?.pos || typeof THREE === 'undefined') return;
         if (!this._slashEffects) this._slashEffects = [];
-        const lvScale = 1 + Math.min(0.65, (skillLv - 1) * 0.12);
+        const lvScale = this.getSkillLvScale(skillLv);
         const supGrp = new THREE.Group();
 
         const innerMat = new THREE.MeshBasicMaterial({ color: 0xfef08a, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
@@ -1318,28 +1363,30 @@ Object.assign(KaomojiMMORPG.prototype, {
         supGrp.add(innerRing, outerRing, halo, veilCyl);
 
         const crosses = [];
-        const crossCount = skillLv >= 5 ? 10 : (skillLv >= 3 ? 8 : 6);
+        const crossCount = skillLv >= 100 ? 16 : (skillLv >= 50 ? 12 : (skillLv >= 10 ? 9 : 6));
         for (let i = 0; i < crossCount; i++) {
             const ang = (i / crossCount) * Math.PI * 2;
             const cMesh = new THREE.Group();
             const cMat = new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? 0x4ade80 : 0xfef08a, transparent: true, opacity: 0.95 });
-            cMesh.add(new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.09, 0.09), cMat), new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.32, 0.09), cMat));
+            cMesh.add(new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.10, 0.10), cMat), new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.34, 0.10), cMat));
             const dist = (1.1 + (i % 2) * 0.55) * lvScale;
             cMesh.position.set(Math.cos(ang) * dist, 0.4 + (i % 3) * 0.35, Math.sin(ang) * dist);
             supGrp.add(cMesh);
             crosses.push({ mesh: cMesh, mat: cMat, ang, dist, vy: 1.4 + (i % 3) * 0.35 });
         }
+
+        const lvEvo = this.attachSkillLevelEvolution(supGrp, skillLv, mainColor);
         supGrp.position.set(entity.pos.x, 0, entity.pos.z);
         this.scene.add(supGrp);
-        this._slashEffects.push({ kind: 'support_bless', mesh: supGrp, innerRing, outerRing, halo, veilCyl, innerMat, outerMat, haloMat, veilMat, crosses, followEntity: entity, life: 1.15, maxLife: 1.15 });
+        this._slashEffects.push({ kind: 'support_bless', mesh: supGrp, innerRing, outerRing, halo, veilCyl, innerMat, outerMat, haloMat, veilMat, crosses, lvEvo, followEntity: entity, life: 1.2, maxLife: 1.2 });
     },
 
     spawnAuroraSanctuary(x, z, skillLv = 1, casterName = '') {
         if (!this.useWebGL || !this.scene || typeof THREE === 'undefined') return;
         if (!this._sanctuaryFields) this._sanctuaryFields = [];
-        const lvBonus = Math.min(2.5, (skillLv - 1) * 0.25);
+        const lvBonus = skillLv >= 100 ? 3.5 : (skillLv >= 50 ? 2.4 : (skillLv >= 10 ? 1.4 : 0));
         const radius = 5.4 + lvBonus;
-        const duration = 8.0 + Math.min(6.0, (skillLv - 1) * 0.6);
+        const duration = 8.0 + (skillLv >= 50 ? 5.0 : (skillLv >= 10 ? 2.5 : 0));
         const grp = new THREE.Group();
         const baseMat = new THREE.MeshBasicMaterial({ color: 0x2dd4bf, side: THREE.DoubleSide, transparent: true, opacity: 0.48 });
         const baseDisc = new THREE.Mesh(new THREE.CircleGeometry(radius, 36), baseMat);
@@ -1348,17 +1395,17 @@ Object.assign(KaomojiMMORPG.prototype, {
         const outerRing = new THREE.Mesh(new THREE.RingGeometry(radius - 0.35, radius, 36), outerMat);
         outerRing.rotation.x = -Math.PI / 2; outerRing.position.y = 0.11;
         const wallMat = new THREE.MeshBasicMaterial({ color: 0x5eead4, side: THREE.DoubleSide, transparent: true, opacity: 0.26 });
-        const wallCyl = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 3.4 + lvBonus * 0.5, 32, 1, true), wallMat);
-        wallCyl.position.y = 1.7;
+        const wallCyl = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 3.4 + lvBonus * 0.6, 32, 1, true), wallMat);
+        wallCyl.position.y = 1.7 + lvBonus * 0.3;
         grp.add(baseDisc, outerRing, wallCyl);
 
         const pillars = [];
         const pColors = [0x34d399, 0x38bdf8, 0xf472b6, 0xfde047];
-        const count = skillLv >= 5 ? 8 : (skillLv >= 3 ? 6 : 4);
+        const count = skillLv >= 100 ? 12 : (skillLv >= 50 ? 8 : (skillLv >= 10 ? 6 : 4));
         for (let i = 0; i < count; i++) {
             const ang = (i / count) * Math.PI * 2;
-            const pMat = new THREE.MeshBasicMaterial({ color: pColors[i % pColors.length], transparent: true, opacity: 0.78 });
-            const pMesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.28, 0), pMat);
+            const pMat = new THREE.MeshBasicMaterial({ color: pColors[i % pColors.length], transparent: true, opacity: 0.85 });
+            const pMesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.32, 0), pMat);
             pMesh.position.set(Math.cos(ang) * (radius * 0.65), 0.8 + (i % 3) * 0.6, Math.sin(ang) * (radius * 0.65));
             grp.add(pMesh);
             pillars.push({ mesh: pMesh, ang, dist: radius * 0.65, phase: i * 0.9 });
@@ -1425,25 +1472,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         }
     },
 
-    attachSkillLevelEvolution(rootGroup, skillLv, mainColor) {
-        if (skillLv < 3) return null;
-        const lvRingMat = new THREE.MeshBasicMaterial({ color: skillLv >= 5 ? 0xfde047 : mainColor, side: THREE.DoubleSide, transparent: true, opacity: 0.85 });
-        const lvRing = new THREE.Mesh(new THREE.RingGeometry(1.4, 1.85, 24), lvRingMat);
-        lvRing.rotation.x = -Math.PI / 2; lvRing.position.y = 0.15;
-        rootGroup.add(lvRing);
-        const orbs = [];
-        if (skillLv >= 5) {
-            for (let i = 0; i < 4; i++) {
-                const ang = (i / 4) * Math.PI * 2;
-                const orb = new THREE.Mesh(new THREE.OctahedronGeometry(0.24, 0), new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? 0xfde047 : mainColor }));
-                orb.position.set(Math.cos(ang) * 1.6, 1.1, Math.sin(ang) * 1.6);
-                rootGroup.add(orb);
-                orbs.push({ orb, ang });
-            }
-        }
-        return { lvRing, lvRingMat, orbs };
-    },
-
     triggerAttackVisual(entity, isSkill = false, skillInfo = null) {
         if (!entity) return;
         entity.attackAnimTimer = 0.36;
@@ -1455,7 +1483,7 @@ Object.assign(KaomojiMMORPG.prototype, {
         const sId = String(skillInfo?.skillId || '').toLowerCase();
         const fullKey = (sId + ' ' + String(skillInfo?.skillName || '')).toLowerCase();
         const skillLv = Math.max(1, Number(skillInfo?.skillLv) || 1);
-        const lvScale = 1 + Math.min(0.85, (skillLv - 1) * 0.15);
+        const lvScale = this.getSkillLvScale(skillLv);
 
         let cat = skillInfo?.skillCategory || '';
         if (!cat && isSkill) {
@@ -1479,7 +1507,7 @@ Object.assign(KaomojiMMORPG.prototype, {
                 tableMesh.position.set(entity.pos.x + dirX * 1.1, 1.0, entity.pos.z + dirZ * 1.1);
                 tableMesh.rotation.y = rotY;
                 this.scene.add(tableMesh);
-                this._slashEffects.push({ kind: 'chabudai', mesh: tableMesh, life: 0.95, maxLife: 0.95, vx: dirX * (12.0 + skillLv * 0.4), vz: dirZ * (12.0 + skillLv * 0.4) });
+                this._slashEffects.push({ kind: 'chabudai', mesh: tableMesh, life: 0.95, maxLife: 0.95, vx: dirX * (12.0 + Math.min(8, skillLv * 0.08)), vz: dirZ * (12.0 + Math.min(8, skillLv * 0.08)) });
                 return;
             }
             if (cat === 'aurora') {
@@ -1507,9 +1535,10 @@ Object.assign(KaomojiMMORPG.prototype, {
 
                 const meteors = [];
                 const mCols = [0xfde047, 0xf472b6, 0x38bdf8, 0xa855f7];
-                for (let i = 0; i < 16; i++) {
-                    const ang = (i / 16) * Math.PI * 2;
-                    const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.32 * lvScale, 0), new THREE.MeshBasicMaterial({ color: mCols[i % mCols.length] }));
+                const mCount = skillLv >= 100 ? 28 : (skillLv >= 50 ? 22 : (skillLv >= 10 ? 18 : 14));
+                for (let i = 0; i < mCount; i++) {
+                    const ang = (i / mCount) * Math.PI * 2;
+                    const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.34 * lvScale, 0), new THREE.MeshBasicMaterial({ color: mCols[i % mCols.length] }));
                     star.position.set(0, 1.6, 0);
                     bbGrp.add(star);
                     meteors.push({ mesh: star, vx: Math.cos(ang) * (8.5 + (i % 4) * 1.5), vy: 3.0 + ((i % 3) - 0.5) * 3.0, vz: Math.sin(ang) * (8.5 + (i % 4) * 1.5) });
@@ -1517,14 +1546,14 @@ Object.assign(KaomojiMMORPG.prototype, {
                 const lvEvo = this.attachSkillLevelEvolution(bbGrp, skillLv, 0xf43f5e);
                 bbGrp.position.set(entity.pos.x + dirX * 2.5, 0, entity.pos.z + dirZ * 2.5);
                 this.scene.add(bbGrp);
-                this._slashEffects.push({ kind: 'bigbang', mesh: bbGrp, coreSphere, auraSphere, waveRing, coreMat, auraMat, waveMat, meteors, lvEvo, life: 1.05, maxLife: 1.05 });
+                this._slashEffects.push({ kind: 'bigbang', mesh: bbGrp, coreSphere, auraSphere, waveRing, coreMat, auraMat, waveMat, meteors, lvEvo, life: 1.1, maxLife: 1.1 });
                 return;
             }
             if (cat === 'beam') {
                 const mainCol = this.getSkillAccentColor(sId, 0x38bdf8);
                 const beamGroup = new THREE.Group();
-                const length = 14.0 + Math.min(8.0, (skillLv - 1) * 1.2);
-                const radius = 0.72 + Math.min(0.65, (skillLv - 1) * 0.1);
+                const length = 14.0 + (skillLv >= 100 ? 12.0 : (skillLv >= 50 ? 8.0 : (skillLv >= 10 ? 4.5 : 0)));
+                const radius = 0.72 * (skillLv >= 100 ? 2.1 : (skillLv >= 50 ? 1.7 : (skillLv >= 10 ? 1.35 : 1.0)));
                 const outerMat = new THREE.MeshBasicMaterial({ color: mainCol, transparent: true, opacity: 0.65 });
                 const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.96 });
                 const outerCyl = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius * 1.25, length, 20, 1, true), outerMat);
@@ -1533,15 +1562,16 @@ Object.assign(KaomojiMMORPG.prototype, {
                 coreCyl.rotation.x = Math.PI / 2; coreCyl.position.z = length / 2 + 0.9;
                 beamGroup.add(outerCyl, coreCyl);
                 const rings = [];
-                const ringCount = skillLv >= 5 ? 6 : (skillLv >= 3 ? 5 : 4);
+                const ringCount = skillLv >= 100 ? 10 : (skillLv >= 50 ? 7 : (skillLv >= 10 ? 5 : 4));
                 for (let i = 0; i < ringCount; i++) {
                     const ring = new THREE.Mesh(new THREE.TorusGeometry(radius * 1.5, 0.09, 8, 24), new THREE.MeshBasicMaterial({ color: 0xfde047, side: THREE.DoubleSide, transparent: true, opacity: 0.9 }));
                     ring.position.z = 2.0 + (i / ringCount) * (length - 2.0);
                     beamGroup.add(ring); rings.push(ring);
                 }
+                const lvEvo = this.attachSkillLevelEvolution(beamGroup, skillLv, mainCol);
                 beamGroup.position.set(entity.pos.x, 1.15, entity.pos.z); beamGroup.rotation.y = rotY;
                 this.scene.add(beamGroup);
-                this._slashEffects.push({ kind: 'beam', mesh: beamGroup, outerCyl, coreCyl, outerMat, coreMat, rings, life: 0.74, maxLife: 0.74 });
+                this._slashEffects.push({ kind: 'beam', mesh: beamGroup, outerCyl, coreCyl, outerMat, coreMat, rings, lvEvo, life: 0.78, maxLife: 0.78 });
                 return;
             }
             if (cat === 'nova_ice') {
@@ -1555,7 +1585,7 @@ Object.assign(KaomojiMMORPG.prototype, {
                 novaGroup.add(magicRing, dome);
                 const spikes = [];
                 const spikeMat = new THREE.MeshLambertMaterial({ color: 0xe0f2fe, emissive: 0x0284c7, transparent: true, opacity: 0.92 });
-                const spikeCount = skillLv >= 5 ? 14 : (skillLv >= 3 ? 10 : 8);
+                const spikeCount = skillLv >= 100 ? 20 : (skillLv >= 50 ? 15 : (skillLv >= 10 ? 11 : 8));
                 for (let i = 0; i < spikeCount; i++) {
                     const ang = (i / spikeCount) * Math.PI * 2;
                     const dist = ((i % 2 === 0) ? 2.3 : 3.8) * lvScale;
@@ -1566,19 +1596,24 @@ Object.assign(KaomojiMMORPG.prototype, {
                 const lvEvo = this.attachSkillLevelEvolution(novaGroup, skillLv, 0x38bdf8);
                 novaGroup.position.set(entity.pos.x, 0, entity.pos.z);
                 this.scene.add(novaGroup);
-                this._slashEffects.push({ kind: 'nova_ice', mesh: novaGroup, magicRing, dome, spikes, ringMat, domeMat, spikeMat, lvEvo, life: 0.95, maxLife: 0.95 });
+                this._slashEffects.push({ kind: 'nova_ice', mesh: novaGroup, magicRing, dome, spikes, ringMat, domeMat, spikeMat, lvEvo, life: 0.98, maxLife: 0.98 });
                 return;
             }
+
             const customCol = this.getSkillAccentColor(sId, cat === 'fire' ? 0xf97316 : (cat === 'thunder' ? 0xfacc15 : (cat === 'wind' ? 0x34d399 : (cat === 'void' ? 0xa855f7 : 0xf472b6))));
             const sGrp = new THREE.Group();
             const mat = new THREE.MeshBasicMaterial({ color: customCol, side: THREE.DoubleSide, transparent: true, opacity: 0.92 });
-            const arc1 = new THREE.Mesh(new THREE.RingGeometry(0.75 * lvScale, 2.05 * lvScale, 24, 1, -Math.PI * 0.45, Math.PI * 0.9), mat);
-            arc1.rotation.set(Math.PI * 0.35, rotY, -0.5); arc1.position.y = 1.1;
-            sGrp.add(arc1);
+            const arcCount = skillLv >= 100 ? 4 : (skillLv >= 50 ? 3 : (skillLv >= 10 ? 2 : 1));
+            for (let a = 0; a < arcCount; a++) {
+                const arc = new THREE.Mesh(new THREE.RingGeometry((0.75 + a * 0.35) * lvScale, (2.05 + a * 0.45) * lvScale, 24, 1, -Math.PI * 0.48, Math.PI * 0.96), mat);
+                arc.rotation.set(Math.PI * (0.35 - a * 0.12), rotY, -0.5 + a * 0.55);
+                arc.position.y = 1.1 + a * 0.25;
+                sGrp.add(arc);
+            }
             const lvEvo = this.attachSkillLevelEvolution(sGrp, skillLv, customCol);
             sGrp.position.set(entity.pos.x + dirX * 1.2, 0, entity.pos.z + dirZ * 1.2);
             this.scene.add(sGrp);
-            this._slashEffects.push({ kind: 'slash', mesh: sGrp, mat, lvEvo, life: 0.48, maxLife: 0.48, vx: dirX * 10.5, vz: dirZ * 10.5 });
+            this._slashEffects.push({ kind: 'slash', mesh: sGrp, mat, lvEvo, life: 0.56, maxLife: 0.56, vx: dirX * 10.5, vz: dirZ * 10.5 });
             return;
         }
 
@@ -1602,19 +1637,35 @@ Object.assign(KaomojiMMORPG.prototype, {
                     return false;
                 }
                 const p = 1 - (ef.life / ef.maxLife);
+                const fade = 1 - p;
+
                 if (ef.lvEvo) {
-                    ef.lvEvo.lvRing.rotation.z += dt * 4.5;
-                    ef.lvEvo.lvRingMat.opacity = (1 - p) * 0.85;
-                    ef.lvEvo.orbs.forEach(o => {
-                        o.ang += dt * 6.0;
-                        o.orb.position.x = Math.cos(o.ang) * 1.6;
-                        o.orb.position.z = Math.sin(o.ang) * 1.6;
-                        o.orb.rotation.y += dt * 5.0;
+                    ef.lvEvo.rings.forEach(r => {
+                        r.mesh.rotation.z += dt * r.spd;
+                        r.mat.opacity = fade * 0.92;
                     });
+                    ef.lvEvo.gyroRings.forEach(g => {
+                        g.mesh.rotation.x += dt * g.rx;
+                        g.mesh.rotation.y += dt * g.ry;
+                        g.mesh.rotation.z += dt * g.rz;
+                        g.mat.opacity = fade * 0.88;
+                    });
+                    ef.lvEvo.orbs.forEach(o => {
+                        o.ang += dt * o.spd;
+                        o.orb.position.x = Math.cos(o.ang) * o.radius;
+                        o.orb.position.z = Math.sin(o.ang) * o.radius;
+                        o.orb.position.y = o.baseY + Math.sin(p * Math.PI * 3 + o.ang) * 0.45;
+                        o.orb.rotation.y += dt * 6.0;
+                    });
+                    if (ef.lvEvo.pillar) {
+                        ef.lvEvo.pillar.rotation.y -= dt * 3.0;
+                        ef.lvEvo.pillar.scale.set(0.8 + p * 0.65, 1, 0.8 + p * 0.65);
+                        ef.lvEvo.pillarMat.opacity = fade * (0.32 + ef.lvEvo.tier * 0.06);
+                    }
                 }
+
                 if (ef.kind === 'support_bless') {
                     if (ef.followEntity?.pos) ef.mesh.position.set(ef.followEntity.pos.x, 0, ef.followEntity.pos.z);
-                    const fade = 1 - p;
                     ef.innerRing.rotation.z += dt * 4.0; ef.outerRing.rotation.z -= dt * 3.0;
                     ef.halo.position.y = 2.55 + Math.sin(p * Math.PI) * 0.45; ef.halo.rotation.z += dt * 5.0;
                     ef.veilCyl.scale.set(0.85 + p * 0.45, 1, 0.85 + p * 0.45);
@@ -1626,10 +1677,10 @@ Object.assign(KaomojiMMORPG.prototype, {
                         c.mesh.position.y += c.vy * dt; c.mesh.rotation.y += dt * 4.5; c.mat.opacity = fade * 0.95;
                     });
                 } else if (ef.kind === 'bigbang') {
-                    ef.coreSphere.scale.setScalar(Math.max(0.1, (1 - p) * 2.2));
+                    ef.coreSphere.scale.setScalar(Math.max(0.1, fade * 2.2));
                     ef.auraSphere.scale.setScalar(0.4 + p * 2.4); ef.auraSphere.rotation.y += dt * 4.0;
                     ef.waveRing.scale.setScalar(0.5 + p * 2.6);
-                    ef.coreMat.opacity = 1 - p; ef.auraMat.opacity = (1 - p) * 0.65; ef.waveMat.opacity = (1 - p) * 0.92;
+                    ef.coreMat.opacity = fade; ef.auraMat.opacity = fade * 0.65; ef.waveMat.opacity = fade * 0.92;
                     ef.meteors.forEach(m => {
                         m.mesh.position.x += m.vx * dt; m.mesh.position.y += m.vy * dt; m.mesh.position.z += m.vz * dt;
                         m.mesh.rotation.y += dt * 8.0; m.mesh.scale.setScalar(Math.max(0.1, 1 - p * 0.8));
@@ -1642,34 +1693,34 @@ Object.assign(KaomojiMMORPG.prototype, {
                     const pulse = Math.sin(p * Math.PI);
                     ef.outerCyl.scale.set(0.6 + pulse * 0.8, 1, 0.6 + pulse * 0.8);
                     ef.coreCyl.scale.set(0.5 + pulse * 0.7, 1, 0.5 + pulse * 0.7);
-                    ef.outerMat.opacity = (1 - p) * 0.75; ef.coreMat.opacity = (1 - p) * 0.98;
+                    ef.outerMat.opacity = fade * 0.75; ef.coreMat.opacity = fade * 0.98;
                     ef.rings.forEach((r, idx) => { r.rotation.z += dt * (idx % 2 === 0 ? 8 : -8); r.scale.setScalar(0.8 + pulse * 0.6); });
                 } else if (ef.kind === 'nova_ice') {
                     const rise = Math.min(1, p * 3.2);
                     ef.spikes.forEach((sp, idx) => { sp.position.y = -1.2 + rise * 2.55; sp.rotation.y += dt * (idx % 2 === 0 ? 2 : -2); });
                     ef.magicRing.rotation.z += dt * 2.5; ef.dome.scale.setScalar(0.5 + p * 0.95);
-                    ef.ringMat.opacity = (1 - p) * 0.85; ef.domeMat.opacity = (1 - p) * 0.4; ef.spikeMat.opacity = p > 0.7 ? (1 - p) * 3.0 : 0.92;
+                    ef.ringMat.opacity = fade * 0.85; ef.domeMat.opacity = fade * 0.4; ef.spikeMat.opacity = p > 0.7 ? fade * 3.0 : 0.92;
                 } else if (ef.kind === 'heart') {
                     ef.ang += dt * 3.2; ef.mesh.position.x = ef.cx + Math.cos(ef.ang) * ef.rad; ef.mesh.position.z = ef.cz + Math.sin(ef.ang) * ef.rad;
                     ef.mesh.position.y += ef.vy * dt; ef.mesh.rotation.y += dt * 4; ef.mesh.scale.setScalar(1 - p * 0.5);
                 } else if (ef.kind === 'ghost') {
-                    ef.mesh.position.y += dt * 1.5; ef.mesh.position.x = ef.bx + Math.sin(p * 14) * 0.28; ef.mat.opacity = (1 - p) * 0.85;
+                    ef.mesh.position.y += dt * 1.5; ef.mesh.position.x = ef.bx + Math.sin(p * 14) * 0.28; ef.mat.opacity = fade * 0.85;
                 } else if (ef.kind === 'snot_bubble') {
                     const sc = p < 0.8 ? (0.4 + p * 2.2) : (2.2 + (p - 0.8) * 6.0);
-                    ef.mesh.scale.setScalar(sc); ef.mat.opacity = p < 0.8 ? 0.65 : Math.max(0, (1 - p) * 3.2);
+                    ef.mesh.scale.setScalar(sc); ef.mat.opacity = p < 0.8 ? 0.65 : Math.max(0, fade * 3.2);
                 } else if (ef.kind === 'tear') {
                     ef.mesh.position.x += ef.vx * dt; ef.mesh.position.y += ef.vy * dt; ef.mesh.position.z += ef.vz * dt; ef.vy -= 9.5 * dt;
                 } else if (ef.kind === 'shockwave') {
-                    ef.mesh.scale.setScalar(1 + p * 3.2); ef.mat.opacity = (1 - p) * 0.85;
+                    ef.mesh.scale.setScalar(1 + p * 3.2); ef.mat.opacity = fade * 0.85;
                 } else if (ef.kind === 'petal') {
                     ef.mesh.position.x += ef.vx * dt + Math.sin(p * 12) * 0.03; ef.mesh.position.y += ef.vy * dt; ef.mesh.position.z += ef.vz * dt;
                 } else if (ef.kind === 'aura') {
-                    ef.mesh.scale.set(1 + p * 0.55, 1, 1 + p * 0.55); ef.mesh.rotation.y += dt * 5; ef.mat.opacity = (1 - p) * 0.78;
+                    ef.mesh.scale.set(1 + p * 0.55, 1, 1 + p * 0.55); ef.mesh.rotation.y += dt * 5; ef.mat.opacity = fade * 0.78;
                 } else if (ef.kind === 'star') {
                     ef.mesh.position.x += ef.vx * dt; ef.mesh.position.y += ef.vy * dt; ef.mesh.position.z += ef.vz * dt; ef.mesh.scale.setScalar(1 - p * 0.7);
                 } else {
                     ef.mesh.position.x += (ef.vx || 0) * dt; ef.mesh.position.z += (ef.vz || 0) * dt;
-                    ef.mesh.scale.setScalar(1 + p * 0.5); ef.mat.opacity = (1 - p) * 0.92;
+                    ef.mesh.scale.setScalar(1 + p * 0.5); ef.mat.opacity = fade * 0.92;
                 }
                 return true;
             });
@@ -1850,7 +1901,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         }
 
         if (msg.type === 'sync' || msg.type === 'hello') {
-            // 片側ブローカー瞬断による退出猶予タイマーを即解除（誤退出ログ防止）
             if (this._pendingLeaveTimers && this._pendingLeaveTimers.has(msg.uid)) {
                 clearTimeout(this._pendingLeaveTimers.get(msg.uid));
                 this._pendingLeaveTimers.delete(msg.uid);
@@ -1880,7 +1930,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                     if (this.isModalOpen && this.activeTab === 'online') this.renderModalContent();
                 }
             };
-            // Willパケット（通信瞬断）の場合は5.5秒猶予を持たせ、別サーバーから通信が続いていれば退出扱いにしない
             if (msg.isWill) {
                 if (!this._pendingLeaveTimers) this._pendingLeaveTimers = new Map();
                 if (!this._pendingLeaveTimers.has(msg.uid)) {
@@ -1941,7 +1990,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                 weaponId: p.weaponId || 'wpn_wood', weaponEnhance: p.weaponEnhance || 0,
                 armorId: p.armorId || 'arm_cloth', cosmeticId: p.cosmeticId || 'none', backCosmeticId: bCos
             });
-            this.fixAvatarFaceAlignment(parts.group);
             const pos = new THREE.Vector3(p.x || 0, 0, p.z || 5);
             if (this.useWebGL && this.scene && parts.group) {
                 parts.group.position.copy(pos);
@@ -1969,7 +2017,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             if (rp.plateEl) rp.plateEl.innerHTML = `<div style="font-size:9px;font-weight:900;color:#f9a8d4;">Lv.${rp.lv} 仲間 (脅威+${rp.threatRank})</div>`;
         }
 
-        // 味方のペットを自分と100%共通の3Dモデル＋ペット装備で描画
+        // 味方のペットを自分と100%共通の3Dモデル（手足なし）＋ペット装備で描画
         const petInfo = p.pet;
         const newPetSig = petInfo ? `${petInfo.petId}|${petInfo.kaomoji}|${petInfo.name}|${petInfo.lv}|${petInfo.color}|${petInfo.equipId || 'none'}` : '';
         if (rp.petSig !== newPetSig) {
@@ -2343,7 +2391,6 @@ if (typeof KaomojiMMORPG !== 'undefined') {
             this.initChatFreeTransform?.();
             this.showLoadingOverlay('NOW LOADING... 冒険の世界へ出発！', 1100);
             _origEnter.call(this);
-            this.fixAvatarFaceAlignment?.(this.player?.group);
             this.syncLocalPetAppearance?.();
             this.rebuildMonstersAs3DMonsters?.(0.016);
             this.startAutoReconnectWatchdog();
@@ -2424,7 +2471,6 @@ if (typeof KaomojiMMORPG !== 'undefined') {
             const st = _origStats.call(this);
             if (!st) return st;
 
-            // 極光の聖域バフ
             if (this._inSanctuaryBuff) {
                 const mult = 1.15 + Math.min(0.35, (this._sanctuaryBuffLv || 1) * 0.03);
                 if (typeof st.atk === 'number') st.atk = Math.floor(st.atk * mult);
@@ -2432,7 +2478,6 @@ if (typeof KaomojiMMORPG !== 'undefined') {
                 if (typeof st.spd === 'number') st.spd = st.spd * 1.15;
             }
 
-            // ペット装備ステータスボーナス
             const petInfo = this.getMyPetSyncInfo?.();
             if (petInfo && petInfo.equipId && petInfo.equipId !== 'none') {
                 const eq = this.getPetEquipDef(petInfo.equipId);
@@ -2552,7 +2597,6 @@ if (typeof KaomojiMMORPG !== 'undefined') {
             _bPE.call(this);
             if (this.player) {
                 this.player.skillCds = cds;
-                this.fixAvatarFaceAlignment(this.player.group);
             }
         };
     }
@@ -2563,10 +2607,9 @@ window.addEventListener('DOMContentLoaded', () => {
     if (window.game) {
         window.game.syncSkillDescriptionsAndEffects?.();
         window.game.initChatFreeTransform?.();
-        window.game.fixAvatarFaceAlignment?.(window.game.player?.group);
         window.game.syncLocalPetAppearance?.();
         window.game.startAutoReconnectWatchdog?.();
     }
 });
-// === GAME6_V19_OK ===
+// === GAME6_V20_OK ===
 // ▲▲▲ ここまで【4/4】 ▲▲▲
