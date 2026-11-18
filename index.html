@@ -32,13 +32,15 @@ button,.btn-ui{touch-action:manipulation;cursor:pointer;pointer-events:auto}
 .btn-ui{display:inline-flex;align-items:center;justify-content:center;gap:4px;border:none;border-radius:8px;padding:7px 11px;font-size:11px;font-weight:900;color:#fff;transition:transform .08s ease;box-shadow:0 2px 6px rgba(0,0,0,.35)}
 .btn-ui:active:not(:disabled){transform:scale(.95)}
 .btn-ui:disabled{opacity:.4;cursor:not-allowed}
-.btn-sky{background:linear-gradient(135deg,#0284c7,#2563eb)}
-.btn-emerald{background:linear-gradient(135deg,#059669,#10b981)}
-.btn-amber{background:linear-gradient(135deg,#d97706,#f59e0b)}
-.btn-rose{background:linear-gradient(135deg,#e11d48,#f43f5e)}
-.btn-fuchsia{background:linear-gradient(135deg,#9333ea,#c026d3)}
-.btn-slate{background:#334155;border:1px solid #475569}
-.input-ui{width:100%;background:#0f172a;border:1px solid #38bdf8;border-radius:8px;padding:7px 10px;font-size:12px;color:#fff;outline:none;pointer-events:auto;touch-action:manipulation;user-select:text;-webkit-user-select:text}
+.btn-sky{background:linear-gradient(135deg,#0284c7,#2563eb);color:#fff}
+.btn-emerald{background:linear-gradient(135deg,#059669,#10b981);color:#fff}
+.btn-amber{background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff}
+.btn-rose{background:linear-gradient(135deg,#e11d48,#f43f5e);color:#fff}
+.btn-fuchsia{background:linear-gradient(135deg,#9333ea,#c026d3);color:#fff}
+.btn-slate{background:#334155;border:1px solid #475569;color:#fff}
+/* 白背景×白文字の防止（iPad Safariのselect・input・明るいラベル対策） */
+select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:#f8fafc!important;border:1px solid #38bdf8;border-radius:8px;padding:7px 10px;font-size:12px;outline:none;pointer-events:auto;touch-action:manipulation;user-select:text;-webkit-user-select:text}
+.input-ui{width:100%}
 #title-screen{position:fixed;inset:0;z-index:90;background:radial-gradient(circle at center,rgba(15,23,42,.55) 0%,rgba(2,6,23,.88) 100%);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:auto}
 .title-card{width:100%;max-width:440px;background:rgba(15,23,42,.94);border:2px solid rgba(56,189,248,.65);border-radius:20px;padding:20px 18px;box-shadow:0 20px 50px rgba(0,0,0,.75);text-align:center;display:flex;flex-direction:column;gap:12px;pointer-events:auto}
 .title-logo-kaomoji{font-size:28px;font-weight:900;color:#38bdf8;text-shadow:0 0 14px rgba(56,189,248,.7)}
@@ -60,7 +62,7 @@ button,.btn-ui{touch-action:manipulation;cursor:pointer;pointer-events:auto}
 .alert-dot{position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:#ef4444;border:1.5px solid #fff}
 #hud-drawer-menu{position:fixed;top:84px;right:8px;width:210px;background:rgba(15,23,42,.96);border:1.5px solid #38bdf8;border-radius:14px;padding:8px;display:flex;flex-direction:column;gap:6px;z-index:45;pointer-events:auto;box-shadow:0 12px 30px rgba(0,0,0,.7)}
 #emote-palette{position:fixed;top:84px;right:8px;width:240px;background:rgba(15,23,42,.96);border:1.5px solid #f472b6;border-radius:14px;padding:8px;display:grid;grid-template-columns:repeat(4,1fr);gap:5px;z-index:45;pointer-events:auto;box-shadow:0 12px 30px rgba(0,0,0,.7)}
-.emote-quick-btn{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:6px 2px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;pointer-events:auto}
+.emote-quick-btn{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:6px 2px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;pointer-events:auto;color:#f8fafc}
 #alert-banner{position:fixed;top:96px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,.94);border:1.5px solid #fde047;border-radius:999px;padding:6px 16px;font-size:12px;font-weight:900;color:#fde047;z-index:40;pointer-events:none;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis;box-shadow:0 4px 16px rgba(0,0,0,.6)}
 #boss-cast-box{position:fixed;top:132px;left:50%;transform:translateX(-50%);width:min(340px,88vw);background:rgba(69,10,10,.92);border:1.5px solid #f43f5e;border-radius:10px;padding:6px 10px;z-index:38;pointer-events:none}
 #warp-prompt-box{position:fixed;bottom:135px;left:50%;transform:translateX(-50%);z-index:32;pointer-events:auto}
@@ -75,7 +77,7 @@ button,.btn-ui{touch-action:manipulation;cursor:pointer;pointer-events:auto}
 .chat-input-row{display:flex;gap:4px}
 #joystick-zone{position:fixed;left:18px;bottom:18px;width:114px;height:114px;border-radius:50%;background:rgba(15,23,42,.55);border:2px solid rgba(56,189,248,.45);display:flex;align-items:center;justify-content:center;z-index:28;pointer-events:auto;touch-action:none}
 #joystick-knob{width:46px;height:46px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#7dd3fc,#0284c7);border:2px solid #fff;box-shadow:0 4px 12px rgba(0,0,0,.5);pointer-events:none}
-#battle-pad{position:fixed;right:12px;bottom:12px;width:215px;height:215px;z-index:28;pointer-events:none!important}
+#battle-pad{position:fixed;right:12px;bottom:12px;width:215px;height:215px;z-index:28;pointer-events:none!important;display:block!important;visibility:visible!important}
 #skill-slots-container{display:block!important;visibility:visible!important;opacity:1!important}
 #btn-basic-attack{position:absolute;right:6px;bottom:6px;width:76px;height:76px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#fb7185,#e11d48);border:3px solid #fde047;color:#fff;font-size:13px;font-weight:900;display:flex!important;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(225,29,72,.65);cursor:pointer;pointer-events:auto!important;touch-action:none;z-index:30}
 #btn-basic-attack:active{transform:scale(.92)}
@@ -90,15 +92,15 @@ button,.btn-ui{touch-action:manipulation;cursor:pointer;pointer-events:auto}
 #modal-tabs{display:flex;gap:5px;padding:8px 10px;background:#0b1120;border-bottom:1px solid #1e293b;overflow-x:auto;-webkit-overflow-scrolling:touch;flex-shrink:0}
 .tab-chip-btn{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:900;color:#cbd5e1;white-space:nowrap;cursor:pointer;pointer-events:auto}
 .tab-chip-btn.active{background:#0284c7;border-color:#7dd3fc;color:#fff}
-#modal-body{padding:12px;overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1}
-.card-box{background:rgba(30,41,59,.72);border:1px solid #334155;border-radius:10px;padding:9px 10px}
+#modal-body{padding:12px;overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1;color:#f8fafc}
+.card-box{background:rgba(30,41,59,.82);border:1px solid #334155;border-radius:10px;padding:9px 10px;color:#f8fafc}
 .flex-between{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .flex-wrap-gap{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
 .grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px}
 .grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px}
 .badge-pill{display:inline-block;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}
 #dialog-modal{position:fixed;inset:0;z-index:100;background:rgba(2,6,23,.82);display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:auto}
-.dialog-box{width:100%;max-width:360px;background:#0f172a;border:2px solid #f59e0b;border-radius:14px;padding:16px;text-align:center;display:flex;flex-direction:column;gap:12px}
+.dialog-box{width:100%;max-width:360px;background:#0f172a;border:2px solid #f59e0b;border-radius:14px;padding:16px;text-align:center;display:flex;flex-direction:column;gap:12px;color:#f8fafc}
 #death-overlay{position:fixed;inset:0;z-index:85;background:rgba(127,29,29,.72);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;pointer-events:none}
 </style>
 </head>
@@ -109,7 +111,7 @@ button,.btn-ui{touch-action:manipulation;cursor:pointer;pointer-events:auto}
 <div id="title-screen">
     <div class="title-card">
         <div class="title-logo-kaomoji font-kaomoji">(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧ ⚔️ (=^・ω・^=)</div>
-        <h1 class="title-main-heading">顔文字ファンタジー3D<br><span style="font-size:13px;-webkit-text-fill-color:#94a3b8;">KAOMOJI FANTASY 3D ONLINE v3.0 MQTT</span></h1>
+        <h1 class="title-main-heading">顔文字ファンタジー3D<br><span style="font-size:13px;-webkit-text-fill-color:#94a3b8;">KAOMOJI FANTASY 3D ONLINE [v3.1 修正済]</span></h1>
         <div class="title-save-preview" id="title-save-info">データ準備中...</div>
         <div class="title-room-box">
             <div class="flex-between">
@@ -178,6 +180,7 @@ button,.btn-ui{touch-action:manipulation;cursor:pointer;pointer-events:auto}
         <button type="button" id="btn-open-cloud" class="btn-ui btn-sky" style="width:100%;">🌐 通信･部屋･引継ぎ</button>
         <button type="button" id="btn-manual-save" class="btn-ui btn-emerald" style="width:100%;">💾 手動セーブ</button>
         <button type="button" id="btn-toggle-bgm" class="btn-ui btn-slate" style="width:100%;">🔊 BGM:ON</button>
+        <button type="button" id="btn-ui-layout-settings" class="btn-ui btn-sky" style="width:100%;">🎛️ ボタン配置・サイズ</button>
         <button type="button" id="btn-back-title" class="btn-ui btn-amber" style="width:100%;">🏠 タイトル画面へ戻る</button>
         <button type="button" id="btn-reset-save" class="btn-ui btn-rose" style="width:100%;">💥 完全データ初期化</button>
     </div>
@@ -256,11 +259,11 @@ button,.btn-ui{touch-action:manipulation;cursor:pointer;pointer-events:auto}
 <script src="game8.js?v=20261119fix"></script>
 <script>
 // =========================================================================
-// 軽量・安全統合パッチ（Safari落ち対策・スキル欄保護・正面通常攻撃・メニュー修復）
+// 統合修正パッチ v3.1（魔法弾の直進・スキルボタン復元・配置編集・白背景文字対策）
 // =========================================================================
 (function () {
-    if (window.__KMJ_CLEAN_PATCH_V40__) return;
-    window.__KMJ_CLEAN_PATCH_V40__ = true;
+    if (window.__KMJ_MASTER_PATCH_V41__) return;
+    window.__KMJ_MASTER_PATCH_V41__ = true;
 
     function throttle(fn, ms) {
         if (typeof fn !== 'function') return fn;
@@ -273,42 +276,43 @@ button,.btn-ui{touch-action:manipulation;cursor:pointer;pointer-events:auto}
         };
     }
 
-    function installCleanPatch() {
+    // ---------------------------------------------------------------------
+    // 白い背景に白い文字が使われている要素を自動で濃い紺色へ補正
+    // ---------------------------------------------------------------------
+    function fixLightBgTextContrast(root = document) {
+        try {
+            root.querySelectorAll('#modal-body *, #dialog-modal *, #hud-drawer-menu *, button, span, div, label, select, option').forEach(el => {
+                if (el.children.length > 0 && el.tagName !== 'SELECT' && el.tagName !== 'BUTTON') return;
+                const cs = window.getComputedStyle(el);
+                const bg = cs.backgroundColor;
+                const m = bg && bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+                if (!m) return;
+                const alpha = m[4] !== undefined ? parseFloat(m[4]) : 1;
+                if (alpha < 0.35) return;
+                const r = Number(m[1]), g = Number(m[2]), b = Number(m[3]);
+                const lum = (r * 299 + g * 587 + b * 114) / 1000;
+                if (lum > 175) {
+                    el.style.setProperty('color', '#0f172a', 'important');
+                    el.style.setProperty('text-shadow', 'none', 'important');
+                }
+            });
+        } catch (e) {}
+    }
+
+    function installMasterPatch() {
         if (typeof KaomojiMMORPG === 'undefined') return;
         const P = KaomojiMMORPG.prototype;
-        if (P.__v40Installed) return;
-        P.__v40Installed = true;
+        if (P.__v41Installed) return;
+        P.__v41Installed = true;
 
-        // -----------------------------------------------------------------
-        // 1. iPad Safari クラッシュ対策：毎フレーム走っていた重いDOM処理を間引き
-        // -----------------------------------------------------------------
-        P.fixChatCompactLayoutV31 = throttle(P.fixChatCompactLayoutV31, 800);
-        P.ensureStandardMoveStickV33 = throttle(P.ensureStandardMoveStickV33, 800);
-        P.injectSettingsDropdownItemV33 = throttle(P.injectSettingsDropdownItemV33, 1200);
-        P.fixTopRightMenuOverlapV36 = throttle(P.fixTopRightMenuOverlapV36, 1000);
+        // 1. iPad Safari 落ち防止：毎フレーム走っていた重いDOM走査を間引く
+        P.fixChatCompactLayoutV31 = throttle(P.fixChatCompactLayoutV31, 900);
+        P.ensureStandardMoveStickV33 = throttle(P.ensureStandardMoveStickV33, 900);
+        P.injectSettingsDropdownItemV33 = function () {}; // HTML側に直接ボタンを配置済み
+        P.fixTopRightMenuOverlapV36 = throttle(P.fixTopRightMenuOverlapV36, 1200);
         P.enforceStrictWeaponVisualV27 = throttle(P.enforceStrictWeaponVisualV27, 600);
 
-        // スキル欄が消える原因だったDOM移動(portal)を無効化し、常に元の枠内で表示維持
-        P.portalBtnToBody = function () {};
-        P.portalControlToBodyV36 = function () {};
-        P.applySavedUILayoutV31 = function () {
-            const container = document.getElementById('skill-slots-container');
-            if (container) {
-                container.style.setProperty('display', 'block', 'important');
-                container.style.setProperty('visibility', 'visible', 'important');
-                container.style.setProperty('opacity', '1', 'important');
-            }
-            document.querySelectorAll('.skill-slot-btn, #btn-basic-attack, #btn-cycle-target').forEach(el => {
-                el.style.removeProperty('left');
-                el.style.removeProperty('top');
-                el.style.setProperty('visibility', 'visible', 'important');
-                el.style.setProperty('opacity', '1', 'important');
-            });
-        };
-
-        // -----------------------------------------------------------------
-        // 2. 確認ダイアログ & 完全データ初期化の修復
-        // -----------------------------------------------------------------
+        // 2. 確認ダイアログ & 完全データ初期化
         P.openDialog = function (title, message, buttons) {
             if (title && typeof title === 'object') {
                 const o = title;
@@ -358,9 +362,7 @@ button,.btn-ui{touch-action:manipulation;cursor:pointer;pointer-events:auto}
             }, 250);
         };
 
-        // -----------------------------------------------------------------
-        // 3. メニュー＆ステージ選択が空欄になる問題の修復
-        // -----------------------------------------------------------------
+        // 3. メニュー＆ステージ選択の表示修復 ＋ 白背景白文字の自動補正
         const MENU_TABS = [
             { id: 'stats', label: '📊 ステータス' },
             { id: 'skills', label: '📘 スキル' },
@@ -428,49 +430,249 @@ button,.btn-ui{touch-action:manipulation;cursor:pointer;pointer-events:auto}
             if (_baseRenderModal && _baseRenderModal !== P.renderGrowthTabContent) {
                 try { _baseRenderModal.call(this); } catch (e) {}
             }
+            fixLightBgTextContrast(modalBody);
         };
         P.renderModalContent = function () { this.renderGrowthTabContent(); };
 
-        // -----------------------------------------------------------------
-        // 4. 通常攻撃：敵がいない時も正面へ真っ直ぐ飛ぶ＆空中静止を完全防止
-        // -----------------------------------------------------------------
-        P.spawnSimpleForwardMagicBolt = function (rotY, colorHex = 0xc084fc) {
-            if (!this.useWebGL || !this.scene || !this.player?.pos || typeof THREE === 'undefined') return;
-            if (!this._simpleMagicBolts) this._simpleMagicBolts = [];
+        // 4. スキルボタン（枠1〜枠5）が絶対に消えない保護・自動生成ロジック
+        P.ensureSkillButtonsRestored = function () {
+            const container = document.getElementById('skill-slots-container');
+            if (!container) return;
+
+            // body直下に移動されていたスキルボタンがあれば元のコンテナへ戻す
+            document.querySelectorAll('body > .skill-slot-btn').forEach(btn => {
+                container.appendChild(btn);
+            });
+
+            // スキルボタンが0個なら5枠を確実に生成する
+            if (container.querySelectorAll('.skill-slot-btn').length === 0) {
+                const eq = this.saveData?.equippedSkills || [];
+                const cds = this.skillCooldowns || [0, 0, 0, 0, 0];
+                let html = '';
+                for (let i = 0; i < 5; i++) {
+                    const sid = eq[i];
+                    const sk = (sid && typeof SKILLS !== 'undefined' && SKILLS) ? SKILLS[sid] : null;
+                    const icon = sk?.icon || '✨';
+                    const name = sk ? String(sk._baseNameV21 || sk.name || '').slice(0, 4) : `枠${i + 1}`;
+                    const cd = cds[i] || 0;
+                    html += `
+                        <button type="button" id="skill-slot-${i}" class="skill-slot-btn skill-arc-${i}" data-slot="${i}">
+                            <span style="font-size:16px;line-height:1;pointer-events:none;">${icon}</span>
+                            <span style="font-size:8px;font-weight:900;line-height:1.05;pointer-events:none;">${name}</span>
+                            ${cd > 0 ? `<div class="skill-cd-overlay">${cd.toFixed(1)}</div>` : ''}
+                        </button>
+                    `;
+                }
+                container.innerHTML = html;
+                container.querySelectorAll('.skill-slot-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        if (this._uiEditModeV31) return;
+                        e.stopPropagation();
+                        sfx?.init?.();
+                        const idx = Number(btn.getAttribute('data-slot'));
+                        this.useSkillSlot?.(idx);
+                    });
+                });
+            }
+            this.applySavedUILayoutV31?.();
+        };
+
+        const _origRefreshHUD = P.refreshAllHUD;
+        P.refreshAllHUD = function () {
+            _origRefreshHUD?.call(this);
+            this.ensureSkillButtonsRestored();
+        };
+
+        // 5. ボタン配置・サイズ調整機能（完了しても絶対に消えない安全版）
+        const LAYOUT_KEY = 'kmj_btn_layout_v41';
+        P.loadBtnLayoutV41 = function () {
+            try { return JSON.parse(localStorage.getItem(LAYOUT_KEY) || '{}'); } catch (e) { return {}; }
+        };
+        P.saveBtnLayoutV41 = function (data) {
+            try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(data || {})); } catch (e) {}
+        };
+
+        P.getEditableButtonsV41 = function () {
+            const list = [];
+            const add = (key, label, el) => { if (el) list.push({ key, label, el }); };
+            add('stick', '🕹️ 移動', document.getElementById('kmj-v33-movepad') || document.getElementById('joystick-zone'));
+            add('atk', '⚔️ 攻撃', document.getElementById('btn-basic-attack'));
+            add('tgt', '🎯 標的', document.getElementById('btn-cycle-target'));
+            for (let i = 0; i < 5; i++) {
+                add(`sk${i}`, `枠${i + 1}`, document.getElementById(`skill-slot-${i}`));
+            }
+            return list;
+        };
+
+        P.applySavedUILayoutV31 = function () {
+            const layout = this.loadBtnLayoutV41();
+            const items = this.getEditableButtonsV41();
+            items.forEach(({ key, label, el }) => {
+                const cfg = layout[key];
+                if (cfg && typeof cfg.dx === 'number' && typeof cfg.dy === 'number') {
+                    // 画面外へ飛び出さない安全範囲に制限
+                    const dx = Math.max(-280, Math.min(280, cfg.dx));
+                    const dy = Math.max(-320, Math.min(180, cfg.dy));
+                    const sc = Math.max(0.6, Math.min(1.6, Number(cfg.scale) || 1));
+                    el.style.setProperty('transform', `translate(${dx}px, ${dy}px) scale(${sc})`, 'important');
+                } else if (cfg && typeof cfg.scale === 'number') {
+                    const sc = Math.max(0.6, Math.min(1.6, Number(cfg.scale) || 1));
+                    el.style.setProperty('transform', `scale(${sc})`, 'important');
+                } else {
+                    el.style.removeProperty('transform');
+                }
+                el.style.setProperty('visibility', 'visible', 'important');
+                el.style.setProperty('opacity', '1', 'important');
+
+                if (this._uiEditModeV31) {
+                    const sel = this._uiSelectedKeyV31 === key;
+                    el.style.setProperty('outline', sel ? '3px solid #fde047' : '2px dashed #38bdf8', 'important');
+                } else {
+                    el.style.removeProperty('outline');
+                }
+            });
+        };
+
+        P.toggleUIEditModeV31 = function (force = null) {
+            this._uiEditModeV31 = (force !== null) ? Boolean(force) : !this._uiEditModeV31;
+            this.ensureSkillButtonsRestored();
+            const items = this.getEditableButtonsV41();
+
+            if (!this._uiEditModeV31) {
+                document.getElementById('kmj-ui-custom-bar')?.remove();
+                this.applySavedUILayoutV31();
+                this.showAlertBanner?.('✅ ボタン配置とサイズを保存しました！', 1600);
+                return;
+            }
+
+            if (!this._uiSelectedKeyV31 && items[0]) this._uiSelectedKeyV31 = items[0].key;
+
+            items.forEach(({ key, el }) => {
+                if (el.dataset.v41Bound) return;
+                el.dataset.v41Bound = '1';
+                let dragging = false, sx = 0, sy = 0, baseDx = 0, baseDy = 0;
+
+                const startDrag = (cx, cy, e) => {
+                    if (!this._uiEditModeV31) return;
+                    e.preventDefault(); e.stopImmediatePropagation();
+                    this._uiSelectedKeyV31 = key;
+                    dragging = true; sx = cx; sy = cy;
+                    const cur = this.loadBtnLayoutV41()[key] || {};
+                    baseDx = Number(cur.dx) || 0;
+                    baseDy = Number(cur.dy) || 0;
+                    this.renderUICustomToolbarV31();
+                    this.applySavedUILayoutV31();
+                };
+                const moveDrag = (cx, cy) => {
+                    if (!dragging || !this._uiEditModeV31) return;
+                    const layout = this.loadBtnLayoutV41();
+                    const cur = layout[key] || {};
+                    layout[key] = {
+                        dx: Math.max(-280, Math.min(280, Math.round(baseDx + (cx - sx)))),
+                        dy: Math.max(-320, Math.min(180, Math.round(baseDy + (cy - sy)))),
+                        scale: Number(cur.scale) || 1
+                    };
+                    this.saveBtnLayoutV41(layout);
+                    this.applySavedUILayoutV31();
+                };
+                const endDrag = () => { dragging = false; };
+
+                el.addEventListener('touchstart', (e) => startDrag(e.touches[0].clientX, e.touches[0].clientY, e), { capture: true, passive: false });
+                window.addEventListener('touchmove', (e) => { if (dragging) moveDrag(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+                window.addEventListener('touchend', endDrag);
+                el.addEventListener('mousedown', (e) => startDrag(e.clientX, e.clientY, e), true);
+                window.addEventListener('mousemove', (e) => { if (dragging) moveDrag(e.clientX, e.clientY); });
+                window.addEventListener('mouseup', endDrag);
+            });
+
+            this.renderUICustomToolbarV31();
+            this.applySavedUILayoutV31();
+        };
+
+        P.renderUICustomToolbarV31 = function () {
+            if (!this._uiEditModeV31) return;
+            let bar = document.getElementById('kmj-ui-custom-bar');
+            if (!bar) {
+                bar = document.createElement('div');
+                bar.id = 'kmj-ui-custom-bar';
+                bar.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:98;background:rgba(15,23,42,0.96);border:2px solid #38bdf8;border-radius:12px;padding:8px 12px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 4px 20px rgba(0,0,0,0.85);color:#fff;font-size:11px;max-width:95vw;';
+                document.body.appendChild(bar);
+            }
+            const items = this.getEditableButtonsV41();
+            const sel = items.find(i => i.key === this._uiSelectedKeyV31) || items[0];
+            if (sel) this._uiSelectedKeyV31 = sel.key;
+            const layout = this.loadBtnLayoutV41();
+            const sc = sel ? (Number(layout[sel.key]?.scale) || 1) : 1;
+
+            bar.innerHTML = `
+                <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px;">
+                    <span style="font-weight:900;color:#fde047;">🎛️ ${sel ? sel.label : ''} (${Math.round(sc * 100)}%)</span>
+                    <button type="button" id="v41-btn-smaller" class="btn-ui btn-slate">－ 小さく</button>
+                    <button type="button" id="v41-btn-larger" class="btn-ui btn-slate">＋ 大きく</button>
+                    <button type="button" id="v41-btn-reset" class="btn-ui btn-rose">↺ リセット</button>
+                    <button type="button" id="v41-btn-done" class="btn-ui btn-emerald">✅ 完了</button>
+                </div>
+                <div style="font-size:10px;color:#cbd5e1;">※ 動かしたいボタンを指でドラッグして位置を調整できます</div>
+            `;
+            const changeScale = (delta) => {
+                if (!sel) return;
+                const l = this.loadBtnLayoutV41();
+                const cur = l[sel.key] || { dx: 0, dy: 0, scale: 1 };
+                cur.scale = Math.max(0.6, Math.min(1.6, Number(((Number(cur.scale) || 1) + delta).toFixed(2))));
+                l[sel.key] = cur;
+                this.saveBtnLayoutV41(l);
+                this.applySavedUILayoutV31();
+                this.renderUICustomToolbarV31();
+            };
+            document.getElementById('v41-btn-smaller')?.addEventListener('click', () => changeScale(-0.1));
+            document.getElementById('v41-btn-larger')?.addEventListener('click', () => changeScale(0.1));
+            document.getElementById('v41-btn-reset')?.addEventListener('click', () => {
+                localStorage.removeItem(LAYOUT_KEY);
+                this.applySavedUILayoutV31();
+                this.renderUICustomToolbarV31();
+            });
+            document.getElementById('v41-btn-done')?.addEventListener('click', () => this.toggleUIEditModeV31(false));
+        };
+
+        // 6. 通常攻撃：敵がいなくても正面へ真っ直ぐ魔法弾／斬撃が飛ぶ（updateCombatAndEntitiesで確実に毎フレーム移動）
+        P.spawnForwardBasicShotV41 = function (rotY, colorHex = 0x38bdf8) {
+            if (!this.scene || !this.player?.pos || typeof THREE === 'undefined') return;
+            if (!this._v41Projectiles) this._v41Projectiles = [];
 
             const dirX = Math.sin(rotY);
             const dirZ = Math.cos(rotY);
             const grp = new THREE.Group();
 
-            const coreGeo = new THREE.SphereGeometry(0.28, 10, 10);
+            const coreGeo = new THREE.SphereGeometry(0.32, 10, 10);
             const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-            const auraGeo = new THREE.SphereGeometry(0.46, 10, 10);
-            const auraMat = new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.72 });
+            const auraGeo = new THREE.SphereGeometry(0.52, 10, 10);
+            const auraMat = new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.78 });
 
             grp.add(new THREE.Mesh(coreGeo, coreMat), new THREE.Mesh(auraGeo, auraMat));
             grp.position.set(this.player.pos.x + dirX * 1.1, 1.25, this.player.pos.z + dirZ * 1.1);
             this.scene.add(grp);
 
-            this._simpleMagicBolts.push({
+            this._v41Projectiles.push({
                 grp, coreGeo, coreMat, auraGeo, auraMat,
-                vx: dirX * 19,
-                vz: dirZ * 19,
-                life: 0.65
+                vx: dirX * 21,
+                vz: dirZ * 21,
+                life: 0.75
             });
         };
 
-        P.updateSimpleForwardMagicBolts = function (dt) {
-            if (!this._simpleMagicBolts || !this._simpleMagicBolts.length) return;
-            this._simpleMagicBolts = this._simpleMagicBolts.filter(b => {
-                b.life -= dt;
+        P.updateForwardBasicShotsV41 = function (dt) {
+            if (!this._v41Projectiles || !this._v41Projectiles.length) return;
+            const step = Math.min(0.1, Math.max(0.008, Number(dt) || 0.016));
+            this._v41Projectiles = this._v41Projectiles.filter(b => {
+                b.life -= step;
                 if (b.life <= 0) {
                     this.scene?.remove(b.grp);
                     b.coreGeo.dispose(); b.coreMat.dispose();
                     b.auraGeo.dispose(); b.auraMat.dispose();
                     return false;
                 }
-                b.grp.position.x += b.vx * dt;
-                b.grp.position.z += b.vz * dt;
+                b.grp.position.x += b.vx * step;
+                b.grp.position.z += b.vz * step;
                 return true;
             });
         };
@@ -479,7 +681,7 @@ button,.btn-ui{touch-action:manipulation;cursor:pointer;pointer-events:auto}
             if (!this.player || this.isDead) return false;
             if ((this.player.stunTimer || 0) > 0) return false;
 
-            // 空中で静止しないよう地上座標を保証
+            // 空中で静止しないよう地上座標に固定
             if (this.player.pos) this.player.pos.y = 0;
             if (this.player.group) this.player.group.position.y = 0;
 
@@ -500,12 +702,12 @@ button,.btn-ui{touch-action:manipulation;cursor:pointer;pointer-events:auto}
             const rotY = this.player.rotY || 0;
 
             if (isStaff) {
-                // 杖・魔道士：敵がいなくても正面へ真っ直ぐ魔法弾が飛ぶ
+                // 杖・魔道士：敵がいてもいなくても正面へ真っ直ぐ魔法弾を発射
                 this.triggerPlayerAttackAnim?.('staff_cast', 0.24);
-                sfx?.playTone?.(660, 'sine', 0.11, 0.06, 980);
-                this.spawnSimpleForwardMagicBolt(rotY, st.wpnGlowColor || 0x38bdf8);
+                sfx?.playTone?.(680, 'sine', 0.11, 0.06, 980);
+                this.spawnForwardBasicShotV41(rotY, st.wpnGlowColor || 0x38bdf8);
             } else {
-                // 剣・物理：敵がいなくても正面へ斬撃エフェクトが出る
+                // 剣・物理：敵がいてもいなくても正面へ斬撃エフェクトを発射
                 this.triggerPlayerAttackAnim?.('slash', 0.22);
                 sfx?.playHit?.(false);
                 if (this.spawnSlashArc) {
@@ -513,7 +715,6 @@ button,.btn-ui{touch-action:manipulation;cursor:pointer;pointer-events:auto}
                 }
             }
 
-            // フィールドで敵が射程内にいる場合はダメージを与える
             if (target && this.currentZoneId !== 'town') {
                 const isCrit = Math.random() < (st.critChance || 0.05);
                 const basePower = isStaff ? (st.magAtk || 10) : (st.physAtk || 10);
@@ -531,11 +732,11 @@ button,.btn-ui{touch-action:manipulation;cursor:pointer;pointer-events:auto}
             return true;
         };
 
-        // 毎フレーム処理：魔法弾の移動＋空中静止の完全防止
-        const _prevAnim = P.updateCharacterAnimations;
-        P.updateCharacterAnimations = function (dt) {
-            _prevAnim?.call(this, dt);
-            this.updateSimpleForwardMagicBolts(dt);
+        // 確実に毎フレーム呼ばれる updateCombatAndEntities に魔法弾移動と接地判定を組み込む
+        const _origCombatUpdate = P.updateCombatAndEntities;
+        P.updateCombatAndEntities = function (dt, elapsed) {
+            _origCombatUpdate?.call(this, dt, elapsed);
+            this.updateForwardBasicShotsV41(dt);
 
             if (this.player && this.player.pos && this.player.group) {
                 const inSkillAir = this.player.skillMotionV25 && this.player.skillMotionV25.timer > 0;
@@ -549,9 +750,28 @@ button,.btn-ui{touch-action:manipulation;cursor:pointer;pointer-events:auto}
         };
     }
 
-    installCleanPatch();
-    window.addEventListener('DOMContentLoaded', installCleanPatch);
-    setTimeout(installCleanPatch, 350);
+    // 設定メニュー内の「🎛️ ボタン配置・サイズ」ボタンにイベントを接続
+    document.addEventListener('DOMContentLoaded', () => {
+        installMasterPatch();
+        const layoutBtn = document.getElementById('btn-ui-layout-settings');
+        if (layoutBtn) {
+            layoutBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                document.getElementById('hud-drawer-menu')?.classList.add('hidden');
+                window.game?.toggleUIEditModeV31?.(true);
+            });
+        }
+        setTimeout(() => {
+            installMasterPatch();
+            window.game?.ensureSkillButtonsRestored?.();
+            fixLightBgTextContrast();
+        }, 400);
+        setTimeout(() => {
+            window.game?.ensureSkillButtonsRestored?.();
+        }, 1200);
+    });
+
+    installMasterPatch();
 })();
 </script>
 </body>
