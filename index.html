@@ -251,7 +251,397 @@ button,.btn-ui{touch-action:manipulation;cursor:pointer;pointer-events:auto}
 <script src="game4.js?v=20261118mqtt"></script>
 <script src="game5.js?v=20261118mqtt"></script>
 <script src="game6.js?v=20261118mqtt"></script>
-<script src="game7.js?v1"></script>
-<script src="game8.js?v1"></script>
+<script src="game7.js?v=20261119fix"></script>
+<script src="game8.js?v=20261119fix"></script>
+<script>
+// =========================================================================
+// 統合修正パッチ（完全初期化・メニュー空欄・右上重なり・ボタン配置消失）
+// =========================================================================
+(function () {
+    if (typeof KaomojiMMORPG === 'undefined') return;
+    const P = KaomojiMMORPG.prototype;
+
+    // ---------------------------------------------------------------------
+    // 1. 確認ダイアログ (openDialog) & 完全データ初期化の修復
+    // ---------------------------------------------------------------------
+    P.openDialog = function (title, message, buttons) {
+        if (title && typeof title === 'object') {
+            const opts = title;
+            title = opts.title || '確認';
+            message = opts.message || '';
+            buttons = [
+                { text: opts.cancelText || 'キャンセル', primary: false },
+                { text: opts.confirmText || 'OK', primary: true, onClick: opts.onConfirm }
+            ];
+        }
+        const modal = document.getElementById('dialog-modal');
+        const titleEl = document.getElementById('dialog-title');
+        const msgEl = document.getElementById('dialog-message');
+        const btnWrap = document.getElementById('dialog-buttons');
+        if (!modal || !btnWrap) {
+            const okBtn = (buttons || []).find(b => b.primary);
+            if (confirm(`${title}\n${message}`)) okBtn?.onClick?.();
+            return;
+        }
+        if (titleEl) titleEl.textContent = title || '確認';
+        if (msgEl) msgEl.textContent = message || '';
+        btnWrap.innerHTML = '';
+        (buttons || [{ text: 'OK', primary: true }]).forEach(b => {
+            const el = document.createElement('button');
+            el.type = 'button';
+            el.className = 'btn-ui ' + (b.primary ? 'btn-rose' : 'btn-slate');
+            el.textContent = b.text || 'OK';
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                modal.classList.add('hidden');
+                if (typeof b.onClick === 'function') b.onClick();
+            });
+            btnWrap.appendChild(el);
+        });
+        modal.classList.remove('hidden');
+    };
+
+    P.hardResetGame = function () {
+        this._hardResetting = true;
+        this.saveGame = function () {};
+        try { this.stopMqtt?.(false); } catch (e) {}
+        try { localStorage.clear(); } catch (e) {}
+        try { sessionStorage.clear(); } catch (e) {}
+        this.showAlertBanner?.('💥 データを完全初期化しました！再読み込みします…', 1500);
+        setTimeout(() => {
+            window.location.href = window.location.pathname + '?reset=' + Date.now();
+        }, 250);
+    };
+
+    // ---------------------------------------------------------------------
+    // 2. ステージ選択＆メニューが空欄になる問題の完全修正
+    // ---------------------------------------------------------------------
+    const MENU_TABS = [
+        { id: 'stats', label: '📊 ステータス' },
+        { id: 'skills', label: '📘 スキル' },
+        { id: 'tree', label: '🌳 ツリー' },
+        { id: 'equip', label: '⚔️ 装備･精錬' },
+        { id: 'evo', label: '👑 転職' },
+        { id: 'look', label: '🎨 見た目' },
+        { id: 'pets', label: '🐾 ペット' },
+        { id: 'titles', label: '🎖️ 称号･実績' },
+        { id: 'zones', label: '🗺️ ステージ' },
+        { id: 'online', label: '🌐 通信･設定' }
+    ];
+
+    const normalizeTab = (t) => {
+        const s = String(t || 'stats').toLowerCase();
+        if (s === 'travel' || s === 'stage' || s === 'map') return 'zones';
+        if (s === 'system' || s === 'setting' || s === 'settings') return 'online';
+        return s;
+    };
+
+    const _origRenderGrowth = P.renderGrowthTabContent;
+    const _origRenderModal = P.renderModalContent;
+
+    P.openGrowthModal = function (tab = 'stats') {
+        this.activeTab = normalizeTab(tab);
+        this.isModalOpen = true;
+        const modal = document.getElementById('growth-modal');
+        if (modal) modal.classList.remove('hidden');
+
+        const tabsEl = document.getElementById('modal-tabs');
+        if (tabsEl) {
+            tabsEl.innerHTML = MENU_TABS.map(t => `
+                <button type="button" class="tab-chip-btn ${t.id === this.activeTab ? 'active' : ''}" data-menu-tab="${t.id}">
+                    ${t.label}
+                </button>
+            `).join('');
+            tabsEl.querySelectorAll('[data-menu-tab]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.openGrowthModal(btn.getAttribute('data-menu-tab'));
+                });
+            });
+        }
+        this.renderGrowthTabContent();
+    };
+
+    P.openModal = function (tab = 'stats') {
+        this.openGrowthModal(tab);
+    };
+
+    P.closeGrowthModal = function () {
+        this.isModalOpen = false;
+        document.getElementById('growth-modal')?.classList.add('hidden');
+        this.refreshAllHUD?.();
+    };
+
+    P.closeModal = function () {
+        this.closeGrowthModal();
+    };
+
+    P.renderGrowthTabContent = function () {
+        this.activeTab = normalizeTab(this.activeTab);
+        const modalBody = document.getElementById('modal-body');
+        if (!modalBody) return;
+
+        // game5.js が探す #modal-body-content を #modal-body 内に必ず用意
+        let inner = document.getElementById('modal-body-content');
+        if (!inner) {
+            modalBody.innerHTML = '<div id="modal-body-content"></div>';
+            inner = document.getElementById('modal-body-content');
+        }
+
+        if (_origRenderGrowth) {
+            _origRenderGrowth.call(this);
+        }
+
+        // game6.js のペット装備・名前変更・通信診断も続けて反映
+        if (_origRenderModal && _origRenderModal !== P.renderGrowthTabContent) {
+            try { _origRenderModal.call(this); } catch (e) {}
+        }
+    };
+
+    P.renderModalContent = function () {
+        this.renderGrowthTabContent();
+    };
+
+    // ---------------------------------------------------------------------
+    // 3. 右上メニューの重なり解消
+    // ---------------------------------------------------------------------
+    P.fixTopRightOverlap = function () {
+        const topRight = document.querySelector('.hud-top-right');
+        const actionRow = document.querySelector('.hud-action-row');
+        const zonePill = document.querySelector('.hud-zone-pill');
+        if (!topRight || !actionRow) return;
+
+        topRight.style.setProperty('flex', '1', 'important');
+        topRight.style.setProperty('min-width', '0', 'important');
+        topRight.style.setProperty('max-width', 'calc(100vw - 212px)', 'important');
+        topRight.style.setProperty('display', 'flex', 'important');
+        topRight.style.setProperty('flex-direction', 'column', 'important');
+        topRight.style.setProperty('align-items', 'flex-end', 'important');
+        topRight.style.setProperty('gap', '4px', 'important');
+        topRight.style.setProperty('z-index', '35', 'important');
+
+        if (zonePill) {
+            zonePill.style.setProperty('max-width', '100%', 'important');
+            zonePill.style.setProperty('flex-wrap', 'wrap', 'important');
+            zonePill.style.setProperty('justify-content', 'flex-end', 'important');
+            zonePill.style.setProperty('font-size', '10px', 'important');
+            zonePill.style.setProperty('padding', '3px 7px', 'important');
+        }
+
+        actionRow.style.setProperty('display', 'flex', 'important');
+        actionRow.style.setProperty('flex-wrap', 'wrap', 'important');
+        actionRow.style.setProperty('justify-content', 'flex-end', 'important');
+        actionRow.style.setProperty('gap', '4px', 'important');
+        actionRow.style.setProperty('max-width', '100%', 'important');
+
+        // 外に浮いているUI配置ボタン等があればアクション行の中に整列させる
+        ['kmj-btn-ui-edit-hud', 'kmj-v31-edit-btn', 'btn-ui-layout-edit'].forEach(id => {
+            const extraBtn = document.getElementById(id);
+            if (extraBtn && extraBtn.parentElement !== actionRow) {
+                actionRow.appendChild(extraBtn);
+            }
+        });
+
+        actionRow.querySelectorAll('button').forEach(btn => {
+            btn.style.setProperty('position', 'static', 'important');
+            btn.style.setProperty('margin', '0', 'important');
+            btn.style.setProperty('padding', '4px 7px', 'important');
+            btn.style.setProperty('font-size', '10px', 'important');
+            btn.style.setProperty('white-space', 'nowrap', 'important');
+        });
+    };
+
+    // ---------------------------------------------------------------------
+    // 4. ボタン位置・大きさで「完了」を押すと消えるバグの完全修正
+    // ---------------------------------------------------------------------
+    P._uiPlaceholders = new Map();
+
+    P.portalBtnToBody = function (key, el) {
+        if (!el || el.parentElement === document.body) return;
+        if (!this._uiPlaceholders.has(key)) {
+            const ph = document.createElement('span');
+            ph.style.display = 'none';
+            el.parentElement.insertBefore(ph, el);
+            this._uiPlaceholders.set(key, ph);
+        }
+        document.body.appendChild(el);
+    };
+
+    P.restoreBtnFromBody = function (key, el) {
+        if (!el) return;
+        const ph = this._uiPlaceholders.get(key);
+        if (ph && ph.parentElement) {
+            ph.parentElement.insertBefore(el, ph);
+            ph.remove();
+        }
+        this._uiPlaceholders.delete(key);
+        ['position', 'left', 'top', 'right', 'bottom', 'margin', 'transform', 'transform-origin', 'z-index'].forEach(p => {
+            el.style.removeProperty(p);
+        });
+    };
+
+    P.discoverCustomizableControlsV31 = function () {
+        const items = [];
+        const add = (key, label, el) => {
+            if (!el) return;
+            const cs = window.getComputedStyle(el);
+            if (cs.display === 'none') return;
+            el.dataset.v31ControlKey = key;
+            el.dataset.v31ControlLabel = label;
+            items.push({ key, label, el });
+        };
+        const stick = document.getElementById('kmj-v33-movepad') || document.getElementById('joystick-zone');
+        add('move_stick', '🕹️ 移動', stick);
+        add('btn_attack', '⚔️ 攻撃', document.getElementById('btn-basic-attack'));
+        add('btn_target', '🎯 標的', document.getElementById('btn-cycle-target'));
+        add('btn_taunt', '💢 挑発', document.getElementById('kmj-btn-taunt-v26'));
+        for (let i = 0; i < 5; i++) {
+            add(`skill_${i}`, `枠${i + 1}`, document.getElementById(`skill-slot-${i}`));
+        }
+        return items;
+    };
+
+    P.bindControlEditListenersV35 = function (key, el) {
+        if (!el || el.dataset.v37DragBound) return;
+        el.dataset.v37DragBound = '1';
+        let dragging = false, sx = 0, sy = 0, sl = 0, st = 0;
+
+        const onStart = (cx, cy, e) => {
+            if (!this._uiEditModeV31) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            this._uiSelectedKeyV31 = key;
+            const r = el.getBoundingClientRect();
+            this.portalBtnToBody(key, el);
+            dragging = true;
+            sx = cx; sy = cy;
+            sl = r.left; st = r.top;
+            el.style.setProperty('position', 'fixed', 'important');
+            el.style.setProperty('left', `${Math.round(sl)}px`, 'important');
+            el.style.setProperty('top', `${Math.round(st)}px`, 'important');
+            el.style.setProperty('right', 'auto', 'important');
+            el.style.setProperty('bottom', 'auto', 'important');
+            this.renderUICustomToolbarV31?.();
+            this.applySavedUILayoutV31();
+        };
+
+        const onMove = (cx, cy) => {
+            if (!dragging || !this._uiEditModeV31) return;
+            const maxX = Math.max(10, window.innerWidth - 48);
+            const maxY = Math.max(10, window.innerHeight - 48);
+            const nx = Math.max(4, Math.min(maxX, sl + (cx - sx)));
+            const ny = Math.max(36, Math.min(maxY, st + (cy - sy)));
+            el.style.setProperty('left', `${Math.round(nx)}px`, 'important');
+            el.style.setProperty('top', `${Math.round(ny)}px`, 'important');
+            const layout = this.loadCustomUILayoutV31?.() || {};
+            layout[key] = layout[key] || {};
+            layout[key].leftPct = Number(((nx / window.innerWidth) * 100).toFixed(2));
+            layout[key].topPct = Number(((ny / window.innerHeight) * 100).toFixed(2));
+            this.saveCustomUILayoutV31?.(layout);
+        };
+
+        const onEnd = () => { dragging = false; };
+
+        el.addEventListener('touchstart', (e) => onStart(e.touches[0].clientX, e.touches[0].clientY, e), { capture: true, passive: false });
+        window.addEventListener('touchmove', (e) => { if (dragging) onMove(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+        window.addEventListener('touchend', onEnd);
+
+        el.addEventListener('mousedown', (e) => onStart(e.clientX, e.clientY, e), true);
+        window.addEventListener('mousemove', (e) => { if (dragging) onMove(e.clientX, e.clientY); });
+        window.addEventListener('mouseup', onEnd);
+    };
+
+    P.applySavedUILayoutV31 = function () {
+        const layout = this.loadCustomUILayoutV31?.() || {};
+        const items = this.discoverCustomizableControlsV31();
+        const defScale = window.innerWidth <= 920 ? 0.9 : 1.0;
+
+        items.forEach(({ key, label, el }) => {
+            const cfg = layout[key];
+            const scale = (cfg && typeof cfg.scale === 'number' && !isNaN(cfg.scale))
+                ? Math.max(0.55, Math.min(1.65, cfg.scale))
+                : defScale;
+            const hasPos = cfg && typeof cfg.leftPct === 'number' && typeof cfg.topPct === 'number'
+                && !isNaN(cfg.leftPct) && !isNaN(cfg.topPct);
+
+            if (hasPos) {
+                const safeL = Math.max(1, Math.min(88, cfg.leftPct));
+                const safeT = Math.max(4, Math.min(88, cfg.topPct));
+                this.portalBtnToBody(key, el);
+                el.style.setProperty('position', 'fixed', 'important');
+                el.style.setProperty('left', `${Math.round((safeL / 100) * window.innerWidth)}px`, 'important');
+                el.style.setProperty('top', `${Math.round((safeT / 100) * window.innerHeight)}px`, 'important');
+                el.style.setProperty('right', 'auto', 'important');
+                el.style.setProperty('bottom', 'auto', 'important');
+                el.style.setProperty('margin', '0px', 'important');
+            }
+
+            el.style.setProperty('display', 'flex', 'important');
+            el.style.setProperty('visibility', 'visible', 'important');
+            el.style.setProperty('opacity', '1', 'important');
+            el.style.setProperty('pointer-events', 'auto', 'important');
+            el.style.setProperty('transform', `scale(${scale.toFixed(2)})`, 'important');
+            el.style.setProperty('transform-origin', 'center center', 'important');
+            el.style.setProperty('z-index', this._uiEditModeV31 ? '94' : '40', 'important');
+
+            let tag = el.querySelector('.v37-edit-tag');
+            if (this._uiEditModeV31) {
+                this.bindControlEditListenersV35(key, el);
+                const sel = this._uiSelectedKeyV31 === key;
+                el.style.setProperty('outline', sel ? '3px solid #fde047' : '2px dashed #38bdf8', 'important');
+                if (!tag) {
+                    tag = document.createElement('span');
+                    tag.className = 'v37-edit-tag';
+                    tag.style.cssText = 'position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fde047;border:1px solid #fde047;border-radius:4px;padding:0 4px;font-size:9px;font-weight:900;white-space:nowrap;pointer-events:none;z-index:96;';
+                    el.appendChild(tag);
+                }
+                tag.textContent = label;
+            } else {
+                el.style.removeProperty('outline');
+                if (tag) tag.remove();
+            }
+        });
+    };
+
+    P.toggleUIEditModeV31 = function (force = null) {
+        this._uiEditModeV31 = (force !== null) ? Boolean(force) : !this._uiEditModeV31;
+        const items = this.discoverCustomizableControlsV31();
+        if (!this._uiEditModeV31) {
+            document.getElementById('kmj-ui-custom-bar')?.remove();
+            this.applySavedUILayoutV31();
+            this.showAlertBanner?.('✅ ボタン配置とサイズを保存しました！', 1600);
+            return;
+        }
+        if (!this._uiSelectedKeyV31 && items[0]) this._uiSelectedKeyV31 = items[0].key;
+        items.forEach(({ key, el }) => this.bindControlEditListenersV35(key, el));
+        this.renderUICustomToolbarV31?.();
+        this.applySavedUILayoutV31();
+    };
+
+    const _origToolbar = P.renderUICustomToolbarV31;
+    P.renderUICustomToolbarV31 = function () {
+        _origToolbar?.call(this);
+        const resetBtn = document.getElementById('v31-layout-reset');
+        if (resetBtn && !resetBtn.dataset.v37Reset) {
+            resetBtn.dataset.v37Reset = '1';
+            resetBtn.addEventListener('click', () => {
+                localStorage.removeItem('kmj_custom_ui_layout_v31');
+                this.discoverCustomizableControlsV31().forEach(({ key, el }) => this.restoreBtnFromBody(key, el));
+                this.applySavedUILayoutV31();
+                this.renderUICustomToolbarV31();
+            });
+        }
+    };
+
+    // 初期起動＆リサイズ時の自動整列
+    window.addEventListener('resize', () => {
+        window.game?.fixTopRightOverlap?.();
+        window.game?.applySavedUILayoutV31?.();
+    });
+    setInterval(() => {
+        window.game?.fixTopRightOverlap?.();
+    }, 800);
+})();
+</script>
 </body>
 </html>
