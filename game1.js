@@ -4,14 +4,6 @@
 // 顔文字ファンタジー3D コアシステム・セーブ・タイトル・チャット基盤 (game1.js)
 // =========================================================================
 
-function formatBigNum(num) {
-    const n = Math.floor(Number(num) || 0);
-    if (n >= 1e12) return (n / 1e12).toFixed(2) + '兆';
-    if (n >= 1e8) return (n / 1e8).toFixed(2) + '億';
-    if (n >= 1e5) return (n / 1e4).toFixed(1) + '万';
-    return n.toLocaleString('ja-JP');
-}
-
 window.__faceTexCache = window.__faceTexCache || new Map();
 function getKaomojiFaceTexture(kaomoji, bgHex = '#073b66', textHex = '#ffffff', borderHex = '#38bdf8') {
     const key = `${kaomoji}|${bgHex}|${textHex}|${borderHex}`;
@@ -95,70 +87,6 @@ if (typeof sfx === 'undefined') {
             });
         }
     };
-}
-
-function getSkillMpCost(sk, skLv = 1) {
-    const base = sk.mp || 10;
-    return Math.round(base * (1 + (Math.max(1, skLv) - 1) * 0.12));
-}
-
-function getSkillEffectStats(sk, skLv = 1) {
-    const lv = Math.max(1, skLv);
-    if (sk.type === 'HEAL') {
-        const hpPct = Math.min(0.95, (sk.baseRatio || 0.35) + (lv - 1) * 0.04);
-        return { hpPct, summary: `HP ${Math.round(hpPct * 100)}% 回復` };
-    }
-    if (sk.type === 'HEAL_MP') {
-        const hpPct = Math.min(0.95, (sk.baseRatio || 0.30) + (lv - 1) * 0.035);
-        const mpPct = Math.min(0.80, 0.22 + (lv - 1) * 0.025);
-        return { hpPct, mpPct, summary: `HP ${Math.round(hpPct * 100)}% / MP ${Math.round(mpPct * 100)}% 回復` };
-    }
-    if (sk.type === 'DEF_BUFF') {
-        const invuln = Number((1.4 + (lv - 1) * 0.15).toFixed(1));
-        const duration = Number((7 + (lv - 1) * 0.6).toFixed(1));
-        const defBonus = Math.min(0.55, 0.25 + (lv - 1) * 0.03);
-        return { invuln, duration, defBonus, summary: `無敵${invuln}s ＋ 被ダメ-${Math.round(defBonus * 100)}%(${duration}s)` };
-    }
-    if (sk.type === 'ATK_BUFF') {
-        const duration = Number((8 + (lv - 1) * 0.7).toFixed(1));
-        const atkBonus = 0.35 + (lv - 1) * 0.08;
-        return { duration, atkBonus, summary: `攻撃力 +${Math.round(atkBonus * 100)}% (${duration}s)` };
-    }
-    const mult = (sk.mult || 1.6) * (1 + (lv - 1) * 0.22);
-    if (sk.type === 'DRAIN') {
-        const drainRate = Math.min(0.65, 0.22 + (lv - 1) * 0.02);
-        return { mult, drainRate, summary: `威力 ${Math.round(mult * 100)}% ＋ 与ダメ${Math.round(drainRate * 100)}%吸収` };
-    }
-    if (sk.type === 'INTERRUPT') {
-        const stunDur = Number((2.2 + (lv - 1) * 0.25).toFixed(1));
-        return { mult, stunDur, summary: `威力 ${Math.round(mult * 100)}% ＋ 詠唱中断＆気絶${stunDur}s` };
-    }
-    if (sk.type === 'AOE_SLOW') {
-        const slowDur = Number((4.0 + (lv - 1) * 0.3).toFixed(1));
-        return { mult, slowDur, slowFactor: 0.45, summary: `範囲威力 ${Math.round(mult * 100)}% ＋ 鈍足${slowDur}s` };
-    }
-    if (sk.type === 'AOE_BURN') {
-        return { mult, summary: `範囲威力 ${Math.round(mult * 100)}% ＋ 炎上継続ダメージ` };
-    }
-    return { mult, summary: `${sk.radius ? '範囲' : '単体'}威力 ${Math.round(mult * 100)}%` };
-}
-
-function getWeaponEnhanceRequirement(curEnh = 0) {
-    const lv = Math.max(0, curEnh);
-    const gold = Math.round(180 * Math.pow(1.38, lv));
-    const matKeys = Object.keys((typeof MATERIALS !== 'undefined' && MATERIALS) ? MATERIALS : { slime_gel: 1 });
-    const mk = matKeys[Math.min(matKeys.length - 1, Math.floor(lv / 3))];
-    const cnt = 2 + (lv % 3);
-    return { gold, mats: { [mk]: cnt } };
-}
-
-function getArmorEnhanceRequirement(curEnh = 0) {
-    const lv = Math.max(0, curEnh);
-    const gold = Math.round(160 * Math.pow(1.36, lv));
-    const matKeys = Object.keys((typeof MATERIALS !== 'undefined' && MATERIALS) ? MATERIALS : { slime_gel: 1 });
-    const mk = matKeys[Math.min(matKeys.length - 1, Math.floor(lv / 3))];
-    const cnt = 2 + (lv % 3);
-    return { gold, mats: { [mk]: cnt } };
 }
 
 class KaomojiMMORPG {
@@ -267,8 +195,8 @@ class KaomojiMMORPG {
             backCosmeticId: 'back_none',
             ownedBackCosmetics: ['back_none'],
             stats: { str: 5, int: 5, vit: 5, agi: 5 },
-            skills: { slash_arc: 1 },
-            equippedSkills: ['slash_arc', null, null, null, null],
+            skills: { slash_heavy: 1 },
+            equippedSkills: ['slash_heavy', null, null, null, null],
             tree: {},
             weaponId: 'wpn_wood',
             ownedWeapons: ['wpn_wood'],
@@ -285,12 +213,12 @@ class KaomojiMMORPG {
             petLevel: 1,
             materials: {
                 slime_gel: 0,
-                goblin_fang: 0,
                 ancient_sap: 0,
+                goblin_fang: 0,
                 fire_core: 0,
                 ice_crystal: 0,
-                void_shard: 0,
-                star_fragment: 0
+                abyss_shard: 0,
+                void_star: 0
             },
             equippedTitleId: 'title_none',
             unlockedTitles: ['title_none'],
@@ -317,14 +245,36 @@ class KaomojiMMORPG {
             if (!raw) return def;
             const parsed = JSON.parse(raw);
             if (!parsed || typeof parsed.lv !== 'number') return def;
+
+            const mergedSkills = { ...def.skills, ...(parsed.skills || {}) };
+            if (mergedSkills.slash_arc && !mergedSkills.slash_heavy) {
+                mergedSkills.slash_heavy = mergedSkills.slash_arc;
+            }
+            delete mergedSkills.slash_arc;
+
+            const mergedEqSkills = Array.isArray(parsed.equippedSkills)
+                ? parsed.equippedSkills.map(id => (id === 'slash_arc' ? 'slash_heavy' : id))
+                : def.equippedSkills;
+
+            const mergedMats = { ...def.materials, ...(parsed.materials || {}) };
+            if (mergedMats.void_shard && !mergedMats.abyss_shard) {
+                mergedMats.abyss_shard = mergedMats.void_shard;
+            }
+            if (mergedMats.star_fragment && !mergedMats.void_star) {
+                mergedMats.void_star = mergedMats.star_fragment;
+            }
+            delete mergedMats.void_shard;
+            delete mergedMats.star_fragment;
+
             return {
                 ...def,
                 ...parsed,
                 isNewSave: false,
                 stats: { ...def.stats, ...(parsed.stats || {}) },
-                skills: { ...def.skills, ...(parsed.skills || {}) },
+                skills: mergedSkills,
+                equippedSkills: mergedEqSkills,
                 tree: { ...def.tree, ...(parsed.tree || {}) },
-                materials: { ...def.materials, ...(parsed.materials || {}) },
+                materials: mergedMats,
                 statsTrack: { ...def.statsTrack, ...(parsed.statsTrack || {}) },
                 ownedCosmetics: Array.isArray(parsed.ownedCosmetics) ? parsed.ownedCosmetics : ['none'],
                 ownedBackCosmetics: Array.isArray(parsed.ownedBackCosmetics) ? parsed.ownedBackCosmetics : ['back_none'],
@@ -583,58 +533,70 @@ class KaomojiMMORPG {
 
     calcDerivedStats() {
         const d = this.saveData;
-        const s = d.stats || { str: 5, int: 5, vit: 5, agi: 5 };
+        const rawS = d.stats || { str: 5, int: 5, vit: 5, agi: 5 };
+        const tr = d.tree || {};
+        const warlordMult = 1 + (tr.t_warlord || 0) * 0.05;
+        const s = {
+            str: rawS.str * warlordMult,
+            int: rawS.int * warlordMult,
+            vit: rawS.vit * warlordMult,
+            agi: rawS.agi * warlordMult
+        };
+
         const wpn = WEAPONS[d.weaponId] || WEAPONS.wpn_wood;
         const arm = ARMORS[d.armorId] || ARMORS.arm_cloth;
-        const acc = ACCESSORIES[d.accessoryId] || { atkPct: 0, hpPct: 0, crit: 0, cdRed: 0, rewardMult: 1 };
+        const acc = ACCESSORIES[d.accessoryId] || ACCESSORIES.acc_none || {};
         const evo = EVOLUTIONS[d.evolutionId] || EVOLUTIONS.novice;
-        const ttl = TITLES[d.equippedTitleId] || { atkPct: 0, hpPct: 0, crit: 0 };
-        const tr = d.tree || {};
+        const ttl = TITLES[d.equippedTitleId] || TITLES.title_none || {};
 
         const rebirthMult = 1 + (d.rebirthCount || 0) * 0.35;
         const wpnEnhMult = 1 + (d.weaponEnhance || 0) * 0.14;
         const armEnhMult = 1 + (d.armorEnhance || 0) * 0.14;
 
-        const wEnch = ENCHANT_POOL.find(x => x.id === d.weaponEnchant) || {};
-        const aEnch = ENCHANT_POOL.find(x => x.id === d.armorEnchant) || {};
+        const wEnch = ENCHANT_POOL.find(x => x.id === d.weaponEnchant);
+        const aEnch = ENCHANT_POOL.find(x => x.id === d.armorEnchant);
+        const getEnchVal = (statName) =>
+            (wEnch && wEnch.stat === statName ? wEnch.val : 0) +
+            (aEnch && aEnch.stat === statName ? aEnch.val : 0);
 
-        const treeAtkPct = (tr.atk_boost || 0) * 0.06;
-        const treeHpPct = (tr.hp_boost || 0) * 0.07;
-        const treeCrit = (tr.crit_boost || 0) * 0.03;
-        const treeCd = (tr.cd_boost || 0) * 0.03;
-        const treeBoss = (tr.boss_slayer || 0) * 0.08;
-        const treeLifesteal = (tr.lifesteal || 0) * 0.015;
-        const treeGoldExp = (tr.greed_wisdom || 0) * 0.08;
-        const treeDoubleCast = (tr.twin_star || 0) * 0.05;
-        const treeHpRegenBonus = (tr.vital_flow || 0) * 0.008;
-        const treeMpRegenMult = 1 + (tr.mana_flow || 0) * 0.15;
+        const treeAtkPct = (tr.t_might || 0) * 0.06;
+        const treeSkillPowerMult = 1 + (tr.t_arcana || 0) * 0.08;
+        const treeHpPct = (tr.t_vital || 0) * 0.08;
+        const treeHpRegenBonus = (tr.t_vital || 0) * 0.008;
+        const treeCrit = (tr.t_crit || 0) * 0.05;
+        const treeCritDmg = (tr.t_crit || 0) * 0.12;
+        const treeCd = (tr.t_chant || 0) * 0.05 + (tr.t_warlord || 0) * 0.03;
+        const treeMpRegenMult = (1 + (tr.t_chant || 0) * 0.10) * (d.accessoryId === 'acc_chrono_orb' ? 1.5 : 1.0);
+        const treeDef = (tr.t_aegis || 0) * 0.03;
+        const treeHealPowerMult = 1 + (tr.t_aegis || 0) * 0.08;
+        const treeGoldExp = (tr.t_fortune || 0) * 0.10;
 
         const warcryMult = (this.player && this.player.warcryTimer > 0) ? (this.player.warcryBonus || 1.0) : 1.0;
         const defBuffExtra = (this.player && this.player.defBuffTimer > 0) ? (this.player.defBuffBonus || 0) : 0;
 
-        const baseAtk = (14 + s.str * 3.4 + (wpn.atk || 10) * wpnEnhMult) * rebirthMult;
-        const totalAtkMult = 1 + (evo.atkBonus || 0) + (acc.atkPct || 0) + (ttl.atkPct || 0) + treeAtkPct + (wEnch.atkPct || 0) + (aEnch.atkPct || 0);
+        const baseAtk = (14 + s.str * 3.4 + (wpn.atk || 12) * wpnEnhMult) * rebirthMult * (evo.atkMult || 1.0);
+        const totalAtkMult = 1 + (acc.atkBonus || 0) + (ttl.atk || 0) + treeAtkPct + getEnchVal('atkBonus');
         const physAtk = Math.round(baseAtk * totalAtkMult * warcryMult);
 
-        const baseHp = (110 + d.lv * 18 + s.vit * 24 + (arm.hp || 20) * armEnhMult) * rebirthMult;
-        const totalHpMult = 1 + (evo.hpBonus || 0) + (acc.hpPct || 0) + (ttl.hpPct || 0) + treeHpPct + (wEnch.hpPct || 0) + (aEnch.hpPct || 0);
+        const baseHp = (110 + d.lv * 18 + s.vit * 24 + (arm.hp || 40) * armEnhMult) * rebirthMult * (evo.hpMult || 1.0);
+        const totalHpMult = 1 + (acc.hpBonus || 0) + (ttl.hp || 0) + treeHpPct + getEnchVal('hpBonus');
         const maxHp = Math.max(50, Math.round(baseHp * totalHpMult));
 
-        const maxMp = Math.max(30, Math.round((50 + d.lv * 6 + s.int * 10 + (arm.mp || 10) * armEnhMult) * rebirthMult));
-        const magMult = Number(((wpn.mag || 1.0) * (1 + s.int * 0.025 + (evo.magBonus || 0))).toFixed(2));
+        const maxMp = Math.max(30, Math.round((50 + d.lv * 6 + s.int * 10 + (arm.mp || 20) * armEnhMult) * rebirthMult * (evo.mpMult || 1.0)));
+        const magMult = Number(((wpn.mag || 1.0) * (1 + s.int * 0.025) * treeSkillPowerMult).toFixed(2));
 
-        const critChance = Math.min(0.85, 0.06 + s.agi * 0.004 + s.str * 0.002 + (acc.crit || 0) + (ttl.crit || 0) + treeCrit + (wEnch.crit || 0) + (aEnch.crit || 0));
-        const critDmg = 1.65 + s.str * 0.012 + (wEnch.critDmg || 0);
+        const critChance = Math.min(0.85, 0.06 + s.agi * 0.004 + s.str * 0.002 + (evo.exCritBonus || 0) + (ttl.crit || 0) + treeCrit + getEnchVal('critBonus'));
+        const critDmg = 1.65 + s.str * 0.012 + treeCritDmg + getEnchVal('critDmg');
 
-        const rawMit = (arm.def || 0.05) * (1 + (arm.tierLook || 0) * 0.04) + s.vit * 0.002 + defBuffExtra + (aEnch.def || 0);
+        const rawMit = (arm.def || 0.04) * (1 + (arm.tierLook || 0) * 0.04) + s.vit * 0.002 + (evo.exDefBonus || 0) + defBuffExtra + treeDef;
         const defMitigation = Math.min(0.82, rawMit);
 
-        const cdReduction = Math.min(0.55, s.agi * 0.004 + (acc.cdRed || 0) + treeCd + (wEnch.cdRed || 0));
-        const moveSpeed = Math.min(14.5, 7.6 + s.agi * 0.05);
-        const lifesteal = Math.min(0.35, treeLifesteal + (wEnch.lifesteal || 0));
-        const bossDmgMult = 1 + treeBoss + (wEnch.bossDmg || 0);
-        const rewardMult = (acc.rewardMult || 1.0) + treeGoldExp;
-        const doubleCast = Math.min(0.45, treeDoubleCast);
+        const cdReduction = Math.min(0.60, s.agi * 0.004 + (evo.exCdBonus || 0) + (acc.cdBonus || 0) + treeCd + getEnchVal('cdBonus'));
+        const moveSpeed = Math.min(15.5, (7.6 + s.agi * 0.05) * (evo.spdMult || 1.0));
+        const lifesteal = Math.min(0.35, (acc.lifesteal || 0) + getEnchVal('lifesteal'));
+        const bossDmgMult = 1 + (acc.bossDmg || 0) + getEnchVal('bossDmg');
+        const rewardMult = 1 + (acc.rewardBonus || 0) + (ttl.reward || 0) + treeGoldExp + getEnchVal('rewardBonus');
+        const doubleCast = Math.min(0.45, acc.doubleCast || 0);
 
         return {
             maxHp,
@@ -650,6 +612,8 @@ class KaomojiMMORPG {
             bossDmgMult,
             rewardMult,
             doubleCast,
+            treeSkillPowerMult,
+            treeHealPowerMult,
             treeHpRegenBonus,
             treeMpRegenMult,
             rebirthMult,
