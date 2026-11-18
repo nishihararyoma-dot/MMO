@@ -1,72 +1,10 @@
 'use strict';
 
 // =========================================================================
-// 顔文字ファンタジー3D 戦闘・スキル演出・共闘報酬・エモート (game3.js)
+// 顔文字ファンタジー3D 戦闘・魔法弾判定・スキル発動・敵AI・成長処理 (game3.js)
 // =========================================================================
 
 Object.assign(KaomojiMMORPG.prototype, {
-
-    showAlertBanner(msg, duration = 1800) {
-        const el = document.getElementById('alert-banner');
-        if (!el) return;
-        el.textContent = msg;
-        el.classList.remove('hidden');
-        clearTimeout(this._alertTimer);
-        this._alertTimer = setTimeout(() => el.classList.add('hidden'), duration);
-    },
-
-    spawnFloatText(worldPos, text, color = '#ffffff', size = 14) {
-        const el = document.createElement('div');
-        el.className = 'world-float-text';
-        el.textContent = text;
-        el.style.color = color;
-        el.style.fontSize = `${size}px`;
-        this.overlayLayer.appendChild(el);
-        this.floatTexts.push({ el, worldPos: worldPos.clone(), life: 1.05 });
-    },
-
-    spawnEmoteBubble(worldPos, kaomoji, msg) {
-        const el = document.createElement('div');
-        el.className = 'world-emote-bubble';
-        el.innerHTML = `<div class="font-kaomoji" style="font-size:12px; font-weight:900; color:#f9a8d4;">${kaomoji}</div><div style="font-size:10px; font-weight:800; color:#fff;">${msg}</div>`;
-        this.overlayLayer.appendChild(el);
-        this.emoteBubbles.push({ el, worldPos: worldPos.clone(), life: 2.6 });
-    },
-
-    triggerEmote(emoteId) {
-        const em = EMOTES.find(x => x.id === emoteId);
-        if (!em || !this.player) return;
-        sfx.init();
-        sfx.playSkill();
-
-        this.emoteTimer = 2.6;
-        this.emoteMotion = em.motion;
-        if (this.useWebGL && this.player.frontMat) {
-            const hexStr = '#' + this.getPlayerBodyHexColor().toString(16).padStart(6, '0');
-            this.player.frontMat.map = getKaomojiFaceTexture(em.kaomoji, this.getPlayerFaceBgHex(), '#fde047', hexStr);
-            this.player.frontMat.needsUpdate = true;
-        }
-
-        this.spawnEmoteBubble(this.player.pos.clone().add(new THREE.Vector3(0, 2.7, 0)), em.kaomoji, em.msg);
-        this.spawnSparkleBurst(this.player.pos, 0xf472b6, 10);
-
-        if (em.id === 'beam') {
-            this.spawnProjectileBeam(this.player.pos, this.player.rotY, 0x38bdf8);
-        }
-
-        if (this.currentZoneId === 'town' && this.aiAllies.length > 0) {
-            const ally = this.aiAllies[Math.floor(Math.random() * this.aiAllies.length)];
-            setTimeout(() => {
-                if (this.currentZoneId === 'town') {
-                    this.spawnEmoteBubble(ally.pos.clone().add(new THREE.Vector3(0, 2.6, 0)), '(≧▽≦)', em.allyReply);
-                }
-            }, 450);
-        }
-
-        if (this.broadcastFirebaseEvent) {
-            this.broadcastFirebaseEvent('emote', { emoteId: em.id, kaomoji: em.kaomoji, msg: em.msg });
-        }
-    },
 
     getNearestMonster(maxDist = 30) {
         if (!this.player) return null;
@@ -74,7 +12,7 @@ Object.assign(KaomojiMMORPG.prototype, {
         let bestD = maxDist;
         for (const m of this.monsters) {
             if (m.dead) continue;
-            const d = this.player.pos.distanceTo(m.pos);
+            const d = Math.hypot(m.pos.x - this.player.pos.x, m.pos.z - this.player.pos.z);
             if (d < bestD) {
                 bestD = d;
                 best = m;
@@ -83,228 +21,371 @@ Object.assign(KaomojiMMORPG.prototype, {
         return best;
     },
 
-    getValidTarget() {
-        if (this.selectedTarget && !this.selectedTarget.dead) return this.selectedTarget;
-        this.selectedTarget = this.getNearestMonster(30);
-        return this.selectedTarget;
-    },
-
-    cycleTarget() {
-        const alive = this.monsters.filter(m => !m.dead && this.player && this.player.pos.distanceTo(m.pos) <= 34);
-        if (alive.length === 0) {
-            this.showAlertBanner('近くにターゲットできる敵がいません', 1100);
-            return;
+    getValidTarget(maxDist = 18) {
+        if (this.selectedTarget && !this.selectedTarget.dead) {
+            const d = Math.hypot(this.selectedTarget.pos.x - this.player.pos.x, this.selectedTarget.pos.z - this.player.pos.z);
+            if (d <= maxDist) return this.selectedTarget;
         }
-        const idx = alive.indexOf(this.selectedTarget);
-        this.selectedTarget = alive[(idx + 1) % alive.length];
-        sfx.playTone(620, 'sine', 0.08, 0.06);
+        const near = this.getNearestMonster(maxDist);
+        if (near) this.selectedTarget = near;
+        return near;
     },
 
-    // 手動「⚔️ 攻撃」ボタン用アクション
+    triggerPlayerAttackAnim(type = 'slash', dur = 0.28) {
+        if (!this.player) return;
+        this.player.skillAnimType = type;
+        this.player.skillAnimDur = dur;
+        this.player.skillAnimTimer = dur;
+    },
+
+    // 通常攻撃（剣は近接物理判定、杖は遠距離魔法弾・魔法攻撃力判定）
     performBasicAttack() {
-        if (!this.player || this.isDead || this.player.stunTimer > 0) return;
-        sfx.init();
+        if (!this.player || this.isDead || this.currentZoneId === 'town') return false;
+        if ((this.player.stunTimer || 0) > 0) return false;
+
         const st = this.calcDerivedStats();
-        const target = this.getNearestMonster(6.2) || this.getValidTarget();
+        const isStaff = !!st.isStaffEquipped;
+        const atkRange = isStaff ? 16.5 : 5.0;
 
-        if (target && !target.dead) {
-            const dx = target.pos.x - this.player.pos.x;
-            const dz = target.pos.z - this.player.pos.z;
-            if (dx * dx + dz * dz > 0.01) this.player.rotY = Math.atan2(dx, dz);
-        }
+        const target = this.getValidTarget(atkRange);
+        if (!target) return false;
 
-        // 剣の振り下ろしアニメーション開始
-        this.player.skillAnimType = 'basic_slash';
-        this.player.skillAnimDur = 0.24;
-        this.player.skillAnimTimer = 0.24;
-        this.autoAtkTimer = Math.max(0.42, 0.95 * (1 - st.cdReduction * 0.6));
+        // ターゲット方向へ旋回
+        const dx = target.pos.x - this.player.pos.x;
+        const dz = target.pos.z - this.player.pos.z;
+        this.player.rotY = Math.atan2(dx, dz);
 
-        if (this.currentZoneId === 'town') {
-            sfx.playTone(360, 'triangle', 0.09, 0.06, 180);
-            return;
-        }
+        const isCrit = Math.random() < st.critChance;
+        const basePower = isStaff ? st.magAtk : st.physAtk;
+        const variance = 0.92 + Math.random() * 0.16;
+        const dmg = Math.max(1, Math.round(basePower * variance * (isCrit ? st.critDmg : 1.0)));
 
-        if (target && !target.dead && this.player.pos.distanceTo(target.pos) <= 6.2) {
-            this.selectedTarget = target;
-            const crit = Math.random() < st.critChance;
-            this.damageMonster(target, st.physAtk * (crit ? st.critDmg : 1), crit);
-            this.spawnPlayerAttackEffect(target.pos, st.wpnGlowColor, crit);
+        if (isStaff) {
+            // 杖の通常攻撃：遠距離魔法弾を発射し、魔法ダメージ判定を与える
+            this.triggerPlayerAttackAnim('staff_cast', 0.28);
+            sfx.playTone(isCrit ? 880 : 640, 'sine', 0.12, 0.06, 980);
+
+            if (this.spawnMagicBolt) {
+                this.spawnMagicBolt(
+                    this.player.pos.clone().add(new THREE.Vector3(0, 1.35, 0)),
+                    target.pos.clone().add(new THREE.Vector3(0, 0.9, 0)),
+                    st.wpnGlowColor || 0xc084fc
+                );
+            } else if (this.spawnSparkleBurst) {
+                this.spawnSparkleBurst(target.pos, st.wpnGlowColor || 0xc084fc, 6);
+            }
+
+            this.damageMonster(target, dmg, isCrit, isCrit ? '#f472b6' : '#c084fc');
         } else {
-            sfx.playTone(320, 'triangle', 0.09, 0.06, 150);
-            const fwd = new THREE.Vector3(
-                this.player.pos.x + Math.sin(this.player.rotY) * 2.2,
-                1.0,
-                this.player.pos.z + Math.cos(this.player.rotY) * 2.2
-            );
-            this.spawnSparkleBurst(fwd, st.wpnGlowColor, 4);
+            // 剣・物理武器の通常攻撃：近接斬撃判定
+            this.triggerPlayerAttackAnim('slash', 0.24);
+            sfx.playHit(isCrit);
+
+            if (this.spawnSlashArc) {
+                this.spawnSlashArc(this.player.pos, this.player.rotY, st.wpnGlowColor || 0x38bdf8, 2.5);
+            }
+
+            this.damageMonster(target, dmg, isCrit, isCrit ? '#fde047' : '#ffffff');
         }
-    },
 
-    damageMonster(m, rawDmg, isCrit = false) {
-        if (!m || m.dead) return;
-        const st = this.calcDerivedStats();
-        let dmg = Math.max(1, Math.round(rawDmg * (m.isBoss ? st.bossDmgMult : 1.0)));
-
-        m.hp -= dmg;
-        m.aggro = true;
-        m.damagedByPlayer = true;
-        this.selectedTarget = m;
-
-        if (st.lifesteal > 0 && this.player) {
+        // HP吸収効果
+        if (st.lifesteal > 0) {
             const heal = Math.max(1, Math.round(dmg * st.lifesteal));
             this.player.hp = Math.min(st.maxHp, this.player.hp + heal);
         }
 
-        sfx.playHit(isCrit);
-        this.spawnFloatText(
-            m.pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.8, (m.scale || 1) * 1.9, 0)),
-            (isCrit ? '💥' : '') + formatBigNum(dmg),
-            isCrit ? '#fde047' : '#ffffff',
-            isCrit ? 18 : 14
-        );
+        return true;
+    },
+
+    useSkillSlot(slotIdx) {
+        if (!this.player || this.isDead) return false;
+        if ((this.player.stunTimer || 0) > 0) {
+            if (this.showAlertBanner) this.showAlertBanner('💫 気絶中で行動できない！', 900);
+            return false;
+        }
+
+        const skillId = (this.saveData.equippedSkills || [])[slotIdx];
+        if (!skillId || !SKILLS[skillId]) return false;
+
+        this.skillCooldowns = this.skillCooldowns || [0, 0, 0, 0, 0];
+        if (this.skillCooldowns[slotIdx] > 0) return false;
+
+        const sk = SKILLS[skillId];
+        const lv = Math.max(1, (this.saveData.skills && this.saveData.skills[skillId]) || 1);
+        const mpCost = getSkillMpCost(sk, lv);
+
+        if (this.player.mp < mpCost) {
+            if (this.showAlertBanner) this.showAlertBanner(`💧 MPが足りません！（必要MP: ${mpCost}）`, 1000);
+            return false;
+        }
+
+        const st = this.calcDerivedStats();
+        if (!sk.isSupport && this.currentZoneId === 'town') {
+            if (this.showAlertBanner) this.showAlertBanner('🏰 広場では攻撃スキルは使えません', 1000);
+            return false;
+        }
+
+        this.player.mp -= mpCost;
+        const cdTime = Math.max(0.6, sk.cd * (1 - st.cdReduction));
+        this.skillCooldowns[slotIdx] = cdTime;
+
+        sfx.init();
+        sfx.playSkill();
+        this.executeSkillEffect(sk, lv, st, false);
+
+        // 双子星の魔導符などによるスキル2連発判定
+        if (st.doubleCast > 0 && Math.random() < st.doubleCast) {
+            setTimeout(() => {
+                if (!this.isDead && this.player) {
+                    this.executeSkillEffect(sk, lv, st, true);
+                    if (this.spawnFloatText) {
+                        this.spawnFloatText(this.player.pos.clone().add(new THREE.Vector3(0, 2.7, 0)), '♊ 2連発動！', '#f472b6', 14);
+                    }
+                }
+            }, 220);
+        }
+
+        return true;
+    },
+
+    executeSkillEffect(sk, lv, st, isDouble = false) {
+        const eff = getSkillEffectStats(sk, lv, st);
+        const pPos = this.player.pos;
+
+        if (sk.type === 'HEAL') {
+            this.triggerPlayerAttackAnim('cast', 0.35);
+            sfx.playHeal();
+            const heal = Math.round(st.maxHp * eff.hpPct);
+            this.player.hp = Math.min(st.maxHp, this.player.hp + heal);
+            this.player.stunTimer = 0;
+            if (this.spawnRingWave) this.spawnRingWave(pPos, 0x34d399, 3.6);
+            if (this.spawnFloatText) this.spawnFloatText(pPos.clone().add(new THREE.Vector3(0, 2.4, 0)), `+${formatBigNum(heal)} HP`, '#34d399', 16);
+            return;
+        }
+
+        if (sk.type === 'HEAL_MP') {
+            this.triggerPlayerAttackAnim('cast', 0.38);
+            sfx.playHeal();
+            const healHp = Math.round(st.maxHp * eff.hpPct);
+            const healMp = Math.round(st.maxMp * eff.mpPct);
+            this.player.hp = Math.min(st.maxHp, this.player.hp + healHp);
+            this.player.mp = Math.min(st.maxMp, this.player.mp + healMp);
+            if (this.spawnRingWave) this.spawnRingWave(pPos, 0xfde047, 4.4);
+            if (this.spawnFloatText) {
+                this.spawnFloatText(pPos.clone().add(new THREE.Vector3(0, 2.5, 0)), `+${formatBigNum(healHp)} HP / +${formatBigNum(healMp)} MP`, '#6ee7b7', 15);
+            }
+            return;
+        }
+
+        if (sk.type === 'DEF_BUFF') {
+            this.triggerPlayerAttackAnim('cast', 0.35);
+            sfx.playHeal();
+            this.player.invulnTimer = Math.max(this.player.invulnTimer || 0, eff.invuln);
+            this.player.defBuffTimer = eff.duration;
+            this.player.defBuffBonus = eff.defBonus;
+            if (this.spawnRingWave) this.spawnRingWave(pPos, 0x38bdf8, 4.0);
+            if (this.spawnFloatText) this.spawnFloatText(pPos.clone().add(new THREE.Vector3(0, 2.4, 0)), '🔰 神域イージス展開！', '#38bdf8', 15);
+            return;
+        }
+
+        if (sk.type === 'ATK_BUFF') {
+            this.triggerPlayerAttackAnim('cast', 0.35);
+            sfx.playLevelUp();
+            this.player.warcryTimer = eff.duration;
+            this.player.warcryBonus = 1 + eff.atkBonus;
+            if (this.spawnRingWave) this.spawnRingWave(pPos, 0xf97316, 4.2);
+            if (this.spawnFloatText) this.spawnFloatText(pPos.clone().add(new THREE.Vector3(0, 2.4, 0)), '🔥 覇王の咆哮！攻撃UP', '#fb923c', 15);
+            return;
+        }
+
+        // 攻撃スキルは物理・魔力の高い方をベースに魔力倍率を乗算
+        const baseOffensive = Math.max(st.physAtk, st.magAtk);
+        const calcSkillHit = () => {
+            const isCrit = Math.random() < st.critChance;
+            const raw = baseOffensive * eff.mult * (0.7 + st.magMult * 0.3) * (0.94 + Math.random() * 0.12);
+            return { dmg: Math.max(1, Math.round(raw * (isCrit ? st.critDmg : 1.0))), isCrit };
+        };
+
+        const target = this.getValidTarget(18);
+        if (target) {
+            this.player.rotY = Math.atan2(target.pos.x - pPos.x, target.pos.z - pPos.z);
+        }
+
+        if (sk.type === 'SINGLE_DMG' || sk.type === 'INTERRUPT' || sk.type === 'THUNDER' || sk.type === 'DRAIN') {
+            const t = target || this.getNearestMonster(18);
+            if (!t) return;
+
+            this.triggerPlayerAttackAnim(sk.type === 'THUNDER' ? 'cast' : 'slash', 0.32);
+            const hit = calcSkillHit();
+
+            if (sk.type === 'THUNDER') {
+                if (this.spawnLightningStrike) this.spawnLightningStrike(t.pos);
+                this.camShake = Math.max(this.camShake, 0.25);
+            } else if (sk.type === 'INTERRUPT') {
+                if (this.spawnRingWave) this.spawnRingWave(t.pos, 0xfacc15, 3.8);
+                t.stunTimer = Math.max(t.stunTimer || 0, eff.stunDur || 2.0);
+                if (t.casting) {
+                    t.casting = null;
+                    document.getElementById('boss-cast-box')?.classList.add('hidden');
+                    if (this.showAlertBanner) this.showAlertBanner('💥 ボスの大技詠唱を中断した！', 1400);
+                }
+            } else if (sk.type === 'DRAIN') {
+                if (this.spawnSparkleBurst) this.spawnSparkleBurst(t.pos, 0xf43f5e, 10);
+                const drainHeal = Math.max(1, Math.round(hit.dmg * (eff.drainRate || 0.35)));
+                this.player.hp = Math.min(st.maxHp, this.player.hp + drainHeal);
+                if (this.spawnFloatText) {
+                    this.spawnFloatText(pPos.clone().add(new THREE.Vector3(0, 2.3, 0)), `+${formatBigNum(drainHeal)}`, '#fb7185', 14);
+                }
+            } else {
+                if (this.spawnSlashArc) this.spawnSlashArc(pPos, this.player.rotY, 0x38bdf8, 3.6);
+            }
+
+            this.damageMonster(t, hit.dmg, hit.isCrit);
+            if (st.lifesteal > 0) {
+                this.player.hp = Math.min(st.maxHp, this.player.hp + Math.round(hit.dmg * st.lifesteal));
+            }
+            return;
+        }
+
+        // 範囲攻撃系 (AOE_DMG, AOE_SLOW, AOE_BURN)
+        const radius = sk.radius || 6.5;
+        const center = (sk.id === 'meteor_star' || sk.id === 'phoenix_dive') && target ? target.pos.clone() : pPos.clone();
+
+        this.triggerPlayerAttackAnim('spin', 0.36);
+        this.camShake = Math.max(this.camShake, 0.22);
+
+        if (sk.id === 'meteor_star' && this.spawnMeteorImpact) {
+            this.spawnMeteorImpact(center, radius);
+        } else if (sk.type === 'AOE_SLOW' && this.spawnRingWave) {
+            this.spawnRingWave(center, 0x7dd3fc, radius);
+        } else if (sk.type === 'AOE_BURN' && this.spawnRingWave) {
+            this.spawnRingWave(center, 0xf97316, radius);
+        } else if (this.spawnRingWave) {
+            this.spawnRingWave(center, 0xc084fc, radius);
+        }
+
+        let totalDealt = 0;
+        for (const m of this.monsters) {
+            if (m.dead) continue;
+            if (Math.hypot(m.pos.x - center.x, m.pos.z - center.z) <= radius + (m.scale || 1) * 0.8) {
+                const hit = calcSkillHit();
+                totalDealt += hit.dmg;
+                this.damageMonster(m, hit.dmg, hit.isCrit);
+                if (sk.type === 'AOE_SLOW') {
+                    m.slowTimer = Math.max(m.slowTimer || 0, eff.slowDur || 3.5);
+                    m.slowFactor = eff.slowFactor || 0.45;
+                } else if (sk.type === 'AOE_BURN') {
+                    m.burnTimer = 4.0;
+                    m.burnDps = Math.max(1, Math.round(hit.dmg * 0.22));
+                }
+            }
+        }
+        if (st.lifesteal > 0 && totalDealt > 0) {
+            this.player.hp = Math.min(st.maxHp, this.player.hp + Math.round(totalDealt * st.lifesteal));
+        }
+    },
+
+    damageMonster(m, rawDmg, isCrit = false, colorOverride = null) {
+        if (!m || m.dead) return;
+        const st = this.calcDerivedStats();
+        let dmg = Math.max(1, Math.round(rawDmg * (m.isBoss ? st.bossDmgMult : 1.0)));
+
+        m.hp = Math.max(0, m.hp - dmg);
+        m.aggro = true;
+        m.damagedByPlayer = true;
+        this.selectedTarget = m;
+
+        if (this.spawnFloatText) {
+            const col = colorOverride || (isCrit ? '#fde047' : '#ffffff');
+            const label = isCrit ? `💥${formatBigNum(dmg)}!` : formatBigNum(dmg);
+            this.spawnFloatText(m.pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.8, 1.5 * (m.scale || 1), 0)), label, col, isCrit ? 18 : 14);
+        }
 
         if (m.hp <= 0) {
-            m.hp = 0;
-            m.dead = true;
-            m.respawnTimer = m.isBoss ? 13.0 : 5.5;
-            if (m.casting) {
-                m.casting = null;
-                document.getElementById('boss-cast-box')?.classList.add('hidden');
-            }
-            if (m.group) m.group.visible = false;
-            if (m.plateEl) m.plateEl.style.display = 'none';
-            if (this.selectedTarget === m) this.selectedTarget = null;
-
-            this.spawnSparkleBurst(m.pos, m.color, m.isBoss ? 18 : 9);
-            this.grantMonsterRewards(m);
-            this.checkTowerFloorClear();
+            this.onMonsterKilled(m);
         }
     },
 
-    grantMonsterRewards(m) {
-        const d = this.saveData;
-        const st = this.calcDerivedStats();
-        const threat = d.threatRank || 0;
-        const coopCount = this.getSameZoneRemoteCount ? this.getSameZoneRemoteCount() : 0;
-        const coopMult = coopCount > 0 ? 1.25 : 1.0;
-        const threatMult = 1 + threat * 0.25;
+    onMonsterKilled(m) {
+        if (m.dead) return;
+        m.dead = true;
+        m.respawnTimer = m.noRespawn ? 999999 : (m.isBoss ? 12.0 : 4.5);
+        m.casting = null;
 
-        const gainExp = Math.round(m.baseExp * threatMult * coopMult * st.rewardMult);
-        const gainGold = Math.round(m.baseGold * threatMult * coopMult * st.rewardMult);
-
-        d.gold += gainGold;
-        this.gainExp(gainExp);
-
-        const matKey = m.drop || 'slime_gel';
-        const matCount = m.isBoss ? (2 + Math.floor(threat / 10)) : (Math.random() < 0.72 ? 1 + Math.floor(threat / 20) : 0);
-        if (matCount > 0 && d.materials[matKey] !== undefined) {
-            d.materials[matKey] += matCount;
-            const matInfo = MATERIALS[matKey];
-            this.spawnFloatText(m.pos.clone().add(new THREE.Vector3(0, 1.5, 0)), `${matInfo.icon}${matInfo.name} x${matCount}`, '#6ee7b7', 13);
+        if (m.group) m.group.visible = false;
+        if (m.plateEl) m.plateEl.style.display = 'none';
+        if (this.selectedTarget === m) {
+            this.selectedTarget = null;
+            document.getElementById('boss-cast-box')?.classList.add('hidden');
         }
 
-        if (!d.statsTrack) d.statsTrack = { kills: 0, bossKills: 0, bestTowerFloor: 0, maxThreatKill: 0 };
-        d.statsTrack.kills = (d.statsTrack.kills || 0) + 1;
-        if (threat > (d.statsTrack.maxThreatKill || 0)) d.statsTrack.maxThreatKill = threat;
+        if (this.spawnSparkleBurst) {
+            this.spawnSparkleBurst(m.pos, m.color || 0xfde047, m.isBoss ? 18 : 9);
+        }
 
+        const st = this.calcDerivedStats();
+        const expGain = Math.max(1, Math.round(m.baseExp * st.rewardMult));
+        const goldGain = Math.max(1, Math.round(m.baseGold * st.rewardMult));
+
+        this.saveData.gold = (this.saveData.gold || 0) + goldGain;
+        this.saveData.statsTrack = this.saveData.statsTrack || { kills: 0, bossKills: 0, bestTowerFloor: 0, maxThreatKill: 0 };
+        this.saveData.statsTrack.kills = (this.saveData.statsTrack.kills || 0) + 1;
         if (m.isBoss) {
-            d.statsTrack.bossKills = (d.statsTrack.bossKills || 0) + 1;
-            const bonusAp = 1 + Math.floor(threat / 12);
-            const bonusSp = (threat >= 5 || Math.random() < 0.55) ? 1 : 0;
-            d.ap += bonusAp;
-            d.sp += bonusSp;
-            this.showAlertBanner(`👑 ボス撃破！+${formatBigNum(gainExp)}EXP / +${formatBigNum(gainGold)}G / AP+${bonusAp}${bonusSp ? ` SP+${bonusSp}` : ''}`, 2400);
-        } else if (coopCount > 0) {
-            this.spawnFloatText(this.player.pos.clone().add(new THREE.Vector3(0, 2.7, 0)), `🤝共闘+25% +${formatBigNum(gainGold)}G`, '#fde047', 12);
+            this.saveData.statsTrack.bossKills = (this.saveData.statsTrack.bossKills || 0) + 1;
+        }
+        if ((this.saveData.threatRank || 0) > (this.saveData.statsTrack.maxThreatKill || 0)) {
+            this.saveData.statsTrack.maxThreatKill = this.saveData.threatRank || 0;
         }
 
-        if (!this.towerState.active && this.fbConnected && this.broadcastFirebaseEvent) {
-            this.broadcastFirebaseEvent('kill', {
-                zoneId: this.currentZoneId,
-                monsterName: m.name,
-                baseExp: m.baseExp,
-                baseGold: m.baseGold,
-                drop: matKey,
-                isBoss: m.isBoss,
-                killerThreat: threat
-            });
-        }
-
-        this.saveGame(false);
-        this.refreshAllHUD();
-    },
-
-    receiveCoopReward(ev) {
-        if (!ev || ev.zoneId !== this.currentZoneId || this.towerState.active) return;
-        const d = this.saveData;
-        const st = this.calcDerivedStats();
-
-        const effThreat = Math.min(d.threatRank || 0, ev.killerThreat || 0);
-        const threatMult = 1 + effThreat * 0.25;
-
-        const lvCapBase = (45 + d.lv * 32) * 1.5;
-        const cappedExpBase = Math.min(ev.baseExp || 30, lvCapBase);
-        const cappedGoldBase = Math.min(ev.baseGold || 25, lvCapBase);
-
-        const coopMult = 1.25;
-        const finalExp = Math.round(cappedExpBase * threatMult * coopMult * st.rewardMult);
-        const finalGold = Math.round(cappedGoldBase * threatMult * coopMult * st.rewardMult);
-
-        d.gold += finalGold;
-        this.gainExp(finalExp);
-
-        const matKey = ev.drop || 'slime_gel';
-        let matMsg = '';
-        if (d.materials[matKey] !== undefined) {
-            const cnt = ev.isBoss ? 2 : 1;
-            d.materials[matKey] += cnt;
-            matMsg = ` / ${MATERIALS[matKey].icon}x${cnt}`;
-        }
-
-        this.showAlertBanner(`🤝 味方が「${ev.monsterName}」撃破！共闘報酬 +${formatBigNum(finalExp)}EXP / +${formatBigNum(finalGold)}G${matMsg}`, 2200);
-        this.saveGame(false);
-        this.refreshAllHUD();
-    },
-
-    checkTowerFloorClear() {
-        if (!this.towerState.active) return;
-        const remain = this.monsters.filter(m => !m.dead).length;
-        if (remain > 0) return;
-
-        const d = this.saveData;
-        const clearedFloor = this.towerState.floor;
-        if (!d.statsTrack) d.statsTrack = { kills: 0, bossKills: 0, bestTowerFloor: 0, maxThreatKill: 0 };
-        if (clearedFloor > (d.statsTrack.bestTowerFloor || 0)) {
-            d.statsTrack.bestTowerFloor = clearedFloor;
-        }
-
-        if (clearedFloor % 5 === 0) {
-            d.ap += 3;
-            d.sp += 1;
-            sfx.playLevelUp();
-            this.showAlertBanner(`🎉 試練の塔 ${clearedFloor}F守護ボス制覇！AP+3 / SP+1 獲得！`, 2600);
-        }
-
-        this.towerState.floor = clearedFloor + 1;
-        this.saveGame(false);
-        setTimeout(() => {
-            if (this.towerState.active) {
-                this.spawnTowerFloorMonsters(this.towerState.floor);
-                this.refreshAllHUD();
+        // 素材ドロップ判定
+        const dropChance = m.isBoss ? 1.0 : 0.62;
+        if (m.drop && MATERIALS[m.drop] && Math.random() < dropChance) {
+            const qty = m.isBoss ? (2 + Math.floor(Math.random() * 2)) : 1;
+            this.saveData.materials[m.drop] = (this.saveData.materials[m.drop] || 0) + qty;
+            if (this.spawnFloatText) {
+                const matInfo = MATERIALS[m.drop];
+                this.spawnFloatText(m.pos.clone().add(new THREE.Vector3(0, 1.9, 0)), `${matInfo.icon}${matInfo.name} x${qty}`, '#6ee7b7', 13);
             }
-        }, 900);
+        }
+
+        this.gainExp(expGain);
+
+        // 試練の塔：全滅判定と次階層進行
+        if (this.towerState && this.towerState.active) {
+            const alive = this.monsters.some(x => !x.dead);
+            if (!alive) {
+                const clearedFloor = this.towerState.floor;
+                if (clearedFloor > (this.saveData.statsTrack.bestTowerFloor || 0)) {
+                    this.saveData.statsTrack.bestTowerFloor = clearedFloor;
+                }
+                const nextFloor = clearedFloor + 1;
+                this.towerState.floor = nextFloor;
+                if (this.showAlertBanner) {
+                    this.showAlertBanner(`🗼 第${clearedFloor}階層 クリア！次は 第${nextFloor}階層！`, 1800);
+                }
+                setTimeout(() => {
+                    if (this.towerState && this.towerState.active && this.currentZoneId === 'tower') {
+                        this.spawnTowerFloorMonsters(nextFloor);
+                    }
+                }, 900);
+            }
+        }
+
+        this.saveGame(false);
     },
 
     gainExp(amount) {
         const d = this.saveData;
         if (d.lv >= MAX_PLAYER_LEVEL) return;
-        d.exp += amount;
+        d.exp = (d.exp || 0) + amount;
         let leveled = false;
-        while (d.lv < MAX_PLAYER_LEVEL && d.exp >= this.getExpNeeded(d.lv)) {
-            d.exp -= this.getExpNeeded(d.lv);
+        while (d.lv < MAX_PLAYER_LEVEL) {
+            const need = this.getExpNeeded(d.lv);
+            if (d.exp < need) break;
+            d.exp -= need;
             d.lv += 1;
-            d.ap += 3;
-            d.sp += 1;
+            d.ap = (d.ap || 0) + 3;
+            d.sp = (d.sp || 0) + 1;
             leveled = true;
         }
         if (leveled) {
@@ -312,245 +393,314 @@ Object.assign(KaomojiMMORPG.prototype, {
             if (this.player) {
                 this.player.hp = st.maxHp;
                 this.player.mp = st.maxMp;
-                this.spawnDomeEffect(this.player.pos, 0xfde047, 3.6);
+                if (this.spawnRingWave) this.spawnRingWave(this.player.pos, 0xfde047, 5.0);
+                if (this.spawnFloatText) {
+                    this.spawnFloatText(this.player.pos.clone().add(new THREE.Vector3(0, 2.8, 0)), `🎉 LEVEL UP! Lv.${d.lv}`, '#fde047', 18);
+                }
             }
             sfx.playLevelUp();
-            this.showAlertBanner(`🆙 LEVEL UP! Lv.${d.lv} になった！(AP+3 / SP+1)`, 2200);
+            if (this.showAlertBanner) this.showAlertBanner(`🎉 レベルアップ！ Lv.${d.lv} になりました！`, 2200);
         }
     },
 
-    damagePlayer(rawDmg) {
-        if (!this.player || this.isDead || this.player.invulnTimer > 0) return;
+    damagePlayer(rawDmg, ignoreDef = false) {
+        if (!this.player || this.isDead || this.currentZoneId === 'town') return;
+        if ((this.player.invulnTimer || 0) > 0) return;
+
         const st = this.calcDerivedStats();
-        const dmg = Math.max(1, Math.round(rawDmg * (1 - st.defMitigation)));
+        const mult = ignoreDef ? 1.0 : (1 - st.defMitigation);
+        const dmg = Math.max(1, Math.round(rawDmg * mult));
+
         this.player.hp = Math.max(0, this.player.hp - dmg);
-        this.player.invulnTimer = 0.25;
+        this.camShake = Math.max(this.camShake, 0.16);
 
-        this.spawnFloatText(this.player.pos.clone().add(new THREE.Vector3(0, 2.2, 0)), `-${formatBigNum(dmg)}`, '#fb7185', 15);
+        if (this.spawnFloatText) {
+            this.spawnFloatText(this.player.pos.clone().add(new THREE.Vector3(0, 2.2, 0)), `-${formatBigNum(dmg)}`, '#f43f5e', 15);
+        }
+
         if (this.player.hp <= 0) {
-            this.handlePlayerDeath();
-        }
-    },
-
-    handlePlayerDeath() {
-        if (this.isDead) return;
-        this.isDead = true;
-        this.autoHunt = false;
-        const autoBtn = document.getElementById('btn-toggle-autohunt');
-        if (autoBtn) autoBtn.textContent = '🤖 AUTO:OFF';
-
-        document.getElementById('death-overlay')?.classList.remove('hidden');
-        setTimeout(() => {
-            document.getElementById('death-overlay')?.classList.add('hidden');
-            this.isDead = false;
-            const st = this.calcDerivedStats();
-            if (this.player) {
-                this.player.hp = st.maxHp;
-                this.player.mp = st.maxMp;
+            this.isDead = true;
+            this.autoHunt = false;
+            const autoBtn = document.getElementById('btn-toggle-autohunt');
+            if (autoBtn) {
+                autoBtn.textContent = '🤖 AUTO:OFF';
+                autoBtn.style.background = '';
             }
-            this.loadZone('town');
-            this.showAlertBanner('🏠 始まりの顔文字広場へ帰還しHP/MPが全回復しました', 2200);
-        }, 1800);
-    },
-
-    useSkillSlot(slotIdx) {
-        if (!this.player || this.isDead || this.player.stunTimer > 0) return;
-        const d = this.saveData;
-        const skId = d.equippedSkills[slotIdx];
-        const sk = skId ? SKILLS[skId] : null;
-        if (!sk) return;
-
-        if ((this.player.skillCds[slotIdx] || 0) > 0) return;
-        const skLv = d.skills[skId] || 1;
-        const cost = getSkillMpCost(sk, skLv);
-        if (this.player.mp < cost) {
-            this.showAlertBanner('MPが足りません！', 1000);
-            return;
-        }
-
-        const st = this.calcDerivedStats();
-        if (!sk.isSupport && this.currentZoneId === 'town') {
-            this.showAlertBanner('安全な街では攻撃スキルを使えません', 1200);
-            return;
-        }
-
-        this.player.mp -= cost;
-        this.player.skillCds[slotIdx] = Math.max(0.4, sk.cd * (1 - st.cdReduction));
-        sfx.init();
-        sfx.playSkill();
-
-        this.executeSingleSkillCast(sk, skLv, st);
-
-        if (st.doubleCast > 0 && Math.random() < st.doubleCast) {
+            if (this.showAlertBanner) this.showAlertBanner('💀 力尽きてしまった… 始まりの広場へ帰還します', 2400);
             setTimeout(() => {
-                if (!this.isDead) {
-                    this.spawnFloatText(this.player.pos.clone().add(new THREE.Vector3(0, 2.8, 0)), '♊双子星2連発！', '#f0abfc', 14);
-                    this.executeSingleSkillCast(sk, skLv, st);
+                this.isDead = false;
+                const freshSt = this.calcDerivedStats();
+                if (this.player) {
+                    this.player.hp = freshSt.maxHp;
+                    this.player.mp = freshSt.maxMp;
+                    this.player.invulnTimer = 2.0;
                 }
-            }, 220);
+                this.loadZone('town');
+            }, 1400);
         }
     },
 
-    executeSingleSkillCast(sk, skLv, st) {
-        const eff = getSkillEffectStats(sk, skLv, st);
-        const pPos = this.player.pos;
-        const basePower = st.physAtk * st.magMult * (eff.mult || 1);
+    updateCombatAndEntities(dt, elapsed) {
+        if (!this.player) return;
+        const st = this.calcDerivedStats();
 
-        if (sk.type === 'HEAL' || sk.type === 'HEAL_MP') {
-            const healHp = Math.round(st.maxHp * eff.hpPct);
-            this.player.hp = Math.min(st.maxHp, this.player.hp + healHp);
-            this.spawnFloatText(pPos.clone().add(new THREE.Vector3(0, 2.4, 0)), `+${formatBigNum(healHp)} HP`, '#34d399', 16);
-            if (eff.mpPct) {
-                const healMp = Math.round(st.maxMp * eff.mpPct);
-                this.player.mp = Math.min(st.maxMp, this.player.mp + healMp);
+        // クールダウン・バフタイマー更新
+        if (this.skillCooldowns) {
+            for (let i = 0; i < this.skillCooldowns.length; i++) {
+                if (this.skillCooldowns[i] > 0) this.skillCooldowns[i] = Math.max(0, this.skillCooldowns[i] - dt);
             }
-            this.player.skillAnimType = 'cast_up';
-            this.player.skillAnimDur = 0.35;
-            this.player.skillAnimTimer = 0.35;
-            this.spawnDomeEffect(pPos, sk.type === 'HEAL_MP' ? 0xf472b6 : 0x10b981, 3.2);
-            sfx.playHeal();
-            return;
+        }
+        if (this.player.invulnTimer > 0) this.player.invulnTimer = Math.max(0, this.player.invulnTimer - dt);
+        if (this.player.stunTimer > 0) this.player.stunTimer = Math.max(0, this.player.stunTimer - dt);
+        if (this.player.defBuffTimer > 0) this.player.defBuffTimer = Math.max(0, this.player.defBuffTimer - dt);
+        if (this.player.warcryTimer > 0) this.player.warcryTimer = Math.max(0, this.player.warcryTimer - dt);
+        if (this.player.skillAnimTimer > 0) this.player.skillAnimTimer = Math.max(0, this.player.skillAnimTimer - dt);
+
+        // HP/MP自然回復（広場では高速回復）
+        if (!this.isDead) {
+            if (this.currentZoneId === 'town') {
+                this.player.hp = Math.min(st.maxHp, this.player.hp + st.maxHp * 0.25 * dt);
+                this.player.mp = Math.min(st.maxMp, this.player.mp + st.maxMp * 0.30 * dt);
+            } else {
+                const hpRegenRate = 0.015 + (st.treeHpRegenBonus || 0);
+                const mpRegenRate = 0.045 * (st.treeMpRegenMult || 1.0);
+                this.player.hp = Math.min(st.maxHp, this.player.hp + st.maxHp * hpRegenRate * dt);
+                this.player.mp = Math.min(st.maxMp, this.player.mp + st.maxMp * mpRegenRate * dt);
+            }
         }
 
-        if (sk.type === 'DEF_BUFF') {
-            this.player.invulnTimer = Math.max(this.player.invulnTimer, eff.invuln);
-            this.player.defBuffTimer = eff.duration;
-            this.player.defBuffBonus = eff.defBonus;
-            this.player.skillAnimType = 'cast_up';
-            this.player.skillAnimDur = 0.35;
-            this.player.skillAnimTimer = 0.35;
-            this.spawnDomeEffect(pPos, 0x38bdf8, 3.4);
-            this.showAlertBanner(`🔰 神域イージス展開！無敵${eff.invuln}s＆防御UP`, 1400);
-            return;
+        this.updatePlayerMovement(dt, st);
+        this.updatePet(dt, elapsed);
+        this.updateMonsters(dt, elapsed);
+
+        // 街のAI仲間散歩
+        for (const ally of this.aiAllies) {
+            ally.wanderTimer -= dt;
+            if (ally.wanderTimer <= 0) {
+                ally.wanderTimer = 2.5 + Math.random() * 2.5;
+                const ang = Math.random() * Math.PI * 2;
+                const r = 1.5 + Math.random() * 3.0;
+                ally.targetOffset.set(Math.cos(ang) * r, 0, Math.sin(ang) * r);
+            }
+            const dest = ally.homePos.clone().add(ally.targetOffset);
+            const dx = dest.x - ally.pos.x;
+            const dz = dest.z - ally.pos.z;
+            const dist = Math.hypot(dx, dz);
+            if (dist > 0.15) {
+                ally.pos.x += (dx / dist) * 2.2 * dt;
+                ally.pos.z += (dz / dist) * 2.2 * dt;
+                if (ally.group) ally.group.rotation.y = Math.atan2(dx, dz);
+            }
+            if (ally.group) ally.group.position.copy(ally.pos);
+        }
+    },
+
+    updatePlayerMovement(dt, st) {
+        if (this.isDead || (this.player.stunTimer || 0) > 0) return;
+
+        let mx = 0;
+        let mz = 0;
+        if (this.keys['KeyW'] || this.keys['ArrowUp']) mz -= 1;
+        if (this.keys['KeyS'] || this.keys['ArrowDown']) mz += 1;
+        if (this.keys['KeyA'] || this.keys['ArrowLeft']) mx -= 1;
+        if (this.keys['KeyD'] || this.keys['ArrowRight']) mx += 1;
+
+        if (Math.hypot(this.joyVec.x, this.joyVec.y) > 0.08) {
+            mx = this.joyVec.x;
+            mz = this.joyVec.y;
         }
 
-        if (sk.type === 'ATK_BUFF') {
-            this.player.warcryTimer = eff.duration;
-            this.player.warcryBonus = 1 + eff.atkBonus;
-            this.player.skillAnimType = 'cast_up';
-            this.player.skillAnimDur = 0.35;
-            this.player.skillAnimTimer = 0.35;
-            this.spawnRingEffect(pPos, 0xf97316, 4.2);
-            this.showAlertBanner(`🔥 覇王の咆哮！攻撃力 +${Math.round(eff.atkBonus * 100)}%`, 1400);
-            return;
+        const hasManualInput = Math.hypot(mx, mz) > 0.05;
+
+        if (hasManualInput) {
+            const len = Math.hypot(mx, mz);
+            const nx = mx / len;
+            const nz = mz / len;
+            const sin = Math.sin(this.camYaw);
+            const cos = Math.cos(this.camYaw);
+            const wx = nx * cos + nz * sin;
+            const wz = -nx * sin + nz * cos;
+
+            this.player.pos.x += wx * st.moveSpeed * dt;
+            this.player.pos.z += wz * st.moveSpeed * dt;
+            this.player.rotY = Math.atan2(wx, wz);
+            this.clampPosition(this.player.pos);
+        } else if (this.autoHunt && this.currentZoneId !== 'town') {
+            // AUTO狩り移動（杖装備時は13.5m手前で止まって魔法弾を撃つ）
+            const target = this.getNearestMonster(60);
+            if (target) {
+                const dx = target.pos.x - this.player.pos.x;
+                const dz = target.pos.z - this.player.pos.z;
+                const dist = Math.hypot(dx, dz);
+                const stopDist = st.isStaffEquipped ? 13.5 : 3.4;
+                if (dist > stopDist) {
+                    this.player.pos.x += (dx / dist) * st.moveSpeed * dt;
+                    this.player.pos.z += (dz / dist) * st.moveSpeed * dt;
+                    this.player.rotY = Math.atan2(dx, dz);
+                    this.clampPosition(this.player.pos);
+                }
+            }
         }
 
-        const target = this.getValidTarget();
-        if (target && !target.dead) {
-            const dx = target.pos.x - pPos.x;
-            const dz = target.pos.z - pPos.z;
-            if (dx * dx + dz * dz > 0.01) this.player.rotY = Math.atan2(dx, dz);
+        // ワープ陣接触判定
+        const onWarp = this.isOnWarpPortal(this.player.pos);
+        if (onWarp && !this.wasOnWarp && !this.isModalOpen && !this.inTitleScreen) {
+            this.wasOnWarp = true;
+            if (this.openGrowthModal) this.openGrowthModal('zones');
+        } else if (!onWarp) {
+            this.wasOnWarp = false;
         }
 
-        if (sk.radius) {
-            const center = (sk.type === 'AOE_DMG' && sk.id === 'spin_whirl') ? pPos : (target ? target.pos : pPos);
-            this.player.skillAnimType = sk.id === 'spin_whirl' ? 'spin_whirl' : 'slam_ground';
-            this.player.skillAnimDur = 0.4;
-            this.player.skillAnimTimer = 0.4;
-            this.camShake = Math.max(this.camShake, 0.25);
+        // オート通常攻撃＆AUTOスキル発動
+        if (this.currentZoneId !== 'town') {
+            this.autoAtkTimer -= dt;
+            if ((this.autoAttack || this.autoHunt) && this.autoAtkTimer <= 0) {
+                if (this.performBasicAttack()) {
+                    this.autoAtkTimer = 0.72;
+                } else {
+                    this.autoAtkTimer = 0.2;
+                }
+            }
 
-            const efColor = sk.type === 'AOE_SLOW' ? 0x38bdf8 : (sk.type === 'AOE_BURN' ? 0xf97316 : 0xc084fc);
-            this.spawnRingEffect(center, efColor, sk.radius);
-            this.spawnDomeEffect(center, efColor, sk.radius * 0.65);
-
-            this.monsters.forEach(m => {
-                if (m.dead) return;
-                if (m.pos.distanceTo(center) <= sk.radius) {
-                    const crit = Math.random() < st.critChance;
-                    this.damageMonster(m, basePower * (crit ? st.critDmg : 1), crit);
-                    if (sk.type === 'AOE_SLOW') {
-                        m.slowTimer = eff.slowDur;
-                        m.slowFactor = eff.slowFactor;
+            if (this.autoHunt) {
+                this.autoSkillTimer -= dt;
+                if (this.autoSkillTimer <= 0) {
+                    this.autoSkillTimer = 0.65;
+                    const near = this.getNearestMonster(st.isStaffEquipped ? 16.5 : 8.5);
+                    if (near) {
+                        const eq = this.saveData.equippedSkills || [];
+                        for (let i = 0; i < eq.length; i++) {
+                            const sid = eq[i];
+                            if (!sid || !SKILLS[sid]) continue;
+                            const sk = SKILLS[sid];
+                            if (sk.type === 'HEAL' && this.player.hp > st.maxHp * 0.65) continue;
+                            if (sk.type === 'HEAL_MP' && this.player.hp > st.maxHp * 0.7 && this.player.mp > st.maxMp * 0.5) continue;
+                            if (this.useSkillSlot(i)) break;
+                        }
                     }
-                    if (sk.type === 'AOE_BURN') {
-                        m.burnTimer = 4.0;
-                        m.burnDps = basePower * 0.35;
-                    }
-                }
-            });
-        } else if (target && !target.dead) {
-            this.player.skillAnimType = 'jump_slash';
-            this.player.skillAnimDur = 0.35;
-            this.player.skillAnimTimer = 0.35;
-            const crit = Math.random() < st.critChance;
-            const finalDmg = basePower * (crit ? st.critDmg : 1);
-            this.damageMonster(target, finalDmg, crit);
-
-            const c = sk.type === 'THUNDER' ? 0xfde047 : (sk.type === 'DRAIN' ? 0xf43f5e : 0x38bdf8);
-            this.spawnDomeEffect(target.pos, c, 2.8);
-            this.spawnSparkleBurst(target.pos, c, 10);
-
-            if (sk.type === 'DRAIN') {
-                const heal = Math.round(finalDmg * eff.drainRate);
-                this.player.hp = Math.min(st.maxHp, this.player.hp + heal);
-                this.spawnFloatText(pPos.clone().add(new THREE.Vector3(0, 2.3, 0)), `+${formatBigNum(heal)}`, '#34d399', 14);
-            }
-            if (sk.type === 'INTERRUPT') {
-                target.stunTimer = Math.max(target.stunTimer, eff.stunDur);
-                if (target.casting) {
-                    target.casting = null;
-                    document.getElementById('boss-cast-box')?.classList.add('hidden');
-                    this.showAlertBanner(`⚡ ${target.name}の大技詠唱を中断した！`, 1600);
                 }
             }
         }
     },
 
-    spawnPlayerAttackEffect(pos, colorHex = 0x38bdf8, crit = false) {
-        this.spawnSparkleBurst(pos, colorHex, crit ? 9 : 4);
-        if (crit) this.spawnRingEffect(pos, 0xfde047, 2.4);
+    updateMonsters(dt, elapsed) {
+        let activeBossCast = null;
+
+        for (const m of this.monsters) {
+            if (m.dead) {
+                if (!m.noRespawn) {
+                    m.respawnTimer -= dt;
+                    if (m.respawnTimer <= 0) {
+                        m.dead = false;
+                        m.hp = m.maxHp;
+                        m.aggro = false;
+                        m.pos.copy(m.spawnPos);
+                        if (m.group) {
+                            m.group.visible = true;
+                            m.group.position.copy(m.pos);
+                        }
+                        if (m.plateEl) m.plateEl.style.display = 'block';
+                    }
+                }
+                continue;
+            }
+
+            if (m.atkAnimTimer > 0) m.atkAnimTimer = Math.max(0, m.atkAnimTimer - dt);
+
+            if (m.burnTimer > 0) {
+                m.burnTimer -= dt;
+                if (Math.floor((m.burnTimer + dt) * 2) !== Math.floor(m.burnTimer * 2)) {
+                    this.damageMonster(m, m.burnDps, false, '#fb923c');
+                    if (m.dead) continue;
+                }
+            }
+
+            if (m.stunTimer > 0) {
+                m.stunTimer = Math.max(0, m.stunTimer - dt);
+                continue;
+            }
+
+            const slowMult = m.slowTimer > 0 ? (m.slowFactor || 0.5) : 1.0;
+            if (m.slowTimer > 0) m.slowTimer = Math.max(0, m.slowTimer - dt);
+
+            const dx = this.player.pos.x - m.pos.x;
+            const dz = this.player.pos.z - m.pos.z;
+            const dist = Math.hypot(dx, dz);
+
+            if (dist < (m.isBoss ? 22 : 14) || this.towerState.active) {
+                m.aggro = true;
+            }
+
+            // ボスの大技詠唱処理
+            if (m.casting) {
+                m.casting.elapsed += dt;
+                if (m === this.selectedTarget || dist < 24) {
+                    activeBossCast = m;
+                }
+                if (m.casting.elapsed >= m.casting.duration) {
+                    const castRadius = m.casting.radius || 7.5;
+                    if (this.spawnRingWave) this.spawnRingWave(m.pos, 0xef4444, castRadius);
+                    if (dist <= castRadius) {
+                        this.damagePlayer(Math.round(m.atk * 2.1), false);
+                    }
+                    m.casting = null;
+                }
+                continue;
+            }
+
+            if (m.aggro && !this.isDead) {
+                const reach = 2.4 + (m.scale || 1) * 0.75;
+                if (dist > reach) {
+                    const spd = (m.isBoss ? 4.4 : 4.8) * slowMult;
+                    m.pos.x += (dx / dist) * spd * dt;
+                    m.pos.z += (dz / dist) * spd * dt;
+                    if (m.group) m.group.rotation.y = Math.atan2(dx, dz);
+                } else {
+                    m.autoTimer -= dt;
+                    if (m.autoTimer <= 0) {
+                        m.autoTimer = m.isBoss ? 1.45 : 1.3;
+                        m.atkAnimTimer = 0.25;
+                        this.damagePlayer(m.atk, false);
+                    }
+                }
+
+                if (m.isBoss && dist < 18) {
+                    m.mechTimer -= dt;
+                    if (m.mechTimer <= 0) {
+                        m.mechTimer = 9.5;
+                        m.casting = {
+                            name: m.isRaidBoss ? '終焉の魔導カタストロフィ' : '覇王の衝撃波',
+                            elapsed: 0,
+                            duration: 2.6,
+                            radius: 8.5
+                        };
+                    }
+                }
+            }
+
+            if (m.group) {
+                const hop = Math.abs(Math.sin(elapsed * 5 + m.pos.x)) * 0.14;
+                m.group.position.set(m.pos.x, hop, m.pos.z);
+            }
+        }
+
+        this.updateBossCastUI(activeBossCast);
     },
 
-    spawnEnemyAttackEffect(fromPos, toPos, colorHex = 0xef4444, isBoss = false) {
-        this.spawnSparkleBurst(toPos, colorHex, isBoss ? 8 : 4);
-    },
-
-    spawnRingEffect(pos, colorHex, radius = 4.0) {
-        if (!this.useWebGL || !this.scene) return;
-        const mesh = new THREE.Mesh(
-            new THREE.RingGeometry(radius * 0.45, radius, 28),
-            new THREE.MeshBasicMaterial({ color: colorHex, side: THREE.DoubleSide, transparent: true, opacity: 0.85 })
-        );
-        mesh.rotation.x = -Math.PI / 2;
-        mesh.position.set(pos.x, 0.18, pos.z);
-        this.scene.add(mesh);
-        this.effects.push({ mesh, kind: 'expand', life: 0.42, maxLife: 0.42 });
-    },
-
-    spawnDomeEffect(pos, colorHex, radius = 3.0) {
-        if (!this.useWebGL || !this.scene) return;
-        const mesh = new THREE.Mesh(
-            new THREE.SphereGeometry(radius, 18, 12, 0, Math.PI * 2, 0, Math.PI / 2),
-            new THREE.MeshBasicMaterial({ color: colorHex, wireframe: true, transparent: true, opacity: 0.8 })
-        );
-        mesh.position.set(pos.x, 0.1, pos.z);
-        this.scene.add(mesh);
-        this.effects.push({ mesh, kind: 'expand', life: 0.45, maxLife: 0.45 });
-    },
-
-    spawnProjectileBeam(startPos, rotY, colorHex) {
-        if (!this.useWebGL || !this.scene) return;
-        const mesh = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.28, 0.28, 10, 10),
-            new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.9 })
-        );
-        mesh.rotation.x = Math.PI / 2;
-        mesh.rotation.z = -rotY;
-        mesh.position.set(startPos.x + Math.sin(rotY) * 5, 1.2, startPos.z + Math.cos(rotY) * 5);
-        this.scene.add(mesh);
-        this.effects.push({ mesh, kind: 'expand', life: 0.45, maxLife: 0.45 });
-    },
-
-    spawnSparkleBurst(pos, colorHex, count = 6) {
-        if (!this.useWebGL || !this.scene) return;
-        for (let i = 0; i < count; i++) {
-            const mesh = new THREE.Mesh(
-                new THREE.OctahedronGeometry(0.18, 0),
-                new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.95 })
-            );
-            mesh.position.set(pos.x + (Math.random() - 0.5) * 1.4, 0.8 + Math.random() * 1.2, pos.z + (Math.random() - 0.5) * 1.4);
-            this.scene.add(mesh);
-            this.effects.push({ mesh, kind: 'rise', life: 0.48, maxLife: 0.48 });
+    updateBossCastUI(m) {
+        const box = document.getElementById('boss-cast-box');
+        if (!box) return;
+        if (!m || !m.casting) {
+            box.classList.add('hidden');
+            return;
+        }
+        box.classList.remove('hidden');
+        const nameEl = document.getElementById('boss-cast-name');
+        const barEl = document.getElementById('boss-cast-bar');
+        if (nameEl) nameEl.textContent = `⚠️ ${m.name}：【${m.casting.name}】`;
+        if (barEl) {
+            const pct = Math.min(100, (m.casting.elapsed / m.casting.duration) * 100);
+            barEl.style.width = `${pct}%`;
         }
     }
 });
