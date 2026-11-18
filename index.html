@@ -643,5 +643,128 @@ button,.btn-ui{touch-action:manipulation;cursor:pointer;pointer-events:auto}
     }, 800);
 })();
 </script>
+<script>
+// =========================================================================
+// 通常攻撃の修正（敵がいない時も正面へ普通に飛ばす＆空中静止を防止）
+// =========================================================================
+(function () {
+    function patchBasicAttack() {
+        if (typeof KaomojiMMORPG === 'undefined') return;
+        const P = KaomojiMMORPG.prototype;
+
+        P.performBasicAttack = function () {
+            if (!this.player || this.isDead || this.currentZoneId === 'town') return false;
+            if ((this.player.stunTimer || 0) > 0) return false;
+
+            // 空中で静止していた場合は地面(y=0)へ戻す
+            if (this.player.pos) this.player.pos.y = 0;
+
+            const st = this.calcDerivedStats ? this.calcDerivedStats() : {};
+            const isStaff = Boolean(st.isStaffEquipped || this.isMageEvolution?.());
+            const atkRange = isStaff ? 16.5 : 5.0;
+
+            const target = this.getValidTarget ? this.getValidTarget(atkRange) : null;
+            if (target) {
+                const dx = target.pos.x - this.player.pos.x;
+                const dz = target.pos.z - this.player.pos.z;
+                this.player.rotY = Math.atan2(dx, dz);
+            }
+
+            const rotY = this.player.rotY || 0;
+            const dirX = Math.sin(rotY);
+            const dirZ = Math.cos(rotY);
+            const px = this.player.pos.x;
+            const pz = this.player.pos.z;
+
+            if (isStaff) {
+                // 杖・魔道士：敵がいれば敵へ、いなければ正面14mへ普通に魔法弾を飛ばす
+                this.triggerPlayerAttackAnim?.('staff_cast', 0.28);
+                sfx?.playTone?.(640, 'sine', 0.12, 0.06, 980);
+
+                if (typeof THREE !== 'undefined' && this.spawnMagicBolt) {
+                    const startPos = new THREE.Vector3(px, 1.35, pz);
+                    const endPos = target
+                        ? new THREE.Vector3(target.pos.x, 0.9, target.pos.z)
+                        : new THREE.Vector3(px + dirX * 14, 1.1, pz + dirZ * 14);
+                    this.spawnMagicBolt(startPos, endPos, st.wpnGlowColor || 0xc084fc);
+                } else {
+                    this.spawnMageBasicMagicShot?.(this.player);
+                }
+            } else {
+                // 剣・物理：敵がいなくても正面へ普通に斬撃を飛ばす
+                this.triggerPlayerAttackAnim?.('slash', 0.24);
+                sfx?.playHit?.(false);
+
+                if (this.spawnSlashArc) {
+                    this.spawnSlashArc(this.player.pos, rotY, st.wpnGlowColor || 0x38bdf8, 2.5);
+                }
+                // 正面へ飛ぶ斬撃波エフェクト
+                if (this.useWebGL && this.scene && typeof THREE !== 'undefined') {
+                    if (!this._v21SkillEffects) this._v21SkillEffects = [];
+                    const mat = new THREE.MeshBasicMaterial({
+                        color: st.wpnGlowColor || 0x38bdf8,
+                        side: THREE.DoubleSide,
+                        transparent: true,
+                        opacity: 0.9
+                    });
+                    const wave = new THREE.Mesh(
+                        new THREE.RingGeometry(0.7, 1.65, 20, 1, -Math.PI * 0.42, Math.PI * 0.84),
+                        mat
+                    );
+                    wave.position.set(px + dirX * 1.2, 1.15, pz + dirZ * 1.2);
+                    wave.rotation.set(Math.PI * 0.28, rotY, 0);
+                    this.scene.add(wave);
+                    this._v21SkillEffects.push({
+                        root: wave,
+                        animItems: [{ type: 'projectile', mesh: wave, mat, vx: dirX * 13.5, vz: dirZ * 13.5, spinZ: 0 }],
+                        life: 0.35,
+                        maxLife: 0.35
+                    });
+                }
+            }
+
+            // 射程内に敵がいる場合はダメージ計算を実行
+            if (target) {
+                const isCrit = Math.random() < (st.critChance || 0.05);
+                const basePower = isStaff ? (st.magAtk || 10) : (st.physAtk || 10);
+                const variance = 0.92 + Math.random() * 0.16;
+                const dmg = Math.max(1, Math.round(basePower * variance * (isCrit ? (st.critDmg || 1.5) : 1.0)));
+                const col = isStaff ? (isCrit ? '#f472b6' : '#c084fc') : (isCrit ? '#fde047' : '#ffffff');
+
+                this.damageMonster?.(target, dmg, isCrit, col);
+
+                if ((st.lifesteal || 0) > 0) {
+                    const heal = Math.max(1, Math.round(dmg * st.lifesteal));
+                    this.player.hp = Math.min(st.maxHp || this.player.hp, this.player.hp + heal);
+                }
+            }
+
+            return true;
+        };
+
+        // 空中静止の完全防止（スキル浮遊モーション中以外は常に地面へ接地）
+        const _prevAnim = P.updateCharacterAnimations;
+        P.updateCharacterAnimations = function (dt) {
+            _prevAnim?.call(this, dt);
+            if (this.player && this.player.pos && this.player.group) {
+                const inSkillAir = this.player.skillMotionV25 && this.player.skillMotionV25.timer > 0;
+                if (!inSkillAir) {
+                    this.player.pos.y = 0;
+                    if (this.player.group.position.y > 0.35) {
+                        this.player.group.position.y = 0;
+                    }
+                }
+            }
+        };
+    }
+
+    patchBasicAttack();
+    window.addEventListener('DOMContentLoaded', patchBasicAttack);
+    window.addEventListener('load', patchBasicAttack);
+    setTimeout(patchBasicAttack, 900);
+})();
+</script>
+
+
 </body>
 </html>
