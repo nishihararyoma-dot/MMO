@@ -2388,5 +2388,55 @@ window.addEventListener('resize', () => {
     window.game?.injectSettingsDropdownItemV33?.();
     window.game?.applySavedUILayoutV31?.();
 });
-// === GAME8_V35_OK ===
+// ▼▼▼ 移動スティック中央補正＆チャット閉時ハンドル非表示パッチ（v36） ▼▼▼
+(function () {
+    const fixStickCenterV36 = () => {
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const stickBases = Array.from(document.querySelectorAll('#kmj-v33-movepad, #joystick, #joy-base, #joystick-zone, #move-pad, .joystick, .joy-base, div')).filter(el => {
+            if (el.closest?.('#kmj-secret-debug-modal') || el.closest?.('#kmj-ui-custom-bar')) return false;
+            const cs = window.getComputedStyle(el);
+            if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+            const r = el.getBoundingClientRect();
+            if (r.width < 55 || r.width > 165 || Math.abs(r.width - r.height) > 14) return false;
+            if (el.id !== 'kmj-v33-movepad' && (r.left > vw * 0.4 || r.bottom < vh * 0.55)) return false;
+            const br = parseFloat(cs.borderRadius) || 0;
+            return br >= 25 || cs.borderRadius.includes('%') || /joy|stick|pad|move/i.test(`${el.id} ${el.className}`);
+        });
+
+        stickBases.forEach(base => {
+            base.style.setProperty('display', 'flex', 'important');
+            base.style.setProperty('align-items', 'center', 'important');
+            base.style.setProperty('justify-content', 'center', 'important');
+
+            const knob = base.firstElementChild;
+            if (knob) {
+                const kcs = window.getComputedStyle(knob);
+                if (kcs.position === 'absolute') {
+                    knob.style.setProperty('position', 'relative', 'important');
+                    knob.style.setProperty('left', 'auto', 'important');
+                    knob.style.setProperty('top', 'auto', 'important');
+                    knob.style.setProperty('margin', '0px', 'important');
+                }
+                if (knob.style.transform && knob.style.transform.includes('-50%')) {
+                    knob.style.transform = 'translate(0px, 0px)';
+                }
+            }
+        });
+
+        const handle = document.getElementById('kmj-chat-resize-handle-v34');
+        if (handle) {
+            const inp = document.querySelector('input[placeholder*="メッセージ"], input[placeholder*="チャット"], #chat-input');
+            handle.style.display = (inp && inp.getBoundingClientRect().height > 0) ? 'flex' : 'none';
+        }
+    };
+
+    window.addEventListener('DOMContentLoaded', () => {
+        setTimeout(fixStickCenterV36, 200);
+        setTimeout(fixStickCenterV36, 900);
+    });
+    window.addEventListener('resize', fixStickCenterV36);
+    setInterval(fixStickCenterV36, 300);
+})();
+// === GAME8_V36_OK ===
 // ▲▲▲ ここまで【3/3】 ▲▲▲
