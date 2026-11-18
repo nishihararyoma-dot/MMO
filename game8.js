@@ -652,7 +652,28 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         });
     };
 
-    // 9. チャットの定型文・タブの横並びスリム化＆下側の黒空白除去
+    // 9. チャット定型文スリム維持 ＋ チャットログ欄を縦に自由に伸ばせるリサイズ機能（v34）
+    P.getSavedChatLogHeightV34 = function () {
+        try {
+            const v = Number(localStorage.getItem('kmj_chat_log_height_v34'));
+            return (!isNaN(v) && v >= 64) ? v : null;
+        } catch (e) {
+            return null;
+        }
+    };
+
+    P.setSavedChatLogHeightV34 = function (px) {
+        try {
+            if (px === null) {
+                localStorage.removeItem('kmj_chat_log_height_v34');
+            } else {
+                const maxH = Math.max(180, Math.floor(window.innerHeight * 0.68));
+                const clamped = Math.max(64, Math.min(maxH, Math.round(px)));
+                localStorage.setItem('kmj_chat_log_height_v34', String(clamped));
+            }
+        } catch (e) {}
+    };
+
     P.fixChatCompactLayoutV31 = function () {
         document.getElementById('kmj-v30-movepad')?.remove();
         document.getElementById('kmj-btn-ui-edit-v31')?.remove();
@@ -660,6 +681,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         const vw = window.innerWidth;
         const isSmallMobile = vw <= 920;
 
+        // ① チャットタブと定型文の縦伸びを防止
         document.querySelectorAll('button').forEach(btn => {
             if (btn.closest?.('#kmj-secret-debug-modal') || btn.closest?.('#kmj-ui-custom-bar')) return;
             const txt = (btn.textContent || '').trim();
@@ -707,53 +729,150 @@ if (typeof KaomojiMMORPG !== 'undefined') {
                     row.style.setProperty('flex', '0 0 auto', 'important');
                     row.style.setProperty('overflow-x', 'auto', 'important');
                 }
+            } else if (/戻す/.test(txt) && btn.parentElement && /ドラッグで移動/.test(btn.parentElement.textContent || '')) {
+                // 「↺ 戻す」の隣に「↕ 縦拡大」ワンタップボタンを設置
+                if (!document.getElementById('kmj-chat-expand-toggle-v34')) {
+                    const expBtn = document.createElement('button');
+                    expBtn.id = 'kmj-chat-expand-toggle-v34';
+                    expBtn.type = 'button';
+                    expBtn.textContent = '↕ 縦拡大';
+                    expBtn.style.cssText = 'background:#0284c7;color:#fff;border:1px solid #7dd3fc;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:900;cursor:pointer;margin-right:4px;';
+                    expBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const cur = this.getSavedChatLogHeightV34();
+                        const bigH = Math.min(340, Math.floor(window.innerHeight * 0.56));
+                        if (cur && cur >= 180) {
+                            this.setSavedChatLogHeightV34(null);
+                            expBtn.textContent = '↕ 縦拡大';
+                        } else {
+                            this.setSavedChatLogHeightV34(bigH);
+                            expBtn.textContent = '↕ 標準幅';
+                        }
+                        this.fixChatCompactLayoutV31();
+                    });
+                    btn.parentElement.insertBefore(expBtn, btn);
+                }
+                if (!btn.dataset.v34ResetHook) {
+                    btn.dataset.v34ResetHook = '1';
+                    btn.addEventListener('click', () => {
+                        this.setSavedChatLogHeightV34(null);
+                        const eb = document.getElementById('kmj-chat-expand-toggle-v34');
+                        if (eb) eb.textContent = '↕ 縦拡大';
+                        this.fixChatCompactLayoutV31();
+                    });
+                }
             }
         });
 
+        // ② チャット外枠・メッセージログ欄の検出と縦リサイズハンドル設置
         const chatInputs = document.querySelectorAll('input[placeholder*="メッセージ"], input[placeholder*="チャット"], #chat-input');
         chatInputs.forEach(inp => {
             inp.style.setProperty('height', '28px', 'important');
             inp.style.setProperty('min-height', '26px', 'important');
             inp.style.setProperty('font-size', '11px', 'important');
 
+            let chatBox = null;
             let cur = inp.parentElement;
             for (let depth = 0; depth < 6 && cur && cur !== document.body; depth++) {
                 const txt = cur.textContent || '';
                 const r = cur.getBoundingClientRect();
-                if ((/全体チャット|ドラッグで移動/.test(txt) || r.width > 240) && r.height > 85) {
-                    cur.style.setProperty('bottom', 'auto', 'important');
-                    cur.style.setProperty('height', 'auto', 'important');
-                    cur.style.setProperty('min-height', '0px', 'important');
-                    cur.style.setProperty('padding-bottom', '5px', 'important');
-                    cur.style.setProperty('z-index', '45', 'important');
-                    if (isSmallMobile) {
-                        cur.style.setProperty('max-width', '46vw', 'important');
-                    }
-
-                    const inpBottom = inp.getBoundingClientRect().bottom;
-                    Array.from(cur.children).forEach(ch => {
-                        if (ch.contains(inp)) return;
-                        const cr = ch.getBoundingClientRect();
-                        if (cr.top >= inpBottom - 2 && ch.textContent.trim() === '') {
-                            ch.style.setProperty('display', 'none', 'important');
-                        }
-                    });
+                if (/全体チャット|ドラッグで移動/.test(txt) && r.width > 200 && r.height > 80) {
+                    chatBox = cur;
                 }
                 cur = cur.parentElement;
+            }
+            if (!chatBox) return;
+
+            chatBox.style.setProperty('bottom', 'auto', 'important');
+            chatBox.style.setProperty('height', 'auto', 'important');
+            chatBox.style.setProperty('min-height', '0px', 'important');
+            chatBox.style.setProperty('padding-bottom', '4px', 'important');
+            chatBox.style.setProperty('z-index', '45', 'important');
+            if (isSmallMobile) {
+                chatBox.style.setProperty('max-width', '46vw', 'important');
+            }
+
+            // チャットログ表示領域（メッセージ一覧）を特定
+            const logEl = chatBox.querySelector('#chat-messages, #chat-log, .chat-messages, .chat-log')
+                || Array.from(chatBox.querySelectorAll('div')).find(el => {
+                    if (el === chatBox || el.contains(inp)) return false;
+                    const t = (el.textContent || '').trim();
+                    if (/^(全体チャット|部屋\/オフライン|よろしく！)/.test(t)) return false;
+                    if (/ドラッグで移動/.test(t)) return false;
+                    const cs = window.getComputedStyle(el);
+                    const isScrollable = /(auto|scroll)/.test(cs.overflowY);
+                    const hasWelcome = /ようこそ|全体チャットへ/.test(t);
+                    return (isScrollable || hasWelcome) && el.getBoundingClientRect().height >= 45;
+                });
+
+            if (logEl) {
+                const savedH = this.getSavedChatLogHeightV34();
+                if (savedH) {
+                    logEl.style.setProperty('height', `${savedH}px`, 'important');
+                    logEl.style.setProperty('max-height', `${savedH}px`, 'important');
+                    logEl.style.setProperty('min-height', `${savedH}px`, 'important');
+                    logEl.style.setProperty('overflow-y', 'auto', 'important');
+                } else {
+                    logEl.style.removeProperty('height');
+                    logEl.style.removeProperty('max-height');
+                    logEl.style.removeProperty('min-height');
+                }
+
+                // 下端にドラッグで縦幅変更できるリサイズハンドルを設置
+                let handle = chatBox.querySelector('#kmj-chat-resize-handle-v34');
+                if (!handle) {
+                    handle = document.createElement('div');
+                    handle.id = 'kmj-chat-resize-handle-v34';
+                    handle.innerHTML = '══ ↕ ドラッグで縦幅変更 ══';
+                    handle.style.cssText = 'width:100%;height:18px;margin-top:4px;border-radius:6px;background:rgba(56,189,248,0.18);border:1px dashed rgba(56,189,248,0.65);color:#7dd3fc;font-size:9px;font-weight:900;display:flex;align-items:center;justify-content:center;cursor:ns-resize;touch-action:none;user-select:none;';
+                    chatBox.appendChild(handle);
+
+                    let resizing = false;
+                    let startY = 0;
+                    let startH = 96;
+
+                    handle.addEventListener('pointerdown', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        resizing = true;
+                        startY = e.clientY;
+                        startH = logEl.getBoundingClientRect().height || 96;
+                        handle.setPointerCapture?.(e.pointerId);
+                    });
+
+                    handle.addEventListener('pointermove', (e) => {
+                        if (!resizing) return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const dy = e.clientY - startY;
+                        const nextH = startH + dy;
+                        this.setSavedChatLogHeightV34(nextH);
+                        const applied = this.getSavedChatLogHeightV34() || 96;
+                        logEl.style.setProperty('height', `${applied}px`, 'important');
+                        logEl.style.setProperty('max-height', `${applied}px`, 'important');
+                        logEl.style.setProperty('min-height', `${applied}px`, 'important');
+                        logEl.style.setProperty('overflow-y', 'auto', 'important');
+                        logEl.scrollTop = logEl.scrollHeight;
+                    });
+
+                    handle.addEventListener('pointerup', (e) => {
+                        if (!resizing) return;
+                        resizing = false;
+                        handle.releasePointerCapture?.(e.pointerId);
+                    });
+                }
             }
         });
     };
 
-    // 9.5 移動スティックが存在しない/隠れている場合（iPad横画面等）に標準サイズ(96px)を用意
+    // 9.5 移動スティックが存在しない/隠れている場合に標準サイズ(96px)を用意
     P.ensureStandardMoveStickV33 = function () {
-        // 既存のジョイスティック要素が隠れていれば可視化
         document.querySelectorAll('#joystick, #joy-base, #joystick-zone, #move-pad, .joystick, .joy-base').forEach(el => {
             el.style.setProperty('display', 'block', 'important');
             el.style.setProperty('visibility', 'visible', 'important');
             el.style.setProperty('opacity', '1', 'important');
         });
 
-        // すでに画面上に移動スティックが可視状態で存在するかチェック
         const vw = window.innerWidth;
         const vh = window.innerHeight;
         const existingStick = Array.from(document.querySelectorAll('div')).find(el => {
@@ -775,7 +894,6 @@ if (typeof KaomojiMMORPG !== 'undefined') {
 
         if (document.getElementById('kmj-v33-movepad')) return;
 
-        // 無ければ標準サイズ(96x96px)の移動スティックを左下に生成（配置＆サイズ調整で自由に変えられる）
         const pad = document.createElement('div');
         pad.id = 'kmj-v33-movepad';
         pad.style.cssText = 'position:fixed;left:24px;bottom:24px;width:96px;height:96px;border-radius:50%;background:radial-gradient(circle,rgba(15,23,42,0.5),rgba(30,41,59,0.78));border:2px solid rgba(148,163,184,0.85);box-shadow:0 3px 12px rgba(0,0,0,0.55);z-index:85;touch-action:none;user-select:none;display:flex;align-items:center;justify-content:center;';
@@ -1144,51 +1262,63 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         });
     };
 
-    // 10.5 歯車（⚙）メニューの「BGM:ON」等の並びに「🎛️ ボタン配置・サイズ」を自動追加
+    // 10.5 歯車（⚙）設定ドロップダウン内に「🎛️ ボタン配置・サイズ」を確実に挿入（v34）
     P.injectSettingsDropdownItemV33 = function () {
-        if (document.getElementById('kmj-btn-ui-edit-settings')) return;
+        const existingBtn = document.getElementById('kmj-btn-ui-edit-settings');
+        if (existingBtn && document.body.contains(existingBtn)) return;
 
-        // 歯車ドロップダウン内の既存ボタン（BGM:ON / 手動セーブ / 完全データ初期化）を探す
-        const anchorBtn = Array.from(document.querySelectorAll('button')).find(b => {
-            const txt = (b.textContent || '').trim();
-            return /^(BGM:(ON|OFF)|手動セーブ|完全データ初期化)$/.test(txt);
-        });
+        // アイコン付きテキストでも確実に拾えるよう部分一致で検出
+        const allButtons = Array.from(document.querySelectorAll('button, [role="button"]'));
+        const bgmBtn = allButtons.find(b => /BGM\s*:\s*(ON|OFF)/i.test(b.textContent || ''));
+        const saveBtn = allButtons.find(b => /手動セーブ/.test(b.textContent || ''));
+        const resetBtn = allButtons.find(b => /完全データ初期化/.test(b.textContent || ''));
+        const titleBtn = allButtons.find(b => /タイトル画面へ戻る/.test(b.textContent || ''));
 
+        const anchorBtn = bgmBtn || saveBtn || titleBtn || resetBtn;
         if (!anchorBtn || !anchorBtn.parentElement) return;
+
         const menuContainer = anchorBtn.parentElement;
+        if (menuContainer.querySelector('#kmj-btn-ui-edit-settings')) return;
 
         const itemBtn = document.createElement('button');
         itemBtn.id = 'kmj-btn-ui-edit-settings';
         itemBtn.type = 'button';
         itemBtn.className = anchorBtn.className || 'btn-ui';
         itemBtn.textContent = '🎛️ ボタン配置・サイズ';
-        itemBtn.style.cssText = 'width:100%;background:#0284c7;border:1px solid #7dd3fc;color:#fff;font-weight:900;border-radius:8px;padding:7px 10px;font-size:12px;cursor:pointer;margin-top:4px;';
+        itemBtn.style.cssText = 'width:100%;background:linear-gradient(180deg,#0ea5e9,#0369a1);border:1px solid #7dd3fc;color:#fff;font-weight:900;border-radius:8px;padding:7px 10px;font-size:12px;cursor:pointer;margin-top:4px;margin-bottom:2px;display:block;text-align:center;';
 
         itemBtn.addEventListener('click', (e) => {
+            e.preventDefault();
             e.stopPropagation();
             sfx?.init?.();
-            // 歯車メニューを閉じる
-            const gearBtn = Array.from(document.querySelectorAll('button')).find(b => /⚙/.test(b.textContent || '') || /setting|gear/i.test(`${b.id} ${b.className}`));
+
+            // 歯車メニューを確実に閉じる
+            const gearBtn = allButtons.find(b => {
+                if (b === itemBtn) return false;
+                const r = b.getBoundingClientRect();
+                return r.top < 120 && r.right > window.innerWidth - 120 && (/⚙/.test(b.textContent || '') || /setting|gear|menu/i.test(`${b.id} ${b.className}`));
+            });
             if (gearBtn) {
                 gearBtn.click();
             } else {
                 menuContainer.style.display = 'none';
             }
+
             setTimeout(() => {
                 this.toggleUIEditModeV31(true);
             }, 60);
         });
 
-        // BGMボタンのすぐ下（または手動セーブの下）へ挿入
-        const bgmBtn = Array.from(menuContainer.querySelectorAll('button')).find(b => /^BGM:(ON|OFF)$/.test((b.textContent || '').trim()));
         if (bgmBtn && bgmBtn.nextSibling) {
             menuContainer.insertBefore(itemBtn, bgmBtn.nextSibling);
+        } else if (titleBtn) {
+            menuContainer.insertBefore(itemBtn, titleBtn);
         } else {
             menuContainer.appendChild(itemBtn);
         }
     };
 
-    // 11. 💢 挑発機能（枠5と重ならない位置に配置＋既存ボタン連動）
+    // 11. 💢 挑発機能
     P.triggerTauntAllEnemies = function () {
         if (!this.player || !this.player.pos) return;
         const now = performance.now();
@@ -1467,7 +1597,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
     };
 
     if (P.useSkillSlot) {
-        const _prevUseSkillV33 = P.useSkillSlot;
+        const _prevUseSkillV34 = P.useSkillSlot;
         P.useSkillSlot = function (slotIdx) {
             if (this._uiEditModeV31) return;
             this.maintainInfiniteResources();
@@ -1475,7 +1605,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
             const meta = this.resolveSkillMeta ? this.resolveSkillMeta(slotIdx) : null;
             const curCd = (this.player?.skillCds?.[slotIdx] ?? this.skillCds?.[slotIdx] ?? 0);
 
-            _prevUseSkillV33.call(this, slotIdx);
+            _prevUseSkillV34.call(this, slotIdx);
             this.maintainInfiniteResources();
 
             if (curCd <= 0.05 && meta && this.player?.pos && Array.isArray(this.monsters)) {
@@ -1505,14 +1635,14 @@ if (typeof KaomojiMMORPG !== 'undefined') {
     }
 
     if (P.renderModalContent) {
-        const _prevRenderModalV33 = P.renderModalContent;
+        const _prevRenderModalV34 = P.renderModalContent;
         P.renderModalContent = function () {
             this.enforce999CapsV27();
             this.maintainInfiniteResources();
             this.syncSkillDescriptionsAndEffects?.();
             this.syncSkillMpCostsV22();
             this.syncMageWeaponNamesV22();
-            _prevRenderModalV33.call(this);
+            _prevRenderModalV34.call(this);
             this.purgeRebirthUIV27();
 
             const body = document.getElementById('modal-body');
@@ -1544,10 +1674,10 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         };
     }
 
-    // 毎フレーム監視：歯車メニュー項目同期・チャット定型文スリム維持・カスタム配置維持・各種戦闘処理
-    const _prevUpdateAnimV33 = P.updateCharacterAnimations;
+    // 毎フレーム監視：歯車メニュー項目同期・チャット縦伸縮維持・カスタム配置維持・各種戦闘処理
+    const _prevUpdateAnimV34 = P.updateCharacterAnimations;
     P.updateCharacterAnimations = function (dt) {
-        if (_prevUpdateAnimV33) _prevUpdateAnimV33.call(this, dt);
+        if (_prevUpdateAnimV34) _prevUpdateAnimV34.call(this, dt);
         this.enforce999CapsV27();
         this.maintainInfiniteResources();
         this.fixChatCompactLayoutV31();
@@ -1560,12 +1690,12 @@ if (typeof KaomojiMMORPG !== 'undefined') {
     };
 
     if (P.broadcastFirebaseEvent) {
-        const _prevBroadcastV33 = P.broadcastFirebaseEvent;
+        const _prevBroadcastV34 = P.broadcastFirebaseEvent;
         P.broadcastFirebaseEvent = function (type, payload) {
             if (type === 'attack' && payload && typeof payload === 'object') {
                 payload.isMage = this.isMageEvolution();
             }
-            _prevBroadcastV33.call(this, type, payload);
+            _prevBroadcastV34.call(this, type, payload);
         };
     }
 }
@@ -1973,7 +2103,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
     };
 
     if (P.sendChatMessage) {
-        const _prevSendChatV33 = P.sendChatMessage;
+        const _prevSendChatV34 = P.sendChatMessage;
         P.sendChatMessage = function (rawText) {
             const txt = String(rawText || '').trim();
             if (txt === SECRET_DEBUG_CODE) {
@@ -1981,7 +2111,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
                 this.openSecretDebugModal();
                 return;
             }
-            _prevSendChatV33.call(this, rawText);
+            _prevSendChatV34.call(this, rawText);
         };
     }
 
@@ -2007,7 +2137,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-    const initV33 = () => {
+    const initV34 = () => {
         if (!window.game) return;
         document.getElementById('kmj-btn-ui-edit-v31')?.remove();
         window.game.enforce999CapsV27?.();
@@ -2025,8 +2155,8 @@ window.addEventListener('DOMContentLoaded', () => {
             window.game.enforceStrictWeaponVisualV27?.(window.game.player);
         }
     };
-    setTimeout(initV33, 220);
-    setTimeout(initV33, 900);
+    setTimeout(initV34, 220);
+    setTimeout(initV34, 900);
 });
 
 window.addEventListener('resize', () => {
@@ -2035,5 +2165,5 @@ window.addEventListener('resize', () => {
     window.game?.injectSettingsDropdownItemV33?.();
     window.game?.applySavedUILayoutV31?.();
 });
-// === GAME8_V33_OK ===
+// === GAME8_V34_OK ===
 // ▲▲▲ ここまで【3/3】 ▲▲▲
