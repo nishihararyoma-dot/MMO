@@ -2475,5 +2475,72 @@ setInterval(() => { document.querySelectorAll('[id="kmj-chat-resize-handle-v34"]
 
     setInterval(keepSingleMoveStickV39, 250);
 })();
-// === GAME8_V39_OK ===
+// ▼▼▼ キーボード開閉時の移動スティック増殖防止パッチ（v40） ▼▼▼
+(function () {
+    const enforceOneStickV40 = () => {
+        const vw = window.innerWidth;
+
+        // 1. 自作スティックが万が一複数あれば1個だけ残す
+        const customPads = document.querySelectorAll('#kmj-v33-movepad');
+        customPads.forEach((p, idx) => {
+            if (idx > 0) p.remove();
+        });
+
+        // 2. 元のゲーム側ジョイスティックID/クラスを即座に封印
+        document.querySelectorAll('#joystick, #joy-base, #joystick-zone, #move-pad, #touch-zone, .joystick, .joy-base, .joy-stick, .move-pad').forEach(el => {
+            if (el.id !== 'kmj-v33-movepad') {
+                el.style.setProperty('display', 'none', 'important');
+                el.style.setProperty('visibility', 'hidden', 'important');
+                el.style.setProperty('pointer-events', 'none', 'important');
+            }
+        });
+
+        // 3. 左半分に出現する丸いパッド（サイズ問わず）をすべて封印
+        document.querySelectorAll('div').forEach(el => {
+            if (el.id === 'kmj-v33-movepad' || el.closest?.('#kmj-v33-movepad')) return;
+            if (el.closest?.('#kmj-secret-debug-modal') || el.closest?.('#kmj-ui-custom-bar')) return;
+            if (el.querySelector('input, canvas')) return;
+            const txt = el.textContent || '';
+            if (/HP|MP|EXP|チャット|全体|よろしく/.test(txt)) return;
+
+            const r = el.getBoundingClientRect();
+            if (r.width < 36 || r.width > 300 || r.left > vw * 0.45) return;
+            if (Math.abs(r.width - r.height) > 24) return;
+
+            const cs = window.getComputedStyle(el);
+            const br = parseFloat(cs.borderRadius) || 0;
+            const isRound = br >= 20 || cs.borderRadius.includes('%');
+            const hasRoundChild = Array.from(el.children).some(ch => {
+                const ccs = window.getComputedStyle(ch);
+                const cbr = parseFloat(ccs.borderRadius) || 0;
+                return cbr >= 15 || ccs.borderRadius.includes('%');
+            });
+
+            if (isRound || hasRoundChild || /joy|stick|pad|move|touch/i.test(`${el.id} ${el.className}`)) {
+                el.style.setProperty('display', 'none', 'important');
+                el.style.setProperty('visibility', 'hidden', 'important');
+                el.style.setProperty('pointer-events', 'none', 'important');
+            }
+        });
+    };
+
+    // v35側の「古いスティックを強制表示する処理」を無効化して1個維持に差し替え
+    if (typeof KaomojiMMORPG !== 'undefined') {
+        const prevEnsure = KaomojiMMORPG.prototype.ensureStandardMoveStickV33;
+        KaomojiMMORPG.prototype.ensureStandardMoveStickV33 = function () {
+            if (!document.getElementById('kmj-v33-movepad') && prevEnsure) {
+                prevEnsure.call(this);
+            }
+            enforceOneStickV40();
+        };
+    }
+
+    // DOM追加・キーボード開閉（visualViewport変化）・定期監視の3重ガード
+    const obs = new MutationObserver(enforceOneStickV40);
+    obs.observe(document.documentElement, { childList: true, subtree: true });
+    window.visualViewport?.addEventListener('resize', enforceOneStickV40);
+    window.addEventListener('resize', enforceOneStickV40);
+    setInterval(enforceOneStickV40, 200);
+})();
+// === GAME8_V40_OK ===
 // ▲▲▲ ここまで【3/3】 ▲▲▲
