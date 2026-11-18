@@ -204,7 +204,7 @@ Object.assign(KaomojiMMORPG.prototype, {
 
         } else if (backId === 'fox_tails') {
             const foxMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.45 });
-            [-0.35, 0, 0.35].forEach((ang, idx) => {
+            [-0.35, 0, 0.35].forEach((ang) => {
                 const sub = new THREE.Group();
                 sub.position.set(0, 0.56, -0.45);
                 sub.rotation.y = ang;
@@ -261,9 +261,50 @@ Object.assign(KaomojiMMORPG.prototype, {
         return null;
     },
 
-    // 上向きに凛々しく構える武器3Dモデル（回転軸をグリップ根元に配置）
+    // 上向きに凛々しく構える武器3Dモデル（剣・大鎌 ＋ 魔道士専用の杖に対応）
     buildWeaponGroup(wpn) {
         const g = new THREE.Group();
+
+        // 魔道士系の「杖」3Dモデル
+        if (wpn.category === 'staff' || wpn.shape === 'staff') {
+            const shaftMat = new THREE.MeshStandardMaterial({
+                color: wpn.bladeColor || 0x92400e,
+                roughness: 0.35,
+                metalness: 0.3
+            });
+            const shaft = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.055, 0.068, 1.85, 10),
+                shaftMat
+            );
+            shaft.position.y = 0.72;
+            g.add(shaft);
+
+            // 杖の先端装飾リング
+            const crownRing = new THREE.Mesh(
+                new THREE.TorusGeometry(0.24, 0.035, 10, 24),
+                new THREE.MeshStandardMaterial({ color: 0xfde047, metalness: 0.7, roughness: 0.2 })
+            );
+            crownRing.position.y = 1.72;
+            g.add(crownRing);
+
+            // 先端の魔力クリスタル宝珠
+            const orb = new THREE.Mesh(
+                new THREE.OctahedronGeometry(0.18, 1),
+                new THREE.MeshStandardMaterial({
+                    color: wpn.glowColor || 0xc084fc,
+                    emissive: wpn.glowColor || 0xc084fc,
+                    emissiveIntensity: 0.85,
+                    roughness: 0.15
+                })
+            );
+            orb.position.y = 1.72;
+            g.add(orb);
+
+            g.rotation.set(0.24, 0, -0.12);
+            return g;
+        }
+
+        // 剣・物理武器モデル
         const bladeMat = new THREE.MeshStandardMaterial({
             color: wpn.bladeColor || 0xe2e8f0,
             emissive: wpn.glowColor || 0x38bdf8,
@@ -272,7 +313,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             roughness: 0.22
         });
 
-        // 柄（グリップ）は Y=0 を中心に上下へ伸びる
         const hilt = new THREE.Mesh(
             new THREE.CylinderGeometry(0.055, 0.055, 0.38, 8),
             new THREE.MeshStandardMaterial({ color: 0x78350f })
@@ -280,7 +320,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         hilt.position.y = 0.05;
         g.add(hilt);
 
-        // 鍔（つば）
         const guard = new THREE.Mesh(
             new THREE.BoxGeometry(0.44, 0.08, 0.12),
             new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.75 })
@@ -288,14 +327,12 @@ Object.assign(KaomojiMMORPG.prototype, {
         guard.position.y = 0.24;
         g.add(guard);
 
-        // 刀身は上向き（+Y方向）へ伸びる
         const bladeLen = wpn.shape === 'god' ? 1.85 : (wpn.shape === 'omega' ? 1.65 : 1.35);
         const bladeW = wpn.shape === 'scythe' ? 0.14 : 0.18;
         const blade = new THREE.Mesh(new THREE.BoxGeometry(bladeW, bladeLen, 0.06), bladeMat);
         blade.position.y = 0.26 + bladeLen / 2;
         g.add(blade);
 
-        // 切っ先
         const tip = new THREE.Mesh(new THREE.ConeGeometry(bladeW * 0.68, 0.26, 4), bladeMat);
         tip.position.y = 0.26 + bladeLen + 0.13;
         g.add(tip);
@@ -306,7 +343,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             g.add(hook);
         }
 
-        // 通常時の凛々しい構え角度（少し前傾＋外側傾き）
         g.rotation.set(0.28, 0, -0.14);
         return g;
     },
@@ -322,7 +358,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         const bodyMat = new THREE.MeshStandardMaterial({ color: bodyHex, roughness: 0.4 });
         const footMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6 });
 
-        // 可愛い足（左右）
         [-0.22, 0.22].forEach(x => {
             const foot = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 10), footMat);
             foot.scale.set(0.95, 0.72, 1.35);
@@ -330,7 +365,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             group.add(foot);
         });
 
-        // 胴体＋防具アーマー
         const torso = new THREE.Mesh(
             new THREE.CylinderGeometry(0.40, 0.46, 0.78, 14),
             new THREE.MeshStandardMaterial({ color: arm.plateColor || bodyHex, roughness: 0.45 })
@@ -338,12 +372,10 @@ Object.assign(KaomojiMMORPG.prototype, {
         torso.position.y = 0.62;
         group.add(torso);
 
-        // 左手（可愛い丸手）
         const leftHand = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 10), bodyMat);
         leftHand.position.set(0.58, 0.72, 0.14);
         group.add(leftHand);
 
-        // 右手＆剣グループ（ここを回転させて剣を振る）
         const rightHandGroup = new THREE.Group();
         rightHandGroup.position.set(-0.62, 0.74, 0.18);
         const rightHand = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 10), bodyMat);
@@ -354,7 +386,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         rightHandGroup.add(wpnGroup);
         group.add(rightHandGroup);
 
-        // 防具肩当て・マント（背中パーツ未選択時）
         if ((arm.tierLook || 0) >= 1) {
             [-0.50, 0.50].forEach(x => {
                 const pad = new THREE.Mesh(
@@ -375,7 +406,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             group.add(cape);
         }
 
-        // 顔文字ヘッド
         const hexStr = '#' + bodyHex.toString(16).padStart(6, '0');
         const frontTex = getKaomojiFaceTexture(cfg.kaomoji || '(´・ω・`)', faceBgHex, '#ffffff', hexStr);
         const frontMat = new THREE.MeshBasicMaterial({ map: frontTex });
@@ -387,11 +417,9 @@ Object.assign(KaomojiMMORPG.prototype, {
         head.position.y = 1.58;
         group.add(head);
 
-        // 頭パーツ＆背中パーツのダブル装着
         this.attachHeadCosmetic(cfg.cosmeticId || 'none', head, bodyHex);
         const backSpinMesh = this.attachBackCosmetic(cfg.backCosmeticId || 'back_none', group, bodyHex);
 
-        // 高精錬浮遊クリスタル
         let orbitPart = null;
         if ((cfg.weaponEnhance || 0) >= 3) {
             orbitPart = new THREE.Mesh(
@@ -536,7 +564,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             const petMult = 1 + ((this.saveData.petLevel || 1) - 1) * 0.18;
             const near = this.getNearestMonster(11);
             if (near && !near.dead) {
-                const dmg = Math.round(st.physAtk * pe.cfg.atkRatio * petMult);
+                const dmg = Math.round(st.basicAtkPower * pe.cfg.atkRatio * petMult);
                 this.damageMonster(near, dmg, false);
                 this.spawnSparkleBurst(near.pos, pe.cfg.color, 5);
             }
@@ -761,7 +789,7 @@ Object.assign(KaomojiMMORPG.prototype, {
 
         const npcs = [
             { name: 'ネコミミ案内人', kaomoji: '(=^・ω・^=)', bodyHex: 0xf472b6, cosmeticId: 'cat_ears', backCosmeticId: 'cat_tail', weaponId: 'wpn_iron', pos: new THREE.Vector3(-6.5, 0, -4) },
-            { name: '星詠み見習い', kaomoji: '(☆ω☆)', bodyHex: 0xa855f7, cosmeticId: 'witch_hat', backCosmeticId: 'hero_cape', weaponId: 'wpn_forest', pos: new THREE.Vector3(6.5, 0, -4) },
+            { name: '星詠み見習い', kaomoji: '(☆ω☆)', bodyHex: 0xa855f7, cosmeticId: 'witch_hat', backCosmeticId: 'hero_cape', weaponId: 'staff_apprentice', pos: new THREE.Vector3(6.5, 0, -4) },
             { name: '元気な双葉っ子', kaomoji: '(≧▽≦)ﾉ', bodyHex: 0x10b981, cosmeticId: 'sprout', backCosmeticId: 'angel_wings', weaponId: 'wpn_wood', pos: new THREE.Vector3(0, 0, -16) }
         ];
         npcs.forEach(n => {
