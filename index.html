@@ -38,7 +38,6 @@ button,.btn-ui{touch-action:manipulation;cursor:pointer;pointer-events:auto}
 .btn-rose{background:linear-gradient(135deg,#e11d48,#f43f5e);color:#fff}
 .btn-fuchsia{background:linear-gradient(135deg,#9333ea,#c026d3);color:#fff}
 .btn-slate{background:#334155;border:1px solid #475569;color:#fff}
-/* 白背景×白文字の防止（iPad Safariのselect・input・明るいラベル対策） */
 select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:#f8fafc!important;border:1px solid #38bdf8;border-radius:8px;padding:7px 10px;font-size:12px;outline:none;pointer-events:auto;touch-action:manipulation;user-select:text;-webkit-user-select:text}
 .input-ui{width:100%}
 #title-screen{position:fixed;inset:0;z-index:90;background:radial-gradient(circle at center,rgba(15,23,42,.55) 0%,rgba(2,6,23,.88) 100%);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:auto}
@@ -67,11 +66,13 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
 #boss-cast-box{position:fixed;top:132px;left:50%;transform:translateX(-50%);width:min(340px,88vw);background:rgba(69,10,10,.92);border:1.5px solid #f43f5e;border-radius:10px;padding:6px 10px;z-index:38;pointer-events:none}
 #warp-prompt-box{position:fixed;bottom:135px;left:50%;transform:translateX(-50%);z-index:32;pointer-events:auto}
 #chat-wrapper{position:fixed;left:10px;bottom:146px;width:min(290px,66vw);z-index:30;pointer-events:none;display:flex;flex-direction:column;align-items:flex-start;gap:4px}
-#chat-panel{width:100%;background:rgba(15,23,42,.88);border:1px solid rgba(56,189,248,.45);border-radius:12px;padding:6px;pointer-events:auto;display:flex;flex-direction:column;gap:5px}
-.chat-tabs{display:flex;gap:4px}
+#chat-panel{width:100%;background:rgba(15,23,42,.88);border:1px solid rgba(56,189,248,.45);border-radius:12px;padding:6px;pointer-events:auto;display:flex;flex-direction:column;gap:5px;resize:both;overflow:hidden;min-width:210px;min-height:110px;max-width:85vw;max-height:55vh}
+/* チャット上部ドラッグリサイズハンドルを完全に無効化・非表示 */
+#chat-panel [style*="ns-resize"],#chat-panel [style*="row-resize"],#chat-wrapper [style*="ns-resize"],#chat-wrapper [style*="row-resize"],.kmj-chat-drag-handle,.chat-resize-bar{display:none!important;pointer-events:none!important;height:0!important}
+.chat-tabs{display:flex;gap:4px;align-items:center}
 .chat-tab-btn{flex:1;border:none;border-radius:6px;padding:4px 6px;font-size:10px;font-weight:900;color:#cbd5e1;background:#1e293b;cursor:pointer;pointer-events:auto}
 .chat-tab-btn.active{background:#0284c7;color:#fff}
-#chat-messages{height:82px;overflow-y:auto;-webkit-overflow-scrolling:touch;font-size:11px;line-height:1.35;padding:3px 4px;background:rgba(2,6,23,.55);border-radius:6px;display:flex;flex-direction:column;gap:3px;user-select:text}
+#chat-messages{flex:1;min-height:52px;height:82px;overflow-y:auto;-webkit-overflow-scrolling:touch;font-size:11px;line-height:1.35;padding:3px 4px;background:rgba(2,6,23,.55);border-radius:6px;display:flex;flex-direction:column;gap:3px;user-select:text}
 .chat-quick-row{display:flex;gap:3px;overflow-x:auto}
 .chat-quick-chip{background:#334155;border:none;border-radius:5px;padding:2px 6px;font-size:10px;font-weight:800;color:#f8fafc;white-space:nowrap;cursor:pointer;pointer-events:auto}
 .chat-input-row{display:flex;gap:4px}
@@ -111,7 +112,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
 <div id="title-screen">
     <div class="title-card">
         <div class="title-logo-kaomoji font-kaomoji">(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧ ⚔️ (=^・ω・^=)</div>
-        <h1 class="title-main-heading">顔文字ファンタジー3D<br><span style="font-size:13px;-webkit-text-fill-color:#94a3b8;">KAOMOJI FANTASY 3D ONLINE [v3.1 修正済]</span></h1>
+        <h1 class="title-main-heading">顔文字ファンタジー3D<br><span style="font-size:13px;-webkit-text-fill-color:#94a3b8;">KAOMOJI FANTASY 3D ONLINE [v3.2 完成版]</span></h1>
         <div class="title-save-preview" id="title-save-info">データ準備中...</div>
         <div class="title-room-box">
             <div class="flex-between">
@@ -201,6 +202,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             <div class="chat-tabs">
                 <button type="button" id="btn-chat-tab-global" class="chat-tab-btn active">🌍 全体チャット</button>
                 <button type="button" id="btn-chat-tab-room" class="chat-tab-btn">🏠 部屋/オフライン</button>
+                <button type="button" id="btn-hide-chat-panel" class="btn-ui btn-rose" style="padding:3px 7px;font-size:10px;flex-shrink:0;">✕ 消す</button>
             </div>
             <div id="chat-messages"></div>
             <div class="chat-quick-row">
@@ -259,11 +261,11 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
 <script src="game8.js?v=20261119fix"></script>
 <script>
 // =========================================================================
-// 統合修正パッチ v3.1（魔法弾の直進・スキルボタン復元・配置編集・白背景文字対策）
+// 統合修正パッチ v3.2（単一武器・役職連動攻撃・チャット整理・新役職6種追加）
 // =========================================================================
 (function () {
-    if (window.__KMJ_MASTER_PATCH_V41__) return;
-    window.__KMJ_MASTER_PATCH_V41__ = true;
+    if (window.__KMJ_MASTER_PATCH_V42__) return;
+    window.__KMJ_MASTER_PATCH_V42__ = true;
 
     function throttle(fn, ms) {
         if (typeof fn !== 'function') return fn;
@@ -276,9 +278,142 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
         };
     }
 
-    // ---------------------------------------------------------------------
-    // 白い背景に白い文字が使われている要素を自動で濃い紺色へ補正
-    // ---------------------------------------------------------------------
+    // =====================================================================
+    // 追加する6種類の新役職データ（剣士・物理系 3種 ＋ 魔道士系 3種）
+    // =====================================================================
+    const EXTRA_EVOLUTIONS = [
+        {
+            id: 'evo_gale_blademaster',
+            name: '疾風剣豪',
+            category: 'sword',
+            isMage: false,
+            icon: '⚔️',
+            kaomoji: '(｀・ω・´)⚔️',
+            reqLv: 15,
+            cost: 800,
+            color: '#38bdf8',
+            desc: '【剣士系】神速の太刀筋で敵を斬り伏せる剣の達人。通常攻撃は鋭い蒼い斬撃（魔法は出ない）。',
+            bonus: { physAtk: 38, critChance: 0.14, critDmg: 0.35, speed: 1.25 }
+        },
+        {
+            id: 'evo_silver_paladin',
+            name: '聖銀の守護騎士',
+            category: 'sword',
+            isMage: false,
+            icon: '🛡️',
+            kaomoji: '( •̀ᄇ• ́)ﻭ✧',
+            reqLv: 25,
+            cost: 1800,
+            color: '#fde047',
+            desc: '【剣士系】聖銀の大剣を振るう不屈の聖騎士。高いHP・防御と攻撃吸収を備える（魔法は出ない）。',
+            bonus: { maxHp: 260, physAtk: 48, def: 28, lifesteal: 0.08 }
+        },
+        {
+            id: 'evo_crimson_berserker',
+            name: '紅蓮の狂戦士',
+            category: 'sword',
+            isMage: false,
+            icon: '🩸',
+            kaomoji: '(╬◣д◢)🔥',
+            reqLv: 40,
+            cost: 3500,
+            color: '#f43f5e',
+            desc: '【剣士系】紅蓮の大剣で全てを両断する一撃必殺の狂戦士。物理攻撃と会心威力が極限まで上昇。',
+            bonus: { physAtk: 85, critChance: 0.18, critDmg: 0.55, maxHp: 140 }
+        },
+        {
+            id: 'evo_astral_archmage',
+            name: '星詠みの大賢者',
+            category: 'mage',
+            isMage: true,
+            icon: '🔮',
+            kaomoji: '(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧',
+            reqLv: 15,
+            cost: 800,
+            color: '#c084fc',
+            desc: '【魔道士系】星屑の聖杖を操る大賢者。武器が杖に変わり、通常攻撃で星光の魔法弾が真っ直ぐ飛ぶ。',
+            bonus: { magAtk: 45, maxMp: 120, critChance: 0.10 }
+        },
+        {
+            id: 'evo_abyss_necromancer',
+            name: '宵闇の死霊術師',
+            category: 'mage',
+            isMage: true,
+            icon: '🌙',
+            kaomoji: '(☍﹏⁰)†',
+            reqLv: 25,
+            cost: 1800,
+            color: '#a855f7',
+            desc: '【魔道士系】冥府の呪杖を携える闇の魔導師。闇の魔法弾を放ち、与えた魔法ダメージでHPを吸収する。',
+            bonus: { magAtk: 62, maxMp: 150, lifesteal: 0.10, maxHp: 100 }
+        },
+        {
+            id: 'evo_chrono_sorcerer',
+            name: '時空の魔導士',
+            category: 'mage',
+            isMage: true,
+            icon: '⏳',
+            kaomoji: '(⊃｡•́‿•̀｡)⊃━☆',
+            reqLv: 40,
+            cost: 3500,
+            color: '#22d3ee',
+            desc: '【魔道士系】時空の星杖を操る究極の術師。強力な時空魔法弾と高い魔法会心で戦場を支配する。',
+            bonus: { magAtk: 90, maxMp: 220, critChance: 0.16, critDmg: 0.45 }
+        }
+    ];
+
+    // 既存グローバル役職テーブルがあれば安全に登録する
+    function registerExtraEvolutionsToGlobals() {
+        try {
+            if (typeof EVOLUTIONS !== 'undefined' && EVOLUTIONS) {
+                if (Array.isArray(EVOLUTIONS)) {
+                    EXTRA_EVOLUTIONS.forEach(ev => {
+                        if (!EVOLUTIONS.some(x => x && x.id === ev.id)) {
+                            EVOLUTIONS.push({
+                                id: ev.id,
+                                name: ev.name,
+                                kaomoji: ev.kaomoji,
+                                icon: ev.icon,
+                                reqLv: ev.reqLv,
+                                levelReq: ev.reqLv,
+                                cost: ev.cost,
+                                goldCost: ev.cost,
+                                desc: ev.desc,
+                                description: ev.desc,
+                                bonus: ev.bonus,
+                                stats: ev.bonus,
+                                isMage: ev.isMage,
+                                weaponType: ev.isMage ? 'staff' : 'sword'
+                            });
+                        }
+                    });
+                } else if (typeof EVOLUTIONS === 'object') {
+                    EXTRA_EVOLUTIONS.forEach(ev => {
+                        if (!EVOLUTIONS[ev.id]) {
+                            EVOLUTIONS[ev.id] = {
+                                id: ev.id,
+                                name: ev.name,
+                                kaomoji: ev.kaomoji,
+                                icon: ev.icon,
+                                reqLv: ev.reqLv,
+                                levelReq: ev.reqLv,
+                                cost: ev.cost,
+                                goldCost: ev.cost,
+                                desc: ev.desc,
+                                description: ev.desc,
+                                bonus: ev.bonus,
+                                stats: ev.bonus,
+                                isMage: ev.isMage,
+                                weaponType: ev.isMage ? 'staff' : 'sword'
+                            };
+                        }
+                    });
+                }
+            }
+        } catch (e) {}
+    }
+
+    // 白背景に白文字の自動補正
     function fixLightBgTextContrast(root = document) {
         try {
             root.querySelectorAll('#modal-body *, #dialog-modal *, #hud-drawer-menu *, button, span, div, label, select, option').forEach(el => {
@@ -299,20 +434,348 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
         } catch (e) {}
     }
 
+    // チャット欄の整理（上端ドラッグ縦幅変更を削除＆右上の「戻す」を「✕ 消す」に変更）
+    function cleanChatPanelUI() {
+        const panel = document.getElementById('chat-panel');
+        const wrapper = document.getElementById('chat-wrapper');
+        if (!panel) return;
+
+        // 1. 縦幅ドラッグ変更ハンドルを削除
+        panel.querySelectorAll('*').forEach(el => {
+            const styleAttr = (el.getAttribute('style') || '').toLowerCase();
+            const cls = String(el.className || '').toLowerCase();
+            const id = String(el.id || '').toLowerCase();
+            if (
+                styleAttr.includes('ns-resize') ||
+                styleAttr.includes('row-resize') ||
+                cls.includes('drag-handle') ||
+                cls.includes('resize-bar') ||
+                id.includes('resize')
+            ) {
+                el.remove();
+            }
+        });
+        if (wrapper) {
+            wrapper.querySelectorAll('[style*="ns-resize"], [style*="row-resize"]').forEach(el => el.remove());
+        }
+
+        // 2. 右上の「戻す」ボタンを「✕ 消す（チャット欄を消す）」に置換
+        panel.querySelectorAll('button').forEach(btn => {
+            if (btn.id === 'btn-hide-chat-panel') return;
+            const txt = (btn.textContent || '').trim();
+            if (txt.includes('戻す') || txt.includes('リセット') || txt === '縮小' || txt === '最小化') {
+                const newBtn = btn.cloneNode(true);
+                newBtn.textContent = '✕ 消す';
+                newBtn.title = 'チャット欄を消す';
+                newBtn.className = 'btn-ui btn-rose';
+                newBtn.style.cssText = 'padding:3px 7px;font-size:10px;flex-shrink:0;';
+                newBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    panel.classList.add('hidden');
+                });
+                btn.replaceWith(newBtn);
+            }
+        });
+
+        const hideBtn = document.getElementById('btn-hide-chat-panel');
+        if (hideBtn && !hideBtn.dataset.v42Bound) {
+            hideBtn.dataset.v42Bound = '1';
+            hideBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                panel.classList.add('hidden');
+            });
+        }
+    }
+
     function installMasterPatch() {
+        registerExtraEvolutionsToGlobals();
         if (typeof KaomojiMMORPG === 'undefined') return;
         const P = KaomojiMMORPG.prototype;
-        if (P.__v41Installed) return;
-        P.__v41Installed = true;
+        if (P.__v42Installed) return;
+        P.__v42Installed = true;
 
-        // 1. iPad Safari 落ち防止：毎フレーム走っていた重いDOM走査を間引く
-        P.fixChatCompactLayoutV31 = throttle(P.fixChatCompactLayoutV31, 900);
-        P.ensureStandardMoveStickV33 = throttle(P.ensureStandardMoveStickV33, 900);
-        P.injectSettingsDropdownItemV33 = function () {}; // HTML側に直接ボタンを配置済み
+        // -----------------------------------------------------------------
+        // 1. iPad Safari 落ち防止 & 既存過剰装飾パッチの無効化
+        // -----------------------------------------------------------------
+        P.fixChatCompactLayoutV31 = function () { cleanChatPanelUI(); };
+        P.ensureStandardMoveStickV33 = throttle(P.ensureStandardMoveStickV33, 1000);
+        P.injectSettingsDropdownItemV33 = function () {};
         P.fixTopRightMenuOverlapV36 = throttle(P.fixTopRightMenuOverlapV36, 1200);
-        P.enforceStrictWeaponVisualV27 = throttle(P.enforceStrictWeaponVisualV27, 600);
+        // 杖を勝手に常時生やしていた旧関数を無効化
+        P.enforceStrictWeaponVisualV27 = function () {};
+        P.attachMageStaffV27 = function () {};
+        P.ensureLeftHandWeaponV27 = function () {};
 
-        // 2. 確認ダイアログ & 完全データ初期化
+        // -----------------------------------------------------------------
+        // 2. 現在の役職が「魔道士系」か「剣士・物理系」かの厳密判定
+        // -----------------------------------------------------------------
+        P.getCurrentEvolutionObjV42 = function () {
+            const evoId = this.saveData?.evolution || this.saveData?.job || this.saveData?.classId || '';
+            const extra = EXTRA_EVOLUTIONS.find(e => e.id === evoId || e.name === evoId);
+            if (extra) return extra;
+            if (typeof EVOLUTIONS !== 'undefined' && EVOLUTIONS) {
+                if (Array.isArray(EVOLUTIONS)) {
+                    return EVOLUTIONS.find(e => e && (e.id === evoId || e.name === evoId)) || null;
+                }
+                return EVOLUTIONS[evoId] || null;
+            }
+            return null;
+        };
+
+        P.isMageEvolution = function () {
+            const ev = this.getCurrentEvolutionObjV42();
+            if (ev && typeof ev.isMage === 'boolean') return ev.isMage;
+            const evoStr = String(this.saveData?.evolution || ev?.name || '').toLowerCase();
+            // 魔道士系キーワードが含まれる場合のみ true（それ以外の剣士系・見習いは false）
+            return /(mage|wizard|sorcerer|sage|witch|archmage|priest|necromancer|chronomancer|astral|魔|賢者|術師|巫女|星詠|召喚|死霊)/.test(evoStr);
+        };
+
+        // -----------------------------------------------------------------
+        // 3. 3Dキャラの武器を「右手に1本だけ（剣士系は剣／魔道士系は杖）」に統一
+        //    ※ 両手持ち・常時ついていた不要な杖を完全に消去
+        // -----------------------------------------------------------------
+        P.syncSingleWeaponVisualV42 = function (force = false) {
+            if (!this.player?.group || typeof THREE === 'undefined') return;
+            const isMage = this.isMageEvolution();
+            const ev = this.getCurrentEvolutionObjV42();
+            const colorHex = ev?.color ? Number(String(ev.color).replace('#', '0x')) : (isMage ? 0xc084fc : 0x38bdf8);
+            const stateKey = `${isMage ? 'staff' : 'sword'}_${colorHex}`;
+
+            if (!force && this.player._v42WeaponKey === stateKey && this.player._v42WeaponMesh?.parent === this.player.group) {
+                return;
+            }
+            this.player._v42WeaponKey = stateKey;
+
+            // 既存の武器・杖メッシュをすべて削除・非表示（両手持ち＆常駐杖の完全消去）
+            const toRemove = [];
+            this.player.group.traverse(obj => {
+                if (obj === this.player.group) return;
+                if (obj.userData?.isV42Weapon) {
+                    toRemove.push(obj);
+                    return;
+                }
+                const nm = String(obj.name || '').toLowerCase();
+                if (/(weapon|staff|sword|wand|blade|axe|shield|wpn|rod|orb|spear|dagger)/.test(nm)) {
+                    obj.visible = false;
+                }
+                // 左手側（x < -0.25）に突き出ている細長い棒や武器パーツを非表示
+                if (obj.parent === this.player.group && obj.position && obj.position.x < -0.25 && obj.position.y > 0.3) {
+                    if (obj.type === 'Group' || (obj.geometry && obj.geometry.parameters && (obj.geometry.parameters.height > 0.9 || obj.geometry.parameters.depth > 0.9))) {
+                        obj.visible = false;
+                    }
+                }
+            });
+            toRemove.forEach(o => o.parent?.remove(o));
+
+            // 既存の参照も非表示化
+            ['weaponGroup', 'staffGroup', 'leftWeaponGroup', 'subWeaponGroup', 'rightWeaponGroup'].forEach(prop => {
+                if (this.player[prop] && this.player[prop] !== this.player._v42WeaponMesh) {
+                    this.player[prop].visible = false;
+                }
+            });
+
+            // 右手用の単一武器グループを作成（剣 or 杖のどちらか1本のみ）
+            const wpn = new THREE.Group();
+            wpn.name = 'v42_single_weapon';
+            wpn.userData.isV42Weapon = true;
+
+            if (isMage) {
+                // 【魔道士系】魔法の杖 1本
+                const shaft = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.045, 0.06, 1.75, 8),
+                    new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.6 })
+                );
+                shaft.position.y = 0.75;
+
+                const orb = new THREE.Mesh(
+                    new THREE.OctahedronGeometry(0.19, 1),
+                    new THREE.MeshBasicMaterial({ color: colorHex })
+                );
+                orb.position.y = 1.72;
+
+                const ring = new THREE.Mesh(
+                    new THREE.TorusGeometry(0.26, 0.025, 8, 20),
+                    new THREE.MeshBasicMaterial({ color: 0xfde047 })
+                );
+                ring.position.y = 1.72;
+                ring.rotation.x = Math.PI * 0.35;
+
+                wpn.add(shaft, orb, ring);
+            } else {
+                // 【剣士・物理系】剣 1本
+                const grip = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.045, 0.05, 0.34, 8),
+                    new THREE.MeshStandardMaterial({ color: 0x1e293b })
+                );
+                grip.position.y = 0.12;
+
+                const guard = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.42, 0.07, 0.12),
+                    new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.7, roughness: 0.3 })
+                );
+                guard.position.y = 0.30;
+
+                const blade = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.11, 1.32, 0.035),
+                    new THREE.MeshStandardMaterial({
+                        color: 0xf8fafc,
+                        emissive: colorHex,
+                        emissiveIntensity: 0.38,
+                        metalness: 0.85,
+                        roughness: 0.2
+                    })
+                );
+                blade.position.y = 0.98;
+
+                wpn.add(grip, guard, blade);
+            }
+
+            // 右手位置に1本だけ装着
+            wpn.position.set(0.68, 0.62, 0.25);
+            wpn.rotation.set(0.32, 0, -0.15);
+            this.player.group.add(wpn);
+            this.player._v42WeaponMesh = wpn;
+        };
+
+        // -----------------------------------------------------------------
+        // 4. ステータス計算＆通常攻撃の役職完全連動
+        //    ・剣士系なら武器は剣、通常攻撃は斬撃のみ（魔法は出ない）
+        //    ・魔道士系なら武器は杖、通常攻撃は魔法弾が真っ直ぐ飛ぶ
+        // -----------------------------------------------------------------
+        const _origCalcStats = P.calcDerivedStats;
+        P.calcDerivedStats = function () {
+            const st = _origCalcStats ? _origCalcStats.call(this) : {};
+            const isMage = this.isMageEvolution();
+            const ev = this.getCurrentEvolutionObjV42();
+
+            // 追加役職のステータスボーナスを反映
+            if (ev && EXTRA_EVOLUTIONS.some(x => x.id === ev.id) && ev.bonus) {
+                st.maxHp = (st.maxHp || 100) + (ev.bonus.maxHp || 0);
+                st.maxMp = (st.maxMp || 50) + (ev.bonus.maxMp || 0);
+                st.physAtk = (st.physAtk || 10) + (ev.bonus.physAtk || 0);
+                st.magAtk = (st.magAtk || 10) + (ev.bonus.magAtk || 0);
+                st.def = (st.def || 5) + (ev.bonus.def || 0);
+                st.critChance = (st.critChance || 0.05) + (ev.bonus.critChance || 0);
+                st.critDmg = (st.critDmg || 1.5) + (ev.bonus.critDmg || 0);
+                st.lifesteal = (st.lifesteal || 0) + (ev.bonus.lifesteal || 0);
+            }
+
+            // 役職によって武器種別を厳密に決定（剣士なのに杖扱いになるのを防止）
+            st.isStaffEquipped = isMage;
+            if (ev?.color) {
+                st.wpnGlowColor = Number(String(ev.color).replace('#', '0x'));
+            }
+            return st;
+        };
+
+        // 剣士系のときに他の処理から魔法弾が誤爆するのを完全ブロック
+        const _origMageShot = P.spawnMageBasicMagicShot;
+        P.spawnMageBasicMagicShot = function (...args) {
+            if (!this.isMageEvolution()) return;
+            return _origMageShot?.apply(this, args);
+        };
+
+        P.spawnForwardBasicShotV41 = function (rotY, colorHex = 0xc084fc) {
+            if (!this.scene || !this.player?.pos || typeof THREE === 'undefined') return;
+            if (!this._v41Projectiles) this._v41Projectiles = [];
+
+            const dirX = Math.sin(rotY);
+            const dirZ = Math.cos(rotY);
+            const grp = new THREE.Group();
+
+            const coreGeo = new THREE.SphereGeometry(0.30, 10, 10);
+            const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const auraGeo = new THREE.SphereGeometry(0.50, 10, 10);
+            const auraMat = new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.78 });
+
+            grp.add(new THREE.Mesh(coreGeo, coreMat), new THREE.Mesh(auraGeo, auraMat));
+            grp.position.set(this.player.pos.x + dirX * 1.1, 1.25, this.player.pos.z + dirZ * 1.1);
+            this.scene.add(grp);
+
+            this._v41Projectiles.push({
+                grp, coreGeo, coreMat, auraGeo, auraMat,
+                vx: dirX * 21,
+                vz: dirZ * 21,
+                life: 0.75
+            });
+        };
+
+        P.updateForwardBasicShotsV41 = function (dt) {
+            if (!this._v41Projectiles || !this._v41Projectiles.length) return;
+            const step = Math.min(0.1, Math.max(0.008, Number(dt) || 0.016));
+            this._v41Projectiles = this._v41Projectiles.filter(b => {
+                b.life -= step;
+                if (b.life <= 0) {
+                    this.scene?.remove(b.grp);
+                    b.coreGeo.dispose(); b.coreMat.dispose();
+                    b.auraGeo.dispose(); b.auraMat.dispose();
+                    return false;
+                }
+                b.grp.position.x += b.vx * step;
+                b.grp.position.z += b.vz * step;
+                return true;
+            });
+        };
+
+        P.performBasicAttack = function () {
+            if (!this.player || this.isDead) return false;
+            if ((this.player.stunTimer || 0) > 0) return false;
+
+            if (this.player.pos) this.player.pos.y = 0;
+            if (this.player.group) this.player.group.position.y = 0;
+
+            const isMage = this.isMageEvolution();
+            const st = this.calcDerivedStats();
+            const atkRange = isMage ? 16.5 : 5.5;
+
+            const target = (this.currentZoneId !== 'town' && this.getValidTarget)
+                ? this.getValidTarget(atkRange)
+                : null;
+
+            if (target) {
+                const dx = target.pos.x - this.player.pos.x;
+                const dz = target.pos.z - this.player.pos.z;
+                this.player.rotY = Math.atan2(dx, dz);
+            }
+
+            const rotY = this.player.rotY || 0;
+
+            if (isMage) {
+                // 魔道士系：杖を振り、正面へ魔法弾が真っ直ぐ飛ぶ
+                this.triggerPlayerAttackAnim?.('staff_cast', 0.24);
+                sfx?.playTone?.(680, 'sine', 0.11, 0.06, 980);
+                this.spawnForwardBasicShotV41(rotY, st.wpnGlowColor || 0xc084fc);
+            } else {
+                // 剣士・物理系：剣を振り、斬撃エフェクトのみ（魔法は一切出ない）
+                this.triggerPlayerAttackAnim?.('slash', 0.22);
+                sfx?.playHit?.(false);
+                if (this.spawnSlashArc) {
+                    this.spawnSlashArc(this.player.pos, rotY, st.wpnGlowColor || 0x38bdf8, 2.6);
+                }
+            }
+
+            if (target && this.currentZoneId !== 'town') {
+                const isCrit = Math.random() < (st.critChance || 0.05);
+                const basePower = isMage ? (st.magAtk || 10) : (st.physAtk || 10);
+                const variance = 0.92 + Math.random() * 0.16;
+                const dmg = Math.max(1, Math.round(basePower * variance * (isCrit ? (st.critDmg || 1.5) : 1.0)));
+                const col = isMage ? (isCrit ? '#f472b6' : '#c084fc') : (isCrit ? '#fde047' : '#ffffff');
+
+                this.damageMonster?.(target, dmg, isCrit, col);
+
+                if ((st.lifesteal || 0) > 0) {
+                    const heal = Math.max(1, Math.round(dmg * st.lifesteal));
+                    this.player.hp = Math.min(st.maxHp || this.player.hp, this.player.hp + heal);
+                }
+            }
+            return true;
+        };
+
+        // -----------------------------------------------------------------
+        // 5. 確認ダイアログ & 完全初期化
+        // -----------------------------------------------------------------
         P.openDialog = function (title, message, buttons) {
             if (title && typeof title === 'object') {
                 const o = title;
@@ -362,7 +825,9 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             }, 250);
         };
 
-        // 3. メニュー＆ステージ選択の表示修復 ＋ 白背景白文字の自動補正
+        // -----------------------------------------------------------------
+        // 6. メニュー描画 ＋ 転職タブへの新役職6種表示＆即座武器切替
+        // -----------------------------------------------------------------
         const MENU_TABS = [
             { id: 'stats', label: '📊 ステータス' },
             { id: 'skills', label: '📘 スキル' },
@@ -412,6 +877,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
         P.closeGrowthModal = function () {
             this.isModalOpen = false;
             document.getElementById('growth-modal')?.classList.add('hidden');
+            this.syncSingleWeaponVisualV42(true);
             this.refreshAllHUD?.();
         };
         P.closeModal = function () { this.closeGrowthModal(); };
@@ -430,21 +896,116 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             if (_baseRenderModal && _baseRenderModal !== P.renderGrowthTabContent) {
                 try { _baseRenderModal.call(this); } catch (e) {}
             }
+
+            // 転職タブ（evo）には新役職6種の専用パネルも必ず表示し、転職時に武器と攻撃方式を即座に切替
+            if (this.activeTab === 'evo') {
+                const curEvo = this.saveData?.evolution || '';
+                const lv = this.saveData?.lv || 1;
+                const gold = this.saveData?.gold || 0;
+                const isMageNow = this.isMageEvolution();
+
+                let extraBox = document.getElementById('v42-extra-evo-section');
+                if (!extraBox) {
+                    extraBox = document.createElement('div');
+                    extraBox.id = 'v42-extra-evo-section';
+                    extraBox.style.marginTop = '12px';
+                    inner.appendChild(extraBox);
+                }
+
+                extraBox.innerHTML = `
+                    <div class="card-box" style="border-color:#fde047;margin-bottom:8px;">
+                        <div style="font-size:12px;font-weight:900;color:#fde047;">✨ 上級・特化役職（武器＆通常攻撃スタイル切替）</div>
+                        <div style="font-size:11px;color:#cbd5e1;margin-top:3px;">
+                            現在の武器スタイル：<b style="color:${isMageNow ? '#c084fc' : '#38bdf8'};">${isMageNow ? '🔮 魔道士系（杖・通常攻撃＝魔法弾）' : '⚔️ 剣士系（剣・通常攻撃＝斬撃のみ）'}</b>
+                        </div>
+                    </div>
+                    <div class="grid-2">
+                        ${EXTRA_EVOLUTIONS.map(ev => {
+                            const isCur = curEvo === ev.id || curEvo === ev.name;
+                            const canLv = lv >= ev.reqLv;
+                            const canGold = gold >= ev.cost;
+                            const bonusText = Object.entries(ev.bonus).map(([k, v]) => {
+                                const map = { physAtk: '物攻', magAtk: '魔攻', maxHp: 'HP', maxMp: 'MP', def: '防御', critChance: '会心率', critDmg: '会心ダメ', lifesteal: '吸収', speed: '速度' };
+                                const val = (k === 'critChance' || k === 'critDmg' || k === 'lifesteal') ? `+${Math.round(v * 100)}%` : `+${v}`;
+                                return `${map[k] || k}${val}`;
+                            }).join(' / ');
+
+                            return `
+                                <div class="card-box" style="border-color:${isCur ? '#10b981' : ev.color};">
+                                    <div class="flex-between">
+                                        <span style="font-size:13px;font-weight:900;color:${ev.color};">${ev.icon} ${ev.name}</span>
+                                        <span class="badge-pill" style="background:${ev.isMage ? '#6b21a8' : '#0369a1'};color:#fff;">
+                                            ${ev.isMage ? '杖・魔法' : '剣・斬撃'}
+                                        </span>
+                                    </div>
+                                    <div class="font-kaomoji" style="font-size:13px;color:#fde047;margin:3px 0;">${ev.kaomoji}</div>
+                                    <div style="font-size:11px;color:#e2e8f0;line-height:1.4;">${ev.desc}</div>
+                                    <div style="font-size:10px;color:#34d399;font-weight:900;margin-top:4px;">補正: ${bonusText}</div>
+                                    <div class="flex-between" style="margin-top:7px;">
+                                        <span style="font-size:10px;color:#94a3b8;">条件: Lv.${ev.reqLv} / ${ev.cost}G</span>
+                                        <button type="button" class="btn-ui ${isCur ? 'btn-emerald' : 'btn-sky'}" data-v42-evo="${ev.id}" ${isCur || !canLv || !canGold ? 'disabled' : ''}>
+                                            ${isCur ? '✅ 現在の役職' : (!canLv ? `Lv.${ev.reqLv}必要` : (!canGold ? 'G不足' : '👑 転職する'))}
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+
+                extraBox.querySelectorAll('[data-v42-evo]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const targetId = btn.getAttribute('data-v42-evo');
+                        const ev = EXTRA_EVOLUTIONS.find(x => x.id === targetId);
+                        if (!ev || !this.saveData) return;
+                        if ((this.saveData.lv || 1) < ev.reqLv || (this.saveData.gold || 0) < ev.cost) return;
+
+                        this.saveData.gold -= ev.cost;
+                        this.saveData.evolution = ev.id;
+                        if (ev.kaomoji) this.saveData.kaomoji = ev.kaomoji;
+
+                        // 転職直後に武器メッシュ（剣⇔杖）を即座に切り替え、ステータスとHUDを更新
+                        this.syncSingleWeaponVisualV42(true);
+                        const st = this.calcDerivedStats();
+                        if (this.player) {
+                            this.player.hp = st.maxHp || this.player.hp;
+                            this.player.mp = st.maxMp || this.player.mp;
+                        }
+                        this.saveGame?.();
+                        this.refreshAllHUD?.();
+                        this.showAlertBanner?.(`👑 「${ev.name}」に転職！武器が${ev.isMage ? '杖（魔法攻撃）' : '剣（斬撃のみ）'}に変わりました！`, 2600);
+                        this.renderGrowthTabContent();
+                    });
+                });
+            }
+
+            // 既存役職への転職ボタン押下時も武器を即座に切り替える
+            if (this.activeTab === 'evo') {
+                inner.querySelectorAll('button:not([data-v42-evo])').forEach(btn => {
+                    if (btn.dataset.v42Hooked) return;
+                    btn.dataset.v42Hooked = '1';
+                    btn.addEventListener('click', () => {
+                        setTimeout(() => {
+                            this.syncSingleWeaponVisualV42(true);
+                            this.refreshAllHUD?.();
+                        }, 50);
+                    });
+                });
+            }
+
             fixLightBgTextContrast(modalBody);
         };
         P.renderModalContent = function () { this.renderGrowthTabContent(); };
 
-        // 4. スキルボタン（枠1〜枠5）が絶対に消えない保護・自動生成ロジック
+        // -----------------------------------------------------------------
+        // 7. スキルボタン保護・復元 & ボタン配置編集
+        // -----------------------------------------------------------------
         P.ensureSkillButtonsRestored = function () {
             const container = document.getElementById('skill-slots-container');
             if (!container) return;
+            document.querySelectorAll('body > .skill-slot-btn').forEach(btn => container.appendChild(btn));
 
-            // body直下に移動されていたスキルボタンがあれば元のコンテナへ戻す
-            document.querySelectorAll('body > .skill-slot-btn').forEach(btn => {
-                container.appendChild(btn);
-            });
-
-            // スキルボタンが0個なら5枠を確実に生成する
             if (container.querySelectorAll('.skill-slot-btn').length === 0) {
                 const eq = this.saveData?.equippedSkills || [];
                 const cds = this.skillCooldowns || [0, 0, 0, 0, 0];
@@ -469,8 +1030,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                         if (this._uiEditModeV31) return;
                         e.stopPropagation();
                         sfx?.init?.();
-                        const idx = Number(btn.getAttribute('data-slot'));
-                        this.useSkillSlot?.(idx);
+                        this.useSkillSlot?.(Number(btn.getAttribute('data-slot')));
                     });
                 });
             }
@@ -481,9 +1041,9 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
         P.refreshAllHUD = function () {
             _origRefreshHUD?.call(this);
             this.ensureSkillButtonsRestored();
+            this.syncSingleWeaponVisualV42(false);
         };
 
-        // 5. ボタン配置・サイズ調整機能（完了しても絶対に消えない安全版）
         const LAYOUT_KEY = 'kmj_btn_layout_v41';
         P.loadBtnLayoutV41 = function () {
             try { return JSON.parse(localStorage.getItem(LAYOUT_KEY) || '{}'); } catch (e) { return {}; }
@@ -491,26 +1051,21 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
         P.saveBtnLayoutV41 = function (data) {
             try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(data || {})); } catch (e) {}
         };
-
         P.getEditableButtonsV41 = function () {
             const list = [];
             const add = (key, label, el) => { if (el) list.push({ key, label, el }); };
             add('stick', '🕹️ 移動', document.getElementById('kmj-v33-movepad') || document.getElementById('joystick-zone'));
             add('atk', '⚔️ 攻撃', document.getElementById('btn-basic-attack'));
             add('tgt', '🎯 標的', document.getElementById('btn-cycle-target'));
-            for (let i = 0; i < 5; i++) {
-                add(`sk${i}`, `枠${i + 1}`, document.getElementById(`skill-slot-${i}`));
-            }
+            for (let i = 0; i < 5; i++) add(`sk${i}`, `枠${i + 1}`, document.getElementById(`skill-slot-${i}`));
             return list;
         };
 
         P.applySavedUILayoutV31 = function () {
             const layout = this.loadBtnLayoutV41();
-            const items = this.getEditableButtonsV41();
-            items.forEach(({ key, label, el }) => {
+            this.getEditableButtonsV41().forEach(({ key, el }) => {
                 const cfg = layout[key];
                 if (cfg && typeof cfg.dx === 'number' && typeof cfg.dy === 'number') {
-                    // 画面外へ飛び出さない安全範囲に制限
                     const dx = Math.max(-280, Math.min(280, cfg.dx));
                     const dy = Math.max(-320, Math.min(180, cfg.dy));
                     const sc = Math.max(0.6, Math.min(1.6, Number(cfg.scale) || 1));
@@ -523,7 +1078,6 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                 }
                 el.style.setProperty('visibility', 'visible', 'important');
                 el.style.setProperty('opacity', '1', 'important');
-
                 if (this._uiEditModeV31) {
                     const sel = this._uiSelectedKeyV31 === key;
                     el.style.setProperty('outline', sel ? '3px solid #fde047' : '2px dashed #38bdf8', 'important');
@@ -544,7 +1098,6 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                 this.showAlertBanner?.('✅ ボタン配置とサイズを保存しました！', 1600);
                 return;
             }
-
             if (!this._uiSelectedKeyV31 && items[0]) this._uiSelectedKeyV31 = items[0].key;
 
             items.forEach(({ key, el }) => {
@@ -634,105 +1187,9 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             document.getElementById('v41-btn-done')?.addEventListener('click', () => this.toggleUIEditModeV31(false));
         };
 
-        // 6. 通常攻撃：敵がいなくても正面へ真っ直ぐ魔法弾／斬撃が飛ぶ（updateCombatAndEntitiesで確実に毎フレーム移動）
-        P.spawnForwardBasicShotV41 = function (rotY, colorHex = 0x38bdf8) {
-            if (!this.scene || !this.player?.pos || typeof THREE === 'undefined') return;
-            if (!this._v41Projectiles) this._v41Projectiles = [];
-
-            const dirX = Math.sin(rotY);
-            const dirZ = Math.cos(rotY);
-            const grp = new THREE.Group();
-
-            const coreGeo = new THREE.SphereGeometry(0.32, 10, 10);
-            const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-            const auraGeo = new THREE.SphereGeometry(0.52, 10, 10);
-            const auraMat = new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.78 });
-
-            grp.add(new THREE.Mesh(coreGeo, coreMat), new THREE.Mesh(auraGeo, auraMat));
-            grp.position.set(this.player.pos.x + dirX * 1.1, 1.25, this.player.pos.z + dirZ * 1.1);
-            this.scene.add(grp);
-
-            this._v41Projectiles.push({
-                grp, coreGeo, coreMat, auraGeo, auraMat,
-                vx: dirX * 21,
-                vz: dirZ * 21,
-                life: 0.75
-            });
-        };
-
-        P.updateForwardBasicShotsV41 = function (dt) {
-            if (!this._v41Projectiles || !this._v41Projectiles.length) return;
-            const step = Math.min(0.1, Math.max(0.008, Number(dt) || 0.016));
-            this._v41Projectiles = this._v41Projectiles.filter(b => {
-                b.life -= step;
-                if (b.life <= 0) {
-                    this.scene?.remove(b.grp);
-                    b.coreGeo.dispose(); b.coreMat.dispose();
-                    b.auraGeo.dispose(); b.auraMat.dispose();
-                    return false;
-                }
-                b.grp.position.x += b.vx * step;
-                b.grp.position.z += b.vz * step;
-                return true;
-            });
-        };
-
-        P.performBasicAttack = function () {
-            if (!this.player || this.isDead) return false;
-            if ((this.player.stunTimer || 0) > 0) return false;
-
-            // 空中で静止しないよう地上座標に固定
-            if (this.player.pos) this.player.pos.y = 0;
-            if (this.player.group) this.player.group.position.y = 0;
-
-            const st = this.calcDerivedStats ? this.calcDerivedStats() : {};
-            const isStaff = Boolean(st.isStaffEquipped || this.isMageEvolution?.());
-            const atkRange = isStaff ? 16.5 : 5.5;
-
-            const target = (this.currentZoneId !== 'town' && this.getValidTarget)
-                ? this.getValidTarget(atkRange)
-                : null;
-
-            if (target) {
-                const dx = target.pos.x - this.player.pos.x;
-                const dz = target.pos.z - this.player.pos.z;
-                this.player.rotY = Math.atan2(dx, dz);
-            }
-
-            const rotY = this.player.rotY || 0;
-
-            if (isStaff) {
-                // 杖・魔道士：敵がいてもいなくても正面へ真っ直ぐ魔法弾を発射
-                this.triggerPlayerAttackAnim?.('staff_cast', 0.24);
-                sfx?.playTone?.(680, 'sine', 0.11, 0.06, 980);
-                this.spawnForwardBasicShotV41(rotY, st.wpnGlowColor || 0x38bdf8);
-            } else {
-                // 剣・物理：敵がいてもいなくても正面へ斬撃エフェクトを発射
-                this.triggerPlayerAttackAnim?.('slash', 0.22);
-                sfx?.playHit?.(false);
-                if (this.spawnSlashArc) {
-                    this.spawnSlashArc(this.player.pos, rotY, st.wpnGlowColor || 0x38bdf8, 2.6);
-                }
-            }
-
-            if (target && this.currentZoneId !== 'town') {
-                const isCrit = Math.random() < (st.critChance || 0.05);
-                const basePower = isStaff ? (st.magAtk || 10) : (st.physAtk || 10);
-                const variance = 0.92 + Math.random() * 0.16;
-                const dmg = Math.max(1, Math.round(basePower * variance * (isCrit ? (st.critDmg || 1.5) : 1.0)));
-                const col = isStaff ? (isCrit ? '#f472b6' : '#c084fc') : (isCrit ? '#fde047' : '#ffffff');
-
-                this.damageMonster?.(target, dmg, isCrit, col);
-
-                if ((st.lifesteal || 0) > 0) {
-                    const heal = Math.max(1, Math.round(dmg * st.lifesteal));
-                    this.player.hp = Math.min(st.maxHp || this.player.hp, this.player.hp + heal);
-                }
-            }
-            return true;
-        };
-
-        // 確実に毎フレーム呼ばれる updateCombatAndEntities に魔法弾移動と接地判定を組み込む
+        // -----------------------------------------------------------------
+        // 8. 毎フレーム処理（魔法弾移動・接地保証・単一武器維持）
+        // -----------------------------------------------------------------
         const _origCombatUpdate = P.updateCombatAndEntities;
         P.updateCombatAndEntities = function (dt, elapsed) {
             _origCombatUpdate?.call(this, dt, elapsed);
@@ -750,9 +1207,23 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
         };
     }
 
-    // 設定メニュー内の「🎛️ ボタン配置・サイズ」ボタンにイベントを接続
     document.addEventListener('DOMContentLoaded', () => {
         installMasterPatch();
+        cleanChatPanelUI();
+
+        // チャットパネルに後から「戻す」やドラッグバーが挿入されても即座に整理
+        const chatPanel = document.getElementById('chat-panel');
+        if (chatPanel && typeof MutationObserver !== 'undefined') {
+            let obsLock = false;
+            const obs = new MutationObserver(() => {
+                if (obsLock) return;
+                obsLock = true;
+                cleanChatPanelUI();
+                setTimeout(() => { obsLock = false; }, 100);
+            });
+            obs.observe(chatPanel, { childList: true, subtree: true });
+        }
+
         const layoutBtn = document.getElementById('btn-ui-layout-settings');
         if (layoutBtn) {
             layoutBtn.addEventListener('click', (e) => {
@@ -761,12 +1232,17 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                 window.game?.toggleUIEditModeV31?.(true);
             });
         }
+
         setTimeout(() => {
             installMasterPatch();
+            cleanChatPanelUI();
+            window.game?.syncSingleWeaponVisualV42?.(true);
             window.game?.ensureSkillButtonsRestored?.();
             fixLightBgTextContrast();
-        }, 400);
+        }, 450);
+
         setTimeout(() => {
+            window.game?.syncSingleWeaponVisualV42?.(true);
             window.game?.ensureSkillButtonsRestored?.();
         }, 1200);
     });
