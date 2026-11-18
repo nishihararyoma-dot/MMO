@@ -1,266 +1,395 @@
 'use strict';
 
-// スキルLv.100到達で解放される「覚醒奥義（新技）」マスター定義
-const AWAKENED_SKILL_ARTS = {
-    slash: {
-        lv10Title: '真・双連クロス斬',
-        lv50Title: '極・五連次元断空斬',
-        lv100Art: '【奥義】天元・神滅黄金聖剣',
-        lv100Desc: 'Lv.100解放新技！天空から超巨大黄金聖剣を召喚し、大地を両断する神話級の一撃！',
-        color: 0xfde047
-    },
-    fire: {
-        lv10Title: '真・紅蓮メテオ落下',
-        lv50Title: '極・業火スーパーノヴァ',
-        lv100Art: '【奥義】終焉星落・ラグナロクメテオ',
-        lv100Desc: 'Lv.100解放新技！成層圏から複数の超巨大隕石群を落とし、すべてを焼き尽くす！',
-        color: 0xf97316
-    },
-    bigbang: {
-        lv10Title: '真・銀河渦巻きビッグバン',
-        lv50Title: '極・超新星クエーサー爆発',
-        lv100Art: '【奥義】創世神話・オメガブラックホール',
-        lv100Desc: 'Lv.100解放新技！ブラックホールで敵を飲み込み、銀河規模の創世大爆発を起こす！',
-        color: 0xf43f5e
-    },
-    beam: {
-        lv10Title: '真・螺旋ツインレーザー',
-        lv50Title: '極・収束メガ粒子砲',
-        lv100Art: '【奥義】極光終焉・アルティメットブラスター',
-        lv100Desc: 'Lv.100解放新技！空間を歪める超極太の虹色神聖砲を放ち、前方の敵を蒸発させる！',
-        color: 0x38bdf8
-    },
-    nova_ice: {
-        lv10Title: '真・絶対零度氷結獄',
-        lv50Title: '極・コキュートス大氷河',
-        lv100Art: '【奥義】氷河神話・フィンブルの冬',
-        lv100Desc: 'Lv.100解放新技！巨大氷晶竜巻と無数の氷塊流星群を降らせ、世界を凍てつかせる！',
-        color: 0x7dd3fc
-    },
-    thunder: {
-        lv10Title: '真・紫電雷鳴落雷陣',
-        lv50Title: '極・建御雷神の裁き',
-        lv100Art: '【奥義】天罰神雷・インドラの矢',
-        lv100Desc: 'Lv.100解放新技！天を裂く黄金の巨大雷槍を連続投下し、超電磁爆発を起こす！',
-        color: 0xfacc15
-    },
-    wind: {
-        lv10Title: '真・双竜トルネード',
-        lv50Title: '極・暴風神テンペスト',
-        lv100Art: '【奥義】天空覇王・神風カタストロフ',
-        lv100Desc: 'Lv.100解放新技！天地を繋ぐ超巨大竜巻と真空刃の嵐で敵を粉砕する！',
-        color: 0x34d399
-    },
-    void: {
-        lv10Title: '真・深淵グラビティ球',
-        lv50Title: '極・暗黒次元崩壊',
-        lv100Art: '【奥義】虚無神蝕・アビスエクリプス',
-        lv100Desc: 'Lv.100解放新技！漆黒の日食と重力崩壊球を召喚し、次元ごと敵を消滅させる！',
-        color: 0xa855f7
-    },
-    support: {
-        lv10Title: '真・大天使の祝福陣',
-        lv50Title: '極・セラフィム神聖結界',
-        lv100Art: '【奥義】神域降臨・エデンの奇跡',
-        lv100Desc: 'Lv.100解放新技！黄金の神殿柱と天使の翼を展開し、味方全体を神聖な光で包み込む！',
-        color: 0x4ade80
-    },
-    aurora: {
-        lv10Title: '真・極光オーロラ聖域',
-        lv50Title: '極・天界アヴァロン結界',
-        lv100Art: '【奥義】創世聖域・ヴァルハラ神殿',
-        lv100Desc: 'Lv.100解放新技！広大な神殿フィールドと虹色オーロラを展開し、味方を無敵級に強化！',
-        color: 0x2dd4bf
-    },
-    chabudai: {
-        lv10Title: '真・激怒の黄金ちゃぶ台',
-        lv50Title: '極・超巨大豪華宴会卓返し',
-        lv100Art: '【奥義】神怒天罰・惑星サイズちゃぶ台返し',
-        lv100Desc: 'Lv.100解放新技！山のように巨大な黄金ちゃぶ台をひっくり返し、隕石級の衝撃波を放つ！',
-        color: 0xf59e0b
-    }
-};
+const SECRET_DEBUG_CODE = 'debug777';
 
-(function injectV21CutinStyle() {
-    if (document.getElementById('kmj-v21-cutin-style')) return;
-    const st = document.createElement('style');
-    st.id = 'kmj-v21-cutin-style';
-    st.textContent = `
-        #kmj-ougi-cutin{
-            position:fixed;left:50%;top:22%;transform:translate(-50%,-50%) scale(.85);
-            z-index:95;pointer-events:none;padding:10px 24px;border-radius:14px;
-            background:linear-gradient(90deg,rgba(15,23,42,.2),rgba(127,29,29,.92),rgba(180,83,9,.95),rgba(127,29,29,.92),rgba(15,23,42,.2));
-            border-top:2px solid #fde047;border-bottom:2px solid #fde047;
-            box-shadow:0 0 32px rgba(250,204,21,.75);text-align:center;
-            opacity:0;transition:all .22s cubic-bezier(.16,1,.3,1);white-space:nowrap;
+// 剣・武器名を魔道士用の「杖」名称へ変換する辞書
+function convertWeaponNameToStaff(rawName) {
+    if (!rawName) return '魔導の杖';
+    let s = String(rawName);
+    if (/杖|ロッド|スタッフ|ステッキ|ワンド|staff|rod|wand/i.test(s)) return s;
+    const map = [
+        [/木の剣|ひのきのぼう|初期の剣|木刀/g, '見習いの木の杖'],
+        [/銅の剣|ブロンズソード/g, '青銅の魔導杖'],
+        [/鉄の剣|アイアンソード/g, '白鉄の魔法杖'],
+        [/鋼の剣|スチールソード/g, '精霊の銀魔杖'],
+        [/ミスリルソード|ミスリルの剣/g, 'ミスリルアークロッド'],
+        [/オリハルコンソード|オリハルコンの剣/g, 'オリハルコン星屑杖'],
+        [/ドラゴンソード|竜の剣|竜殺しの剣/g, '竜王の紅蓮魔導杖'],
+        [/聖剣|エクスカリバー|神剣|創世剣/g, '創世神聖スタッフ'],
+        [/大剣|グレートソード|クレイモア/g, '賢者の大魔導杖'],
+        [/短剣|ダガー|ナイフ/g, 'フェアリーワンド'],
+        [/剣|刀|ソード|ブレード|アックス|斧|槍|ランス|スピア/g, '魔導杖'],
+        [/Sword|Blade|Axe|Spear|Lance/gi, 'Staff']
+    ];
+    for (const [re, rep] of map) {
+        if (re.test(s)) {
+            s = s.replace(re, rep);
+            return s;
         }
-        #kmj-ougi-cutin.show{opacity:1;transform:translate(-50%,-50%) scale(1.04);}
-    `;
-    document.head.appendChild(st);
-})();
+    }
+    return s + '（魔導杖）';
+}
 
 if (typeof KaomojiMMORPG !== 'undefined') {
     const P = KaomojiMMORPG.prototype;
 
-    // 1. アバターの顔ズレを根本から完全修正（buildAvatarGroup 直接フック）
-    P.alignAvatarFaceStrictly = function (group) {
-        if (!group || typeof THREE === 'undefined') return;
-        const faceMeshes = [];
-        const boxMeshes = [];
-
-        group.traverse(obj => {
-            if (!obj.isMesh || !obj.geometry) return;
-            // 顔文字テクスチャ（CanvasTexture）が貼られているメッシュを特定
-            if (obj.material && obj.material.map && obj.material.map.image) {
-                faceMeshes.push(obj);
-            } else {
-                boxMeshes.push(obj);
-            }
-        });
-
-        faceMeshes.forEach(fm => {
-            // 顔メッシュに最も近い立方体/球体（＝頭部メッシュ）を探す
-            let bestHead = null;
-            let bestDist = Infinity;
-            boxMeshes.forEach(bm => {
-                // 武器や細長いパーツは除外
-                bm.geometry.computeBoundingBox?.();
-                const bb = bm.geometry.boundingBox;
-                if (!bb) return;
-                const sx = (bb.max.x - bb.min.x) * (bm.scale.x || 1);
-                const sy = (bb.max.y - bb.min.y) * (bm.scale.y || 1);
-                const sz = (bb.max.z - bb.min.z) * (bm.scale.z || 1);
-                if (sx < 0.35 || sy < 0.35 || sz < 0.35) return;
-
-                const d = Math.hypot(
-                    bm.position.x - fm.position.x,
-                    bm.position.y - fm.position.y,
-                    bm.position.z - fm.position.z
-                );
-                if (d < bestDist) {
-                    bestDist = d;
-                    bestHead = bm;
-                }
-            });
-
-            if (bestHead && bestDist < 1.2) {
-                bestHead.geometry.computeBoundingBox?.();
-                const bb = bestHead.geometry.boundingBox;
-                const halfD = bb ? (bb.max.z - bb.min.z) * 0.5 * (bestHead.scale.z || 1) : 0.45;
-                // 頭のど真ん中(X, Y)＋前面のすぐ外側(Z)へ正確に配置
-                fm.position.x = bestHead.position.x;
-                fm.position.y = bestHead.position.y;
-                fm.position.z = bestHead.position.z + halfD + 0.018;
-            } else {
-                fm.position.x = 0;
-            }
-            fm.rotation.set(0, 0, 0);
-            fm.renderOrder = 10;
-            if (fm.material) {
-                fm.material.polygonOffset = true;
-                fm.material.polygonOffsetFactor = -4;
-                fm.material.depthWrite = true;
-                fm.material.needsUpdate = true;
-            }
-        });
+    // 1. 現在の職業が「魔道士系」かどうかを判定
+    P.isMageEvolution = function (evoIdOverride = null) {
+        const d = this.saveData || {};
+        const evoId = String(evoIdOverride || d.evolutionId || '');
+        let evoName = '';
+        if (typeof EVOLUTIONS !== 'undefined' && EVOLUTIONS && EVOLUTIONS[evoId]) {
+            evoName = String(EVOLUTIONS[evoId].name || EVOLUTIONS[evoId].title || '');
+        }
+        const combined = `${evoId} ${evoName}`.toLowerCase();
+        return /mage|wizard|sorcerer|witch|sage|warlock|archmage|spell|magic|魔道|魔導|魔法|賢者|術師|メイジ|ウィザード/.test(combined);
     };
 
-    // game6.js 側の古い関数も安全な新処理へ差し替え
-    P.fixAvatarFaceAlignment = P.alignAvatarFaceStrictly;
+    // 2. 魔道士進化時の「杖（スタッフ）」3Dモデル（5段階の見た目差分）
+    P.buildMageStaff3D = function (weaponId = 'wpn_wood', enhance = 0) {
+        const grp = new THREE.Group();
+        grp.name = 'mage_staff_weapon';
+
+        const wStr = String(weaponId || '').toLowerCase();
+        const enh = Number(enhance) || 0;
+        let tier = 1;
+        if (/god|genesis|creator|omega|legend|divine|神|創世|伝説/.test(wStr) || enh >= 15) tier = 5;
+        else if (/dragon|hell|abyss|demon|star|竜|魔|星|覇/.test(wStr) || enh >= 10) tier = 4;
+        else if (/mythril|mithril|gold|holy|crystal|ミスリル|金|聖|晶/.test(wStr) || enh >= 6) tier = 3;
+        else if (/iron|steel|silver|copper|鉄|鋼|銀|銅/.test(wStr) || enh >= 3) tier = 2;
+
+        const configs = {
+            1: { shaftCol: 0x78350f, headCol: 0x92400e, orbCol: 0x38bdf8, ringCol: null, len: 1.55, orbR: 0.14 },
+            2: { shaftCol: 0x94a3b8, headCol: 0xe2e8f0, orbCol: 0x34d399, ringCol: 0x6ee7b7, len: 1.70, orbR: 0.17 },
+            3: { shaftCol: 0xfbbf24, headCol: 0xfef08a, orbCol: 0x60a5fa, ringCol: 0x38bdf8, len: 1.85, orbR: 0.20 },
+            4: { shaftCol: 0x31102f, headCol: 0xf43f5e, orbCol: 0xf97316, ringCol: 0xfde047, len: 2.00, orbR: 0.23 },
+            5: { shaftCol: 0xfef08a, headCol: 0xf59e0b, orbCol: 0xf472b6, ringCol: 0x38bdf8, len: 2.18, orbR: 0.26 }
+        };
+        const cfg = configs[tier];
+
+        const shaft = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.045, 0.055, cfg.len, 10),
+            new THREE.MeshLambertMaterial({ color: cfg.shaftCol })
+        );
+        shaft.position.y = cfg.len * 0.42;
+        grp.add(shaft);
+
+        const topY = cfg.len * 0.88;
+        if (tier === 1) {
+            const forkL = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.22, 0.05), new THREE.MeshLambertMaterial({ color: cfg.headCol }));
+            forkL.position.set(-0.08, topY, 0); forkL.rotation.z = 0.4;
+            const forkR = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.22, 0.05), new THREE.MeshLambertMaterial({ color: cfg.headCol }));
+            forkR.position.set(0.08, topY, 0); forkR.rotation.z = -0.4;
+            grp.add(forkL, forkR);
+        } else if (tier === 2) {
+            const crescent = new THREE.Mesh(
+                new THREE.TorusGeometry(0.22, 0.04, 8, 18, Math.PI * 1.3),
+                new THREE.MeshBasicMaterial({ color: cfg.headCol })
+            );
+            crescent.position.y = topY + 0.08;
+            crescent.rotation.z = -Math.PI * 0.15;
+            grp.add(crescent);
+        } else if (tier >= 3) {
+            [-1, 1].forEach(side => {
+                const wing = new THREE.Mesh(
+                    new THREE.ConeGeometry(0.11 + tier * 0.02, 0.42 + tier * 0.06, 5),
+                    new THREE.MeshBasicMaterial({ color: cfg.headCol })
+                );
+                wing.position.set(side * (0.22 + tier * 0.03), topY + 0.08, 0);
+                wing.rotation.z = -side * 1.05;
+                grp.add(wing);
+            });
+        }
+
+        const orbGeo = tier >= 3 ? new THREE.OctahedronGeometry(cfg.orbR, 0) : new THREE.SphereGeometry(cfg.orbR, 12, 12);
+        const orb = new THREE.Mesh(orbGeo, new THREE.MeshBasicMaterial({ color: cfg.orbCol }));
+        orb.position.y = topY + 0.16;
+        grp.add(orb);
+
+        if (cfg.ringCol) {
+            const halo = new THREE.Mesh(
+                new THREE.TorusGeometry(cfg.orbR * 1.65, 0.028, 8, 22),
+                new THREE.MeshBasicMaterial({ color: cfg.ringCol })
+            );
+            halo.position.y = topY + 0.16;
+            halo.rotation.x = Math.PI * 0.32;
+            grp.add(halo);
+        }
+        if (tier >= 5) {
+            [-1, 1].forEach(s => {
+                const sat = new THREE.Mesh(new THREE.OctahedronGeometry(0.08, 0), new THREE.MeshBasicMaterial({ color: 0xfde047 }));
+                sat.position.set(s * 0.36, topY + 0.16, 0);
+                grp.add(sat);
+            });
+        }
+
+        grp.rotation.x = 0.35;
+        return grp;
+    };
 
     if (P.buildAvatarGroup) {
-        const _origBuildAvatar = P.buildAvatarGroup;
+        const _prevBuildAvatarV24 = P.buildAvatarGroup;
         P.buildAvatarGroup = function (opts) {
-            const res = _origBuildAvatar.call(this, opts);
-            if (res && res.group) {
-                this.alignAvatarFaceStrictly(res.group);
+            const res = _prevBuildAvatarV24.call(this, opts);
+            if (res && res.group && typeof THREE !== 'undefined') {
+                const evoId = opts?.evolutionId || this.saveData?.evolutionId || '';
+                if (this.isMageEvolution(evoId)) {
+                    const toRemove = [];
+                    res.group.traverse(c => {
+                        if (c !== res.group && (c === res.weaponMesh || /wpn|weapon|sword/i.test(c.name || '') || c.position.x > 0.52)) {
+                            toRemove.push(c);
+                        }
+                    });
+                    toRemove.forEach(c => c.parent?.remove(c));
+
+                    const staff = this.buildMageStaff3D(opts?.weaponId || 'wpn_wood', opts?.weaponEnhance || 0);
+                    staff.position.set(0.66, 0.45, 0.22);
+                    res.group.add(staff);
+                    res.weaponMesh = staff;
+                }
             }
             return res;
         };
     }
 
-    // 2. スキルLv10 / Lv50 / Lv100新技解放のテキスト＆カテゴリ解決
-    P.getSkillEvolutionTierInfo = function (category, skillLv) {
-        const art = AWAKENED_SKILL_ARTS[category] || AWAKENED_SKILL_ARTS.slash;
-        if (skillLv >= 100) {
-            return { tier: 3, badge: '👑Lv100奥義', title: art.lv100Art, desc: art.lv100Desc, color: art.color };
-        }
-        if (skillLv >= 50) {
-            return { tier: 2, badge: '🔥Lv50極', title: art.lv50Title, desc: `【極・超強化形態】技のエフェクトが別次元の超豪華形態へ進化！`, color: art.color };
-        }
-        if (skillLv >= 10) {
-            return { tier: 1, badge: '✨Lv10真', title: art.lv10Title, desc: `【真・強化形態】技の見た目と威力が大幅に強化！`, color: art.color };
-        }
-        return { tier: 0, badge: '', title: '', desc: '', color: art.color };
+    // 3. 魔道士進化時の「通常攻撃で魔法が出る」3D魔法弾エフェクト
+    P.spawnMageBasicMagicShot = function (entity) {
+        if (!this.useWebGL || !this.scene || !entity?.pos || typeof THREE === 'undefined') return;
+        if (!this._v22MagicShots) this._v22MagicShots = [];
+
+        const rotY = entity.rotY || 0;
+        const dirX = Math.sin(rotY);
+        const dirZ = Math.cos(rotY);
+        const startX = entity.pos.x + dirX * 1.1;
+        const startZ = entity.pos.z + dirZ * 1.1;
+
+        const grp = new THREE.Group();
+        const core = new THREE.Mesh(
+            new THREE.SphereGeometry(0.28, 14, 14),
+            new THREE.MeshBasicMaterial({ color: 0xffffff })
+        );
+        const auraMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.72 });
+        const aura = new THREE.Mesh(new THREE.OctahedronGeometry(0.46, 0), auraMat);
+        const ringMat = new THREE.MeshBasicMaterial({ color: 0xf472b6, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(0.48, 0.055, 8, 22), ringMat);
+        grp.add(core, aura, ring);
+
+        grp.position.set(startX, 1.25, startZ);
+        grp.rotation.y = rotY;
+        this.scene.add(grp);
+
+        this._v22MagicShots.push({
+            grp, aura, ring, auraMat, ringMat,
+            vx: dirX * 19.5,
+            vz: dirZ * 19.5,
+            life: 0.48,
+            maxLife: 0.48
+        });
     };
 
-    P.showOugiCutin = function (casterName, ougiName) {
-        let el = document.getElementById('kmj-ougi-cutin');
-        if (!el) {
-            el = document.createElement('div');
-            el.id = 'kmj-ougi-cutin';
-            document.body.appendChild(el);
-        }
-        el.innerHTML = `
-            <div style="font-size:10px;font-weight:900;color:#fef08a;letter-spacing:1.5px;">⚡ LV.100 覚醒奥義解放技 ⚡</div>
-            <div style="font-size:16px;font-weight:900;color:#ffffff;text-shadow:0 2px 10px #000;margin-top:2px;">${ougiName}</div>
-            <div style="font-size:10px;color:#fcd34d;margin-top:1px;">発動者: ${casterName}</div>
-        `;
-        el.classList.add('show');
-        clearTimeout(this._ougiCutinTimer);
-        this._ougiCutinTimer = setTimeout(() => el.classList.remove('show'), 1800);
+    P.updateMageBasicMagicShots = function (dt) {
+        if (!this._v22MagicShots || !this._v22MagicShots.length) return;
+        this._v22MagicShots = this._v22MagicShots.filter(s => {
+            s.life -= dt;
+            if (s.life <= 0) {
+                if (this.scene && this._slashEffects) {
+                    const hitMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.95 });
+                    const hitRing = new THREE.Mesh(new THREE.RingGeometry(0.25, 0.95, 20), hitMat);
+                    hitRing.rotation.x = -Math.PI / 2;
+                    hitRing.position.set(s.grp.position.x, 0.25, s.grp.position.z);
+                    this.scene.add(hitRing);
+                    this._slashEffects.push({ kind: 'shockwave', mesh: hitRing, mat: hitMat, life: 0.28, maxLife: 0.28 });
+                }
+                if (this.scene) this.scene.remove(s.grp);
+                s.grp.traverse?.(o => { o.geometry?.dispose?.(); o.material?.dispose?.(); });
+                return false;
+            }
+            s.grp.position.x += s.vx * dt;
+            s.grp.position.z += s.vz * dt;
+            s.aura.rotation.y += dt * 10;
+            s.aura.rotation.x += dt * 8;
+            s.ring.rotation.z += dt * 12;
+            const fade = s.life < 0.14 ? (s.life / 0.14) : 1.0;
+            s.auraMat.opacity = 0.72 * fade;
+            s.ringMat.opacity = 0.9 * fade;
+            return true;
+        });
     };
 
-    // スキル一覧画面でも Lv.10 / Lv.50 / Lv.100新技解放がはっきり分かるように説明を自動更新
-    const _prevSyncSkills = P.syncSkillDescriptionsAndEffects;
-    P.syncSkillDescriptionsAndEffects = function () {
-        if (_prevSyncSkills) _prevSyncSkills.call(this);
-        if (typeof SKILLS === 'undefined' || !SKILLS) return;
-        const d = this.saveData || {};
-        const list = Array.isArray(SKILLS) ? SKILLS : Object.values(SKILLS);
+    const _prevTriggerV24 = P.triggerAttackVisual;
+    P.triggerAttackVisual = function (entity, isSkill = false, skillInfo = null) {
+        const isMage = (entity === this.player)
+            ? this.isMageEvolution()
+            : Boolean(skillInfo?.isMage || (entity?.evolutionId && this.isMageEvolution(entity.evolutionId)));
 
-        list.forEach((sk, idx) => {
-            if (!sk || typeof sk !== 'object') return;
-            if (!sk._baseNameV21) sk._baseNameV21 = sk.name || `スキル${idx + 1}`;
-            if (!sk._baseDescV21) sk._baseDescV21 = sk.desc || sk.description || '';
+        if (!isSkill && isMage) {
+            if (entity) {
+                entity.attackAnimTimer = 0.34;
+                entity.attackIsSkill = false;
+            }
+            this.spawnMageBasicMagicShot(entity);
+            return;
+        }
+        if (_prevTriggerV24) {
+            _prevTriggerV24.call(this, entity, isSkill, skillInfo);
+        }
+    };
 
-            const sId = String(sk.id || sk.skillId || `slot_${idx}`);
-            const lv = Math.max(1, Number(d.skillLevels?.[sId] ?? d.skillLvs?.[sId] ?? sk.lv ?? sk.level ?? 1) || 1);
+    // 4. 敵モンスターの状態異常判定（有効な状態異常のみ反応）
+    P.detectMonsterStatus = function (m) {
+        if (!m) return null;
+        if (m._visualStatus && Number(m._visualStatus.timer) > 0) return m._visualStatus.type;
+        if (Number(m.burnTimer) > 0 || Number(m.burn) > 0 || m.isBurning === true) return 'burn';
+        if (Number(m.freezeTimer) > 0 || Number(m.freeze) > 0 || m.isFrozen === true) return 'freeze';
+        if (Number(m.poisonTimer) > 0 || Number(m.poison) > 0 || m.isPoisoned === true) return 'poison';
+        if (Number(m.stunTimer) > 0 || Number(m.paralyzeTimer) > 0 || Number(m.stun) > 0 || Number(m.paralyze) > 0 || m.isStunned === true) return 'shock';
 
-            const comb = `${sId} ${sk._baseNameV21}`.toLowerCase();
-            let cat = 'slash';
-            if (/chabu|table|flip|ちゃぶ|卓|返/.test(comb)) cat = 'chabudai';
-            else if (/aurora|sanctuary|polar|極光|聖域|オーロラ/.test(comb)) cat = 'aurora';
-            else if (/bigbang|big_bang|genesis|cosmos|creation|supernova|ビッグバン|創世|創星|創生/.test(comb)) cat = 'bigbang';
-            else if (/heal|cure|prayer|bless|holy|light|buff|boost|aura|guard|shield|haste|support|癒|回復|祈|聖|浄化|強化|鼓舞|結界|加速|守護|支援|補助/.test(comb) || sk.type === 'heal' || sk.type === 'buff') cat = 'support';
-            else if (/beam|laser|ray|cannon|kame|ビーム|レーザー|光線|砲|波動|閃光/.test(comb)) cat = 'beam';
-            else if (/zero|nova|absolute|blizzard|ice|frost|零度|ノヴァ|氷|吹雪|凍|雪/.test(comb)) cat = 'nova_ice';
-            else if (/fire|meteor|flare|burn|bomb|flame|炎|爆|火|隕|紅蓮|業火/.test(comb)) cat = 'fire';
-            else if (/thunder|bolt|spark|volt|lightning|雷|電|閃|迅/.test(comb)) cat = 'thunder';
-            else if (/wind|storm|tornado|gale|cyclone|風|嵐|竜巻|疾風|旋風/.test(comb)) cat = 'wind';
-            else if (/dark|void|shadow|abyss|gravity|闇|黒|影|重力|深淵|冥/.test(comb)) cat = 'void';
+        const arrList = [m.debuffs, m.statuses, m.effects].filter(Array.isArray);
+        for (const arr of arrList) {
+            for (const item of arr) {
+                if (!item) continue;
+                if (typeof item === 'string') {
+                    const s = item.toLowerCase();
+                    if (s === 'burn' || s === 'burning' || s === 'ignite') return 'burn';
+                    if (s === 'freeze' || s === 'frozen') return 'freeze';
+                    if (s === 'poison' || s === 'poisoned') return 'poison';
+                    if (s === 'stun' || s === 'paralyze' || s === 'shock') return 'shock';
+                } else if (typeof item === 'object') {
+                    const dur = Number(item.timer ?? item.duration ?? item.turns ?? item.remain ?? 1);
+                    if (dur <= 0) continue;
+                    const t = String(item.type || item.id || item.name || '').toLowerCase();
+                    if (/^(burn|burning|ignite)$/.test(t)) return 'burn';
+                    if (/^(freeze|frozen)$/.test(t)) return 'freeze';
+                    if (/^(poison|poisoned)$/.test(t)) return 'poison';
+                    if (/^(stun|paralyze|shock)$/.test(t)) return 'shock';
+                }
+            }
+        }
+        if (typeof m.status === 'string') {
+            const s = m.status.toLowerCase();
+            if (s === 'burn' || s === 'burning') return 'burn';
+            if (s === 'freeze' || s === 'frozen') return 'freeze';
+            if (s === 'poison' || s === 'poisoned') return 'poison';
+            if (s === 'stun' || s === 'paralyze' || s === 'shock') return 'shock';
+        }
+        return null;
+    };
 
-            const evo = this.getSkillEvolutionTierInfo(cat, lv);
-            if (lv >= 100) {
-                sk.name = `${evo.title}`;
-                const txt = `${evo.desc}`;
-                if ('desc' in sk) sk.desc = txt;
-                if ('description' in sk) sk.description = txt;
-            } else if (lv >= 50) {
-                sk.name = `${sk._baseNameV21}【極】`;
-                const txt = `${sk._baseDescV21} ▶ 現在Lv.${lv}【${evo.title}】解放中！(Lv.100で新奥義解放)`;
-                if ('desc' in sk) sk.desc = txt;
-                if ('description' in sk) sk.description = txt;
-            } else if (lv >= 10) {
-                sk.name = `${sk._baseNameV21}【真】`;
-                const txt = `${sk._baseDescV21} ▶ 現在Lv.${lv}【${evo.title}】解放中！(Lv.50で極形態・Lv.100で新奥義)`;
-                if ('desc' in sk) sk.desc = txt;
-                if ('description' in sk) sk.description = txt;
-            } else {
-                sk.name = sk._baseNameV21;
-                const txt = `${sk._baseDescV21} (Lv.10で真形態・Lv.50で極形態・Lv.100で新奥義解放！)`;
-                if ('desc' in sk) sk.desc = txt;
-                if ('description' in sk) sk.description = txt;
+    P.updateMonsterStatusVisuals = function (dt) {
+        if (!this.useWebGL || !Array.isArray(this.monsters) || typeof THREE === 'undefined') return;
+        const now = performance.now() * 0.001;
+
+        this.monsters.forEach((m) => {
+            if (!m) return;
+            if (m._visualStatus && Number(m._visualStatus.timer) > 0) {
+                m._visualStatus.timer = Math.max(0, m._visualStatus.timer - dt);
+                if (m._visualStatus.timer <= 0) m._visualStatus = null;
+            }
+            const grp = m.group || m.mesh;
+            if (!grp) return;
+
+            const stType = m.dead ? null : this.detectMonsterStatus(m);
+            const curHolder = grp.getObjectByName?.('status_fx_3d');
+
+            if (!stType) {
+                if (curHolder) {
+                    grp.remove(curHolder);
+                    curHolder.traverse?.(o => { o.geometry?.dispose?.(); o.material?.dispose?.(); });
+                }
+                grp.userData._curStatusType = null;
+                return;
+            }
+
+            if (grp.userData._curStatusType !== stType || !curHolder) {
+                if (curHolder) grp.remove(curHolder);
+                grp.userData._curStatusType = stType;
+
+                const sc = Number(m.scale) || 1.0;
+                const fxGrp = new THREE.Group();
+                fxGrp.name = 'status_fx_3d';
+                fxGrp.userData.items = [];
+
+                if (stType === 'burn') {
+                    const baseRing = new THREE.Mesh(
+                        new THREE.RingGeometry(0.65 * sc, 1.25 * sc, 24),
+                        new THREE.MeshBasicMaterial({ color: 0xf97316, side: THREE.DoubleSide, transparent: true, opacity: 0.88 })
+                    );
+                    baseRing.rotation.x = -Math.PI / 2;
+                    baseRing.position.y = 0.09;
+                    fxGrp.add(baseRing);
+
+                    const flameCols = [0xef4444, 0xf97316, 0xfacc15];
+                    for (let i = 0; i < 8; i++) {
+                        const ang = (i / 8) * Math.PI * 2;
+                        const fMesh = new THREE.Mesh(
+                            new THREE.ConeGeometry(0.22 * sc, 0.75 * sc, 6),
+                            new THREE.MeshBasicMaterial({ color: flameCols[i % flameCols.length], transparent: true, opacity: 0.92 })
+                        );
+                        fMesh.position.set(Math.cos(ang) * 0.68 * sc, 0.5 * sc, Math.sin(ang) * 0.68 * sc);
+                        fxGrp.add(fMesh);
+                        fxGrp.userData.items.push({ mesh: fMesh, ang, dist: 0.68 * sc, phase: i * 0.8, sc });
+                    }
+                } else if (stType === 'freeze') {
+                    const iceBox = new THREE.Mesh(
+                        new THREE.BoxGeometry(1.45 * sc, 1.85 * sc, 1.45 * sc),
+                        new THREE.MeshBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.45 })
+                    );
+                    iceBox.position.y = 0.95 * sc;
+                    const iceWire = new THREE.Mesh(
+                        new THREE.BoxGeometry(1.48 * sc, 1.88 * sc, 1.48 * sc),
+                        new THREE.MeshBasicMaterial({ color: 0xe0f2fe, wireframe: true })
+                    );
+                    iceWire.position.y = 0.95 * sc;
+                    fxGrp.add(iceBox, iceWire);
+                } else if (stType === 'poison') {
+                    const pRing = new THREE.Mesh(
+                        new THREE.RingGeometry(0.6 * sc, 1.2 * sc, 24),
+                        new THREE.MeshBasicMaterial({ color: 0xa855f7, side: THREE.DoubleSide, transparent: true, opacity: 0.85 })
+                    );
+                    pRing.rotation.x = -Math.PI / 2;
+                    pRing.position.y = 0.09;
+                    fxGrp.add(pRing);
+                    for (let i = 0; i < 6; i++) {
+                        const ang = (i / 6) * Math.PI * 2;
+                        const bub = new THREE.Mesh(
+                            new THREE.SphereGeometry(0.18 * sc, 8, 8),
+                            new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? 0xc084fc : 0x4ade80, transparent: true, opacity: 0.88 })
+                        );
+                        fxGrp.add(bub);
+                        fxGrp.userData.items.push({ mesh: bub, ang, dist: 0.62 * sc, phase: i * 1.1, sc });
+                    }
+                } else if (stType === 'shock') {
+                    for (let i = 0; i < 6; i++) {
+                        const ang = (i / 6) * Math.PI * 2;
+                        const bolt = new THREE.Mesh(
+                            new THREE.OctahedronGeometry(0.24 * sc, 0),
+                            new THREE.MeshBasicMaterial({ color: 0xfef08a })
+                        );
+                        fxGrp.add(bolt);
+                        fxGrp.userData.items.push({ mesh: bolt, ang, dist: 0.78 * sc, phase: i * 1.3, sc });
+                    }
+                }
+                grp.add(fxGrp);
+            }
+
+            const holder = grp.getObjectByName?.('status_fx_3d');
+            if (holder && holder.userData.items) {
+                holder.userData.items.forEach(it => {
+                    if (stType === 'burn' || stType === 'poison') {
+                        const cycle = (now * 1.8 + it.phase) % 1;
+                        it.ang += dt * 2.2;
+                        it.mesh.position.x = Math.cos(it.ang) * it.dist;
+                        it.mesh.position.z = Math.sin(it.ang) * it.dist;
+                        it.mesh.position.y = (0.3 + cycle * 1.55) * it.sc;
+                        it.mesh.scale.setScalar(Math.max(0.2, 1.15 - cycle * 0.85));
+                    } else if (stType === 'shock') {
+                        it.ang += dt * 9.0;
+                        it.mesh.position.x = Math.cos(it.ang) * it.dist;
+                        it.mesh.position.z = Math.sin(it.ang) * it.dist;
+                        it.mesh.position.y = (0.9 + Math.sin(now * 25 + it.phase) * 0.45) * it.sc;
+                        it.mesh.rotation.y += dt * 15;
+                    }
+                });
             }
         });
     };
@@ -270,464 +399,691 @@ if (typeof KaomojiMMORPG !== 'undefined') {
 if (typeof KaomojiMMORPG !== 'undefined') {
     const P = KaomojiMMORPG.prototype;
 
-    // Lv.10(真) / Lv.50(極) / Lv.100+(覚醒奥義) の別格3D技エフェクト生成
-    P.spawnUpgradedSkillVisualV21 = function (entity, cat, skillLv, sId, skillName) {
-        if (!this.useWebGL || !this.scene || !entity?.pos || typeof THREE === 'undefined') return;
-        if (!this._v21SkillEffects) this._v21SkillEffects = [];
-
-        const tier = skillLv >= 100 ? 3 : (skillLv >= 50 ? 2 : 1);
-        const evo = this.getSkillEvolutionTierInfo(cat, skillLv);
-        const rotY = entity.rotY || 0;
-        const dirX = Math.sin(rotY);
-        const dirZ = Math.cos(rotY);
-        const px = entity.pos.x;
-        const pz = entity.pos.z;
-
-        const root = new THREE.Group();
-        const animItems = [];
-        const mainCol = evo.color || 0xfde047;
-
-        // 足元の多重進化魔法陣（全技共通でランクが一目で分かる）
-        const ringCount = tier === 3 ? 3 : (tier === 2 ? 2 : 1);
-        const ringCols = [mainCol, 0xfde047, 0xf472b6];
-        for (let r = 0; r < ringCount; r++) {
-            const rIn = 1.4 + r * 1.15;
-            const rOut = rIn + 0.42;
-            const rMat = new THREE.MeshBasicMaterial({
-                color: ringCols[r % ringCols.length],
-                side: THREE.DoubleSide,
-                transparent: true,
-                opacity: 0.9
-            });
-            const ring = new THREE.Mesh(new THREE.RingGeometry(rIn, rOut, 36), rMat);
-            ring.rotation.x = -Math.PI / 2;
-            ring.position.set(px, 0.1 + r * 0.03, pz);
-            root.add(ring);
-            animItems.push({ type: 'spin_ring', mesh: ring, mat: rMat, spd: (r % 2 === 0 ? 5.0 : -4.2) });
-        }
-
-        // 1. 斬撃系（Lv10: X字双連斬 / Lv50: 五連次元断空斬 / Lv100: 天元・神滅黄金聖剣）
-        if (cat === 'slash') {
-            if (tier === 3) {
-                // 空から超巨大黄金聖剣が突き刺さる！
-                const sword = new THREE.Group();
-                const bladeMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
-                const auraMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.55 });
-                const blade = new THREE.Mesh(new THREE.ConeGeometry(0.95, 7.2, 4), bladeMat);
-                blade.rotation.x = Math.PI;
-                blade.position.y = 3.6;
-                const bladeAura = new THREE.Mesh(new THREE.ConeGeometry(1.45, 7.8, 4), auraMat);
-                bladeAura.rotation.x = Math.PI;
-                bladeAura.position.y = 3.6;
-                const guard = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.42, 0.55), new THREE.MeshBasicMaterial({ color: 0xfbbf24 }));
-                guard.position.y = 7.2;
-                const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 1.8, 10), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
-                grip.position.y = 8.1;
-                sword.add(blade, bladeAura, guard, grip);
-                sword.position.set(px + dirX * 4.2, 11.0, pz + dirZ * 4.2);
-                sword.rotation.y = rotY;
-                root.add(sword);
-
-                const craterMat = new THREE.MeshBasicMaterial({ color: 0xfde047, side: THREE.DoubleSide, transparent: true, opacity: 0.95 });
-                const crater = new THREE.Mesh(new THREE.RingGeometry(0.8, 5.8, 36), craterMat);
-                crater.rotation.x = -Math.PI / 2;
-                crater.position.set(px + dirX * 4.2, 0.16, pz + dirZ * 4.2);
-                crater.scale.setScalar(0.1);
-                root.add(crater);
-
-                animItems.push({ type: 'sky_sword', sword, crater, craterMat, targetX: px + dirX * 4.2, targetZ: pz + dirZ * 4.2 });
-            } else if (tier === 2) {
-                // 五連次元断空斬
-                for (let i = -2; i <= 2; i++) {
-                    const ang = rotY + i * 0.24;
-                    const sMat = new THREE.MeshBasicMaterial({ color: i === 0 ? 0xfde047 : 0xf472b6, side: THREE.DoubleSide, transparent: true, opacity: 0.95 });
-                    const slash = new THREE.Mesh(new THREE.RingGeometry(1.4, 3.2, 24, 1, -Math.PI * 0.45, Math.PI * 0.9), sMat);
-                    slash.position.set(px + Math.sin(ang) * 1.8, 1.3 + Math.abs(i) * 0.25, pz + Math.cos(ang) * 1.8);
-                    slash.rotation.set(Math.PI * 0.3, ang, i * 0.4);
-                    root.add(slash);
-                    animItems.push({ type: 'projectile', mesh: slash, mat: sMat, vx: Math.sin(ang) * 15.0, vz: Math.cos(ang) * 15.0, spinZ: 4.0 });
-                }
-            } else {
-                // 真・X字クロス双連斬
-                [-0.65, 0.65].forEach((tilt, idx) => {
-                    const sMat = new THREE.MeshBasicMaterial({ color: idx === 0 ? 0x38bdf8 : 0xfde047, side: THREE.DoubleSide, transparent: true, opacity: 0.95 });
-                    const slash = new THREE.Mesh(new THREE.RingGeometry(1.1, 2.6, 24, 1, -Math.PI * 0.48, Math.PI * 0.96), sMat);
-                    slash.position.set(px + dirX * 1.6, 1.35, pz + dirZ * 1.6);
-                    slash.rotation.set(Math.PI * 0.25, rotY, tilt);
-                    root.add(slash);
-                    animItems.push({ type: 'projectile', mesh: slash, mat: sMat, vx: dirX * 13.0, vz: dirZ * 13.0, spinZ: 0 });
-                });
-            }
-        }
-        // 2. 火炎・爆発・ビッグバン系（メテオ落下 / スーパーノヴァ / ブラックホール創世爆発）
-        else if (cat === 'fire' || cat === 'bigbang') {
-            if (tier === 3 && cat === 'bigbang') {
-                // 【奥義】オメガブラックホール＆銀河爆発
-                const bhGrp = new THREE.Group();
-                const core = new THREE.Mesh(new THREE.SphereGeometry(2.1, 24, 24), new THREE.MeshBasicMaterial({ color: 0x020617 }));
-                const rimMat = new THREE.MeshBasicMaterial({ color: 0xa855f7, wireframe: true, transparent: true, opacity: 0.9 });
-                const rim = new THREE.Mesh(new THREE.SphereGeometry(2.45, 18, 16), rimMat);
-                const diskMat = new THREE.MeshBasicMaterial({ color: 0xf43f5e, side: THREE.DoubleSide, transparent: true, opacity: 0.92 });
-                const disk = new THREE.Mesh(new THREE.RingGeometry(2.5, 6.4, 36), diskMat);
-                disk.rotation.x = Math.PI * 0.38;
-                bhGrp.add(core, rim, disk);
-                bhGrp.position.set(px + dirX * 4.0, 2.8, pz + dirZ * 4.0);
-                root.add(bhGrp);
-                animItems.push({ type: 'blackhole', grp: bhGrp, disk, rim, diskMat, rimMat });
-            } else {
-                // 天空から巨大隕石群が落下！（Lv10: 1発巨大隕石 / Lv50: 3発 / Lv100: 6発ラグナロクメテオ）
-                const mCount = tier === 3 ? 6 : (tier === 2 ? 3 : 1);
-                for (let i = 0; i < mCount; i++) {
-                    const spreadAng = (i / Math.max(1, mCount)) * Math.PI * 2;
-                    const dist = i === 0 ? 0 : (1.8 + tier * 0.8);
-                    const tx = px + dirX * 3.8 + Math.cos(spreadAng) * dist;
-                    const tz = pz + dirZ * 3.8 + Math.sin(spreadAng) * dist;
-                    const rad = tier === 3 ? 1.55 : (tier === 2 ? 1.35 : 1.15);
-
-                    const meteor = new THREE.Group();
-                    const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(rad, 1), new THREE.MeshBasicMaterial({ color: 0xf97316 }));
-                    const flameMat = new THREE.MeshBasicMaterial({ color: 0xfef08a, transparent: true, opacity: 0.78 });
-                    const flame = new THREE.Mesh(new THREE.ConeGeometry(rad * 1.35, rad * 3.8, 12), flameMat);
-                    flame.position.y = rad * 1.8;
-                    meteor.add(rock, flame);
-                    meteor.position.set(tx - dirX * 3.0, 12.0 + i * 1.8, tz - dirZ * 3.0);
-                    root.add(meteor);
-
-                    const expMat = new THREE.MeshBasicMaterial({ color: 0xf43f5e, side: THREE.DoubleSide, transparent: true, opacity: 0 });
-                    const expRing = new THREE.Mesh(new THREE.RingGeometry(0.6, rad * 3.2, 28), expMat);
-                    expRing.rotation.x = -Math.PI / 2;
-                    expRing.position.set(tx, 0.16, tz);
-                    root.add(expRing);
-
-                    animItems.push({ type: 'meteor_drop', meteor, expRing, expMat, tx, tz, delay: i * 0.08 });
-                }
-            }
-        }
-        // 3. ビーム系（Lv10: 螺旋ツインレーザー / Lv50: 収束メガ粒子砲 / Lv100: 虹色アルティメットブラスター）
-        else if (cat === 'beam') {
-            const len = tier === 3 ? 26.0 : (tier === 2 ? 21.0 : 17.0);
-            const rad = tier === 3 ? 1.85 : (tier === 2 ? 1.35 : 0.95);
-            const bGrp = new THREE.Group();
-
-            const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.98 });
-            const coreCyl = new THREE.Mesh(new THREE.CylinderGeometry(rad * 0.45, rad * 0.55, len, 18), coreMat);
-            coreCyl.rotation.x = Math.PI / 2;
-            coreCyl.position.z = len / 2 + 1.0;
-
-            const outerMat = new THREE.MeshBasicMaterial({ color: tier === 3 ? 0xf472b6 : 0x38bdf8, transparent: true, opacity: 0.65 });
-            const outerCyl = new THREE.Mesh(new THREE.CylinderGeometry(rad, rad * 1.25, len, 20, 1, true), outerMat);
-            outerCyl.rotation.x = Math.PI / 2;
-            outerCyl.position.z = len / 2 + 1.0;
-            bGrp.add(coreCyl, outerCyl);
-
-            // 砲口に回転する巨大魔法ゲートリング＋螺旋衛星ビーム
-            const gateCount = tier === 3 ? 4 : (tier === 2 ? 3 : 2);
-            const gates = [];
-            const gCols = [0xfde047, 0x38bdf8, 0xf472b6, 0x34d399];
-            for (let g = 0; g < gateCount; g++) {
-                const gMat = new THREE.MeshBasicMaterial({ color: gCols[g % gCols.length], side: THREE.DoubleSide, transparent: true, opacity: 0.92 });
-                const gate = new THREE.Mesh(new THREE.TorusGeometry(rad * (1.55 + g * 0.25), 0.13, 10, 28), gMat);
-                gate.position.z = 1.6 + g * 2.4;
-                bGrp.add(gate);
-                gates.push({ mesh: gate, mat: gMat, spd: (g % 2 === 0 ? 9 : -9) });
-            }
-
-            bGrp.position.set(px, 1.35, pz);
-            bGrp.rotation.y = rotY;
-            root.add(bGrp);
-            animItems.push({ type: 'omega_beam', bGrp, coreCyl, outerCyl, coreMat, outerMat, gates });
-        }
-        // 4. 氷結系（Lv10: 巨大氷柱獄 / Lv50: コキュートス大氷河 / Lv100: フィンブルの冬）
-        else if (cat === 'nova_ice') {
-            const spireCount = tier === 3 ? 18 : (tier === 2 ? 12 : 7);
-            const maxR = tier === 3 ? 6.5 : (tier === 2 ? 5.0 : 3.6);
-            const spikes = [];
-            for (let i = 0; i < spireCount; i++) {
-                const ang = (i / spireCount) * Math.PI * 2;
-                const dist = i === 0 ? 0 : (1.6 + (i % 3) * (maxR / 3));
-                const h = (i === 0 ? 4.8 : 3.2) * (1 + tier * 0.28);
-                const sMat = new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? 0xe0f2fe : 0x38bdf8, transparent: true, opacity: 0.9 });
-                const sp = new THREE.Mesh(new THREE.ConeGeometry(0.55 + tier * 0.15, h, 6), sMat);
-                sp.position.set(px + Math.cos(ang) * dist, -h * 0.5, pz + Math.sin(ang) * dist);
-                root.add(sp);
-                spikes.push({ mesh: sp, mat: sMat, targetY: h * 0.45 });
-            }
-            animItems.push({ type: 'ice_cathedral', spikes });
-        }
-        // 5. 雷系（天罰の黄金雷槍群）
-        else if (cat === 'thunder') {
-            const boltCount = tier === 3 ? 7 : (tier === 2 ? 4 : 2);
-            const bolts = [];
-            for (let i = 0; i < boltCount; i++) {
-                const ang = (i / boltCount) * Math.PI * 2;
-                const dist = i === 0 ? 0 : (1.8 + tier * 0.7);
-                const bx = px + dirX * 3.5 + Math.cos(ang) * dist;
-                const bz = pz + dirZ * 3.5 + Math.sin(ang) * dist;
-                const bMat = new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? 0xfef08a : 0xfacc15, transparent: true, opacity: 0.96 });
-                const spear = new THREE.Mesh(new THREE.CylinderGeometry(0.28 + tier * 0.1, 0.06, 11.0, 8), bMat);
-                spear.position.set(bx, 5.5, bz);
-                root.add(spear);
-                bolts.push({ mesh: spear, mat: bMat });
-            }
-            animItems.push({ type: 'thunder_spears', bolts });
-        }
-        // 6. 風・闇・支援・ちゃぶ台その他もランク別の巨大3D造形へ進化！
-        else {
-            const pillarCount = tier === 3 ? 8 : (tier === 2 ? 5 : 3);
-            const rad = 2.2 + tier * 1.2;
-            const col = cat === 'wind' ? 0x34d399 : (cat === 'void' ? 0xa855f7 : (cat === 'chabudai' ? 0xf59e0b : 0xfde047));
-            const objs = [];
-            for (let i = 0; i < pillarCount; i++) {
-                const ang = (i / pillarCount) * Math.PI * 2;
-                const oMat = new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? col : 0xfde047, transparent: true, opacity: 0.9 });
-                let mesh;
-                if (cat === 'chabudai' && this.createChabudai3D) {
-                    mesh = this.createChabudai3D();
-                    mesh.scale.setScalar(1.2 + tier * 0.55);
-                } else {
-                    mesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.65 + tier * 0.25, 0), oMat);
-                }
-                mesh.position.set(px + Math.cos(ang) * rad, 1.8, pz + Math.sin(ang) * rad);
-                root.add(mesh);
-                objs.push({ mesh, mat: oMat, ang, rad });
-            }
-            animItems.push({ type: 'vortex_relics', objs, cx: px, cz: pz, dirX, dirZ, moveFwd: (cat === 'wind' || cat === 'void' || cat === 'chabudai') });
-        }
-
-        this.scene.add(root);
-        const dur = tier === 3 ? 1.35 : (tier === 2 ? 1.05 : 0.85);
-        this._v21SkillEffects.push({ root, animItems, life: dur, maxLife: dur });
+    // 5. 消費MPを元の5倍 ＋ スキルLvが1上がるごとに+10ずつ増加
+    P.calcScaledSkillMp = function (baseMp, lv = 1) {
+        const b = Math.max(1, Number(baseMp) || 5);
+        const level = Math.max(1, Number(lv) || 1);
+        return (b * 5) + ((level - 1) * 10);
     };
 
-    P.updateV21SkillEffects = function (dt) {
-        if (!this._v21SkillEffects || !this._v21SkillEffects.length) return;
-        this._v21SkillEffects = this._v21SkillEffects.filter(ef => {
-            ef.life -= dt;
-            if (ef.life <= 0) {
-                if (this.scene) this.scene.remove(ef.root);
-                ef.root.traverse?.(o => { o.geometry?.dispose?.(); o.material?.dispose?.(); });
-                return false;
-            }
-            const p = 1 - (ef.life / ef.maxLife);
-            const fade = ef.life < 0.35 ? (ef.life / 0.35) : 1.0;
+    P.syncSkillMpCostsV22 = function () {
+        if (typeof SKILLS === 'undefined' || !SKILLS) return;
+        const d = this.saveData || {};
+        const list = Array.isArray(SKILLS) ? SKILLS : Object.values(SKILLS);
 
-            ef.animItems.forEach(it => {
-                if (it.type === 'spin_ring') {
-                    it.mesh.rotation.z += dt * it.spd;
-                    it.mat.opacity = fade * 0.9;
-                } else if (it.type === 'sky_sword') {
-                    const dropP = Math.min(1, p / 0.32);
-                    it.sword.position.y = 11.0 * (1 - dropP);
-                    it.sword.rotation.y += dt * 4.0;
-                    if (dropP >= 1) {
-                        const impP = (p - 0.32) / 0.68;
-                        it.crater.scale.setScalar(0.2 + impP * 1.4);
-                        it.craterMat.opacity = (1 - impP) * 0.95;
-                    }
-                } else if (it.type === 'projectile') {
-                    it.mesh.position.x += it.vx * dt;
-                    it.mesh.position.z += it.vz * dt;
-                    if (it.spinZ) it.mesh.rotation.z += dt * it.spinZ;
-                    it.mat.opacity = fade * 0.95;
-                } else if (it.type === 'blackhole') {
-                    const sc = p < 0.65 ? (0.4 + p * 1.5) : (1.4 + (p - 0.65) * 3.5);
-                    it.grp.scale.setScalar(sc);
-                    it.disk.rotation.z += dt * 8.0;
-                    it.rim.rotation.y -= dt * 6.0;
-                    it.diskMat.opacity = fade * 0.92;
-                    it.rimMat.opacity = fade * 0.85;
-                } else if (it.type === 'meteor_drop') {
-                    const lp = Math.max(0, p - it.delay);
-                    const fall = Math.min(1, lp / 0.45);
-                    it.meteor.position.y = 12.0 * (1 - fall);
-                    it.meteor.rotation.y += dt * 6.0;
-                    if (fall >= 1) {
-                        it.meteor.visible = false;
-                        const ep = Math.min(1, (lp - 0.45) / 0.55);
-                        it.expRing.scale.setScalar(0.3 + ep * 1.6);
-                        it.expMat.opacity = (1 - ep) * 0.95;
-                    }
-                } else if (it.type === 'omega_beam') {
-                    const pulse = Math.sin(p * Math.PI);
-                    it.outerCyl.scale.set(0.6 + pulse * 0.85, 1, 0.6 + pulse * 0.85);
-                    it.coreCyl.scale.set(0.5 + pulse * 0.75, 1, 0.5 + pulse * 0.75);
-                    it.outerMat.opacity = fade * 0.7;
-                    it.coreMat.opacity = fade * 0.98;
-                    it.gates.forEach(g => {
-                        g.mesh.rotation.z += dt * g.spd;
-                        g.mat.opacity = fade * 0.92;
-                    });
-                } else if (it.type === 'ice_cathedral') {
-                    const rise = Math.min(1, p * 3.5);
-                    it.spikes.forEach(sp => {
-                        sp.mesh.position.y = -sp.targetY + rise * (sp.targetY * 2);
-                        sp.mat.opacity = fade * 0.92;
-                    });
-                } else if (it.type === 'thunder_spears') {
-                    it.bolts.forEach((b, idx) => {
-                        b.mesh.scale.set(1 + Math.sin(p * 30 + idx) * 0.35, 1, 1 + Math.sin(p * 30 + idx) * 0.35);
-                        b.mat.opacity = fade * 0.96;
-                    });
-                } else if (it.type === 'vortex_relics') {
-                    if (it.moveFwd) {
-                        it.cx += it.dirX * dt * 8.5;
-                        it.cz += it.dirZ * dt * 8.5;
-                    }
-                    it.objs.forEach(o => {
-                        o.ang += dt * 7.5;
-                        o.mesh.position.x = it.cx + Math.cos(o.ang) * o.rad;
-                        o.mesh.position.z = it.cz + Math.sin(o.ang) * o.rad;
-                        o.mesh.position.y = 1.4 + p * 2.2;
-                        o.mesh.rotation.y += dt * 6.0;
-                        o.mat.opacity = fade * 0.92;
-                    });
-                }
+        list.forEach((sk, idx) => {
+            if (!sk || typeof sk !== 'object') return;
+            const mpKeys = ['mpCost', 'mp', 'cost', 'manaCost', 'consumeMp'].filter(k => typeof sk[k] === 'number');
+            if (!mpKeys.length) return;
+
+            if (sk._baseMpV22 === undefined) {
+                sk._baseMpV22 = Math.max(1, Number(sk[mpKeys[0]]) || 5);
+            }
+            const sId = String(sk.id || sk.skillId || `slot_${idx}`);
+            const lv = Math.max(1, Number(d.skillLevels?.[sId] ?? d.skillLvs?.[sId] ?? sk.lv ?? sk.level ?? 1) || 1);
+            const scaledMp = this.calcScaledSkillMp(sk._baseMpV22, lv);
+
+            mpKeys.forEach(k => {
+                sk[k] = scaledMp;
             });
-            return true;
         });
     };
 
-    const _prevTriggerAttackVisual = P.triggerAttackVisual;
-    P.triggerAttackVisual = function (entity, isSkill = false, skillInfo = null) {
-        const skillLv = Math.max(1, Number(skillInfo?.skillLv) || 1);
-        if (isSkill && skillLv >= 10) {
-            if (entity) {
-                entity.attackAnimTimer = 0.42;
-                entity.attackIsSkill = true;
-            }
-            const sId = String(skillInfo?.skillId || '').toLowerCase();
-            const fullKey = (sId + ' ' + String(skillInfo?.skillName || '')).toLowerCase();
-            let cat = skillInfo?.skillCategory || '';
-            if (!cat) {
-                if (skillInfo?.isChabudai || /chabu|table|flip|ちゃぶ|卓|返/.test(fullKey)) cat = 'chabudai';
-                else if (/aurora|sanctuary|polar|極光|聖域|オーロラ/.test(fullKey)) cat = 'aurora';
-                else if (/bigbang|big_bang|genesis|cosmos|creation|supernova|ビッグバン|創世|創星|創生/.test(fullKey)) cat = 'bigbang';
-                else if (/heal|cure|prayer|bless|holy|light|buff|boost|aura|guard|shield|haste|support|癒|回復|祈|聖|浄化|強化|鼓舞|結界|加速|守護|支援|補助/.test(fullKey)) cat = 'support';
-                else if (/beam|laser|ray|cannon|kame|ビーム|レーザー|光線|砲|波動|閃光/.test(fullKey)) cat = 'beam';
-                else if (/zero|nova|absolute|blizzard|ice|frost|零度|ノヴァ|氷|吹雪|凍|雪/.test(fullKey)) cat = 'nova_ice';
-                else if (/fire|meteor|flare|burn|bomb|flame|炎|爆|火|隕|紅蓮|業火/.test(fullKey)) cat = 'fire';
-                else if (/thunder|bolt|spark|volt|lightning|雷|電|閃|迅/.test(fullKey)) cat = 'thunder';
-                else if (/wind|storm|tornado|gale|cyclone|風|嵐|竜巻|疾風|旋風/.test(fullKey)) cat = 'wind';
-                else if (/dark|void|shadow|abyss|gravity|闇|黒|影|重力|深淵|冥/.test(fullKey)) cat = 'void';
-                else cat = 'slash';
-            }
+    // 6. 鍛冶・装備データの武器名を魔道士進化時のみ「杖」へ自動同期
+    P.syncMageWeaponNamesV22 = function () {
+        const isMage = this.isMageEvolution();
+        if (typeof WEAPONS !== 'undefined' && WEAPONS) {
+            const wList = Array.isArray(WEAPONS) ? WEAPONS : Object.values(WEAPONS);
+            wList.forEach(w => {
+                if (!w || typeof w !== 'object') return;
+                if (!w._origNameV22 && w.name) w._origNameV22 = String(w.name);
+                if (!w._origDescV22 && w.desc) w._origDescV22 = String(w.desc);
 
-            const caster = (entity === this.player) ? this.getBasePlayerKaomoji() : (entity?.kaomoji || '仲間');
-            // 極光の聖域は実際の回復フィールド展開も実行
-            if (cat === 'aurora' && entity?.pos) {
-                this.spawnAuroraSanctuary(entity.pos.x, entity.pos.z, skillLv, caster);
+                if (w._origNameV22) {
+                    w.name = isMage ? convertWeaponNameToStaff(w._origNameV22) : w._origNameV22;
+                }
+                if (w._origDescV22) {
+                    w.desc = isMage
+                        ? w._origDescV22.replace(/剣|刀|ソード|ブレード/g, '魔導杖')
+                        : w._origDescV22;
+                }
+            });
+        }
+    };
+
+    // 7. 全素材・アイテムIDをレシピやマスター定義から網羅収集
+    P.collectAllMaterialIdsV24 = function () {
+        const ids = new Set();
+        const d = this.saveData || {};
+
+        // セーブデータ内の既存バッグキー
+        const bagKeys = ['materials', 'items', 'inventory', 'bag', 'ores', 'stones', 'crystals', 'drops', 'consumables'];
+        bagKeys.forEach(bk => {
+            const bag = d[bk];
+            if (!bag || typeof bag !== 'object') return;
+            if (Array.isArray(bag)) {
+                bag.forEach(e => { if (e && (e.id || e.itemId)) ids.add(String(e.id || e.itemId)); });
+            } else {
+                Object.keys(bag).forEach(k => ids.add(String(k)));
             }
-            // Lv.100以上は覚醒奥義カットイン＆ファンファーレ発動！
-            if (skillLv >= 100) {
-                const evo = this.getSkillEvolutionTierInfo(cat, skillLv);
-                this.showOugiCutin(caster, evo.title);
-                sfx?.playHeal?.();
+        });
+
+        // グローバルマスター（ITEMS / MATERIALS）
+        [typeof MATERIALS !== 'undefined' ? MATERIALS : null, typeof ITEMS !== 'undefined' ? ITEMS : null].forEach(mObj => {
+            if (!mObj || typeof mObj !== 'object') return;
+            if (Array.isArray(mObj)) {
+                mObj.forEach((v, i) => { if (v) ids.add(String(v.id || v.itemId || i)); });
+            } else {
+                Object.keys(mObj).forEach(k => ids.add(String(k)));
             }
-            this.spawnUpgradedSkillVisualV21(entity, cat, skillLv, sId, skillInfo?.skillName || '');
+        });
+
+        // 鍛冶レシピ・武器・防具の必要素材からも自動抽出
+        const recipeSources = [
+            typeof RECIPES !== 'undefined' ? RECIPES : null,
+            typeof CRAFT_RECIPES !== 'undefined' ? CRAFT_RECIPES : null,
+            typeof SMITH_RECIPES !== 'undefined' ? SMITH_RECIPES : null,
+            typeof WEAPONS !== 'undefined' ? WEAPONS : null,
+            typeof ARMORS !== 'undefined' ? ARMORS : null
+        ];
+        recipeSources.forEach(src => {
+            if (!src || typeof src !== 'object') return;
+            const list = Array.isArray(src) ? src : Object.values(src);
+            list.forEach(entry => {
+                if (!entry || typeof entry !== 'object') return;
+                const reqs = entry.materials || entry.reqMaterials || entry.recipe || entry.costItems || entry.ingredients || entry.mats;
+                if (!reqs || typeof reqs !== 'object') return;
+                if (Array.isArray(reqs)) {
+                    reqs.forEach(r => {
+                        if (typeof r === 'string') ids.add(r);
+                        else if (r && typeof r === 'object' && (r.id || r.itemId || r.matId)) ids.add(String(r.id || r.itemId || r.matId));
+                    });
+                } else {
+                    Object.keys(reqs).forEach(k => ids.add(String(k)));
+                }
+            });
+        });
+
+        return [...ids].filter(Boolean);
+    };
+
+    // デバッグ起動前の通常状態をスナップショット保存（解除時に復元）
+    P.captureDebugSnapshot = function () {
+        if (this._debugBackupSnapshot || !this.saveData) return;
+        try {
+            const d = this.saveData;
+            this._debugBackupSnapshot = {
+                gold: d.gold,
+                coins: d.coins,
+                money: d.money,
+                gem: d.gem,
+                gems: d.gems,
+                diamond: d.diamond,
+                diamonds: d.diamonds,
+                ap: d.ap,
+                sp: d.sp,
+                statPoints: d.statPoints,
+                skillPoints: d.skillPoints,
+                abilityPoints: d.abilityPoints,
+                attributePoints: d.attributePoints,
+                points: d.points,
+                evoPoints: d.evoPoints,
+                soulPoints: d.soulPoints,
+                upgradeStones: d.upgradeStones,
+                smithStones: d.smithStones,
+                enhanceStones: d.enhanceStones,
+                maxMp: d.maxMp,
+                mp: d.mp,
+                materials: d.materials ? JSON.parse(JSON.stringify(d.materials)) : null,
+                items: d.items ? JSON.parse(JSON.stringify(d.items)) : null,
+                inventory: d.inventory ? JSON.parse(JSON.stringify(d.inventory)) : null,
+                bag: d.bag ? JSON.parse(JSON.stringify(d.bag)) : null,
+                ores: d.ores ? JSON.parse(JSON.stringify(d.ores)) : null,
+                stones: d.stones ? JSON.parse(JSON.stringify(d.stones)) : null
+            };
+        } catch (e) {}
+    };
+
+    // デバッグ解除時に通常の数値へ戻す
+    P.restoreDebugSnapshot = function () {
+        const snap = this._debugBackupSnapshot;
+        const d = this.saveData;
+        if (!snap || !d) return;
+        const scalarKeys = [
+            'gold', 'coins', 'money', 'gem', 'gems', 'diamond', 'diamonds',
+            'ap', 'sp', 'statPoints', 'skillPoints', 'abilityPoints', 'attributePoints',
+            'points', 'evoPoints', 'soulPoints', 'upgradeStones', 'smithStones', 'enhanceStones',
+            'maxMp', 'mp'
+        ];
+        scalarKeys.forEach(k => {
+            if (snap[k] !== undefined) d[k] = snap[k];
+            else delete d[k];
+        });
+        ['materials', 'items', 'inventory', 'bag', 'ores', 'stones'].forEach(bk => {
+            if (snap[bk] !== null && snap[bk] !== undefined) d[bk] = snap[bk];
+        });
+        if (this.player) {
+            this.player.maxMp = Number(d.maxMp) || 100;
+            this.player.mp = Math.min(this.player.maxMp, Number(d.mp) || this.player.maxMp);
+        }
+        this._debugBackupSnapshot = null;
+    };
+
+    // 画面右上に目立たないワンタップ解除ボタンを表示/非表示
+    P.updateDebugQuickExitBadge = function () {
+        let badge = document.getElementById('kmj-debug-quick-exit');
+        if (!this._debugInfiniteMode) {
+            if (badge) badge.remove();
             return;
         }
-
-        if (_prevTriggerAttackVisual) {
-            _prevTriggerAttackVisual.call(this, entity, isSkill, skillInfo);
+        if (!badge) {
+            badge = document.createElement('button');
+            badge.id = 'kmj-debug-quick-exit';
+            badge.type = 'button';
+            badge.textContent = '🛠️ DEBUG解除';
+            badge.style.cssText = 'position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:94;background:rgba(159,18,57,0.92);color:#ffe4e6;border:1px solid #fda4af;border-radius:999px;padding:3px 10px;font-size:10px;font-weight:900;box-shadow:0 2px 10px rgba(0,0,0,0.6);cursor:pointer;';
+            badge.addEventListener('click', (e) => {
+                e.stopPropagation();
+                sfx?.init?.();
+                this.disableDebugInfiniteMode();
+            });
+            document.body.appendChild(badge);
         }
     };
 
-    const _prevUpdateAnim = P.updateCharacterAnimations;
-    P.updateCharacterAnimations = function (dt) {
-        if (_prevUpdateAnim) _prevUpdateAnim.call(this, dt);
-        this.updateV21SkillEffects(dt);
+    // デバッグモード即解除（通常の状態に戻る）
+    P.disableDebugInfiniteMode = function () {
+        this._debugInfiniteMode = false;
+        this.restoreDebugSnapshot();
+        this.updateDebugQuickExitBadge();
+        document.getElementById('kmj-secret-debug-modal')?.remove();
+        this.saveGame?.(false);
+        this.refreshAllHUD?.();
+        if (this.isModalOpen) this.renderModalContent?.();
+        this.showAlertBanner?.('📴 デバッグモードを解除し、通常の状態に戻しました', 1800);
     };
+
+    // デバッグモードON中の「AP・SP・ゴールド・全素材・MP 無限維持エンジン」
+    P.maintainInfiniteResources = function () {
+        if (!this._debugInfiniteMode || !this.saveData) return;
+        const d = this.saveData;
+        const INF_VAL = 999999;
+        const INF_MAT = 99999;
+
+        // AP / SP / ゴールド / 各種ポイントをすべて無限値に固定
+        const pointKeys = [
+            'gold', 'coins', 'money', 'gem', 'gems', 'diamond', 'diamonds',
+            'ap', 'sp', 'statPoints', 'skillPoints', 'abilityPoints', 'attributePoints',
+            'points', 'evoPoints', 'soulPoints', 'upgradeStones', 'smithStones', 'enhanceStones'
+        ];
+        pointKeys.forEach(k => {
+            if ((Number(d[k]) || 0) < INF_VAL) d[k] = INF_VAL;
+        });
+
+        // 全素材IDを抽出して全コンテナへ99999個セット
+        const allMatIds = this.collectAllMaterialIdsV24();
+        if (!d.materials || typeof d.materials !== 'object') d.materials = {};
+        if (!d.items || typeof d.items !== 'object') d.items = {};
+
+        const targetBags = ['materials', 'items', 'inventory', 'bag', 'ores', 'stones', 'crystals', 'drops'];
+        targetBags.forEach(bk => {
+            const bag = d[bk];
+            if (!bag || typeof bag !== 'object') return;
+            if (Array.isArray(bag)) {
+                bag.forEach(entry => {
+                    if (!entry || typeof entry !== 'object') return;
+                    ['count', 'qty', 'num', 'amount'].forEach(ck => {
+                        if (typeof entry[ck] === 'number' && entry[ck] < INF_MAT) entry[ck] = INF_MAT;
+                    });
+                });
+            } else {
+                allMatIds.forEach(id => {
+                    if (typeof bag[id] === 'object' && bag[id] !== null) {
+                        ['count', 'qty', 'num', 'amount'].forEach(ck => {
+                            if (typeof bag[id][ck] === 'number' && bag[id][ck] < INF_MAT) bag[id][ck] = INF_MAT;
+                        });
+                    } else if ((Number(bag[id]) || 0) < INF_MAT) {
+                        bag[id] = INF_MAT;
+                    }
+                });
+            }
+        });
+
+        // MPも減らないように維持
+        const maxMp = Math.max(9999, Number(d.maxMp) || 100);
+        if ((Number(d.mp) || 0) < maxMp) d.mp = maxMp;
+        if (this.player) {
+            if ((Number(this.player.maxMp) || 0) < maxMp) this.player.maxMp = maxMp;
+            if ((Number(this.player.mp) || 0) < this.player.maxMp) this.player.mp = this.player.maxMp;
+        }
+    };
+
+    // スキル使用時：MP消費反映 ＋ 属性に応じた状態異常エフェクト付与
+    if (P.useSkillSlot) {
+        const _prevUseSkillV24 = P.useSkillSlot;
+        P.useSkillSlot = function (slotIdx) {
+            this.maintainInfiniteResources();
+            this.syncSkillMpCostsV22();
+            const meta = this.resolveSkillMeta ? this.resolveSkillMeta(slotIdx) : null;
+            const curCd = (this.player?.skillCds?.[slotIdx] ?? this.skillCds?.[slotIdx] ?? 0);
+
+            _prevUseSkillV24.call(this, slotIdx);
+            this.maintainInfiniteResources();
+
+            if (curCd <= 0.05 && meta && this.player?.pos && Array.isArray(this.monsters)) {
+                let stType = null;
+                if (meta.skillCategory === 'fire' || meta.skillCategory === 'bigbang') stType = 'burn';
+                else if (meta.skillCategory === 'nova_ice') stType = 'freeze';
+                else if (meta.skillCategory === 'thunder') stType = 'shock';
+                else if (meta.skillCategory === 'void') stType = 'poison';
+
+                if (stType) {
+                    const px = this.player.pos.x;
+                    const pz = this.player.pos.z;
+                    const range = meta.skillLv >= 50 ? 11.5 : 8.5;
+                    this.monsters.forEach(m => {
+                        if (!m || m.dead || !m.pos) return;
+                        if (Math.hypot(m.pos.x - px, m.pos.z - pz) <= range) {
+                            m._visualStatus = { type: stType, timer: 5.5 };
+                            if (stType === 'burn') m.burnTimer = Math.max(m.burnTimer || 0, 5.5);
+                            if (stType === 'freeze') m.freezeTimer = Math.max(m.freezeTimer || 0, 4.5);
+                            if (stType === 'poison') m.poisonTimer = Math.max(m.poisonTimer || 0, 6.0);
+                            if (stType === 'shock') m.stun = Math.max(m.stun || 0, 3.5);
+                        }
+                    });
+                }
+            }
+        };
+    }
+
+    // モーダル表示時の武器名「杖」変換＆進化直後の3D武器更新
+    if (P.renderModalContent) {
+        const _prevRenderModalV24 = P.renderModalContent;
+        P.renderModalContent = function () {
+            this.maintainInfiniteResources();
+            this.syncSkillMpCostsV22();
+            this.syncMageWeaponNamesV22();
+            _prevRenderModalV24.call(this);
+
+            const body = document.getElementById('modal-body');
+            if (!body) return;
+
+            if (this.isMageEvolution() && /smith|forge|craft|equip|weapon|gear|item|鍛冶|装備|武器/i.test(String(this.activeTab || ''))) {
+                const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT, null);
+                let node;
+                while ((node = walker.nextNode())) {
+                    if (node.nodeValue && /剣|刀|ソード|ブレード/.test(node.nodeValue)) {
+                        node.nodeValue = convertWeaponNameToStaff(node.nodeValue);
+                    }
+                }
+            }
+
+            if (/evo|class|job|進化|転職/i.test(String(this.activeTab || ''))) {
+                body.querySelectorAll('button').forEach(btn => {
+                    if (btn.dataset.v22EvoHook) return;
+                    btn.dataset.v22EvoHook = '1';
+                    btn.addEventListener('click', () => {
+                        setTimeout(() => {
+                            this.syncMageWeaponNamesV22();
+                            this.buildPlayerEntity?.();
+                            this.syncFirebaseNow?.(false);
+                        }, 80);
+                    });
+                });
+            }
+        };
+    }
+
+    const _prevUpdateAnimV24 = P.updateCharacterAnimations;
+    P.updateCharacterAnimations = function (dt) {
+        if (_prevUpdateAnimV24) _prevUpdateAnimV24.call(this, dt);
+        this.maintainInfiniteResources();
+        this.updateMageBasicMagicShots(dt);
+        this.updateMonsterStatusVisuals(dt);
+    };
+
+    if (P.broadcastFirebaseEvent) {
+        const _prevBroadcastV24 = P.broadcastFirebaseEvent;
+        P.broadcastFirebaseEvent = function (type, payload) {
+            if (type === 'attack' && payload && typeof payload === 'object') {
+                payload.isMage = this.isMageEvolution();
+            }
+            _prevBroadcastV24.call(this, type, payload);
+        };
+    }
 }
 // ▲▲▲ ここまで【2/3】 ▲▲▲
 // ▼▼▼ ここから【3/3】 ▼▼▼
 if (typeof KaomojiMMORPG !== 'undefined') {
     const P = KaomojiMMORPG.prototype;
 
-    // 1. Lv.10(真) / Lv.50(極) / Lv.100(覚醒奥義) に応じてスキル実ダメージ＆回復倍率も強化
-    if (P.useSkillSlot) {
-        const _prevUseSkill = P.useSkillSlot;
-        P.useSkillSlot = function (slotIdx) {
-            const meta = this.resolveSkillMeta ? this.resolveSkillMeta(slotIdx) : null;
-            const lv = meta ? meta.skillLv : 1;
-
-            // Lv.100覚醒奥義発動時は周辺モンスターへ追加の奥義追撃ダメージも発生！
-            _prevUseSkill.call(this, slotIdx);
-
-            if (lv >= 100 && this.player && this.player.pos && Array.isArray(this.monsters)) {
-                const st = this.getPlayerStats ? this.getPlayerStats() : { atk: 50 };
-                const ougiBonusDmg = Math.max(50, Math.floor((st.atk || 50) * (1.8 + (lv - 100) * 0.02)));
-                const px = this.player.pos.x;
-                const pz = this.player.pos.z;
-
-                this.monsters.forEach(m => {
-                    if (!m || m.dead || !m.pos) return;
-                    const dist = Math.hypot(m.pos.x - px, m.pos.z - pz);
-                    if (dist <= 9.5) {
-                        if (typeof this.damageMonster === 'function') {
-                            this.damageMonster(m, ougiBonusDmg, true);
-                        } else if (typeof m.hp === 'number') {
-                            m.hp = Math.max(0, m.hp - ougiBonusDmg);
-                            if (this.spawnFloatingText) {
-                                this.spawnFloatingText(m.pos, `👑奥義 ${ougiBonusDmg}!`, '#fde047');
-                            }
-                        }
-                    }
-                });
-            }
-        };
-    }
-
-    // 2. スキルメニュー・スロットに「✨真」「🔥極」「👑奥義」の進化ランク表示を追加
-    const _prevRenderModal = P.renderModalContent;
-    P.renderModalContent = function () {
-        if (_prevRenderModal) _prevRenderModal.call(this);
-        const body = document.getElementById('modal-body');
-        if (!body) return;
-
-        if (/skill/i.test(String(this.activeTab || ''))) {
-            body.insertAdjacentHTML('afterbegin', `
-                <div class="card-box" style="margin-bottom:8px;border-color:#fde047;background:rgba(30,27,75,0.88);">
-                    <div style="font-size:11px;font-weight:900;color:#fde047;margin-bottom:3px;">
-                        ⚡ スキル見た目＆新技進化システム
-                    </div>
-                    <div style="font-size:10px;color:#e2e8f0;line-height:1.45;">
-                        ・<b>Lv.10【真】</b>：技の見た目が強化形態（X字双連斬・巨大隕石・螺旋砲など）に進化！<br>
-                        ・<b>Lv.50【極】</b>：五連次元斬・スーパーノヴァなど超豪華形態へ劇変！<br>
-                        ・<b>Lv.100【👑覚醒奥義】</b>：<span style="color:#f472b6;font-weight:900;">新技解放＆専用カットイン＋広範囲奥義追撃</span>が発動！
-                    </div>
-                </div>
-            `);
+    // 見た目上のレベル表示（HUD・頭上プレート・モーダル内）を強制同期
+    P.forceSyncVisualLevelsV24 = function () {
+        const d = this.saveData || {};
+        const curLv = Math.max(1, Number(d.lv ?? d.level ?? 1) || 1);
+        d.lv = curLv;
+        d.level = curLv;
+        if (this.player) {
+            this.player.lv = curLv;
+            this.player.level = curLv;
         }
+
+        // HUD上のレベル表記要素を直接更新
+        const lvSelectors = [
+            '#hud-lv', '#hud-player-lv', '#player-lv', '#player-level',
+            '#status-lv', '#modal-lv', '.hud-lv', '.player-lv'
+        ];
+        lvSelectors.forEach(sel => {
+            document.querySelectorAll(sel).forEach(el => {
+                if (el.children.length === 0) {
+                    el.textContent = /lv/i.test(el.textContent) ? `Lv.${curLv}` : String(curLv);
+                }
+            });
+        });
+
+        this.refreshAllHUD?.();
+        if (this.isModalOpen) {
+            this.renderModalContent?.();
+        }
+        this.syncFirebaseNow?.(false);
     };
 
-    // 3. 既存プレイヤーの顔ズレも確実に再整列
-    P.ensureAllFacesAlignedV21 = function () {
-        if (this.player && this.player.group) {
-            this.alignAvatarFaceStrictly(this.player.group);
+    // キャラLvを強制変更（見た目・ステータス即時反映）
+    P.setPlayerLevelDebug = function (targetLv) {
+        const d = this.saveData || {};
+        const lv = Math.max(1, Number(targetLv) || 1);
+        d.lv = lv;
+        d.level = lv;
+        if (lv === 1) d.exp = 0;
+
+        if (this.player) {
+            this.player.lv = lv;
+            this.player.level = lv;
+            const st = this.getPlayerStats ? this.getPlayerStats() : null;
+            if (st) {
+                if (st.maxHp) { this.player.maxHp = st.maxHp; this.player.hp = st.maxHp; }
+                if (st.maxMp) { this.player.maxMp = st.maxMp; this.player.mp = st.maxMp; }
+            }
         }
-        if (this.remotePlayers) {
-            this.remotePlayers.forEach(rp => {
-                if (rp && rp.group) this.alignAvatarFaceStrictly(rp.group);
+
+        this.maintainInfiniteResources?.();
+        this.saveGame?.(false);
+        this.forceSyncVisualLevelsV24();
+        this.showAlertBanner?.(`🆙 [DEBUG] キャラLvを Lv.${lv} に変更しました！`, 1800);
+    };
+
+    // 全スキルLvを一括変更（見た目・消費MP・新奥義解放を即時反映）
+    P.setAllSkillsLevelDebug = function (targetLv) {
+        const d = this.saveData || {};
+        if (!d.skillLevels) d.skillLevels = {};
+        if (!d.skillLvs) d.skillLvs = {};
+
+        const lv = Math.max(1, Number(targetLv) || 1);
+        if (typeof SKILLS !== 'undefined' && SKILLS) {
+            const list = Array.isArray(SKILLS) ? SKILLS : Object.values(SKILLS);
+            list.forEach((sk, idx) => {
+                if (!sk || typeof sk !== 'object') return;
+                const sId = String(sk.id || sk.skillId || `slot_${idx}`);
+                d.skillLevels[sId] = lv;
+                d.skillLvs[sId] = lv;
+                if ('lv' in sk) sk.lv = lv;
+                if ('level' in sk) sk.level = lv;
             });
         }
+        for (let i = 0; i < 12; i++) {
+            d.skillLevels[`slot_${i}`] = lv;
+            d.skillLvs[`slot_${i}`] = lv;
+        }
+
+        this.syncSkillDescriptionsAndEffects?.();
+        this.syncSkillMpCostsV22?.();
+        this.maintainInfiniteResources?.();
+        this.saveGame?.(false);
+        this.forceSyncVisualLevelsV24();
+        this.showAlertBanner?.(`⚡ [DEBUG] 全スキルを Lv.${lv} に設定しました！`, 1800);
     };
 
-    if (P.buildPlayerEntity) {
-        const _prevBuildPlayer = P.buildPlayerEntity;
-        P.buildPlayerEntity = function () {
-            _prevBuildPlayer.call(this);
-            this.ensureAllFacesAlignedV21();
+    // キャラLv・スキルLv・装備強化値を元の Lv.1 / +0 に戻す
+    P.resetLevelsToBaseDebug = function () {
+        const d = this.saveData || {};
+        d.lv = 1;
+        d.level = 1;
+        d.exp = 0;
+        d.weaponEnhance = 0;
+        d.armorEnhance = 0;
+        if (this.player) {
+            this.player.lv = 1;
+            this.player.level = 1;
+        }
+        this.setAllSkillsLevelDebug(1);
+        this.buildPlayerEntity?.();
+        this.saveGame?.(false);
+        this.forceSyncVisualLevelsV24();
+        this.showAlertBanner?.('↺ [DEBUG] キャラLv・全スキルLv・装備強化を Lv.1 / +0 に戻しました！', 2200);
+    };
+
+    P.forceEvolveToMageDebug = function () {
+        const d = this.saveData || {};
+        let mageId = 'mage';
+        if (typeof EVOLUTIONS !== 'undefined' && EVOLUTIONS) {
+            const entries = Array.isArray(EVOLUTIONS)
+                ? EVOLUTIONS.map((v, i) => [v?.id || String(i), v])
+                : Object.entries(EVOLUTIONS);
+            const found = entries.find(([k, v]) => {
+                const str = `${k} ${v?.id || ''} ${v?.name || ''} ${v?.title || ''}`.toLowerCase();
+                return /mage|wizard|sorcerer|witch|sage|魔道|魔導|魔法|賢者/.test(str);
+            });
+            if (found) mageId = found[0];
+        }
+        d.evolutionId = mageId;
+        this.syncMageWeaponNamesV22?.();
+        this.buildPlayerEntity?.();
+        this.saveGame?.(false);
+        this.forceSyncVisualLevelsV24();
+        this.showAlertBanner?.('🧙‍♂️ [DEBUG] 魔道士へ進化！武器が「杖」になり通常攻撃が魔法になりました！', 2400);
+    };
+
+    P.applyDebugStatusToMonsters = function (stType) {
+        if (!Array.isArray(this.monsters)) return;
+        let count = 0;
+        this.monsters.forEach(m => {
+            if (!m || m.dead) return;
+            if (!stType) {
+                m._visualStatus = null;
+                m.burnTimer = 0;
+                m.freezeTimer = 0;
+                m.poisonTimer = 0;
+                m.stun = 0;
+                count++;
+                return;
+            }
+            m._visualStatus = { type: stType, timer: 8.0 };
+            if (stType === 'burn') m.burnTimer = 8.0;
+            if (stType === 'freeze') m.freezeTimer = 8.0;
+            if (stType === 'poison') m.poisonTimer = 8.0;
+            if (stType === 'shock') m.stun = 8.0;
+            count++;
+        });
+        const labelMap = { burn: '🔥炎上', freeze: '❄️凍結', poison: '☠️毒', shock: '⚡麻痺' };
+        if (!stType) {
+            this.showAlertBanner?.(`✨ [DEBUG] 周囲の敵 ${count}体 の状態異常を解除しました！`, 1800);
+        } else {
+            this.showAlertBanner?.(`🛠️ [DEBUG] 周囲の敵 ${count}体 を「${labelMap[stType] || stType}」状態にしました！`, 1800);
+        }
+    };
+
+    // デバッグ起動処理（元の数値をバックアップしてからAP/SP/全素材を無限化）
+    P.activateDebugModeV24 = function () {
+        this._debugUnlocked = true;
+        this.captureDebugSnapshot();
+        this._debugInfiniteMode = true;
+        this.maintainInfiniteResources();
+        this.updateDebugQuickExitBadge();
+        this.refreshAllHUD?.();
+        if (this.isModalOpen) this.renderModalContent?.();
+    };
+
+    P.openSecretDebugModal = function () {
+        this.activateDebugModeV24();
+
+        let modal = document.getElementById('kmj-secret-debug-modal');
+        if (modal) modal.remove();
+
+        modal = document.createElement('div');
+        modal.id = 'kmj-secret-debug-modal';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:99;background:rgba(2,6,23,0.88);display:flex;align-items:center;justify-content:center;padding:16px;';
+        modal.innerHTML = `
+            <div style="width:min(410px,94vw);background:#0f172a;border:2px solid #f43f5e;border-radius:14px;padding:14px;box-shadow:0 0 32px rgba(244,63,94,0.55);color:#fff;max-height:88vh;overflow-y:auto;">
+                <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #334155;padding-bottom:8px;margin-bottom:10px;">
+                    <span style="font-size:14px;font-weight:900;color:#fda4af;">🛠️ SECRET DEBUG CONSOLE</span>
+                    <button type="button" id="btn-close-secret-debug" style="background:#334155;border:none;color:#fff;border-radius:6px;padding:4px 10px;font-weight:900;cursor:pointer;">✕ 閉じる</button>
+                </div>
+
+                <div style="background:rgba(16,185,129,0.16);border:1px solid #10b981;border-radius:8px;padding:8px 10px;margin-bottom:10px;">
+                    <div style="font-size:11px;font-weight:900;color:#6ee7b7;margin-bottom:4px;">
+                        ♾️ AP・SP・G・全素材・MP 無限モード稼働中
+                    </div>
+                    <div style="font-size:10px;color:#cbd5e1;margin-bottom:6px;">
+                        解除すると無限化が止まり、起動前の元の数値に戻ります。
+                    </div>
+                    <button type="button" id="dbg-exit-restore" class="btn-ui" style="width:100%;background:#be123c;border:1px solid #fda4af;font-size:11px;padding:6px;font-weight:900;">
+                        📴 デバッグモードを解除して通常の状態に戻す
+                    </button>
+                </div>
+
+                <div style="font-size:11px;font-weight:900;color:#38bdf8;margin-bottom:5px;">🆙 キャラLv 変更（見た目・ステータス即時反映）</div>
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:10px;">
+                    <button type="button" id="dbg-plv-10" class="btn-ui btn-sky" style="font-size:10px;padding:6px;">Lv.10</button>
+                    <button type="button" id="dbg-plv-50" class="btn-ui btn-amber" style="font-size:10px;padding:6px;">Lv.50</button>
+                    <button type="button" id="dbg-plv-100" class="btn-ui btn-emerald" style="font-size:10px;padding:6px;">Lv.100</button>
+                    <button type="button" id="dbg-plv-1" class="btn-ui" style="font-size:10px;padding:6px;background:#1e293b;">↺ Lv.1</button>
+                </div>
+
+                <div style="font-size:11px;font-weight:900;color:#fde047;margin-bottom:5px;">⚡ スキルLv一括変更 ＆ レベル戻し</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">
+                    <button type="button" id="dbg-sk-10" class="btn-ui btn-sky" style="font-size:11px;padding:7px;">✨ 全スキル Lv.10【真】</button>
+                    <button type="button" id="dbg-sk-50" class="btn-ui btn-amber" style="font-size:11px;padding:7px;">🔥 全スキル Lv.50【極】</button>
+                    <button type="button" id="dbg-sk-100" class="btn-ui btn-emerald" style="font-size:11px;padding:7px;grid-column:span 2;border:1px solid #fde047;">👑 全スキル Lv.100【覚醒奥義解放】</button>
+                    <button type="button" id="dbg-sk-1" class="btn-ui" style="font-size:10px;padding:6px;background:#1e293b;border:1px solid #475569;">↺ 全スキル Lv.1 に戻す</button>
+                    <button type="button" id="dbg-lv-reset-all" class="btn-ui" style="font-size:10px;padding:6px;background:#3f1d2e;border:1px solid #f43f5e;">↺ キャラ＆スキル全Lv.1に戻す</button>
+                </div>
+
+                <div style="font-size:11px;font-weight:900;color:#7dd3fc;margin-bottom:5px;">🧙‍♂️ 職業・杖・強化操作</div>
+                <div style="display:grid;grid-template-columns:1fr;gap:6px;margin-bottom:10px;">
+                    <button type="button" id="dbg-evo-mage" class="btn-ui btn-sky" style="font-size:11px;padding:7px;">🪄 魔道士へ即進化（杖装備＆魔法通常攻撃）</button>
+                    <button type="button" id="dbg-wpn-up" class="btn-ui btn-amber" style="font-size:11px;padding:7px;">✨ 武器強化 +3（杖の見た目差分を確認）</button>
+                </div>
+
+                <div style="font-size:11px;font-weight:900;color:#f97316;margin-bottom:5px;">🔥 敵への状態異常エフェクト強制付与（8秒）</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                    <button type="button" id="dbg-st-burn" class="btn-ui" style="background:#9a3412;font-size:11px;padding:6px;">🔥 全敵を炎上</button>
+                    <button type="button" id="dbg-st-freeze" class="btn-ui" style="background:#0369a1;font-size:11px;padding:6px;">❄️ 全敵を凍結</button>
+                    <button type="button" id="dbg-st-poison" class="btn-ui" style="background:#6b21a8;font-size:11px;padding:6px;">☠️ 全敵を毒</button>
+                    <button type="button" id="dbg-st-shock" class="btn-ui" style="background:#854d0e;font-size:11px;padding:6px;">⚡ 全敵を麻痺</button>
+                    <button type="button" id="dbg-st-clear" class="btn-ui" style="background:#1e293b;font-size:10px;padding:5px;grid-column:span 2;">✨ 全敵の状態異常を解除</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        const close = () => modal.remove();
+        document.getElementById('btn-close-secret-debug')?.addEventListener('click', close);
+        modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+
+        document.getElementById('dbg-exit-restore')?.addEventListener('click', () => {
+            sfx?.init?.();
+            this.disableDebugInfiniteMode();
+        });
+
+        document.getElementById('dbg-plv-10')?.addEventListener('click', () => { sfx?.init?.(); this.setPlayerLevelDebug(10); });
+        document.getElementById('dbg-plv-50')?.addEventListener('click', () => { sfx?.init?.(); this.setPlayerLevelDebug(50); });
+        document.getElementById('dbg-plv-100')?.addEventListener('click', () => { sfx?.init?.(); this.setPlayerLevelDebug(100); });
+        document.getElementById('dbg-plv-1')?.addEventListener('click', () => { sfx?.init?.(); this.setPlayerLevelDebug(1); });
+
+        document.getElementById('dbg-sk-10')?.addEventListener('click', () => { sfx?.init?.(); this.setAllSkillsLevelDebug(10); });
+        document.getElementById('dbg-sk-50')?.addEventListener('click', () => { sfx?.init?.(); this.setAllSkillsLevelDebug(50); });
+        document.getElementById('dbg-sk-100')?.addEventListener('click', () => { sfx?.init?.(); this.setAllSkillsLevelDebug(100); });
+        document.getElementById('dbg-sk-1')?.addEventListener('click', () => { sfx?.init?.(); this.setAllSkillsLevelDebug(1); });
+        document.getElementById('dbg-lv-reset-all')?.addEventListener('click', () => { sfx?.init?.(); this.resetLevelsToBaseDebug(); });
+
+        document.getElementById('dbg-evo-mage')?.addEventListener('click', () => { sfx?.init?.(); this.forceEvolveToMageDebug(); });
+        document.getElementById('dbg-wpn-up')?.addEventListener('click', () => {
+            sfx?.init?.();
+            if (this.saveData) {
+                this.saveData.weaponEnhance = (Number(this.saveData.weaponEnhance) || 0) + 3;
+                this.buildPlayerEntity?.();
+                this.saveGame?.(false);
+                this.forceSyncVisualLevelsV24();
+                this.showAlertBanner?.(`🪄 [DEBUG] 武器強化値が +${this.saveData.weaponEnhance} になりました！`, 1800);
+            }
+        });
+
+        document.getElementById('dbg-st-burn')?.addEventListener('click', () => { sfx?.init?.(); this.applyDebugStatusToMonsters('burn'); });
+        document.getElementById('dbg-st-freeze')?.addEventListener('click', () => { sfx?.init?.(); this.applyDebugStatusToMonsters('freeze'); });
+        document.getElementById('dbg-st-poison')?.addEventListener('click', () => { sfx?.init?.(); this.applyDebugStatusToMonsters('poison'); });
+        document.getElementById('dbg-st-shock')?.addEventListener('click', () => { sfx?.init?.(); this.applyDebugStatusToMonsters('shock'); });
+        document.getElementById('dbg-st-clear')?.addEventListener('click', () => { sfx?.init?.(); this.applyDebugStatusToMonsters(null); });
+    };
+
+    P.promptSecretDebugUnlock = function () {
+        if (this._debugUnlocked) {
+            this.openSecretDebugModal();
+            return;
+        }
+        const code = window.prompt('🔐 隠しデバッグ暗号を入力してください:');
+        if (code && code.trim() === SECRET_DEBUG_CODE) {
+            sfx?.playHeal?.();
+            this.openSecretDebugModal();
+        } else if (code !== null) {
+            this.showAlertBanner?.('❌ 暗号が違います', 1400);
+        }
+    };
+
+    if (P.sendChatMessage) {
+        const _prevSendChatV24 = P.sendChatMessage;
+        P.sendChatMessage = function (rawText) {
+            const txt = String(rawText || '').trim();
+            if (txt === SECRET_DEBUG_CODE) {
+                sfx?.playHeal?.();
+                this.openSecretDebugModal();
+                return;
+            }
+            _prevSendChatV24.call(this, rawText);
         };
     }
+
+    P.bindSecretDebugGesture = function () {
+        if (this._secretDebugGestureBound) return;
+        this._secretDebugGestureBound = true;
+        let tapCount = 0;
+        let lastTapTs = 0;
+
+        document.addEventListener('click', (e) => {
+            const titleEl = e.target.closest?.('#modal-title, .modal-header h2, .modal-header h3');
+            if (!titleEl) return;
+            const now = performance.now();
+            if (now - lastTapTs > 1500) tapCount = 0;
+            lastTapTs = now;
+            tapCount++;
+            if (tapCount >= 5) {
+                tapCount = 0;
+                this.promptSecretDebugUnlock();
+            }
+        });
+    };
 }
 
 window.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         if (window.game) {
-            window.game.syncSkillDescriptionsAndEffects?.();
-            window.game.ensureAllFacesAlignedV21?.();
+            window.game.syncSkillMpCostsV22?.();
+            window.game.syncMageWeaponNamesV22?.();
+            window.game.bindSecretDebugGesture?.();
+            if (window.game.isMageEvolution?.()) {
+                window.game.buildPlayerEntity?.();
+            }
         }
-    }, 150);
+    }, 220);
 });
-// === GAME7_V21_OK ===
+// === GAME8_V24_OK ===
 // ▲▲▲ ここまで【3/3】 ▲▲▲
