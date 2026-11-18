@@ -1,1167 +1,1238 @@
 'use strict';
 
 // =========================================================================
-// 顔文字ファンタジー3D 全育成・鍛冶錬金・見た目・ntfyオンラインUI (game5.js)
+// 顔文字ファンタジー3D メニューUI・転職・装備制限・オンライン同期 (game5.js)
 // =========================================================================
 
 Object.assign(KaomojiMMORPG.prototype, {
 
-    canEvolveTo(evo) {
-        const d = this.saveData;
-        if (d.lv < evo.reqLv) return false;
-        if (evo.reqEvo && d.evolutionId !== evo.reqEvo) return false;
-        for (const [mk, cnt] of Object.entries(evo.reqMat || {})) {
-            if ((d.materials[mk] || 0) < cnt) return false;
-        }
-        return true;
-    },
-
     openGrowthModal(tab = 'stats') {
-        this.activeTab = tab;
+        this.activeTab = tab || 'stats';
         this.isModalOpen = true;
-        document.getElementById('hud-drawer-menu')?.classList.add('hidden');
-        document.getElementById('emote-palette')?.classList.add('hidden');
-        document.getElementById('growth-modal')?.classList.remove('hidden');
-        this.renderModalContent();
+        const modal = document.getElementById('growth-modal');
+        if (modal) modal.classList.remove('hidden');
+
+        document.querySelectorAll('[data-menu-tab]').forEach(btn => {
+            const t = btn.getAttribute('data-menu-tab');
+            btn.classList.toggle('active', t === this.activeTab);
+        });
+
+        this.renderGrowthTabContent();
     },
 
     closeGrowthModal() {
         this.isModalOpen = false;
-        document.getElementById('growth-modal')?.classList.add('hidden');
+        const modal = document.getElementById('growth-modal');
+        if (modal) modal.classList.add('hidden');
         this.refreshAllHUD();
     },
 
-    openDialog(title, message, buttons) {
-        const modal = document.getElementById('dialog-modal');
-        document.getElementById('dialog-title').textContent = title;
-        document.getElementById('dialog-message').textContent = message;
-        const btnWrap = document.getElementById('dialog-buttons');
-        btnWrap.innerHTML = '';
-        buttons.forEach(b => {
-            const btn = document.createElement('button');
-            btn.className = `btn-ui ${b.primary ? 'btn-amber' : 'btn-slate'}`;
-            btn.textContent = b.text;
-            btn.addEventListener('click', () => {
-                modal.classList.add('hidden');
-                if (b.onClick) b.onClick();
-            });
-            btnWrap.appendChild(btn);
-        });
-        modal.classList.remove('hidden');
-    },
-
-    formatMatReqHtml(mats) {
-        const d = this.saveData;
-        const entries = Object.entries(mats || {});
-        if (entries.length === 0) return '<span style="color:#94a3b8;">なし</span>';
-        return entries.map(([mk, c]) => {
-            const have = d.materials[mk] || 0;
-            const m = MATERIALS[mk];
-            return `<span style="color:${have >= c ? '#34d399' : '#fb7185'};">${m.icon}${m.name} ${have}/${c}</span>`;
+    formatMatCost(costMat) {
+        if (!costMat) return '';
+        const entries = Object.entries(costMat).filter(([, v]) => v > 0);
+        if (entries.length === 0) return '素材不要';
+        return entries.map(([k, v]) => {
+            const m = MATERIALS[k];
+            const have = (this.saveData.materials && this.saveData.materials[k]) || 0;
+            const ok = have >= v;
+            return `<span style="color:${ok ? '#6ee7b7' : '#fca5a5'};">${m ? m.icon + m.name : k} ${have}/${v}</span>`;
         }).join(' / ');
     },
 
-    hasEnoughMats(mats) {
-        const d = this.saveData;
-        return Object.entries(mats || {}).every(([mk, c]) => (d.materials[mk] || 0) >= c);
+    hasEnoughMats(costMat) {
+        if (!costMat) return true;
+        for (const [k, v] of Object.entries(costMat)) {
+            if (((this.saveData.materials && this.saveData.materials[k]) || 0) < v) return false;
+        }
+        return true;
     },
 
-    consumeMats(mats) {
-        const d = this.saveData;
-        for (const [mk, c] of Object.entries(mats || {})) {
-            d.materials[mk] = Math.max(0, (d.materials[mk] || 0) - c);
+    consumeMats(costMat) {
+        if (!costMat) return;
+        this.saveData.materials = this.saveData.materials || {};
+        for (const [k, v] of Object.entries(costMat)) {
+            this.saveData.materials[k] = Math.max(0, (this.saveData.materials[k] || 0) - v);
         }
     },
 
-    renderModalContent() {
+    renderGrowthTabContent() {
+        const body = document.getElementById('modal-body-content');
+        if (!body) return;
+
         const d = this.saveData;
         const st = this.calcDerivedStats();
         const evo = EVOLUTIONS[d.evolutionId] || EVOLUTIONS.novice;
-        const hasAchAlert = this.hasClaimableAchievement();
 
-        const tabs = [
-            { id: 'online',     label: `🌐 オンライン･部屋${this.fbConnected ? '●' : ''}` },
-            { id: 'travel',     label: '🗺️ ステージ･塔' },
-            { id: 'appearance', label: '🐱 見た目･色･翼' },
-            { id: 'forge',      label: '⚒️ 鍛冶･錬金･付与' },
-            { id: 'stats',      label: `📊 ステ振り${d.ap > 0 ? `(${d.ap})` : ''}` },
-            { id: 'skills',     label: `📘 スキル${d.sp > 0 ? `(${d.sp})` : ''}` },
-            { id: 'tree',       label: `🌳 ツリー${d.sp > 0 ? `(${d.sp})` : ''}` },
-            { id: 'pet',        label: '🐾 相棒ペット' },
-            { id: 'evolve',     label: '👑 進化･神話･転生' },
-            { id: 'achieve',    label: `🏆 実績･称号${hasAchAlert ? '!' : ''}` }
-        ];
-
-        const tabBar = document.getElementById('modal-tabs');
-        tabBar.innerHTML = tabs.map(t => `
-            <button class="tab-chip-btn ${this.activeTab === t.id ? 'active' : ''}" data-tab="${t.id}">${t.label}</button>
-        `).join('');
-        tabBar.querySelectorAll('.tab-chip-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                this.activeTab = btn.dataset.tab;
-                this.renderModalContent();
-            });
-        });
-
-        const body = document.getElementById('modal-body');
-
-        if (this.activeTab === 'online') {
-            const remotes = Array.from(this.remotePlayers.values());
-            const isOnline = !!d.onlineEnabled;
-            const isPassOn = !!d.roomPassEnabled;
-
-            body.innerHTML = `
-                <div style="display:flex; flex-direction:column; gap:10px;">
-                    <!-- 1. ワンタッチ オンライン / オフライン切替 ＆ パスワード部屋 -->
-                    <div class="card-box" style="border-color:${this.fbConnected ? '#10b981' : '#38bdf8'};">
-                        <div class="flex-between" style="flex-wrap:wrap; margin-bottom:8px;">
-                            <div>
-                                <div style="font-size:13px; font-weight:900; color:#38bdf8;">🌐 オンラインマルチ共闘（ntfy高速通信）</div>
-                                <div style="font-size:11px; color:${this.fbConnected ? '#34d399' : '#94a3b8'}; font-weight:900; margin-top:2px;">
-                                    状態: ${this.fbConnected ? `● オンライン接続中（同じ部屋: ${1 + remotes.length}人）` : '📴 オフライン（右のボタンで即接続！）'}
-                                </div>
-                                <div style="font-size:10px; color:#7dd3fc; margin-top:2px;">
-                                    ✨ アカウント登録・URL入力不要！ボタン1つでみんなと共闘＆チャットできます
-                                </div>
-                            </div>
-                            <button id="m-btn-toggle-online" class="btn-ui ${isOnline ? 'btn-emerald' : 'btn-slate'}" style="padding:10px 14px; font-size:12px;">
-                                ${isOnline ? '🌐 オンライン: ON' : '📴 オフライン: OFF'}
-                            </button>
-                        </div>
-
-                        <div class="card-box" style="background:rgba(15,23,42,0.75); border-color:${isPassOn ? '#f59e0b' : '#334155'};">
-                            <div class="flex-between" style="flex-wrap:wrap; margin-bottom:6px;">
-                                <div>
-                                    <div style="font-size:12px; font-weight:900; color:#fde047;">🔒 パスワード部屋（合言葉ロック）</div>
-                                    <div style="font-size:10px; color:#cbd5e1;">
-                                        ${isPassOn
-                                            ? '🔒 ON中：同じパスワードを設定した人だけ表示・共闘・部屋チャットができます'
-                                            : '🔓 OFF中：オンラインのみんなが全員表示される公開広場モードです'}
-                                    </div>
-                                </div>
-                                <button id="m-btn-toggle-pass" class="btn-ui ${isPassOn ? 'btn-amber' : 'btn-slate'}">
-                                    ${isPassOn ? '🔒 パスワード: ON' : '🔓 パスワード: OFF'}
-                                </button>
-                            </div>
-                            ${isPassOn ? `
-                                <div style="display:flex; gap:6px; align-items:center; margin-top:6px;">
-                                    <input id="m-input-room-pass" class="input-ui" type="text" maxlength="16" value="${d.roomPassword || ''}" placeholder="合言葉を入力（例: 7777）">
-                                    <button id="m-btn-apply-pass" class="btn-ui btn-emerald" style="white-space:nowrap;">決定</button>
-                                </div>
-                            ` : ''}
-                        </div>
-                    </div>
-
-                    <!-- 2. 同じ部屋のオンライン仲間一覧 -->
-                    <div class="card-box">
-                        <div style="font-size:12px; font-weight:900; color:#f472b6; margin-bottom:6px;">
-                            👥 ${isPassOn ? `パスワード部屋「${d.roomPassword || '未入力'}」のメンバー` : '公開オンラインの冒険者一覧'}（${1 + remotes.length}人）
-                        </div>
-                        <div class="grid-2">
-                            <div class="card-box flex-between" style="border-color:#38bdf8;">
-                                <div>
-                                    <div class="font-kaomoji" style="font-size:13px; font-weight:900; color:#38bdf8;">${this.getBasePlayerKaomoji()} <span style="color:#fff;">あなた (Lv.${d.lv})</span></div>
-                                    <div style="font-size:10px; color:#94a3b8;">現在地: ${ZONES[this.currentZoneId]?.name || '試練の塔'} / 脅威+${d.threatRank || 0}</div>
-                                </div>
-                                <span class="badge-pill" style="background:#0284c7; color:#fff;">自分</span>
-                            </div>
-                            ${remotes.map(rp => `
-                                <div class="card-box flex-between">
-                                    <div>
-                                        <div class="font-kaomoji" style="font-size:13px; font-weight:900; color:#f472b6;">${rp.kaomoji} <span style="color:#fff;">Lv.${rp.lv} 仲間</span></div>
-                                        <div style="font-size:10px; color:#94a3b8;">現在地: ${ZONES[rp.zoneId]?.name || '試練の塔'} / 脅威+${rp.threatRank || 0}</div>
-                                    </div>
-                                    <span class="badge-pill" style="background:#059669; color:#fff;">表示中</span>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-
-                    <!-- 3. 引き継ぎコード（別端末へのデータ移行・バックアップ） -->
-                    <div class="card-box" style="border-color:rgba(52,211,153,0.5);">
-                        <div style="font-size:12px; font-weight:900; color:#6ee7b7; margin-bottom:4px;">📜 セーブデータ引き継ぎコード（別端末移行・バックアップ）</div>
-                        <p style="font-size:10px; color:#94a3b8; line-height:1.4; margin-bottom:6px;">
-                            「書き出し」を押すと今の強さ・装備・見た目がコード化されてコピーされます。別の端末で貼り付けて「コード復元」を押すと続きから遊べます。
-                        </p>
-                        <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                            <input id="input-backup-code" class="input-ui" style="flex:1; min-width:200px;" type="text" placeholder="ここに引き継ぎコードを貼り付けて復元">
-                            <button id="btn-export-code" class="btn-ui btn-emerald">📋 書き出し＆コピー</button>
-                            <button id="btn-import-code" class="btn-ui btn-fuchsia">📥 コード復元</button>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            document.getElementById('m-btn-toggle-online')?.addEventListener('click', () => {
-                if (this.toggleOnlineMode) {
-                    this.toggleOnlineMode();
-                }
-                this.renderModalContent();
-            });
-
-            document.getElementById('m-btn-toggle-pass')?.addEventListener('click', () => {
-                d.roomPassEnabled = !d.roomPassEnabled;
-                this.saveGame(false);
-                if (this.reconnectNtfyRoom) this.reconnectNtfyRoom();
-                this.refreshTitleScreen();
-                this.refreshAllHUD();
-                this.renderModalContent();
-                this.showAlertBanner(d.roomPassEnabled ? '🔒 パスワード部屋をONにしました' : '🔓 パスワード制限を解除（公開部屋）しました', 1600);
-            });
-
-            document.getElementById('m-btn-apply-pass')?.addEventListener('click', () => {
-                const pw = document.getElementById('m-input-room-pass')?.value.trim() || '';
-                d.roomPassword = pw;
-                this.saveGame(false);
-                if (this.reconnectNtfyRoom) this.reconnectNtfyRoom();
-                this.refreshTitleScreen();
-                this.refreshAllHUD();
-                this.renderModalContent();
-                this.showAlertBanner(pw ? `🔑 部屋パスワード「${pw}」を設定しました！` : '⚠️ パスワードが空欄です', 1600);
-            });
-
-            document.getElementById('btn-export-code')?.addEventListener('click', () => {
-                try {
-                    const json = JSON.stringify(this.saveData);
-                    const code = btoa(unescape(encodeURIComponent(json)));
-                    const inp = document.getElementById('input-backup-code');
-                    if (inp) {
-                        inp.value = code;
-                        inp.select();
-                    }
-                    if (navigator.clipboard) navigator.clipboard.writeText(code).catch(() => {});
-                    this.showAlertBanner('📋 引き継ぎコードを書き出し＆コピーしました！', 2200);
-                } catch (e) {
-                    this.showAlertBanner('⚠️ コード生成に失敗しました', 1800);
-                }
-            });
-
-            document.getElementById('btn-import-code')?.addEventListener('click', () => {
-                const rawCode = document.getElementById('input-backup-code')?.value.trim() || '';
-                if (!rawCode) {
-                    this.showAlertBanner('⚠️ 引き継ぎコードを貼り付けてください', 1800);
-                    return;
-                }
-                try {
-                    const json = decodeURIComponent(escape(atob(rawCode)));
-                    const parsed = JSON.parse(json);
-                    if (!parsed || typeof parsed.lv !== 'number') throw new Error('invalid');
-                    const def = this.createDefaultSave();
-                    this.saveData = {
-                        ...def,
-                        ...parsed,
-                        stats: { ...def.stats, ...(parsed.stats || {}) },
-                        skills: { ...def.skills, ...(parsed.skills || {}) },
-                        materials: { ...def.materials, ...(parsed.materials || {}) },
-                        statsTrack: { ...def.statsTrack, ...(parsed.statsTrack || {}) }
-                    };
-                    this.saveGame(false);
-                    this.buildPlayerEntity();
-                    this.buildPetEntity();
-                    this.loadZone('town');
-                    this.closeGrowthModal();
-                    sfx.playLevelUp();
-                    this.showAlertBanner('🎉 引き継ぎコードからデータを完全復元しました！', 2400);
-                } catch (e) {
-                    this.showAlertBanner('❌ 無効な引き継ぎコードです', 2000);
-                }
-            });
-
-        } else if (this.activeTab === 'travel') {
-            const bestFloor = (d.statsTrack && d.statsTrack.bestTowerFloor) || 0;
-            const resumeFloor = Math.max(1, Math.floor(bestFloor / 5) * 5 + 1);
-            body.innerHTML = `
-                <div style="display:flex; flex-direction:column; gap:10px;">
-                    <div class="card-box flex-between" style="flex-wrap:wrap; border-color:rgba(192,132,252,0.65); background:rgba(46,16,101,0.55);">
-                        <div>
-                            <div style="font-size:13px; font-weight:900; color:#e879f9;">🗼 無限の試練の塔（最高到達: 第${bestFloor}階層）</div>
-                            <div style="font-size:10px; color:#e2e8f0; margin-top:2px;">5階層ごとの守護ボス撃破でAP+3/SP+1＆実績解除！</div>
-                        </div>
-                        <div style="display:flex; gap:6px;">
-                            <button id="btn-tower-start-1" class="btn-ui btn-fuchsia">🗼 1階から挑戦</button>
-                            ${resumeFloor > 1 ? `<button id="btn-tower-resume" class="btn-ui btn-amber">⚡ ${resumeFloor}階から</button>` : ''}
-                        </div>
-                    </div>
-
-                    <div class="card-box flex-between" style="flex-wrap:wrap;">
-                        <div>
-                            <div style="font-size:12px; font-weight:900; color:#fda4af;">🔥 脅威度ランク（最大 +${MAX_THREAT_RANK}）</div>
-                            <div style="font-size:10px; color:#94a3b8;">マルチ時は攻撃者と自分の低い方の脅威度が適用されズル防止！</div>
-                        </div>
-                        <div style="display:flex; align-items:center; gap:5px;">
-                            <button id="m-threat-down10" class="btn-ui btn-slate">-10</button>
-                            <button id="m-threat-down" class="btn-ui btn-slate">-1</button>
-                            <span style="font-size:13px; font-weight:900; color:#fde047; min-width:66px; text-align:center;">+${d.threatRank || 0} / ${MAX_THREAT_RANK}</span>
-                            <button id="m-threat-up" class="btn-ui btn-rose">+1</button>
-                            <button id="m-threat-up10" class="btn-ui btn-amber">+10</button>
-                        </div>
-                    </div>
-
-                    <div class="grid-2">
-                        ${Object.values(ZONES).map(z => {
-                            const isCur = this.currentZoneId === z.id && !this.towerState.active;
-                            const dropNames = (z.drops || []).map(mk => `${MATERIALS[mk].icon}${MATERIALS[mk].name}`).join(' / ') || 'HP・MP高速回復＆仲間広場';
-                            return `
-                                <div class="card-box" style="border-color:${isCur ? '#38bdf8' : '#1e293b'}; display:flex; flex-direction:column; justify-content:space-between; gap:8px;">
-                                    <div>
-                                        <div class="flex-between">
-                                            <span class="badge-pill" style="background:${z.safe ? '#065f46' : '#881337'}; color:#fff;">STAGE ${z.stageNum} / 推奨Lv.${z.recLv}〜</span>
-                                            ${isCur ? '<span style="font-size:10px; font-weight:900; color:#38bdf8;">● 現在地</span>' : ''}
-                                        </div>
-                                        <div style="font-size:13px; font-weight:900; color:#fff; margin-top:4px;">${z.name}</div>
-                                        <p style="font-size:11px; color:#cbd5e1; margin-top:3px;">${z.desc}</p>
-                                        <div style="font-size:10px; color:#6ee7b7; margin-top:4px;">ドロップ: ${dropNames}</div>
-                                    </div>
-                                    <button class="btn-warp-zone btn-ui ${isCur ? 'btn-slate' : 'btn-emerald'}" data-zone="${z.id}" ${isCur ? 'disabled' : ''}>
-                                        ${isCur ? '滞在中のエリア' : '🌀 このステージへ移動'}
-                                    </button>
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
-                </div>
-            `;
-            document.getElementById('btn-tower-start-1')?.addEventListener('click', () => { this.closeGrowthModal(); this.startTowerMode(1); });
-            document.getElementById('btn-tower-resume')?.addEventListener('click', () => { this.closeGrowthModal(); this.startTowerMode(resumeFloor); });
-            const changeThreat = (delta) => {
-                d.threatRank = Math.max(0, Math.min(MAX_THREAT_RANK, (d.threatRank || 0) + delta));
-                if (!this.towerState.active) this.loadZone(this.currentZoneId);
-                this.renderModalContent();
-            };
-            document.getElementById('m-threat-up')?.addEventListener('click', () => changeThreat(1));
-            document.getElementById('m-threat-up10')?.addEventListener('click', () => changeThreat(10));
-            document.getElementById('m-threat-down')?.addEventListener('click', () => changeThreat(-1));
-            document.getElementById('m-threat-down10')?.addEventListener('click', () => changeThreat(-10));
-            body.querySelectorAll('.btn-warp-zone').forEach(btn => btn.addEventListener('click', () => {
-                this.loadZone(btn.dataset.zone);
-                this.closeGrowthModal();
-                this.showAlertBanner(`🌀 ${ZONES[btn.dataset.zone].name} へ移動しました！`, 1800);
-            }));
-
-        } else if (this.activeTab === 'appearance') {
-            const curColor = d.bodyColor || evo.color;
-            const curFaceBg = this.getPlayerFaceBgHex();
-            const curScale = this.getPlayerBodyScale();
-            body.innerHTML = `
-                <div style="display:flex; flex-direction:column; gap:10px;">
-                    <div class="card-box">
-                        <div style="font-size:12px; font-weight:900; color:#fde047; margin-bottom:6px;">📏 体型サイズ変更</div>
-                        <div class="flex-wrap-gap" style="margin-bottom:10px;">
-                            ${BODY_SCALE_PRESETS.map(p => `
-                                <button class="btn-body-scale btn-ui ${Math.abs(curScale - p.scale) < 0.02 ? 'btn-amber' : 'btn-slate'}" data-scale="${p.scale}">
-                                    ${p.name}
-                                </button>
-                            `).join('')}
-                        </div>
-
-                        <div style="font-size:12px; font-weight:900; color:#38bdf8; margin-bottom:6px;">🎨 キャラクター体色のカスタマイズ</div>
-                        <div class="flex-wrap-gap" style="margin-bottom:8px;">
-                            ${BODY_COLOR_PRESETS.map(c => `
-                                <button class="btn-body-color btn-ui btn-slate" data-hex="${c.hex}" style="border:2px solid ${(d.bodyColor || '') === c.hex ? '#fde047' : '#334155'};">
-                                    <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:${c.hex || evo.color}; border:1px solid #fff;"></span>
-                                    ${c.name}
-                                </button>
-                            `).join('')}
-                        </div>
-                        <div class="flex-wrap-gap" style="margin-bottom:10px;">
-                            <span style="font-size:11px; color:#cbd5e1;">体色ピッカー:</span>
-                            <input id="input-body-color" type="color" value="${curColor}" style="width:44px; height:28px; border:none; background:none; cursor:pointer;">
-                            <button id="btn-apply-picker-color" class="btn-ui btn-sky">体色を反映</button>
-                        </div>
-
-                        <div style="font-size:12px; font-weight:900; color:#6ee7b7; margin-bottom:6px;">🖥️ 顔モニターの背景色</div>
-                        <div class="flex-wrap-gap">
-                            ${FACE_BG_PRESETS.map(f => `
-                                <button class="btn-face-bg btn-ui btn-slate" data-hex="${f.hex}" style="border:2px solid ${curFaceBg.toLowerCase() === f.hex.toLowerCase() ? '#fde047' : '#334155'};">
-                                    <span style="display:inline-block; width:12px; height:12px; border-radius:3px; background:${f.hex}; border:1px solid #94a3b8;"></span>
-                                    ${f.name}
-                                </button>
-                            `).join('')}
-                            <input id="input-face-bg" type="color" value="${curFaceBg}" style="width:40px; height:26px; border:none; background:none; cursor:pointer;">
-                            <button id="btn-apply-face-bg" class="btn-ui btn-emerald">背景反映</button>
-                        </div>
-                    </div>
-
-                    <div class="card-box">
-                        <div style="font-size:12px; font-weight:900; color:#f472b6; margin-bottom:6px;">🐱 頭パーツ（背中パーツと同時装着OK！）</div>
-                        <div class="grid-2">
-                            ${Object.values(COSMETICS).map(cos => {
-                                const owned = (d.ownedCosmetics || ['none']).includes(cos.id);
-                                const equipped = (d.cosmeticId || 'none') === cos.id;
-                                const canBuy = d.gold >= cos.costGold && this.hasEnoughMats(cos.costMat);
-                                return `
-                                    <div class="card-box flex-between" style="border-color:${equipped ? '#f472b6' : '#1e293b'};">
-                                        <div>
-                                            <div style="font-size:12px; font-weight:900; color:#fff;">${cos.icon} ${cos.name}</div>
-                                            <div style="font-size:10px; color:#cbd5e1;">${cos.desc}</div>
-                                            ${!owned ? `<div style="font-size:10px; margin-top:2px;">必要: ${formatBigNum(cos.costGold)}G / ${this.formatMatReqHtml(cos.costMat)}</div>` : ''}
-                                        </div>
-                                        ${equipped
-                                            ? '<span class="badge-pill" style="background:#db2777; color:#fff;">装着中</span>'
-                                            : (owned
-                                                ? `<button class="btn-eq-cos btn-ui btn-sky" data-id="${cos.id}">装着</button>`
-                                                : `<button class="btn-buy-cos btn-ui btn-amber" data-id="${cos.id}" ${!canBuy ? 'disabled' : ''}>作成</button>`)}
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
-                    </div>
-
-                    <div class="card-box">
-                        <div style="font-size:12px; font-weight:900; color:#c084fc; margin-bottom:6px;">🕊️ 背中パーツ（翼・マント・九尾・光輪オーラ）</div>
-                        <div class="grid-2">
-                            ${Object.values(BACK_COSMETICS).map(bk => {
-                                const owned = (d.ownedBackCosmetics || ['back_none']).includes(bk.id);
-                                const equipped = (d.backCosmeticId || 'back_none') === bk.id;
-                                const canBuy = d.gold >= bk.costGold && this.hasEnoughMats(bk.costMat);
-                                return `
-                                    <div class="card-box flex-between" style="border-color:${equipped ? '#c084fc' : '#1e293b'};">
-                                        <div>
-                                            <div style="font-size:12px; font-weight:900; color:#fff;">${bk.icon} ${bk.name}</div>
-                                            <div style="font-size:10px; color:#cbd5e1;">${bk.desc}</div>
-                                            ${!owned ? `<div style="font-size:10px; margin-top:2px;">必要: ${formatBigNum(bk.costGold)}G / ${this.formatMatReqHtml(bk.costMat)}</div>` : ''}
-                                        </div>
-                                        ${equipped
-                                            ? '<span class="badge-pill" style="background:#9333ea; color:#fff;">装着中</span>'
-                                            : (owned
-                                                ? `<button class="btn-eq-back btn-ui btn-sky" data-id="${bk.id}">装着</button>`
-                                                : `<button class="btn-buy-back btn-ui btn-amber" data-id="${bk.id}" ${!canBuy ? 'disabled' : ''}>作成</button>`)}
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
-                    </div>
-
-                    <div class="card-box">
-                        <div style="font-size:12px; font-weight:900; color:#7dd3fc; margin-bottom:6px;">✏️ 基本の顔文字＆カスタム称号・エモート</div>
-                        <div class="grid-2" style="margin-bottom:8px;">
-                            <div>
-                                <div style="font-size:10px; color:#94a3b8; margin-bottom:3px;">基本の顔文字（空欄で職業デフォルト）</div>
-                                <input id="input-custom-kaomoji" class="input-ui font-kaomoji" type="text" maxlength="16" value="${d.customKaomoji || ''}" placeholder="例: (=^・ω・^=)">
-                            </div>
-                            <div>
-                                <div style="font-size:10px; color:#94a3b8; margin-bottom:3px;">カスタム表示称号</div>
-                                <input id="input-custom-title" class="input-ui" type="text" maxlength="12" value="${d.exTitle || ''}" placeholder="例: ネコミミ剣士">
-                            </div>
-                        </div>
-                        <div class="flex-wrap-gap" style="margin-bottom:8px;">
-                            ${KAOMOJI_PRESETS.map(k => `<button class="btn-preset-k btn-ui btn-slate font-kaomoji" data-k="${k}">${k}</button>`).join('')}
-                            <button id="btn-save-kaomoji" class="btn-ui btn-emerald">✨ 顔文字と称号を反映</button>
-                        </div>
-                        <div style="display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:5px;">
-                            ${EMOTES.map(em => `
-                                <button class="btn-modal-emote btn-ui btn-slate" style="flex-direction:column; padding:6px 4px;" data-emote="${em.id}">
-                                    <span style="font-size:16px;">${em.icon}</span>
-                                    <span style="font-size:10px; color:#fff;">${em.label}</span>
-                                </button>
-                            `).join('')}
-                        </div>
-                    </div>
-                </div>
-            `;
-            body.querySelectorAll('.btn-body-scale').forEach(btn => btn.addEventListener('click', () => {
-                d.bodyScale = Number(btn.dataset.scale) || 1.0;
-                this.buildPlayerEntity();
-                this.saveGame(false);
-                this.renderModalContent();
-            }));
-            body.querySelectorAll('.btn-body-color').forEach(btn => btn.addEventListener('click', () => {
-                d.bodyColor = btn.dataset.hex;
-                this.buildPlayerEntity();
-                this.saveGame(false);
-                this.renderModalContent();
-            }));
-            document.getElementById('btn-apply-picker-color')?.addEventListener('click', () => {
-                d.bodyColor = document.getElementById('input-body-color')?.value || '';
-                this.buildPlayerEntity();
-                this.saveGame(false);
-                this.renderModalContent();
-            });
-            body.querySelectorAll('.btn-face-bg').forEach(btn => btn.addEventListener('click', () => {
-                d.faceBgColor = btn.dataset.hex;
-                this.buildPlayerEntity();
-                this.saveGame(false);
-                this.renderModalContent();
-            }));
-            document.getElementById('btn-apply-face-bg')?.addEventListener('click', () => {
-                d.faceBgColor = document.getElementById('input-face-bg')?.value || '#073b66';
-                this.buildPlayerEntity();
-                this.saveGame(false);
-                this.renderModalContent();
-            });
-            body.querySelectorAll('.btn-buy-cos').forEach(btn => btn.addEventListener('click', () => {
-                const cos = COSMETICS[btn.dataset.id];
-                if (!cos || d.gold < cos.costGold || !this.hasEnoughMats(cos.costMat)) return;
-                d.gold -= cos.costGold;
-                this.consumeMats(cos.costMat);
-                if (!d.ownedCosmetics) d.ownedCosmetics = ['none'];
-                d.ownedCosmetics.push(cos.id);
-                d.cosmeticId = cos.id;
-                this.buildPlayerEntity();
-                sfx.playLevelUp();
-                this.saveGame(false);
-                this.renderModalContent();
-                this.showAlertBanner(`✨ 頭パーツ「${cos.name}」を作成＆装着しました！`, 2000);
-            }));
-            body.querySelectorAll('.btn-eq-cos').forEach(btn => btn.addEventListener('click', () => {
-                d.cosmeticId = btn.dataset.id;
-                this.buildPlayerEntity();
-                this.saveGame(false);
-                this.renderModalContent();
-            }));
-            body.querySelectorAll('.btn-buy-back').forEach(btn => btn.addEventListener('click', () => {
-                const bk = BACK_COSMETICS[btn.dataset.id];
-                if (!bk || d.gold < bk.costGold || !this.hasEnoughMats(bk.costMat)) return;
-                d.gold -= bk.costGold;
-                this.consumeMats(bk.costMat);
-                if (!d.ownedBackCosmetics) d.ownedBackCosmetics = ['back_none'];
-                d.ownedBackCosmetics.push(bk.id);
-                d.backCosmeticId = bk.id;
-                this.buildPlayerEntity();
-                sfx.playLevelUp();
-                this.saveGame(false);
-                this.renderModalContent();
-                this.showAlertBanner(`✨ 背中パーツ「${bk.name}」を作成＆装着しました！`, 2000);
-            }));
-            body.querySelectorAll('.btn-eq-back').forEach(btn => btn.addEventListener('click', () => {
-                d.backCosmeticId = btn.dataset.id;
-                this.buildPlayerEntity();
-                this.saveGame(false);
-                this.renderModalContent();
-            }));
-            body.querySelectorAll('.btn-preset-k').forEach(btn => btn.addEventListener('click', () => {
-                const inp = document.getElementById('input-custom-kaomoji');
-                if (inp) inp.value = btn.dataset.k;
-            }));
-            document.getElementById('btn-save-kaomoji')?.addEventListener('click', () => {
-                d.customKaomoji = document.getElementById('input-custom-kaomoji')?.value.trim() || '';
-                d.exTitle = document.getElementById('input-custom-title')?.value.trim() || '';
-                this.buildPlayerEntity();
-                this.saveGame(false);
-                this.refreshAllHUD();
-                this.showAlertBanner('✨ 顔文字と表示を更新しました！', 1600);
-            });
-            body.querySelectorAll('.btn-modal-emote').forEach(btn => btn.addEventListener('click', () => {
-                const id = btn.dataset.emote;
-                this.closeGrowthModal();
-                this.triggerEmote(id);
-            }));
-
-        } else if (this.activeTab === 'forge') {
-            const curWpn = WEAPONS[d.weaponId] || WEAPONS.wpn_wood;
-            const curArm = ARMORS[d.armorId] || ARMORS.arm_cloth;
-            const wpnReq = getWeaponEnhanceRequirement(d.weaponEnhance || 0);
-            const armReq = getArmorEnhanceRequirement(d.armorEnhance || 0);
-            const canEnhWpn = d.gold >= wpnReq.gold && this.hasEnoughMats(wpnReq.mats);
-            const canEnhArm = d.gold >= armReq.gold && this.hasEnoughMats(armReq.mats);
-
-            const wEnchObj = ENCHANT_POOL.find(x => x.id === d.weaponEnchant);
-            const aEnchObj = ENCHANT_POOL.find(x => x.id === d.armorEnchant);
-            const canRollWpnEnch = d.gold >= 300 && (d.materials.slime_gel || 0) >= 2 && (d.materials.ancient_sap || 0) >= 1;
-            const canRollArmEnch = d.gold >= 300 && (d.materials.slime_gel || 0) >= 2 && (d.materials.goblin_fang || 0) >= 1;
-
-            const canCraftApBook = d.gold >= 1500 && (d.materials.slime_gel || 0) >= 8 && (d.materials.ancient_sap || 0) >= 4;
-            const canCraftSpBook = d.gold >= 2500 && (d.materials.goblin_fang || 0) >= 6 && (d.materials.fire_core || 0) >= 3;
-
-            body.innerHTML = `
-                <div style="display:flex; flex-direction:column; gap:10px;">
-                    <div class="card-box flex-wrap-gap" style="font-size:11px;">
-                        <span style="font-weight:900; color:#fde047;">所持G: ${formatBigNum(d.gold)}G</span>
-                        ${Object.values(MATERIALS).map(m => `<span>${m.icon}${m.name}: <b>${d.materials[m.id] || 0}</b></span>`).join('')}
-                    </div>
-
-                    <div class="grid-2">
-                        <div class="card-box" style="display:flex; flex-direction:column; justify-content:space-between; gap:6px;">
-                            <div>
-                                <div style="font-size:12px; font-weight:900; color:#fb7185;">${curWpn.icon} 武器: ${curWpn.name} <span style="color:#fde047;">+${d.weaponEnhance || 0}</span></div>
-                                <div style="font-size:10px; color:#94a3b8;">精錬ごとに武器ATK +14%（G＋素材消費）</div>
-                                <div style="font-size:10px; margin-top:2px;">必要素材: ${this.formatMatReqHtml(wpnReq.mats)}</div>
-                            </div>
-                            <button id="btn-enh-wpn" class="btn-ui btn-amber" ${!canEnhWpn ? 'disabled' : ''}>🔨 武器精錬 (+1) [${formatBigNum(wpnReq.gold)}G + 素材]</button>
-                        </div>
-                        <div class="card-box" style="display:flex; flex-direction:column; justify-content:space-between; gap:6px;">
-                            <div>
-                                <div style="font-size:12px; font-weight:900; color:#38bdf8;">${curArm.icon} 防具: ${curArm.name} <span style="color:#fde047;">+${d.armorEnhance || 0}</span></div>
-                                <div style="font-size:10px; color:#94a3b8;">精錬ごとに防具HP/MP/防御 +14%（G＋素材消費）</div>
-                                <div style="font-size:10px; margin-top:2px;">必要素材: ${this.formatMatReqHtml(armReq.mats)}</div>
-                            </div>
-                            <button id="btn-enh-arm" class="btn-ui btn-sky" ${!canEnhArm ? 'disabled' : ''}>🔨 防具精錬 (+1) [${formatBigNum(armReq.gold)}G + 素材]</button>
-                        </div>
-                    </div>
-
-                    <div class="card-box">
-                        <div style="font-size:12px; font-weight:900; color:#c084fc; margin-bottom:6px;">🔮 素材エンチャント付与・厳選（ランダム特殊オプション）</div>
-                        <div class="grid-2">
-                            <div class="card-box flex-between">
-                                <div>
-                                    <div style="font-size:11px; font-weight:900; color:#fff;">武器オプション: <span style="color:#fde047;">${wEnchObj ? wEnchObj.label : '未付与'}</span></div>
-                                    <div style="font-size:10px; color:#94a3b8;">必要: 300G + 💧2 + 🌿1</div>
-                                </div>
-                                <button id="btn-ench-wpn" class="btn-ui btn-fuchsia" ${!canRollWpnEnch ? 'disabled' : ''}>🎲 付与/変更</button>
-                            </div>
-                            <div class="card-box flex-between">
-                                <div>
-                                    <div style="font-size:11px; font-weight:900; color:#fff;">防具オプション: <span style="color:#fde047;">${aEnchObj ? aEnchObj.label : '未付与'}</span></div>
-                                    <div style="font-size:10px; color:#94a3b8;">必要: 300G + 💧2 + 🦴1</div>
-                                </div>
-                                <button id="btn-ench-arm" class="btn-ui btn-fuchsia" ${!canRollArmEnch ? 'disabled' : ''}>🎲 付与/変更</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card-box">
-                        <div style="font-size:12px; font-weight:900; color:#34d399; margin-bottom:6px;">⚗️ 素材錬金工房（上位変換 ＆ 無限成長の書）</div>
-                        <div class="grid-2" style="margin-bottom:8px;">
-                            <div class="card-box flex-between">
-                                <div>
-                                    <div style="font-size:11px; font-weight:900; color:#fde047;">📘 ステータス成長の書 (AP +1)</div>
-                                    <div style="font-size:10px; color:#94a3b8;">必要: 1,500G + 💧8 + 🌿4</div>
-                                </div>
-                                <button id="btn-craft-apbook" class="btn-ui btn-emerald" ${!canCraftApBook ? 'disabled' : ''}>錬金する</button>
-                            </div>
-                            <div class="card-box flex-between">
-                                <div>
-                                    <div style="font-size:11px; font-weight:900; color:#38bdf8;">📕 スキル熟練の書 (SP +1)</div>
-                                    <div style="font-size:10px; color:#94a3b8;">必要: 2,500G + 🦴6 + 🔥3</div>
-                                </div>
-                                <button id="btn-craft-spbook" class="btn-ui btn-emerald" ${!canCraftSpBook ? 'disabled' : ''}>錬金する</button>
-                            </div>
-                        </div>
-                        <div class="flex-wrap-gap">
-                            ${MATERIAL_ALCHEMY.map((al, idx) => {
-                                const fM = MATERIALS[al.from];
-                                const tM = MATERIALS[al.to];
-                                const canAl = (d.materials[al.from] || 0) >= al.count && d.gold >= al.gold;
-                                return `<button class="btn-alchemy-mat btn-ui btn-slate" data-idx="${idx}" ${!canAl ? 'disabled' : ''}>${fM.icon}x${al.count}+${formatBigNum(al.gold)}G → ${tM.icon}x1</button>`;
-                            }).join('')}
-                        </div>
-                    </div>
-
-                    <div style="font-size:12px; font-weight:900; color:#fde047;">🗡️ 武器の鍛造・装備</div>
-                    <div class="grid-2">
-                        ${Object.values(WEAPONS).map(w => {
-                            const owned = d.ownedWeapons.includes(w.id);
-                            const equipped = d.weaponId === w.id;
-                            const canCraft = d.gold >= w.costGold && this.hasEnoughMats(w.costMat);
-                            return `
-                                <div class="card-box flex-between">
-                                    <div>
-                                        <div style="font-size:12px; font-weight:900; color:#fff;">${w.icon} ${w.name}</div>
-                                        <div style="font-size:10px; color:#fda4af;">ATK:${w.atk} / 魔力:x${w.mag}</div>
-                                        <div style="font-size:10px; color:#94a3b8;">${formatBigNum(w.costGold)}G / ${this.formatMatReqHtml(w.costMat)}</div>
-                                    </div>
-                                    ${equipped ? '<span class="badge-pill" style="background:#059669; color:#fff;">装備中</span>'
-                                        : (owned ? `<button class="btn-eq-wpn btn-ui btn-sky" data-id="${w.id}">装備</button>`
-                                            : `<button class="btn-craft-wpn btn-ui btn-amber" data-id="${w.id}" ${!canCraft ? 'disabled' : ''}>鍛造</button>`)}
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
-
-                    <div style="font-size:12px; font-weight:900; color:#7dd3fc;">🛡️ 防具・💍 装飾品の鍛造・装備</div>
-                    <div class="grid-2">
-                        ${Object.values(ARMORS).map(a => {
-                            const owned = d.ownedArmors.includes(a.id);
-                            const equipped = d.armorId === a.id;
-                            const canCraft = d.gold >= a.costGold && this.hasEnoughMats(a.costMat);
-                            return `
-                                <div class="card-box flex-between">
-                                    <div>
-                                        <div style="font-size:12px; font-weight:900; color:#fff;">${a.icon} ${a.name}</div>
-                                        <div style="font-size:10px; color:#6ee7b7;">HP+${a.hp} / MP+${a.mp} / 軽減+${Math.round(a.def * 100)}%</div>
-                                        <div style="font-size:10px; color:#94a3b8;">${formatBigNum(a.costGold)}G / ${this.formatMatReqHtml(a.costMat)}</div>
-                                    </div>
-                                    ${equipped ? '<span class="badge-pill" style="background:#059669; color:#fff;">装備中</span>'
-                                        : (owned ? `<button class="btn-eq-arm btn-ui btn-sky" data-id="${a.id}">装備</button>`
-                                            : `<button class="btn-craft-arm btn-ui btn-amber" data-id="${a.id}" ${!canCraft ? 'disabled' : ''}>鍛造</button>`)}
-                                </div>
-                            `;
-                        }).join('')}
-                        ${Object.values(ACCESSORIES).filter(ac => ac.id !== 'acc_none').map(ac => {
-                            const owned = (d.ownedAccessories || []).includes(ac.id);
-                            const equipped = d.accessoryId === ac.id;
-                            const canCraft = d.gold >= ac.costGold && this.hasEnoughMats(ac.costMat);
-                            return `
-                                <div class="card-box flex-between">
-                                    <div>
-                                        <div style="font-size:12px; font-weight:900; color:#fff;">${ac.icon} ${ac.name}</div>
-                                        <div style="font-size:10px; color:#f9a8d4;">${ac.desc}</div>
-                                        <div style="font-size:10px; color:#94a3b8;">${formatBigNum(ac.costGold)}G / ${this.formatMatReqHtml(ac.costMat)}</div>
-                                    </div>
-                                    ${equipped ? '<span class="badge-pill" style="background:#059669; color:#fff;">装備中</span>'
-                                        : (owned ? `<button class="btn-eq-acc btn-ui btn-sky" data-id="${ac.id}">装備</button>`
-                                            : `<button class="btn-craft-acc btn-ui btn-fuchsia" data-id="${ac.id}" ${!canCraft ? 'disabled' : ''}>錬成</button>`)}
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
-                </div>
-            `;
-
-            document.getElementById('btn-enh-wpn')?.addEventListener('click', () => {
-                if (!canEnhWpn) return;
-                d.gold -= wpnReq.gold;
-                this.consumeMats(wpnReq.mats);
-                d.weaponEnhance = (d.weaponEnhance || 0) + 1;
-                this.buildPlayerEntity();
-                sfx.playSkill();
-                this.saveGame(false);
-                this.renderModalContent();
-            });
-            document.getElementById('btn-enh-arm')?.addEventListener('click', () => {
-                if (!canEnhArm) return;
-                d.gold -= armReq.gold;
-                this.consumeMats(armReq.mats);
-                d.armorEnhance = (d.armorEnhance || 0) + 1;
-                this.buildPlayerEntity();
-                sfx.playSkill();
-                this.saveGame(false);
-                this.renderModalContent();
-            });
-            document.getElementById('btn-ench-wpn')?.addEventListener('click', () => {
-                if (!canRollWpnEnch) return;
-                d.gold -= 300;
-                this.consumeMats({ slime_gel: 2, ancient_sap: 1 });
-                const pick = ENCHANT_POOL[Math.floor(Math.random() * ENCHANT_POOL.length)];
-                d.weaponEnchant = pick.id;
-                sfx.playLevelUp();
-                this.saveGame(false);
-                this.renderModalContent();
-                this.showAlertBanner(`🔮 武器に「${pick.label}」が付与されました！`, 1800);
-            });
-            document.getElementById('btn-ench-arm')?.addEventListener('click', () => {
-                if (!canRollArmEnch) return;
-                d.gold -= 300;
-                this.consumeMats({ slime_gel: 2, goblin_fang: 1 });
-                const pick = ENCHANT_POOL[Math.floor(Math.random() * ENCHANT_POOL.length)];
-                d.armorEnchant = pick.id;
-                sfx.playLevelUp();
-                this.saveGame(false);
-                this.renderModalContent();
-                this.showAlertBanner(`🔮 防具に「${pick.label}」が付与されました！`, 1800);
-            });
-            document.getElementById('btn-craft-apbook')?.addEventListener('click', () => {
-                if (!canCraftApBook) return;
-                d.gold -= 1500;
-                this.consumeMats({ slime_gel: 8, ancient_sap: 4 });
-                d.ap += 1;
-                sfx.playLevelUp();
-                this.saveGame(false);
-                this.renderModalContent();
-                this.showAlertBanner('📘 ステータス成長の書を錬金！AP +1 獲得！', 1800);
-            });
-            document.getElementById('btn-craft-spbook')?.addEventListener('click', () => {
-                if (!canCraftSpBook) return;
-                d.gold -= 2500;
-                this.consumeMats({ goblin_fang: 6, fire_core: 3 });
-                d.sp += 1;
-                sfx.playLevelUp();
-                this.saveGame(false);
-                this.renderModalContent();
-                this.showAlertBanner('📕 スキル熟練の書を錬金！SP +1 獲得！', 1800);
-            });
-            body.querySelectorAll('.btn-alchemy-mat').forEach(btn => btn.addEventListener('click', () => {
-                const al = MATERIAL_ALCHEMY[Number(btn.dataset.idx)];
-                if (!al || d.gold < al.gold || (d.materials[al.from] || 0) < al.count) return;
-                d.gold -= al.gold;
-                d.materials[al.from] -= al.count;
-                d.materials[al.to] = (d.materials[al.to] || 0) + 1;
-                sfx.playSkill();
-                this.saveGame(false);
-                this.renderModalContent();
-            }));
-            body.querySelectorAll('.btn-craft-wpn').forEach(btn => btn.addEventListener('click', () => {
-                const w = WEAPONS[btn.dataset.id];
-                d.gold -= w.costGold;
-                this.consumeMats(w.costMat);
-                d.ownedWeapons.push(w.id);
-                d.weaponId = w.id;
-                this.buildPlayerEntity();
-                sfx.playLevelUp();
-                this.saveGame(false);
-                this.renderModalContent();
-            }));
-            body.querySelectorAll('.btn-eq-wpn').forEach(btn => btn.addEventListener('click', () => {
-                d.weaponId = btn.dataset.id;
-                this.buildPlayerEntity();
-                this.saveGame(false);
-                this.renderModalContent();
-            }));
-            body.querySelectorAll('.btn-craft-arm').forEach(btn => btn.addEventListener('click', () => {
-                const a = ARMORS[btn.dataset.id];
-                d.gold -= a.costGold;
-                this.consumeMats(a.costMat);
-                d.ownedArmors.push(a.id);
-                d.armorId = a.id;
-                this.buildPlayerEntity();
-                sfx.playLevelUp();
-                this.saveGame(false);
-                this.renderModalContent();
-            }));
-            body.querySelectorAll('.btn-eq-arm').forEach(btn => btn.addEventListener('click', () => {
-                d.armorId = btn.dataset.id;
-                this.buildPlayerEntity();
-                this.saveGame(false);
-                this.renderModalContent();
-            }));
-            body.querySelectorAll('.btn-craft-acc').forEach(btn => btn.addEventListener('click', () => {
-                const ac = ACCESSORIES[btn.dataset.id];
-                d.gold -= ac.costGold;
-                this.consumeMats(ac.costMat);
-                if (!d.ownedAccessories) d.ownedAccessories = ['acc_none'];
-                d.ownedAccessories.push(ac.id);
-                d.accessoryId = ac.id;
-                sfx.playLevelUp();
-                this.saveGame(false);
-                this.renderModalContent();
-            }));
-            body.querySelectorAll('.btn-eq-acc').forEach(btn => btn.addEventListener('click', () => {
-                d.accessoryId = btn.dataset.id;
-                this.saveGame(false);
-                this.renderModalContent();
-            }));
-
-        } else if (this.activeTab === 'stats') {
+        if (this.activeTab === 'stats') {
             const statDefs = [
-                { key: 'str', name: 'STR（筋力）', desc: '物理攻撃力・会心率・会心ダメージUP' },
-                { key: 'int', name: 'INT（知力）', desc: 'スキル魔力倍率・最大MP・MP回復UP' },
-                { key: 'vit', name: 'VIT（体力）', desc: '最大HP・被ダメージ軽減率UP' },
-                { key: 'agi', name: 'AGI（敏捷）', desc: '会心率・スキルCT短縮・移動速度UP' }
+                { key: 'str', name: 'STR (筋力)', desc: '物理攻撃力・会心ダメージが上昇' },
+                { key: 'int', name: 'INT (知力)', desc: '杖の魔法攻撃力・スキル威力・最大MPが上昇' },
+                { key: 'vit', name: 'VIT (体力)', desc: '最大HP・ダメージ軽減率が上昇' },
+                { key: 'agi', name: 'AGI (敏捷)', desc: '移動速度・会心率・スキルCT短縮が上昇' }
             ];
             body.innerHTML = `
-                <div style="display:flex; flex-direction:column; gap:10px;">
-                    <div class="card-box flex-between">
-                        <div>
-                            <div style="font-size:13px; font-weight:900; color:#38bdf8;">残りステータスポイント (AP): <span style="color:#fde047; font-size:16px;">${d.ap}</span></div>
-                            <div style="font-size:10px; color:#94a3b8;">鍛冶錬金工房で素材から「AP+1の書」も作成可能！</div>
-                        </div>
-                        <span class="badge-pill" style="background:#1e293b; color:#fde047;">転生補正: x${st.rebirthMult.toFixed(2)}</span>
+                <div class="card-box" style="margin-bottom:10px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-weight:900; color:#fde047;">✨ 残りステータスポイント (AP): ${d.ap || 0}</span>
+                        <span style="font-size:11px; color:#94a3b8;">現在役職: ${evo.name}</span>
                     </div>
-                    <div class="grid-2">
-                        ${statDefs.map(s => `
-                            <div class="card-box flex-between">
-                                <div>
-                                    <div style="font-size:12px; font-weight:900; color:#fff;">${s.name}: <span style="color:#38bdf8; font-size:15px;">${d.stats[s.key]}</span></div>
-                                    <div style="font-size:10px; color:#94a3b8;">${s.desc}</div>
-                                </div>
-                                <div style="display:flex; gap:4px;">
-                                    <button class="btn-add-ap btn-ui btn-sky" data-stat="${s.key}" data-amt="1" ${d.ap < 1 ? 'disabled' : ''}>+1</button>
-                                    <button class="btn-add-ap btn-ui btn-amber" data-stat="${s.key}" data-amt="5" ${d.ap < 5 ? 'disabled' : ''}>+5</button>
-                                    <button class="btn-add-ap btn-ui btn-fuchsia" data-stat="${s.key}" data-amt="25" ${d.ap < 25 ? 'disabled' : ''}>+25</button>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                    <div class="card-box grid-2" style="font-size:11px;">
-                        <div>最大HP: <b style="color:#34d399;">${formatBigNum(st.maxHp)}</b></div>
-                        <div>最大MP: <b style="color:#38bdf8;">${formatBigNum(st.maxMp)}</b></div>
-                        <div>総合攻撃力: <b style="color:#fb7185;">${formatBigNum(st.physAtk)}</b></div>
-                        <div>スキル魔力倍率: <b style="color:#c084fc;">x${st.magMult}</b></div>
-                        <div>会心率: <b style="color:#fde047;">${Math.round(st.critChance * 100)}%</b></div>
-                        <div>会心ダメージ: <b style="color:#fde047;">x${st.critDmg.toFixed(2)}</b></div>
-                        <div>被ダメージ軽減: <b style="color:#2dd4bf;">${Math.round(st.defMitigation * 100)}%</b></div>
-                        <div>CT短縮: <b style="color:#818cf8;">${Math.round(st.cdReduction * 100)}%</b></div>
+                    <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:6px; margin-top:8px; font-size:11px; color:#e2e8f0;">
+                        <div>⚔️ 物理攻撃力: <b>${formatBigNum(st.physAtk)}</b></div>
+                        <div>🪄 魔法攻撃力: <b>${formatBigNum(st.magAtk)}</b></div>
+                        <div>❤️ 最大HP: <b>${formatBigNum(st.maxHp)}</b></div>
+                        <div>💧 最大MP: <b>${formatBigNum(st.maxMp)}</b></div>
+                        <div>💥 会心率/倍率: <b>${Math.round(st.critChance * 100)}% / x${st.critDmg.toFixed(2)}</b></div>
+                        <div>🛡️ 被ダメ軽減: <b>${Math.round(st.defMitigation * 100)}%</b></div>
+                        <div>⚡ CT短縮: <b>${Math.round(st.cdReduction * 100)}%</b></div>
+                        <div>🔮 スキル魔力倍率: <b>x${st.magMult.toFixed(2)}</b></div>
                     </div>
                 </div>
+                <div style="display:grid; gap:8px;">
+                    ${statDefs.map(sd => `
+                        <div class="card-box" style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <div style="font-weight:900; color:#38bdf8;">${sd.name}: <span style="color:#fff; font-size:15px;">${d.stats[sd.key] || 5}</span></div>
+                                <div style="font-size:11px; color:#94a3b8;">${sd.desc}</div>
+                            </div>
+                            <div style="display:flex; gap:6px;">
+                                <button type="button" class="btn-ui btn-sky" data-add-stat="${sd.key}" data-amt="1" ${(d.ap || 0) < 1 ? 'disabled' : ''}>+1</button>
+                                <button type="button" class="btn-ui btn-amber" data-add-stat="${sd.key}" data-amt="5" ${(d.ap || 0) < 5 ? 'disabled' : ''}>+5</button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
             `;
-            body.querySelectorAll('.btn-add-ap').forEach(btn => btn.addEventListener('click', () => {
-                const amt = Number(btn.dataset.amt);
-                if (d.ap < amt) return;
-                d.ap -= amt;
-                d.stats[btn.dataset.stat] += amt;
-                this.saveGame(false);
-                this.renderModalContent();
-            }));
+
+            body.querySelectorAll('[data-add-stat]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const key = btn.getAttribute('data-add-stat');
+                    const amt = Number(btn.getAttribute('data-amt')) || 1;
+                    if ((d.ap || 0) < amt) return;
+                    d.ap -= amt;
+                    d.stats[key] = (d.stats[key] || 5) + amt;
+                    sfx.playSkill();
+                    this.saveGame(false);
+                    this.renderGrowthTabContent();
+                    this.refreshAllHUD();
+                });
+            });
 
         } else if (this.activeTab === 'skills') {
+            const eq = d.equippedSkills || [null, null, null, null, null];
             body.innerHTML = `
-                <div style="display:flex; flex-direction:column; gap:10px;">
-                    <div class="card-box flex-between">
-                        <span style="font-size:12px; font-weight:900; color:#818cf8;">残りスキルポイント (SP): <b style="color:#fde047; font-size:15px;">${d.sp}</b></span>
-                        <span style="font-size:10px; color:#94a3b8;">番号ボタン[1〜5]で右下アークスロットにセット</span>
+                <div class="card-box" style="margin-bottom:10px;">
+                    <div style="font-weight:900; color:#fde047; margin-bottom:4px;">📘 スキル習得・強化（残りSP: ${d.sp || 0}）</div>
+                    <div style="font-size:11px; color:#93c5fd;">※ 消費MPは基礎値の5倍＋スキルLvが1上がるごとに+10増加します</div>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;">
+                        ${eq.map((sid, idx) => {
+                            const sObj = sid ? SKILLS[sid] : null;
+                            return `<div style="padding:4px 8px; border-radius:6px; background:#0f172a; border:1px solid #334155; font-size:11px;">
+                                スロット${idx + 1}: <b>${sObj ? sObj.icon + sObj.name : '未セット'}</b>
+                            </div>`;
+                        }).join('')}
                     </div>
-                    <div class="grid-2">
-                        ${Object.values(SKILLS).map(sk => {
-                            const curLv = d.skills[sk.id] || 0;
-                            const dispLv = Math.max(1, curLv);
-                            const curMp = getSkillMpCost(sk, dispLv);
-                            const eff = getSkillEffectStats(sk, dispLv, st);
-                            const cost = curLv === 0 ? 1 : this.getSkillUpgradeCost(curLv);
-                            const eqIdx = d.equippedSkills.indexOf(sk.id);
-                            return `
-                                <div class="card-box" style="display:flex; flex-direction:column; justify-content:space-between; gap:6px;">
+                </div>
+                <div style="display:grid; gap:8px;">
+                    ${Object.values(SKILLS).map(sk => {
+                        const curLv = (d.skills && d.skills[sk.id]) || 0;
+                        const unlocked = curLv > 0;
+                        const costSp = unlocked ? this.getSkillUpgradeCost(curLv) : 1;
+                        const curMp = getSkillMpCost(sk, Math.max(1, curLv));
+                        const nextMp = getSkillMpCost(sk, curLv + 1);
+                        const eff = getSkillEffectStats(sk, Math.max(1, curLv), st);
+                        const equippedIdx = eq.indexOf(sk.id);
+
+                        return `
+                            <div class="card-box">
+                                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
                                     <div>
-                                        <div class="flex-between">
-                                            <span style="font-size:12px; font-weight:900; color:#fff;">${sk.icon} ${sk.name} <span style="color:#38bdf8;">${curLv > 0 ? `Lv.${curLv}` : '(未習得)'}</span></span>
-                                            <span style="font-size:10px; color:#7dd3fc;">MP:${curMp} / CD:${sk.cd}s</span>
+                                        <div style="font-weight:900; font-size:13px; color:#fff;">
+                                            ${sk.icon} ${sk.name}
+                                            <span style="color:#fde047; margin-left:6px;">${unlocked ? `Lv.${curLv}` : '未習得'}</span>
                                         </div>
-                                        <div style="font-size:10px; font-weight:900; color:#fde047; margin-top:2px;">📊 ${eff.summary}</div>
-                                        <p style="font-size:10px; color:#cbd5e1; margin-top:2px;">${sk.desc}</p>
+                                        <div style="font-size:11px; color:#cbd5e1; margin-top:2px;">${sk.desc}</div>
+                                        <div style="font-size:11px; color:#6ee7b7; margin-top:2px;">
+                                            現在効果: ${eff.summary} ｜ CT: ${sk.cd}秒 ｜ 消費MP: <b>${curMp}</b> ${unlocked ? `(次Lv: ${nextMp})` : ''}
+                                        </div>
                                     </div>
-                                    <div class="flex-between" style="flex-wrap:wrap;">
-                                        <button class="btn-up-skill btn-ui btn-emerald" data-id="${sk.id}" ${d.sp < cost ? 'disabled' : ''}>
-                                            ${curLv === 0 ? `✨ 習得 (SP ${cost})` : `⬆ 強化 (SP ${cost})`}
+                                    <div style="display:flex; flex-direction:column; gap:5px; align-items:flex-end;">
+                                        <button type="button" class="btn-ui btn-emerald" data-up-skill="${sk.id}" ${(d.sp || 0) < costSp ? 'disabled' : ''}>
+                                            ${unlocked ? `強化 (SP${costSp})` : '習得 (SP1)'}
                                         </button>
-                                        ${curLv > 0 ? `
+                                        ${unlocked ? `
                                             <div style="display:flex; gap:3px;">
-                                                ${[0, 1, 2, 3, 4].map(slot => `
-                                                    <button class="btn-set-slot btn-ui ${eqIdx === slot ? 'btn-sky' : 'btn-slate'}" style="padding:4px 7px;" data-id="${sk.id}" data-slot="${slot}">${slot + 1}</button>
+                                                ${[0, 1, 2, 3, 4].map(slotIdx => `
+                                                    <button type="button" class="btn-ui ${equippedIdx === slotIdx ? 'btn-amber' : 'btn-slate'}"
+                                                        style="padding:3px 6px; font-size:10px;"
+                                                        data-eq-skill="${sk.id}" data-slot="${slotIdx}">
+                                                        ${slotIdx + 1}
+                                                    </button>
                                                 `).join('')}
                                             </div>
                                         ` : ''}
                                     </div>
                                 </div>
-                            `;
-                        }).join('')}
-                    </div>
+                            </div>
+                        `;
+                    }).join('')}
                 </div>
             `;
-            body.querySelectorAll('.btn-up-skill').forEach(btn => btn.addEventListener('click', () => {
-                const id = btn.dataset.id;
-                const curLv = d.skills[id] || 0;
-                const cost = curLv === 0 ? 1 : this.getSkillUpgradeCost(curLv);
-                if (d.sp < cost) return;
-                d.sp -= cost;
-                d.skills[id] = curLv + 1;
-                sfx.playSkill();
-                this.saveGame(false);
-                this.renderModalContent();
-            }));
-            body.querySelectorAll('.btn-set-slot').forEach(btn => btn.addEventListener('click', () => {
-                const id = btn.dataset.id;
-                const slot = Number(btn.dataset.slot);
-                const prev = d.equippedSkills.indexOf(id);
-                if (prev !== -1) d.equippedSkills[prev] = null;
-                d.equippedSkills[slot] = id;
-                this.saveGame(false);
-                this.renderModalContent();
-            }));
+
+            body.querySelectorAll('[data-up-skill]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const sid = btn.getAttribute('data-up-skill');
+                    const curLv = (d.skills && d.skills[sid]) || 0;
+                    const cost = curLv > 0 ? this.getSkillUpgradeCost(curLv) : 1;
+                    if ((d.sp || 0) < cost) return;
+                    d.sp -= cost;
+                    d.skills = d.skills || {};
+                    d.skills[sid] = curLv + 1;
+                    if (curLv === 0) {
+                        const emptyIdx = (d.equippedSkills || []).indexOf(null);
+                        if (emptyIdx !== -1) d.equippedSkills[emptyIdx] = sid;
+                    }
+                    sfx.playLevelUp();
+                    this.saveGame(false);
+                    this.renderGrowthTabContent();
+                    this.refreshAllHUD();
+                });
+            });
+
+            body.querySelectorAll('[data-eq-skill]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const sid = btn.getAttribute('data-eq-skill');
+                    const slot = Number(btn.getAttribute('data-slot'));
+                    d.equippedSkills = d.equippedSkills || [null, null, null, null, null];
+                    const oldIdx = d.equippedSkills.indexOf(sid);
+                    if (oldIdx !== -1) d.equippedSkills[oldIdx] = null;
+                    d.equippedSkills[slot] = sid;
+                    sfx.playTone(620, 'sine', 0.08, 0.05);
+                    this.saveGame(false);
+                    this.renderGrowthTabContent();
+                    this.refreshAllHUD();
+                });
+            });
 
         } else if (this.activeTab === 'tree') {
             body.innerHTML = `
-                <div style="display:flex; flex-direction:column; gap:10px;">
-                    <div class="card-box flex-between">
-                        <span style="font-size:12px; font-weight:900; color:#2dd4bf;">🌳 パッシブスキルツリー / 残りSP: <b style="color:#fde047; font-size:15px;">${d.sp}</b></span>
-                        <span style="font-size:10px; color:#94a3b8;">転生後もすべて引き継がれます</span>
-                    </div>
-                    <div class="grid-2">
-                        ${SKILL_TREE_NODES.map(node => {
-                            const lv = d.tree[node.id] || 0;
-                            const maxed = lv >= node.maxLv;
-                            return `
-                                <div class="card-box flex-between">
-                                    <div>
-                                        <div style="font-size:12px; font-weight:900; color:#fff;">${node.icon} ${node.name} <span style="color:#2dd4bf;">Lv.${lv}/${node.maxLv}</span></div>
-                                        <div style="font-size:10px; color:#cbd5e1;">${node.desc}</div>
-                                    </div>
-                                    <button class="btn-up-tree btn-ui btn-emerald" data-id="${node.id}" ${(maxed || d.sp < 1) ? 'disabled' : ''}>${maxed ? 'MAX' : '+1 (SP1)'}</button>
+                <div class="card-box" style="margin-bottom:10px;">
+                    <span style="font-weight:900; color:#fde047;">🌳 パッシブスキルツリー（残りSP: ${d.sp || 0}）</span>
+                </div>
+                <div style="display:grid; gap:8px;">
+                    ${SKILL_TREE_NODES.map(node => {
+                        const lv = (d.tree && d.tree[node.id]) || 0;
+                        const isMax = lv >= node.maxLv;
+                        return `
+                            <div class="card-box" style="display:flex; justify-content:space-between; align-items:center;">
+                                <div>
+                                    <div style="font-weight:900; color:#fff;">${node.icon} ${node.name} <span style="color:#38bdf8;">Lv.${lv}/${node.maxLv}</span></div>
+                                    <div style="font-size:11px; color:#cbd5e1;">${node.desc}</div>
                                 </div>
-                            `;
-                        }).join('')}
-                    </div>
+                                <button type="button" class="btn-ui btn-sky" data-tree-node="${node.id}" ${(isMax || (d.sp || 0) < 1) ? 'disabled' : ''}>
+                                    ${isMax ? 'MAX' : '+1 (SP1)'}
+                                </button>
+                            </div>
+                        `;
+                    }).join('')}
                 </div>
             `;
-            body.querySelectorAll('.btn-up-tree').forEach(btn => btn.addEventListener('click', () => {
-                const node = SKILL_TREE_NODES.find(n => n.id === btn.dataset.id);
-                const lv = d.tree[node.id] || 0;
-                if (d.sp < 1 || lv >= node.maxLv) return;
-                d.sp -= 1;
-                d.tree[node.id] = lv + 1;
-                sfx.playSkill();
-                this.saveGame(false);
-                this.renderModalContent();
-            }));
 
-        } else if (this.activeTab === 'pet') {
-            const petLv = d.petLevel || 1;
-            const petUpCost = Math.round(350 * Math.pow(1.38, petLv - 1));
-            const curPet = d.petId ? PETS[d.petId] : null;
+            body.querySelectorAll('[data-tree-node]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const nid = btn.getAttribute('data-tree-node');
+                    const node = SKILL_TREE_NODES.find(x => x.id === nid);
+                    if (!node || (d.sp || 0) < 1) return;
+                    d.tree = d.tree || {};
+                    const cur = d.tree[nid] || 0;
+                    if (cur >= node.maxLv) return;
+                    d.sp -= 1;
+                    d.tree[nid] = cur + 1;
+                    sfx.playSkill();
+                    this.saveGame(false);
+                    this.renderGrowthTabContent();
+                    this.refreshAllHUD();
+                });
+            });
+
+        } else if (this.activeTab === 'equip') {
+            const wEnhReq = getWeaponEnhanceRequirement(d.weaponEnhance || 0);
+            const aEnhReq = getArmorEnhanceRequirement(d.armorEnhance || 0);
+            const wEnchObj = ENCHANT_POOL.find(x => x.id === d.weaponEnchant);
+            const aEnchObj = ENCHANT_POOL.find(x => x.id === d.armorEnchant);
+
+            const jobRestrictNotice = evo.isMageJob
+                ? '🪄 現在の役職は【魔道士系】のため、杖のみ装備できます（通常攻撃＝遠距離魔法判定）'
+                : (evo.id === 'novice' || evo.id === 'myth_god'
+                    ? '✨ 現在の役職は【剣・杖どちらも装備可能】です'
+                    : '⚔️ 現在の役職は【物理・騎士系】のため、剣のみ装備できます');
+
             body.innerHTML = `
-                <div style="display:flex; flex-direction:column; gap:10px;">
-                    <div class="card-box flex-between" style="flex-wrap:wrap;">
-                        <div>
-                            <div style="font-size:13px; font-weight:900; color:#38bdf8;">🐾 相棒ペット同行＆育成（ペットLv.${petLv}）</div>
-                            <div style="font-size:11px; color:#fde047;">現在の相棒: ${curPet ? `${curPet.kaomoji} ${curPet.name}` : 'なし'}</div>
+                <div class="card-box" style="margin-bottom:10px; border-color:#38bdf8;">
+                    <div style="font-size:12px; font-weight:900; color:#7dd3fc;">${jobRestrictNotice}</div>
+                    <div style="font-size:11px; color:#fde047; margin-top:4px;">所持金: ${formatBigNum(d.gold)}G</div>
+                </div>
+
+                <div class="card-box" style="margin-bottom:10px;">
+                    <div style="font-weight:900; color:#fde047; margin-bottom:6px;">🔨 装備精錬＆エンチャント付与</div>
+                    <div style="display:grid; gap:8px;">
+                        <div style="background:#0f172a; padding:8px; border-radius:8px;">
+                            <div style="font-size:12px; font-weight:900;">武器精錬: +${d.weaponEnhance || 0} ｜ 付与: <span style="color:#f472b6;">${wEnchObj ? wEnchObj.label : 'なし'}</span></div>
+                            <div style="font-size:10px; color:#94a3b8; margin:3px 0;">必要: ${formatBigNum(wEnhReq.gold)}G / ${this.formatMatCost(wEnhReq.mats)}</div>
+                            <div style="display:flex; gap:6px; margin-top:4px;">
+                                <button type="button" class="btn-ui btn-amber" id="btn-enh-wpn" ${(d.gold < wEnhReq.gold || !this.hasEnoughMats(wEnhReq.mats)) ? 'disabled' : ''}>武器精錬 +1</button>
+                                <button type="button" class="btn-ui btn-purple" id="btn-ench-wpn" ${d.gold < 800 ? 'disabled' : ''}>武器エンチャ抽選 (800G)</button>
+                            </div>
                         </div>
-                        <button id="btn-pet-lvup" class="btn-ui btn-amber" ${d.gold < petUpCost ? 'disabled' : ''}>⬆ レベル強化 (+1) [${formatBigNum(petUpCost)}G]</button>
+                        <div style="background:#0f172a; padding:8px; border-radius:8px;">
+                            <div style="font-size:12px; font-weight:900;">防具精錬: +${d.armorEnhance || 0} ｜ 付与: <span style="color:#f472b6;">${aEnchObj ? aEnchObj.label : 'なし'}</span></div>
+                            <div style="font-size:10px; color:#94a3b8; margin:3px 0;">必要: ${formatBigNum(aEnhReq.gold)}G / ${this.formatMatCost(aEnhReq.mats)}</div>
+                            <div style="display:flex; gap:6px; margin-top:4px;">
+                                <button type="button" class="btn-ui btn-amber" id="btn-enh-arm" ${(d.gold < aEnhReq.gold || !this.hasEnoughMats(aEnhReq.mats)) ? 'disabled' : ''}>防具精錬 +1</button>
+                                <button type="button" class="btn-ui btn-purple" id="btn-ench-arm" ${d.gold < 800 ? 'disabled' : ''}>防具エンチャ抽選 (800G)</button>
+                            </div>
+                        </div>
                     </div>
-                    <div class="grid-2">
-                        ${Object.values(PETS).map(p => {
-                            const owned = (d.ownedPets || []).includes(p.id);
-                            const active = d.petId === p.id;
-                            const canBuy = d.gold >= p.costGold && this.hasEnoughMats(p.costMat);
+                </div>
+
+                <div style="font-weight:900; color:#38bdf8; margin:8px 0 4px;">⚔️ 剣シリーズ（物理職・見習い・創世神用）</div>
+                <div style="display:grid; gap:6px; margin-bottom:10px;">
+                    ${Object.values(WEAPONS).filter(w => w.category === 'sword').map(w => this.renderWeaponCard(w, evo)).join('')}
+                </div>
+
+                <div style="font-weight:900; color:#c084fc; margin:8px 0 4px;">🪄 魔導杖シリーズ（魔道士系専用・通常攻撃が遠距離魔法判定）</div>
+                <div style="display:grid; gap:6px; margin-bottom:10px;">
+                    ${Object.values(WEAPONS).filter(w => w.category === 'staff').map(w => this.renderWeaponCard(w, evo)).join('')}
+                </div>
+
+                <div style="font-weight:900; color:#6ee7b7; margin:8px 0 4px;">🛡️ 防具・装飾品</div>
+                <div style="display:grid; gap:6px; margin-bottom:10px;">
+                    ${Object.values(ARMORS).map(a => {
+                        const owned = (d.ownedArmors || []).includes(a.id);
+                        const equipped = d.armorId === a.id;
+                        const canBuy = d.gold >= a.costGold && this.hasEnoughMats(a.costMat);
+                        return `
+                            <div class="card-box" style="display:flex; justify-content:space-between; align-items:center;">
+                                <div>
+                                    <div style="font-weight:900; color:#fff;">${a.icon} ${a.name}</div>
+                                    <div style="font-size:11px; color:#cbd5e1;">HP+${a.hp} / MP+${a.mp} / 軽減+${Math.round(a.def * 100)}%</div>
+                                    ${!owned ? `<div style="font-size:10px; color:#fde047;">作成: ${formatBigNum(a.costGold)}G / ${this.formatMatCost(a.costMat)}</div>` : ''}
+                                </div>
+                                ${equipped
+                                    ? `<span style="color:#fde047; font-weight:900; font-size:11px;">装備中</span>`
+                                    : owned
+                                        ? `<button type="button" class="btn-ui btn-sky" data-eq-arm="${a.id}">装備</button>`
+                                        : `<button type="button" class="btn-ui btn-emerald" data-buy-arm="${a.id}" ${!canBuy ? 'disabled' : ''}>作成</button>`
+                                }
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+
+                <div style="display:grid; gap:6px; margin-bottom:10px;">
+                    ${Object.values(ACCESSORIES).filter(x => x.id !== 'acc_none').map(ac => {
+                        const owned = (d.ownedAccessories || []).includes(ac.id);
+                        const equipped = d.accessoryId === ac.id;
+                        const canBuy = d.gold >= ac.costGold && this.hasEnoughMats(ac.costMat);
+                        return `
+                            <div class="card-box" style="display:flex; justify-content:space-between; align-items:center;">
+                                <div>
+                                    <div style="font-weight:900; color:#f472b6;">${ac.icon} ${ac.name}</div>
+                                    <div style="font-size:11px; color:#cbd5e1;">${ac.desc}</div>
+                                    ${!owned ? `<div style="font-size:10px; color:#fde047;">作成: ${formatBigNum(ac.costGold)}G / ${this.formatMatCost(ac.costMat)}</div>` : ''}
+                                </div>
+                                ${equipped
+                                    ? `<span style="color:#fde047; font-weight:900; font-size:11px;">装備中</span>`
+                                    : owned
+                                        ? `<button type="button" class="btn-ui btn-sky" data-eq-acc="${ac.id}">装備</button>`
+                                        : `<button type="button" class="btn-ui btn-emerald" data-buy-acc="${ac.id}" ${!canBuy ? 'disabled' : ''}>作成</button>`
+                                }
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+
+                <div class="card-box">
+                    <div style="font-weight:900; color:#fde047; margin-bottom:6px;">⚗️ 素材一覧＆上位錬金</div>
+                    <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; font-size:11px;">
+                        ${Object.values(MATERIALS).map(m => `
+                            <span style="background:#0f172a; padding:3px 7px; border-radius:6px;">${m.icon}${m.name}: <b>${(d.materials && d.materials[m.id]) || 0}</b></span>
+                        `).join('')}
+                    </div>
+                    <div style="display:grid; gap:5px;">
+                        ${MATERIAL_ALCHEMY.map((rec, idx) => {
+                            const fMat = MATERIALS[rec.from];
+                            const tMat = MATERIALS[rec.to];
+                            const have = (d.materials && d.materials[rec.from]) || 0;
+                            const ok = have >= rec.count && d.gold >= rec.gold;
                             return `
-                                <div class="card-box flex-between" style="border-color:${active ? '#38bdf8' : '#1e293b'};">
-                                    <div>
-                                        <div class="font-kaomoji" style="font-size:13px; font-weight:900; color:#fde047;">${p.kaomoji} <span style="color:#fff;">${p.name}</span></div>
-                                        <div style="font-size:10px; color:#cbd5e1;">${p.desc}</div>
-                                        ${!owned ? `<div style="font-size:10px; color:#94a3b8;">${formatBigNum(p.costGold)}G / ${this.formatMatReqHtml(p.costMat)}</div>` : ''}
-                                    </div>
-                                    ${active ? '<span class="badge-pill" style="background:#059669; color:#fff;">同行中</span>'
-                                        : (owned ? `<button class="btn-eq-pet btn-ui btn-sky" data-id="${p.id}">連れ歩く</button>`
-                                            : `<button class="btn-buy-pet btn-ui btn-amber" data-id="${p.id}" ${!canBuy ? 'disabled' : ''}>仲間にする</button>`)}
+                                <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; background:#0f172a; padding:5px 8px; border-radius:6px;">
+                                    <span>${fMat.icon}${fMat.name}×${rec.count} + ${rec.gold}G ➔ ${tMat.icon}${tMat.name}×1</span>
+                                    <button type="button" class="btn-ui btn-amber" style="padding:3px 8px; font-size:10px;" data-alchemy="${idx}" ${!ok ? 'disabled' : ''}>錬金</button>
                                 </div>
                             `;
                         }).join('')}
                     </div>
                 </div>
             `;
-            document.getElementById('btn-pet-lvup')?.addEventListener('click', () => {
-                if (d.gold < petUpCost) return;
-                d.gold -= petUpCost;
-                d.petLevel = (d.petLevel || 1) + 1;
-                sfx.playSkill();
-                this.saveGame(false);
-                this.renderModalContent();
+
+            this.bindEquipTabEvents(body, wEnhReq, aEnhReq);
+
+        } else if (this.activeTab === 'evo') {
+            body.innerHTML = `
+                <div class="card-box" style="margin-bottom:10px; border-color:#fde047;">
+                    <div style="font-weight:900; color:#fde047;">👑 転職・上位クラスチェンジ（所持金: ${formatBigNum(d.gold)}G）</div>
+                    <div style="font-size:11px; color:#cbd5e1; margin-top:3px;">
+                        必要Lv・ゴールド・素材を満たすと好きな役職へ転職できます。<br>
+                        ※ <b>魔道士系</b>に転職すると装備制限により自動的に<b>杖</b>へ持ち替えます。
+                    </div>
+                </div>
+                <div style="display:grid; gap:8px;">
+                    ${Object.values(EVOLUTIONS).map(ev => {
+                        const isCur = d.evolutionId === ev.id;
+                        const costG = ev.costGold || 0;
+                        const lvOk = d.lv >= ev.reqLv;
+                        const goldOk = d.gold >= costG;
+                        const matOk = this.hasEnoughMats(ev.reqMat);
+                        const canChange = !isCur && lvOk && goldOk && matOk;
+
+                        return `
+                            <div class="card-box" style="${isCur ? 'border-color:#fde047; background:rgba(250,204,21,0.08);' : ''}">
+                                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                                    <div>
+                                        <div style="font-weight:900; font-size:13px; color:${ev.color};">
+                                            <span class="font-kaomoji">${ev.kaomoji}</span> ${ev.name}
+                                            ${ev.isMageJob ? '<span style="background:#581c87; color:#f3e8ff; font-size:9px; padding:1px 5px; border-radius:4px; margin-left:4px;">🪄杖専用</span>' : ''}
+                                        </div>
+                                        <div style="font-size:11px; color:#e2e8f0; margin-top:2px;">${ev.bonusText}</div>
+                                        <div style="font-size:10px; color:#94a3b8; margin-top:2px;">
+                                            条件: <span style="color:${lvOk ? '#6ee7b7' : '#fca5a5'};">Lv.${ev.reqLv}以上</span> ｜
+                                            転職費用: <span style="color:${goldOk ? '#fde047' : '#fca5a5'};">${formatBigNum(costG)}G</span> ｜
+                                            ${this.formatMatCost(ev.reqMat)}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        ${isCur
+                                            ? `<span style="color:#fde047; font-weight:900; font-size:12px;">現在の役職</span>`
+                                            : `<button type="button" class="btn-ui btn-amber" data-change-job="${ev.id}" ${!canChange ? 'disabled' : ''}>転職する</button>`
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+
+            body.querySelectorAll('[data-change-job]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const jid = btn.getAttribute('data-change-job');
+                    const targetEv = EVOLUTIONS[jid];
+                    if (!targetEv || d.evolutionId === jid) return;
+                    const costG = targetEv.costGold || 0;
+                    if (d.lv < targetEv.reqLv || d.gold < costG || !this.hasEnoughMats(targetEv.reqMat)) return;
+
+                    d.gold -= costG;
+                    this.consumeMats(targetEv.reqMat);
+                    d.evolutionId = jid;
+
+                    // 魔道士系なら杖へ自動変更
+                    const swapped = this.enforceJobWeaponRule();
+                    this.buildPlayerEntity();
+                    const newSt = this.calcDerivedStats();
+                    if (this.player) {
+                        this.player.hp = newSt.maxHp;
+                        this.player.mp = newSt.maxMp;
+                    }
+                    sfx.playLevelUp();
+                    this.saveGame(false);
+                    this.renderGrowthTabContent();
+                    this.refreshAllHUD();
+                    this.showAlertBanner(
+                        swapped
+                            ? `👑 【${targetEv.name}】に転職し、自動で杖を装備しました！`
+                            : `👑 【${targetEv.name}】に転職しました！`,
+                        2400
+                    );
+                });
             });
-            body.querySelectorAll('.btn-buy-pet').forEach(btn => btn.addEventListener('click', () => {
-                const p = PETS[btn.dataset.id];
-                d.gold -= p.costGold;
-                this.consumeMats(p.costMat);
-                if (!d.ownedPets) d.ownedPets = [];
-                d.ownedPets.push(p.id);
-                d.petId = p.id;
-                this.buildPetEntity();
+
+        } else if (this.activeTab === 'look') {
+            body.innerHTML = `
+                <div class="card-box" style="margin-bottom:10px;">
+                    <div style="font-weight:900; color:#38bdf8; margin-bottom:6px;">顔文字・体色・体型カスタマイズ</div>
+                    <div style="display:flex; gap:6px; margin-bottom:6px;">
+                        <input type="text" id="inp-custom-kaomoji" value="${d.customKaomoji || ''}" placeholder="好きな顔文字を入力 (空欄で職業顔文字)" style="flex:1; background:#0f172a; color:#fff; border:1px solid #334155; border-radius:6px; padding:6px;">
+                        <button type="button" class="btn-ui btn-sky" id="btn-apply-kaomoji">反映</button>
+                    </div>
+                    <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px;">
+                        ${KAOMOJI_PRESETS.map(k => `<button type="button" class="btn-ui btn-slate font-kaomoji" style="padding:3px 6px; font-size:11px;" data-preset-k="${k}">${k}</button>`).join('')}
+                    </div>
+                    <div style="font-size:11px; color:#cbd5e1; margin-bottom:4px;">体カラー:</div>
+                    <div style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:8px;">
+                        ${BODY_COLOR_PRESETS.map(c => `
+                            <button type="button" class="btn-ui btn-slate" style="padding:4px 8px; font-size:10px; border-color:${d.bodyColor === c.hex ? '#fde047' : '#334155'};" data-body-col="${c.hex}">
+                                ${c.hex ? `<span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:${c.hex}; margin-right:3px;"></span>` : ''}${c.name}
+                            </button>
+                        `).join('')}
+                    </div>
+                    <div style="font-size:11px; color:#cbd5e1; margin-bottom:4px;">顔モニター背景色:</div>
+                    <div style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:8px;">
+                        ${FACE_BG_PRESETS.map(c => `
+                            <button type="button" class="btn-ui btn-slate" style="padding:4px 8px; font-size:10px; border-color:${d.faceBgColor === c.hex ? '#fde047' : '#334155'};" data-face-bg="${c.hex}">
+                                <span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:${c.hex}; margin-right:3px;"></span>${c.name}
+                            </button>
+                        `).join('')}
+                    </div>
+                    <div style="font-size:11px; color:#cbd5e1; margin-bottom:4px;">体型サイズ:</div>
+                    <div style="display:flex; gap:6px;">
+                        ${BODY_SCALE_PRESETS.map(sc => `
+                            <button type="button" class="btn-ui ${Number(d.bodyScale || 1) === sc.scale ? 'btn-amber' : 'btn-slate'}" data-body-scale="${sc.scale}">${sc.name}</button>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div style="font-weight:900; color:#fde047; margin-bottom:4px;">🎩 頭パーツ（所持金: ${formatBigNum(d.gold)}G）</div>
+                <div style="display:grid; gap:6px; margin-bottom:10px;">
+                    ${Object.values(COSMETICS).map(cos => {
+                        const owned = (d.ownedCosmetics || []).includes(cos.id);
+                        const eq = (d.cosmeticId || 'none') === cos.id;
+                        const canBuy = d.gold >= cos.costGold && this.hasEnoughMats(cos.costMat);
+                        return `
+                            <div class="card-box" style="display:flex; justify-content:space-between; align-items:center;">
+                                <div>
+                                    <div style="font-weight:900;">${cos.icon} ${cos.name}</div>
+                                    <div style="font-size:10px; color:#94a3b8;">${cos.desc} ${!owned ? `｜ ${cos.costGold}G / ${this.formatMatCost(cos.costMat)}` : ''}</div>
+                                </div>
+                                ${eq ? `<span style="color:#fde047; font-size:11px; font-weight:900;">装着中</span>`
+                                    : owned ? `<button type="button" class="btn-ui btn-sky" data-eq-cos="${cos.id}">装着</button>`
+                                    : `<button type="button" class="btn-ui btn-emerald" data-buy-cos="${cos.id}" ${!canBuy ? 'disabled' : ''}>解放</button>`}
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+
+                <div style="font-weight:900; color:#f472b6; margin-bottom:4px;">🕊️ 背中パーツ（頭パーツと同時装着OK）</div>
+                <div style="display:grid; gap:6px;">
+                    ${Object.values(BACK_COSMETICS).map(bc => {
+                        const owned = (d.ownedBackCosmetics || []).includes(bc.id);
+                        const eq = (d.backCosmeticId || 'back_none') === bc.id;
+                        const canBuy = d.gold >= bc.costGold && this.hasEnoughMats(bc.costMat);
+                        return `
+                            <div class="card-box" style="display:flex; justify-content:space-between; align-items:center;">
+                                <div>
+                                    <div style="font-weight:900;">${bc.icon} ${bc.name}</div>
+                                    <div style="font-size:10px; color:#94a3b8;">${bc.desc} ${!owned ? `｜ ${bc.costGold}G / ${this.formatMatCost(bc.costMat)}` : ''}</div>
+                                </div>
+                                ${eq ? `<span style="color:#fde047; font-size:11px; font-weight:900;">装着中</span>`
+                                    : owned ? `<button type="button" class="btn-ui btn-sky" data-eq-back="${bc.id}">装着</button>`
+                                    : `<button type="button" class="btn-ui btn-emerald" data-buy-back="${bc.id}" ${!canBuy ? 'disabled' : ''}>解放</button>`}
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+            this.bindLookTabEvents(body);
+
+        } else if (this.activeTab === 'pets') {
+            body.innerHTML = `
+                <div class="card-box" style="margin-bottom:10px;">
+                    <div style="font-weight:900; color:#fde047;">🐾 相棒ペット育成（Lv.${d.petLevel || 1} / 所持金: ${formatBigNum(d.gold)}G）</div>
+                    ${d.petId ? `
+                        <div style="margin-top:6px;">
+                            <button type="button" class="btn-ui btn-amber" id="btn-lvup-pet" ${d.gold < (d.petLevel || 1) * 350 ? 'disabled' : ''}>
+                                相棒レベルアップ (${formatBigNum((d.petLevel || 1) * 350)}G)
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+                <div style="display:grid; gap:8px;">
+                    ${Object.values(PETS).map(pt => {
+                        const owned = (d.ownedPets || []).includes(pt.id);
+                        const eq = d.petId === pt.id;
+                        const canBuy = d.gold >= pt.costGold && this.hasEnoughMats(pt.costMat);
+                        return `
+                            <div class="card-box" style="display:flex; justify-content:space-between; align-items:center;">
+                                <div>
+                                    <div style="font-weight:900; color:#fff;"><span class="font-kaomoji">${pt.kaomoji}</span> ${pt.name}</div>
+                                    <div style="font-size:11px; color:#cbd5e1;">${pt.desc}</div>
+                                    ${!owned ? `<div style="font-size:10px; color:#fde047;">召喚: ${formatBigNum(pt.costGold)}G / ${this.formatMatCost(pt.costMat)}</div>` : ''}
+                                </div>
+                                ${eq ? `<span style="color:#fde047; font-weight:900; font-size:11px;">同行中</span>`
+                                    : owned ? `<button type="button" class="btn-ui btn-sky" data-eq-pet="${pt.id}">同行する</button>`
+                                    : `<button type="button" class="btn-ui btn-emerald" data-buy-pet="${pt.id}" ${!canBuy ? 'disabled' : ''}>仲間にする</button>`}
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+
+            body.querySelector('#btn-lvup-pet')?.addEventListener('click', () => {
+                const cost = (d.petLevel || 1) * 350;
+                if (d.gold < cost) return;
+                d.gold -= cost;
+                d.petLevel = (d.petLevel || 1) + 1;
                 sfx.playLevelUp();
                 this.saveGame(false);
-                this.renderModalContent();
-            }));
-            body.querySelectorAll('.btn-eq-pet').forEach(btn => btn.addEventListener('click', () => {
-                d.petId = btn.dataset.id;
-                this.buildPetEntity();
-                this.saveGame(false);
-                this.renderModalContent();
-            }));
+                this.renderGrowthTabContent();
+            });
+            body.querySelectorAll('[data-buy-pet]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const pid = btn.getAttribute('data-buy-pet');
+                    const pt = PETS[pid];
+                    if (!pt || d.gold < pt.costGold || !this.hasEnoughMats(pt.costMat)) return;
+                    d.gold -= pt.costGold;
+                    this.consumeMats(pt.costMat);
+                    d.ownedPets = d.ownedPets || [];
+                    if (!d.ownedPets.includes(pid)) d.ownedPets.push(pid);
+                    d.petId = pid;
+                    this.buildPetEntity();
+                    sfx.playLevelUp();
+                    this.saveGame(false);
+                    this.renderGrowthTabContent();
+                });
+            });
+            body.querySelectorAll('[data-eq-pet]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    d.petId = btn.getAttribute('data-eq-pet');
+                    this.buildPetEntity();
+                    sfx.playHeal();
+                    this.saveGame(false);
+                    this.renderGrowthTabContent();
+                });
+            });
 
-        } else if (this.activeTab === 'evolve') {
-            const reb = d.rebirthCount || 0;
-            const canRebirth = d.lv >= REBIRTH_REQ_LEVEL;
+        } else if (this.activeTab === 'titles') {
+            const trk = d.statsTrack || {};
             body.innerHTML = `
-                <div style="display:flex; flex-direction:column; gap:10px;">
-                    <div class="card-box flex-between" style="flex-wrap:wrap; border-color:rgba(251,191,36,0.55);">
-                        <div>
-                            <div style="font-size:12px; font-weight:900; color:#fde047;">♻️ 極限超越転生（現在: ${reb}回 / 永続全能力 +${reb * 35}%）</div>
-                            <div style="font-size:10px; color:#cbd5e1;">Lv.${REBIRTH_REQ_LEVEL}以上で装備・素材・見た目・職業・ツリーを引き継ぎAP+15/SP+10獲得！</div>
-                        </div>
-                        <button id="btn-rebirth-do" class="btn-ui btn-amber" ${!canRebirth ? 'disabled' : ''}>
-                            ${canRebirth ? '♻️ 極限転生を実行！' : `🔒 Lv.${REBIRTH_REQ_LEVEL}で解放 (現在Lv.${d.lv})`}
-                        </button>
-                    </div>
-                    <div class="grid-3">
-                        ${Object.values(EVOLUTIONS).filter(e => e.tier >= 1).map(e => {
-                            const isCur = d.evolutionId === e.id;
-                            const canEvo = this.canEvolveTo(e);
+                <div class="card-box" style="margin-bottom:10px;">
+                    <div style="font-weight:900; color:#fde047; margin-bottom:6px;">🎖️ 装備称号（パッシブボーナス）</div>
+                    <div style="display:grid; gap:6px;">
+                        ${Object.values(TITLES).map(tt => {
+                            const unlocked = (d.unlockedTitles || ['title_none']).includes(tt.id);
+                            const eq = (d.equippedTitleId || 'title_none') === tt.id;
                             return `
-                                <div class="card-box" style="border-color:${isCur ? '#fde047' : '#1e293b'}; display:flex; flex-direction:column; justify-content:space-between; gap:6px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; background:#0f172a; padding:6px 8px; border-radius:6px;">
                                     <div>
-                                        <span class="badge-pill" style="background:${e.tier >= 4 ? '#c026d3' : '#312e81'}; color:#fff;">TIER ${e.tier} (Lv.${e.reqLv}〜)</span>
-                                        <div class="font-kaomoji" style="font-size:14px; font-weight:900; text-align:center; padding:6px; margin:5px 0; border-radius:8px; background:#0f172a; color:${e.color};">${e.kaomoji}</div>
-                                        <div style="font-size:12px; font-weight:900; color:#fff;">${e.name}</div>
-                                        <div style="font-size:10px; color:#fde047;">${e.bonusText}</div>
-                                        <div style="font-size:10px; color:#94a3b8;">${e.reqEvo ? `前提:${EVOLUTIONS[e.reqEvo].name} / ` : ''}${this.formatMatReqHtml(e.reqMat)}</div>
+                                        <div style="font-weight:900; font-size:12px;">${tt.name}</div>
+                                        <div style="font-size:10px; color:#6ee7b7;">${tt.bonusText}</div>
                                     </div>
-                                    <button class="btn-do-evo btn-ui ${e.tier >= 4 ? 'btn-fuchsia' : 'btn-sky'}" data-id="${e.id}" ${(!canEvo || isCur) ? 'disabled' : ''}>
-                                        ${isCur ? '✨ 現在の職業' : (canEvo ? '👑 進化/覚醒する！' : '条件未達成')}
-                                    </button>
+                                    ${eq ? `<span style="color:#fde047; font-size:11px; font-weight:900;">装備中</span>`
+                                        : unlocked ? `<button type="button" class="btn-ui btn-sky" style="padding:3px 8px; font-size:10px;" data-eq-title="${tt.id}">装備</button>`
+                                        : `<span style="color:#64748b; font-size:10px;">未解放</span>`}
                                 </div>
                             `;
                         }).join('')}
                     </div>
                 </div>
+                <div style="font-weight:900; color:#38bdf8; margin-bottom:6px;">🏆 実績ミッション</div>
+                <div style="display:grid; gap:6px;">
+                    ${ACHIEVEMENTS.map(ach => {
+                        const claimed = (d.claimedAchievements || []).includes(ach.id);
+                        const curVal = ach.key === 'lv' ? d.lv : (trk[ach.key] || 0);
+                        const done = curVal >= ach.req;
+                        return `
+                            <div class="card-box" style="display:flex; justify-content:space-between; align-items:center;">
+                                <div>
+                                    <div style="font-weight:900;">${ach.name} (${Math.min(curVal, ach.req)}/${ach.req})</div>
+                                    <div style="font-size:11px; color:#cbd5e1;">${ach.desc} ｜ 報酬: AP+${ach.rewardAp} / SP+${ach.rewardSp}</div>
+                                </div>
+                                ${claimed ? `<span style="color:#6ee7b7; font-size:11px; font-weight:900;">受取済</span>`
+                                    : `<button type="button" class="btn-ui btn-amber" data-claim-ach="${ach.id}" ${!done ? 'disabled' : ''}>受取</button>`}
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
             `;
-            body.querySelectorAll('.btn-do-evo').forEach(btn => btn.addEventListener('click', () => {
-                const targetEvo = EVOLUTIONS[btn.dataset.id];
-                if (!targetEvo || !this.canEvolveTo(targetEvo)) return;
-                this.consumeMats(targetEvo.reqMat);
-                d.evolutionId = targetEvo.id;
+
+            body.querySelectorAll('[data-eq-title]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    d.equippedTitleId = btn.getAttribute('data-eq-title');
+                    sfx.playTone(660, 'sine', 0.08, 0.05);
+                    this.saveGame(false);
+                    this.renderGrowthTabContent();
+                    this.refreshAllHUD();
+                });
+            });
+            body.querySelectorAll('[data-claim-ach]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const aid = btn.getAttribute('data-claim-ach');
+                    const ach = ACHIEVEMENTS.find(x => x.id === aid);
+                    if (!ach) return;
+                    d.claimedAchievements = d.claimedAchievements || [];
+                    if (d.claimedAchievements.includes(aid)) return;
+                    d.claimedAchievements.push(aid);
+                    d.ap = (d.ap || 0) + ach.rewardAp;
+                    d.sp = (d.sp || 0) + ach.rewardSp;
+                    if (ach.titleId) {
+                        d.unlockedTitles = d.unlockedTitles || ['title_none'];
+                        if (!d.unlockedTitles.includes(ach.titleId)) d.unlockedTitles.push(ach.titleId);
+                    }
+                    sfx.playLevelUp();
+                    this.saveGame(false);
+                    this.renderGrowthTabContent();
+                });
+            });
+
+        } else if (this.activeTab === 'zones') {
+            body.innerHTML = `
+                <div class="card-box" style="margin-bottom:10px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <div style="font-weight:900; color:#f43f5e;">🔥 危険度ランク: +${d.threatRank || 0} / ${MAX_THREAT_RANK}</div>
+                            <div style="font-size:10px; color:#cbd5e1;">ランクを上げると敵が強くなり、経験値・ゴールド報酬も増加！</div>
+                        </div>
+                        <div style="display:flex; gap:5px;">
+                            <button type="button" class="btn-ui btn-slate" id="btn-threat-down" ${(d.threatRank || 0) <= 0 ? 'disabled' : ''}>-1</button>
+                            <button type="button" class="btn-ui btn-rose" id="btn-threat-up" ${(d.threatRank || 0) >= MAX_THREAT_RANK ? 'disabled' : ''}>+1</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-box" style="margin-bottom:10px; border-color:#a855f7;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <div style="font-weight:900; color:#e879f9;">🗼 無限の試練の塔（最高到達: ${(d.statsTrack && d.statsTrack.bestTowerFloor) || 0}F）</div>
+                            <div style="font-size:11px; color:#cbd5e1;">全滅させるごとに階層が上がるエンドレス挑戦モード</div>
+                        </div>
+                        <button type="button" class="btn-ui btn-purple" id="btn-enter-tower">挑戦する</button>
+                    </div>
+                </div>
+
+                <div style="display:grid; gap:8px;">
+                    ${Object.values(ZONES).map(z => `
+                        <div class="card-box" style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <div style="font-weight:900; color:#fff;">${z.safe ? '🏰' : `⚔️ Stage ${z.stageNum}:`} ${z.name} <span style="color:#fde047; font-size:11px;">(推奨Lv.${z.recLv})</span></div>
+                                <div style="font-size:11px; color:#cbd5e1;">${z.desc}</div>
+                            </div>
+                            <button type="button" class="btn-ui ${this.currentZoneId === z.id && !this.towerState.active ? 'btn-amber' : 'btn-sky'}" data-warp-zone="${z.id}">
+                                ${this.currentZoneId === z.id && !this.towerState.active ? '現在地' : '転移'}
+                            </button>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            body.querySelector('#btn-threat-down')?.addEventListener('click', () => {
+                d.threatRank = Math.max(0, (d.threatRank || 0) - 1);
+                this.saveGame(false);
+                this.renderGrowthTabContent();
+            });
+            body.querySelector('#btn-threat-up')?.addEventListener('click', () => {
+                d.threatRank = Math.min(MAX_THREAT_RANK, (d.threatRank || 0) + 1);
+                this.saveGame(false);
+                this.renderGrowthTabContent();
+            });
+            body.querySelector('#btn-enter-tower')?.addEventListener('click', () => {
+                this.closeGrowthModal();
+                this.startTowerMode(1);
+            });
+            body.querySelectorAll('[data-warp-zone]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const zid = btn.getAttribute('data-warp-zone');
+                    this.closeGrowthModal();
+                    this.loadZone(zid);
+                });
+            });
+
+        } else if (this.activeTab === 'online') {
+            body.innerHTML = `
+                <div class="card-box" style="margin-bottom:10px;">
+                    <div style="font-weight:900; color:#38bdf8; margin-bottom:6px;">🌐 Firebase リアルタイムマルチ＆全体チャット接続</div>
+                    <div style="font-size:11px; color:#cbd5e1; margin-bottom:6px;">
+                        状態: <b style="color:${this.fbConnected ? '#6ee7b7' : '#fca5a5'};">${this.fbConnected ? '接続中' : '未接続（オフライン）'}</b>
+                    </div>
+                    <input type="text" id="inp-fb-url" value="${d.firebaseUrl || ''}" placeholder="https://your-project-default-rtdb.firebaseio.com" style="width:100%; background:#0f172a; color:#fff; border:1px solid #334155; border-radius:6px; padding:6px; margin-bottom:6px;">
+                    <div style="display:flex; gap:6px;">
+                        <button type="button" class="btn-ui btn-emerald" id="btn-fb-connect">接続する</button>
+                        <button type="button" class="btn-ui btn-slate" id="btn-fb-disconnect">切断</button>
+                    </div>
+                </div>
+                <div class="card-box">
+                    <div style="font-weight:900; color:#f43f5e; margin-bottom:6px;">⚙️ セーブ管理</div>
+                    <div style="display:flex; gap:8px;">
+                        <button type="button" class="btn-ui btn-sky" id="btn-modal-save">💾 手動セーブ</button>
+                        <button type="button" class="btn-ui btn-rose" id="btn-modal-reset">💥 データ完全初期化</button>
+                    </div>
+                </div>
+            `;
+
+            body.querySelector('#btn-fb-connect')?.addEventListener('click', () => {
+                const url = body.querySelector('#inp-fb-url')?.value.trim();
+                if (!url) return;
+                d.firebaseUrl = url;
+                d.onlineEnabled = true;
+                this.saveGame(false);
+                this.connectFirebase(url, false);
+                this.renderGrowthTabContent();
+            });
+            body.querySelector('#btn-fb-disconnect')?.addEventListener('click', () => {
+                d.onlineEnabled = false;
+                this.saveGame(false);
+                this.disconnectFirebase();
+                this.renderGrowthTabContent();
+            });
+            body.querySelector('#btn-modal-save')?.addEventListener('click', () => this.saveGame(true));
+            body.querySelector('#btn-modal-reset')?.addEventListener('click', () => {
+                if (confirm('本当にすべてのセーブデータを初期化しますか？')) {
+                    this.hardResetGame();
+                }
+            });
+        }
+    },
+
+    renderWeaponCard(w, evo) {
+        const d = this.saveData;
+        const owned = (d.ownedWeapons || []).includes(w.id);
+        const equipped = d.weaponId === w.id;
+        const allowed = canEquipWeaponForJob(w, evo);
+        const canBuy = d.gold >= w.costGold && this.hasEnoughMats(w.costMat);
+
+        return `
+            <div class="card-box" style="display:flex; justify-content:space-between; align-items:center; opacity:${allowed ? '1' : '0.58'};">
+                <div>
+                    <div style="font-weight:900; color:#fff;">${w.icon} ${w.name}</div>
+                    <div style="font-size:11px; color:#cbd5e1;">攻撃+${w.atk} / 魔力倍率x${w.mag}</div>
+                    ${!owned ? `<div style="font-size:10px; color:#fde047;">作成: ${formatBigNum(w.costGold)}G / ${this.formatMatCost(w.costMat)}</div>` : ''}
+                    ${!allowed ? `<div style="font-size:10px; color:#fca5a5;">※ 現在の役職では装備不可</div>` : ''}
+                </div>
+                ${equipped
+                    ? `<span style="color:#fde047; font-weight:900; font-size:11px;">装備中</span>`
+                    : !allowed
+                        ? `<span style="color:#94a3b8; font-size:10px;">装備不可</span>`
+                        : owned
+                            ? `<button type="button" class="btn-ui btn-sky" data-eq-wpn="${w.id}">装備</button>`
+                            : `<button type="button" class="btn-ui btn-emerald" data-buy-wpn="${w.id}" ${!canBuy ? 'disabled' : ''}>作成</button>`
+                }
+            </div>
+        `;
+    },
+
+    bindEquipTabEvents(body, wEnhReq, aEnhReq) {
+        const d = this.saveData;
+
+        body.querySelector('#btn-enh-wpn')?.addEventListener('click', () => {
+            if (d.gold < wEnhReq.gold || !this.hasEnoughMats(wEnhReq.mats)) return;
+            d.gold -= wEnhReq.gold;
+            this.consumeMats(wEnhReq.mats);
+            d.weaponEnhance = (d.weaponEnhance || 0) + 1;
+            this.buildPlayerEntity();
+            sfx.playLevelUp();
+            this.saveGame(false);
+            this.renderGrowthTabContent();
+        });
+
+        body.querySelector('#btn-enh-arm')?.addEventListener('click', () => {
+            if (d.gold < aEnhReq.gold || !this.hasEnoughMats(aEnhReq.mats)) return;
+            d.gold -= aEnhReq.gold;
+            this.consumeMats(aEnhReq.mats);
+            d.armorEnhance = (d.armorEnhance || 0) + 1;
+            this.buildPlayerEntity();
+            sfx.playLevelUp();
+            this.saveGame(false);
+            this.renderGrowthTabContent();
+        });
+
+        body.querySelector('#btn-ench-wpn')?.addEventListener('click', () => {
+            if (d.gold < 800) return;
+            d.gold -= 800;
+            const pick = ENCHANT_POOL[Math.floor(Math.random() * ENCHANT_POOL.length)];
+            d.weaponEnchant = pick.id;
+            sfx.playSkill();
+            this.saveGame(false);
+            this.renderGrowthTabContent();
+            this.showAlertBanner(`✨ 武器に【${pick.label}】が付与された！`, 1600);
+        });
+
+        body.querySelector('#btn-ench-arm')?.addEventListener('click', () => {
+            if (d.gold < 800) return;
+            d.gold -= 800;
+            const pick = ENCHANT_POOL[Math.floor(Math.random() * ENCHANT_POOL.length)];
+            d.armorEnchant = pick.id;
+            sfx.playSkill();
+            this.saveGame(false);
+            this.renderGrowthTabContent();
+            this.showAlertBanner(`✨ 防具に【${pick.label}】が付与された！`, 1600);
+        });
+
+        body.querySelectorAll('[data-buy-wpn]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const wid = btn.getAttribute('data-buy-wpn');
+                const w = WEAPONS[wid];
+                const evo = EVOLUTIONS[d.evolutionId] || EVOLUTIONS.novice;
+                if (!w || !canEquipWeaponForJob(w, evo) || d.gold < w.costGold || !this.hasEnoughMats(w.costMat)) return;
+                d.gold -= w.costGold;
+                this.consumeMats(w.costMat);
+                d.ownedWeapons = d.ownedWeapons || [];
+                if (!d.ownedWeapons.includes(wid)) d.ownedWeapons.push(wid);
+                d.weaponId = wid;
                 this.buildPlayerEntity();
                 sfx.playLevelUp();
                 this.saveGame(false);
-                this.renderModalContent();
-                this.showAlertBanner(`👑 「${targetEvo.name}」へ進化しました！`, 2200);
-            }));
-            document.getElementById('btn-rebirth-do')?.addEventListener('click', () => {
-                if (d.lv < REBIRTH_REQ_LEVEL) return;
-                this.openDialog('♻️ 極限超越転生の確認', `Lv.${d.lv} から Lv.1 へ転生しますか？\n（全基礎能力 +35% ＆ AP+15 / SP+10 獲得！）`, [
-                    { text: 'キャンセル', primary: false },
-                    { text: '♻️ 転生する！', primary: true, onClick: () => {
-                        d.rebirthCount = (d.rebirthCount || 0) + 1;
-                        d.lv = 1; d.exp = 0; d.ap += 15; d.sp += 10;
-                        this.buildPlayerEntity();
-                        const newSt = this.calcDerivedStats();
-                        this.player.hp = newSt.maxHp; this.player.mp = newSt.maxMp;
-                        sfx.playLevelUp();
-                        this.saveGame(false);
-                        this.closeGrowthModal();
-                        this.showAlertBanner(`♻️ 極限超越転生 第${d.rebirthCount}周目突入！`, 2800);
-                    }}
-                ]);
+                this.renderGrowthTabContent();
+                this.refreshAllHUD();
             });
+        });
 
-        } else if (this.activeTab === 'achieve') {
-            const tr = d.statsTrack || { kills: 0, bossKills: 0, bestTowerFloor: 0 };
-            body.innerHTML = `
-                <div style="display:flex; flex-direction:column; gap:10px;">
-                    <div class="card-box">
-                        <div style="font-size:12px; font-weight:900; color:#fde047; margin-bottom:6px;">👑 バフ付き称号（装備するだけで永続ステータスUP）</div>
-                        <div class="grid-2">
-                            ${Object.values(TITLES).map(t => {
-                                const unlocked = (d.unlockedTitles || ['title_none']).includes(t.id);
-                                const equipped = (d.equippedTitleId || 'title_none') === t.id;
-                                return `
-                                    <div class="card-box flex-between" style="opacity:${unlocked ? 1 : 0.45};">
-                                        <div>
-                                            <div style="font-size:12px; font-weight:900; color:#fff;">${t.name}</div>
-                                            <div style="font-size:10px; color:#6ee7b7;">${t.bonusText}</div>
-                                        </div>
-                                        ${equipped ? '<span class="badge-pill" style="background:#059669; color:#fff;">装備中</span>'
-                                            : (unlocked ? `<button class="btn-eq-title btn-ui btn-sky" data-id="${t.id}">装備</button>` : '<span style="font-size:10px; color:#94a3b8;">🔒 未解放</span>')}
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
-                    </div>
-                    <div class="grid-2">
-                        ${ACHIEVEMENTS.map(a => {
-                            const claimed = (d.claimedAchievements || []).includes(a.id);
-                            const cur = a.key === 'rebirthCount' ? (d.rebirthCount || 0) : (tr[a.key] || 0);
-                            const done = cur >= a.req;
-                            return `
-                                <div class="card-box flex-between">
-                                    <div>
-                                        <div style="font-size:12px; font-weight:900; color:#fff;">${a.name} (${Math.min(cur, a.req)}/${a.req})</div>
-                                        <div style="font-size:10px; color:#cbd5e1;">${a.desc}</div>
-                                        <div style="font-size:10px; color:#f0abfc;">報酬: AP+${a.rewardAp} / SP+${a.rewardSp}</div>
-                                    </div>
-                                    ${claimed ? '<span class="badge-pill" style="background:#1e293b; color:#94a3b8;">受取済</span>'
-                                        : `<button class="btn-claim-ach btn-ui ${done ? 'btn-amber' : 'btn-slate'}" data-id="${a.id}" ${!done ? 'disabled' : ''}>${done ? '🎁 受取' : '進行中'}</button>`}
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
-                </div>
-            `;
-            body.querySelectorAll('.btn-eq-title').forEach(btn => btn.addEventListener('click', () => {
-                d.equippedTitleId = btn.dataset.id;
+        body.querySelectorAll('[data-eq-wpn]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const wid = btn.getAttribute('data-eq-wpn');
+                const w = WEAPONS[wid];
+                const evo = EVOLUTIONS[d.evolutionId] || EVOLUTIONS.novice;
+                if (!w || !canEquipWeaponForJob(w, evo)) return;
+                d.weaponId = wid;
+                this.buildPlayerEntity();
+                sfx.playTone(620, 'sine', 0.08, 0.05);
                 this.saveGame(false);
-                this.renderModalContent();
-            }));
-            body.querySelectorAll('.btn-claim-ach').forEach(btn => btn.addEventListener('click', () => {
-                const a = ACHIEVEMENTS.find(x => x.id === btn.dataset.id);
-                if (!a) return;
-                if (!d.claimedAchievements) d.claimedAchievements = [];
-                if (d.claimedAchievements.includes(a.id)) return;
-                d.claimedAchievements.push(a.id);
-                d.ap += a.rewardAp; d.sp += a.rewardSp;
-                if (!d.unlockedTitles) d.unlockedTitles = ['title_none'];
-                if (a.titleId && !d.unlockedTitles.includes(a.titleId)) {
-                    d.unlockedTitles.push(a.titleId);
-                    d.equippedTitleId = a.titleId;
-                }
+                this.renderGrowthTabContent();
+                this.refreshAllHUD();
+            });
+        });
+
+        body.querySelectorAll('[data-buy-arm]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const aid = btn.getAttribute('data-buy-arm');
+                const a = ARMORS[aid];
+                if (!a || d.gold < a.costGold || !this.hasEnoughMats(a.costMat)) return;
+                d.gold -= a.costGold;
+                this.consumeMats(a.costMat);
+                d.ownedArmors = d.ownedArmors || [];
+                if (!d.ownedArmors.includes(aid)) d.ownedArmors.push(aid);
+                d.armorId = aid;
+                this.buildPlayerEntity();
                 sfx.playLevelUp();
                 this.saveGame(false);
-                this.renderModalContent();
-            }));
+                this.renderGrowthTabContent();
+            });
+        });
+
+        body.querySelectorAll('[data-eq-arm]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                d.armorId = btn.getAttribute('data-eq-arm');
+                this.buildPlayerEntity();
+                sfx.playTone(620, 'sine', 0.08, 0.05);
+                this.saveGame(false);
+                this.renderGrowthTabContent();
+            });
+        });
+
+        body.querySelectorAll('[data-buy-acc]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const acid = btn.getAttribute('data-buy-acc');
+                const ac = ACCESSORIES[acid];
+                if (!ac || d.gold < ac.costGold || !this.hasEnoughMats(ac.costMat)) return;
+                d.gold -= ac.costGold;
+                this.consumeMats(ac.costMat);
+                d.ownedAccessories = d.ownedAccessories || [];
+                if (!d.ownedAccessories.includes(acid)) d.ownedAccessories.push(acid);
+                d.accessoryId = acid;
+                sfx.playLevelUp();
+                this.saveGame(false);
+                this.renderGrowthTabContent();
+            });
+        });
+
+        body.querySelectorAll('[data-eq-acc]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                d.accessoryId = btn.getAttribute('data-eq-acc');
+                sfx.playTone(620, 'sine', 0.08, 0.05);
+                this.saveGame(false);
+                this.renderGrowthTabContent();
+            });
+        });
+
+        body.querySelectorAll('[data-alchemy]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const rec = MATERIAL_ALCHEMY[Number(btn.getAttribute('data-alchemy'))];
+                if (!rec) return;
+                const have = (d.materials && d.materials[rec.from]) || 0;
+                if (have < rec.count || d.gold < rec.gold) return;
+                d.gold -= rec.gold;
+                d.materials[rec.from] -= rec.count;
+                d.materials[rec.to] = (d.materials[rec.to] || 0) + 1;
+                sfx.playHeal();
+                this.saveGame(false);
+                this.renderGrowthTabContent();
+            });
+        });
+    },
+
+    bindLookTabEvents(body) {
+        const d = this.saveData;
+
+        body.querySelector('#btn-apply-kaomoji')?.addEventListener('click', () => {
+            const val = body.querySelector('#inp-custom-kaomoji')?.value || '';
+            d.customKaomoji = val.trim().slice(0, 18);
+            this.buildPlayerEntity();
+            sfx.playHeal();
+            this.saveGame(false);
+            this.refreshAllHUD();
+        });
+
+        body.querySelectorAll('[data-preset-k]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                d.customKaomoji = btn.getAttribute('data-preset-k');
+                this.buildPlayerEntity();
+                sfx.playTone(680, 'sine', 0.07, 0.05);
+                this.saveGame(false);
+                this.renderGrowthTabContent();
+                this.refreshAllHUD();
+            });
+        });
+
+        body.querySelectorAll('[data-body-col]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                d.bodyColor = btn.getAttribute('data-body-col');
+                this.buildPlayerEntity();
+                this.saveGame(false);
+                this.renderGrowthTabContent();
+            });
+        });
+
+        body.querySelectorAll('[data-face-bg]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                d.faceBgColor = btn.getAttribute('data-face-bg');
+                this.buildPlayerEntity();
+                this.saveGame(false);
+                this.renderGrowthTabContent();
+            });
+        });
+
+        body.querySelectorAll('[data-body-scale]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                d.bodyScale = Number(btn.getAttribute('data-body-scale')) || 1.0;
+                this.buildPlayerEntity();
+                this.saveGame(false);
+                this.renderGrowthTabContent();
+            });
+        });
+
+        body.querySelectorAll('[data-buy-cos]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const cid = btn.getAttribute('data-buy-cos');
+                const cos = COSMETICS[cid];
+                if (!cos || d.gold < cos.costGold || !this.hasEnoughMats(cos.costMat)) return;
+                d.gold -= cos.costGold;
+                this.consumeMats(cos.costMat);
+                d.ownedCosmetics = d.ownedCosmetics || ['none'];
+                if (!d.ownedCosmetics.includes(cid)) d.ownedCosmetics.push(cid);
+                d.cosmeticId = cid;
+                this.buildPlayerEntity();
+                sfx.playLevelUp();
+                this.saveGame(false);
+                this.renderGrowthTabContent();
+            });
+        });
+
+        body.querySelectorAll('[data-eq-cos]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                d.cosmeticId = btn.getAttribute('data-eq-cos');
+                this.buildPlayerEntity();
+                this.saveGame(false);
+                this.renderGrowthTabContent();
+            });
+        });
+
+        body.querySelectorAll('[data-buy-back]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const bid = btn.getAttribute('data-buy-back');
+                const bc = BACK_COSMETICS[bid];
+                if (!bc || d.gold < bc.costGold || !this.hasEnoughMats(bc.costMat)) return;
+                d.gold -= bc.costGold;
+                this.consumeMats(bc.costMat);
+                d.ownedBackCosmetics = d.ownedBackCosmetics || ['back_none'];
+                if (!d.ownedBackCosmetics.includes(bid)) d.ownedBackCosmetics.push(bid);
+                d.backCosmeticId = bid;
+                this.buildPlayerEntity();
+                sfx.playLevelUp();
+                this.saveGame(false);
+                this.renderGrowthTabContent();
+            });
+        });
+
+        body.querySelectorAll('[data-eq-back]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                d.backCosmeticId = btn.getAttribute('data-eq-back');
+                this.buildPlayerEntity();
+                this.saveGame(false);
+                this.renderGrowthTabContent();
+            });
+        });
+    },
+
+    // =========================================================================
+    // Firebase リアルタイム通信・他プレイヤー同期
+    // =========================================================================
+    connectFirebase(rawUrl, silent = false) {
+        const cleanUrl = String(rawUrl || '').trim().replace(/\/+$/, '');
+        if (!cleanUrl || !cleanUrl.startsWith('http')) return;
+        this.fbBaseUrl = cleanUrl;
+        this.fbConnected = true;
+        this.fbLastEventTs = Date.now();
+        if (!silent) {
+            this.showAlertBanner('🌐 オンラインサーバーに接続しました！', 1800);
         }
+        this.syncFirebaseNow();
+    },
+
+    disconnectFirebase() {
+        this.fbConnected = false;
+        this.remotePlayers.forEach(rp => {
+            if (rp.group && this.scene) this.scene.remove(rp.group);
+            if (rp.plateEl) rp.plateEl.remove();
+        });
+        this.remotePlayers.clear();
+    },
+
+    broadcastFirebaseEvent(type, payload) {
+        if (!this.fbConnected || !this.fbBaseUrl) return;
+        const body = {
+            uid: this.saveData.playerUid,
+            type,
+            ts: Date.now(),
+            ...payload
+        };
+        fetch(`${this.fbBaseUrl}/events.json`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        }).catch(() => {});
+    },
+
+    syncFirebaseNow() {
+        if (!this.fbConnected || !this.fbBaseUrl || !this.player) return;
+        const d = this.saveData;
+        const state = {
+            uid: d.playerUid,
+            kaomoji: this.getBasePlayerKaomoji(),
+            lv: d.lv,
+            zoneId: this.currentZoneId,
+            roomKey: this.getCurrentRoomKey(),
+            x: Number(this.player.pos.x.toFixed(2)),
+            z: Number(this.player.pos.z.toFixed(2)),
+            rotY: Number(this.player.rotY.toFixed(2)),
+            bodyColor: d.bodyColor || '',
+            faceBgColor: d.faceBgColor || '#073b66',
+            bodyScale: this.getPlayerBodyScale(),
+            weaponId: d.weaponId,
+            armorId: d.armorId,
+            cosmeticId: d.cosmeticId || 'none',
+            backCosmeticId: d.backCosmeticId || 'back_none',
+            updatedAt: Date.now()
+        };
+        fetch(`${this.fbBaseUrl}/players/${d.playerUid}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(state)
+        }).catch(() => {});
+    },
+
+    updateFirebaseSync(dt) {
+        this.fbSyncTimer += dt;
+        this.fbPollTimer += dt;
+
+        if (this.fbSyncTimer >= 1.2) {
+            this.fbSyncTimer = 0;
+            this.syncFirebaseNow();
+        }
+        if (this.fbPollTimer >= 1.5) {
+            this.fbPollTimer = 0;
+            this.pollFirebaseState();
+        }
+
+        // 他プレイヤー頭上プレート投影
+        this.remotePlayers.forEach(rp => {
+            if (!rp.plateEl) return;
+            const scr = this.projectToScreen(rp.pos.clone().add(new THREE.Vector3(0, 2.3, 0)));
+            if (!scr) {
+                rp.plateEl.style.display = 'none';
+            } else {
+                rp.plateEl.style.display = 'block';
+                rp.plateEl.style.left = `${scr.x}px`;
+                rp.plateEl.style.top = `${scr.y}px`;
+            }
+        });
+    },
+
+    pollFirebaseState() {
+        if (!this.fbConnected || !this.fbBaseUrl) return;
+        const myUid = this.saveData.playerUid;
+        const myRoom = this.getCurrentRoomKey();
+
+        fetch(`${this.fbBaseUrl}/players.json`)
+            .then(r => r.json())
+            .then(data => {
+                if (!data || typeof data !== 'object') return;
+                const now = Date.now();
+                const seen = new Set();
+
+                Object.values(data).forEach(p => {
+                    if (!p || !p.uid || p.uid === myUid) return;
+                    if (now - (p.updatedAt || 0) > 15000) return;
+                    if (p.zoneId !== this.currentZoneId || p.roomKey !== myRoom) return;
+
+                    seen.add(p.uid);
+                    let rp = this.remotePlayers.get(p.uid);
+                    if (!rp) {
+                        const av = this.buildAvatarGroup({
+                            kaomoji: p.kaomoji || '(´・ω・`)',
+                            bodyHex: p.bodyColor ? parseInt(p.bodyColor.slice(1), 16) : 0x38bdf8,
+                            faceBgHex: p.faceBgColor || '#073b66',
+                            bodyScale: p.bodyScale || 1.0,
+                            weaponId: p.weaponId || 'wpn_wood',
+                            armorId: p.armorId || 'arm_cloth',
+                            cosmeticId: p.cosmeticId || 'none',
+                            backCosmeticId: p.backCosmeticId || 'back_none'
+                        });
+                        if (this.scene) this.scene.add(av.group);
+                        const plate = document.createElement('div');
+                        plate.className = 'world-plate';
+                        plate.innerHTML = `<div style="font-size:10px; font-weight:900; color:#6ee7b7;">Lv.${p.lv || 1} 仲間</div>`;
+                        this.overlayLayer?.appendChild(plate);
+
+                        rp = {
+                            uid: p.uid,
+                            pos: new THREE.Vector3(p.x || 0, 0, p.z || 0),
+                            group: av.group,
+                            plateEl: plate
+                        };
+                        this.remotePlayers.set(p.uid, rp);
+                    }
+                    rp.pos.set(p.x || 0, 0, p.z || 0);
+                    if (rp.group) {
+                        rp.group.position.copy(rp.pos);
+                        rp.group.rotation.y = p.rotY || 0;
+                    }
+                });
+
+                this.remotePlayers.forEach((rp, uid) => {
+                    if (!seen.has(uid)) {
+                        if (rp.group && this.scene) this.scene.remove(rp.group);
+                        if (rp.plateEl) rp.plateEl.remove();
+                        this.remotePlayers.delete(uid);
+                    }
+                });
+            })
+            .catch(() => {});
+
+        fetch(`${this.fbBaseUrl}/events.json?orderBy="ts"&startAt=${this.fbLastEventTs + 1}&limitToLast=15`)
+            .then(r => r.json())
+            .then(data => {
+                if (!data || typeof data !== 'object') return;
+                Object.values(data).forEach(ev => {
+                    if (!ev || !ev.ts || ev.ts <= this.fbLastEventTs) return;
+                    this.fbLastEventTs = Math.max(this.fbLastEventTs, ev.ts);
+                    if (ev.uid === myUid) return;
+
+                    if (ev.type === 'chat_global') {
+                        this.addChatMessage('global', ev.kaomoji, ev.name, ev.text, false);
+                    } else if (ev.type === 'chat_room' && ev.roomKey === myRoom) {
+                        this.addChatMessage('room', ev.kaomoji, ev.name, ev.text, false);
+                    } else if (ev.type === 'emote' && ev.roomKey === myRoom) {
+                        this.addChatMessage('room', ev.kaomoji, ev.name, ev.msg, false);
+                    }
+                });
+            })
+            .catch(() => {});
     }
 });
