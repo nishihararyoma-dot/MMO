@@ -12,32 +12,23 @@ const MQTT_SERVERS = [
 const TOPIC_GLOBAL = 'kaomoji_fantasy_3d/stable/global';
 
 const ALL_EMOTE_MOTIONS = [
-    'greeting_wave',
-    'backflip',
-    'bow_polite',
-    'tornado_dance',
-    'heart_float',
-    'chabudai_rage',
-    'cry_fountain',
-    'dogeza',
-    'ghost_faint',
-    'sleep_bubble',
-    'salute_hero',
-    'rocket_zoom'
+    'greeting_wave', 'backflip', 'bow_polite', 'tornado_dance',
+    'heart_float', 'chabudai_rage', 'cry_fountain', 'dogeza',
+    'ghost_faint', 'sleep_bubble', 'salute_hero', 'rocket_zoom'
 ];
 
 const LOADING_KAOMOJIS = ['(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧', 'ε=ε=ε=┏(゜ロ゜;)┛', '(ง •̀_•́)ง ⚔️', '✧*｡٩(ˊᗜˋ*)و✧*｡', '(╯°□°）╯︵ ┻━┻'];
 const LOADING_TIPS = [
     '💡 「極光の聖域」はフィールドを展開して範囲内の自分と味方を継続回復＆強化するよ！',
-    '💡 スキルのレベルが上がるとエフェクトが巨大化して魔法陣やオーブが追加されるよ！',
-    '💡 オンラインでは仲間のペットや入退室・戦闘不能ログもリアルタイムで共有されるよ！',
-    '💡 ちゃぶ台返しエモートを押すと本当に3Dちゃぶ台が飛んでいくよ！'
+    '💡 ペットタブから相棒のペットに好きな名前をつけられるよ！',
+    '💡 AUTOモード中は攻撃スキルだけでなく回復や極光の聖域も自動で使ってくれるよ！',
+    '💡 入室・退室・戦闘不能のログは全体チャット（GLOBAL）に流れるよ！'
 ];
 
-(function injectV16Styles() {
-    if (document.getElementById('kmj-v16-style')) return;
+(function injectV17Styles() {
+    if (document.getElementById('kmj-v17-style')) return;
     const st = document.createElement('style');
-    st.id = 'kmj-v16-style';
+    st.id = 'kmj-v17-style';
     st.textContent = `
         #kmj-loading-screen{position:fixed;inset:0;z-index:96;background:radial-gradient(circle at center,#0f172a 0%,#020617 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;transition:opacity .28s ease;pointer-events:auto}
         #kmj-loading-screen.fade-out{opacity:0;pointer-events:none}
@@ -56,38 +47,67 @@ const LOADING_TIPS = [
 
 Object.assign(KaomojiMMORPG.prototype, {
 
-    // システムログ出力（チャット欄＆通知）
+    // 入室・退室・死亡などのシステムログを全体チャット（GLOBAL）＆上部通知へ出力
     pushSystemEventLog(text, bannerMs = 2200) {
         if (!text) return;
         if (this.addChatMessage) {
-            this.addChatMessage('room', '📢', 'SYSTEM', text, false);
+            this.addChatMessage('global', '📢', 'SYSTEM', text, false);
         }
         if (bannerMs > 0 && this.showAlertBanner) {
             this.showAlertBanner(text, bannerMs);
         }
     },
 
-    // 自分のペット情報を柔軟に取得（マルチ送信＆表示用）
+    // ペットのカスタム名を取得・保存
+    getPetCustomName(petId, fallbackName = 'ペット') {
+        const d = this.saveData || {};
+        if (petId && d.petNames && d.petNames[petId]) return String(d.petNames[petId]);
+        if (d.customPetName) return String(d.customPetName);
+        return String(fallbackName || 'ペット');
+    },
+
+    setPetCustomName(petId, rawName) {
+        const clean = String(rawName || '').trim().slice(0, 14);
+        if (!this.saveData) return;
+        if (!this.saveData.petNames) this.saveData.petNames = {};
+        if (petId) {
+            if (clean) this.saveData.petNames[petId] = clean;
+            else delete this.saveData.petNames[petId];
+        }
+        this.saveData.customPetName = clean;
+        if (this.pet && clean) this.pet.name = clean;
+        this.saveGame?.(false);
+        this.syncFirebaseNow?.(false);
+        this.showAlertBanner(clean ? `🐾 ペット名を「${clean}」に変更しました！` : '🐾 ペット名を初期値に戻しました', 1800);
+    },
+
+    // 自分のペット情報をあらゆる保存形式から確実に取得（マルチ同期用）
     getMyPetSyncInfo() {
         const d = this.saveData || {};
-        const rawId = d.equippedPetId || d.petId || d.activePetId || d.companionId || '';
-        if (!rawId || rawId === 'none') return null;
+        const rawId = d.equippedPet || d.equippedPetId || d.petId || d.activePet || d.activePetId || d.companionId || d.selectedPet || this.pet?.id || '';
+        const hasPetEntity = !!(this.pet && (this.pet.group || this.pet.mesh || this.pet.kaomoji));
+        if ((!rawId || rawId === 'none') && !hasPetEntity) return null;
 
+        const petKey = String(rawId || this.pet?.id || 'default_pet');
         let petDef = null;
         if (typeof PETS !== 'undefined' && PETS) {
             petDef = Array.isArray(PETS)
-                ? PETS.find(p => p && (p.id === rawId || p.petId === rawId))
-                : (PETS[rawId] || Object.values(PETS).find(p => p && (p.id === rawId || p.petId === rawId)));
+                ? PETS.find(p => p && (p.id === petKey || p.petId === petKey))
+                : (PETS[petKey] || Object.values(PETS).find(p => p && (p.id === petKey || p.petId === petKey)));
         }
-        const savedObj = (d.ownedPets && d.ownedPets[rawId]) || (Array.isArray(d.pets) ? d.pets.find(p => p && (p.id === rawId)) : null);
+        const savedObj = (d.ownedPets && d.ownedPets[petKey])
+            || (d.petData && d.petData[petKey])
+            || (Array.isArray(d.pets) ? d.pets.find(p => p && (p.id === petKey)) : null);
+
         const kaomoji = petDef?.kaomoji || savedObj?.kaomoji || this.pet?.kaomoji || '(・ω・)';
-        const name = petDef?.name || savedObj?.name || this.pet?.name || 'ペット';
-        const lv = savedObj?.lv || d.petLevels?.[rawId] || this.pet?.lv || 1;
+        const baseName = petDef?.name || savedObj?.name || this.pet?.name || 'ペット';
+        const name = this.getPetCustomName(petKey, baseName);
+        const lv = savedObj?.lv || d.petLevels?.[petKey] || this.pet?.lv || 1;
         const color = petDef?.color || petDef?.hexColor || savedObj?.color || '#34d399';
-        return { petId: String(rawId), kaomoji: String(kaomoji), name: String(name), lv: Number(lv) || 1, color };
+        return { petId: petKey, kaomoji: String(kaomoji), name: String(name), lv: Number(lv) || 1, color };
     },
 
-    // 他プレイヤーのペット用3Dモデル生成
+    // オンライン味方のペット用3Dモデル生成
     buildRemotePetMesh(petInfo) {
         const grp = new THREE.Group();
         let hex = 0x34d399;
@@ -97,30 +117,37 @@ Object.assign(KaomojiMMORPG.prototype, {
         }
 
         const body = new THREE.Mesh(
-            new THREE.SphereGeometry(0.46, 16, 16),
+            new THREE.SphereGeometry(0.48, 16, 16),
             new THREE.MeshLambertMaterial({ color: hex })
         );
-        body.position.y = 0.75;
+        body.position.y = 0.78;
         grp.add(body);
 
-        // 耳パーツ
+        // 足元の光輪（視認性アップ）
+        const ring = new THREE.Mesh(
+            new THREE.RingGeometry(0.45, 0.62, 20),
+            new THREE.MeshBasicMaterial({ color: 0x6ee7b7, side: THREE.DoubleSide, transparent: true, opacity: 0.7 })
+        );
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.y = 0.08;
+        grp.add(ring);
+
         const earMat = new THREE.MeshLambertMaterial({ color: 0xfde047 });
         [-0.25, 0.25].forEach(ex => {
-            const ear = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.32, 8), earMat);
-            ear.position.set(ex, 1.18, 0);
+            const ear = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.34, 8), earMat);
+            ear.position.set(ex, 1.22, 0);
             grp.add(ear);
         });
 
-        // 顔文字テクスチャパネル
         const cvs = document.createElement('canvas');
         cvs.width = 256;
         cvs.height = 128;
         const ctx = cvs.getContext('2d');
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
-        ctx.fillRect(12, 20, 232, 88);
-        ctx.strokeStyle = '#38bdf8';
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+        ctx.fillRect(10, 18, 236, 92);
+        ctx.strokeStyle = '#34d399';
         ctx.lineWidth = 6;
-        ctx.strokeRect(12, 20, 232, 88);
+        ctx.strokeRect(10, 18, 236, 92);
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold 34px sans-serif';
         ctx.textAlign = 'center';
@@ -129,13 +156,42 @@ Object.assign(KaomojiMMORPG.prototype, {
 
         const tex = new THREE.CanvasTexture(cvs);
         const facePlane = new THREE.Mesh(
-            new THREE.PlaneGeometry(0.95, 0.48),
+            new THREE.PlaneGeometry(1.0, 0.5),
             new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide })
         );
-        facePlane.position.set(0, 0.78, 0.44);
+        facePlane.position.set(0, 0.82, 0.46);
         grp.add(facePlane);
 
+        grp.traverse(o => { o.frustumCulled = false; });
         return grp;
+    },
+
+    // スキル定義の説明文と効果を実際の最新仕様に同期（極光の聖域・創世ビッグバン・Lv進化）
+    syncSkillDescriptionsAndEffects() {
+        if (typeof SKILLS === 'undefined' || !SKILLS) return;
+        const list = Array.isArray(SKILLS) ? SKILLS : Object.values(SKILLS);
+        list.forEach(sk => {
+            if (!sk || typeof sk !== 'object') return;
+            const key = `${sk.id || ''} ${sk.name || ''}`.toLowerCase();
+            if (/aurora|sanctuary|polar|極光|聖域|オーロラ/.test(key)) {
+                sk.type = 'buff';
+                sk.target = 'self';
+                const newDesc = '【フィールド展開】8秒間、極光の聖域を展開し範囲内の自分と味方のHPを毎秒回復＋ATK/DEF/SPD強化！(Lv上昇で範囲・回復量UP)';
+                if ('desc' in sk) sk.desc = newDesc;
+                if ('description' in sk) sk.description = newDesc;
+            } else if (/bigbang|big_bang|genesis|cosmos|creation|supernova|ビッグバン|びっくばん|創世|創星|創生/.test(key)) {
+                const newDesc = '【創世超爆発】宇宙のビッグバンを引き起こし広範囲の敵に絶大なダメージ！(Lv3で魔法陣、Lv5で公転オーブ追加)';
+                if ('desc' in sk) sk.desc = newDesc;
+                if ('description' in sk) sk.description = newDesc;
+            } else {
+                const cur = sk.desc || sk.description || '';
+                if (cur && !cur.includes('Lv.3')) {
+                    const updated = `${cur} (Lv.3で魔法陣・Lv.5で公転オーブ進化)`;
+                    if ('desc' in sk) sk.desc = updated;
+                    if ('description' in sk) sk.description = updated;
+                }
+            }
+        });
     },
 
     showLoadingOverlay(titleText = 'NOW LOADING...', durationMs = 950) {
@@ -199,6 +255,22 @@ Object.assign(KaomojiMMORPG.prototype, {
     getSafeRoomKey() {
         if (!this.saveData.roomPassEnabled) return 'PUBLIC_OPEN_ROOM';
         return 'PASS_' + String(this.saveData.roomPassword || '').trim();
+    }
+});
+// ▲▲▲ ここまで【1/3】 ▲▲▲
+// ▼▼▼ ここから【2/3】 ▼▼▼
+Object.assign(KaomojiMMORPG.prototype, {
+
+    // パスワード部屋ONなら「部屋チャット(room)」、公開オンライン時は「全体チャット(global)」にログ出力
+    pushSystemEventLog(text, bannerMs = 2200) {
+        if (!text) return;
+        const channel = this.saveData?.roomPassEnabled ? 'room' : 'global';
+        if (this.addChatMessage) {
+            this.addChatMessage(channel, '📢', 'SYSTEM', text, false);
+        }
+        if (bannerMs > 0 && this.showAlertBanner) {
+            this.showAlertBanner(text, bannerMs);
+        }
     },
 
     loadMqttLib(cb) {
@@ -318,7 +390,8 @@ Object.assign(KaomojiMMORPG.prototype, {
                         if (this.isModalOpen && this.activeTab === 'online') this.renderModalContent();
                         if (!wasConnected && !silent) {
                             sfx.playHeal();
-                            this.pushSystemEventLog(`🌐 オンライン接続完了！（${sv.name}）`, 2000);
+                            const roomLabel = this.saveData.roomPassEnabled ? '合言葉ルーム' : '公開オンライン';
+                            this.pushSystemEventLog(`🌐 ${roomLabel}に接続完了！（${sv.name}）`, 2000);
                         }
                     });
 
@@ -723,11 +796,10 @@ Object.assign(KaomojiMMORPG.prototype, {
         });
     }
 });
-// ▲▲▲ ここまで【前半 1/2】 ▲▲▲
-// ▼▼▼ ここから【後半 2/2】 ▼▼▼
+// ▲▲▲ ここまで【2/3】 ▲▲▲
+// ▼▼▼ ここから【3/3】 ▼▼▼
 Object.assign(KaomojiMMORPG.prototype, {
 
-    // スキルID・名前・現在Lvを正確に取得
     resolveSkillMeta(slotIdx) {
         const d = this.saveData || {};
         const candidates = [
@@ -759,7 +831,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         const combined = (skillId + ' ' + skillName).toLowerCase();
         const isChabudai = /chabu|table|flip|ちゃぶ|卓|返|┻|┬/.test(combined);
 
-        // スキルLvを取得（未定義時は1、最大99）
         const rawLv = d.skillLevels?.[skillId]
             ?? d.skillLvs?.[skillId]
             ?? found?.lv
@@ -770,7 +841,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         return { slotIdx, skillId, skillName, skillLv, isChabudai };
     },
 
-    // スキルID固有のカラーハッシュ（同系統スキルでも色が被らないようにする）
     getSkillAccentColor(skillId, fallbackHex) {
         if (!skillId) return fallbackHex;
         let h = 0;
@@ -779,7 +849,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         return (h % 3 === 0) ? fallbackHex : palette[h % palette.length];
     },
 
-    // 3Dちゃぶ台生成
     createChabudai3D() {
         const grp = new THREE.Group();
         const woodMat = new THREE.MeshLambertMaterial({ color: 0xb45309 });
@@ -800,7 +869,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         return grp;
     },
 
-    // 「極光の聖域」フィールド展開（自分＆マルチ味方に継続回復＋全能力バフ）
     spawnAuroraSanctuary(x, z, skillLv = 1, casterName = '') {
         if (!this.useWebGL || !this.scene || typeof THREE === 'undefined') return;
         if (!this._sanctuaryFields) this._sanctuaryFields = [];
@@ -810,7 +878,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         const duration = 8.0 + Math.min(6.0, (skillLv - 1) * 0.6);
 
         const grp = new THREE.Group();
-        // 地面の極光魔法陣
         const baseMat = new THREE.MeshBasicMaterial({ color: 0x2dd4bf, side: THREE.DoubleSide, transparent: true, opacity: 0.48 });
         const baseDisc = new THREE.Mesh(new THREE.CircleGeometry(radius, 36), baseMat);
         baseDisc.rotation.x = -Math.PI / 2;
@@ -821,14 +888,12 @@ Object.assign(KaomojiMMORPG.prototype, {
         outerRing.rotation.x = -Math.PI / 2;
         outerRing.position.y = 0.11;
 
-        // オーロラの光のカーテン壁
         const wallMat = new THREE.MeshBasicMaterial({ color: 0x5eead4, side: THREE.DoubleSide, transparent: true, opacity: 0.26 });
         const wallCyl = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 3.4 + lvBonus * 0.5, 32, 1, true), wallMat);
         wallCyl.position.y = 1.7;
 
         grp.add(baseDisc, outerRing, wallCyl);
 
-        // 上昇する光のクリスタル柱
         const pillars = [];
         const pColors = [0x34d399, 0x38bdf8, 0xf472b6, 0xfde047];
         const count = skillLv >= 5 ? 8 : (skillLv >= 3 ? 6 : 4);
@@ -845,28 +910,15 @@ Object.assign(KaomojiMMORPG.prototype, {
         this.scene.add(grp);
 
         this._sanctuaryFields.push({
-            grp,
-            x,
-            z,
-            radius,
-            skillLv,
-            life: duration,
-            maxLife: duration,
-            tickTimer: 0,
-            outerRing,
-            wallCyl,
-            baseMat,
-            outerMat,
-            wallMat,
-            pillars
+            grp, x, z, radius, skillLv, life: duration, maxLife: duration, tickTimer: 0,
+            outerRing, wallCyl, baseMat, outerMat, wallMat, pillars
         });
 
         if (casterName) {
-            this.pushSystemEventLog(`🌈 ${casterName} が「極光の聖域 Lv.${skillLv}」を展開！（範囲内継続回復＆強化）`, 2200);
+            this.pushSystemEventLog(`🌈 ${casterName} が「極光の聖域 Lv.${skillLv}」を展開！`, 2000);
         }
     },
 
-    // 極光の聖域の毎フレーム更新＆範囲内の自分・味方回復バフ処理
     updateSanctuaryFields(dt) {
         if (!this._sanctuaryFields || !this._sanctuaryFields.length) return;
         let insideAny = false;
@@ -894,7 +946,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                 pl.mesh.rotation.y += dt * 3;
             });
 
-            // 自分が聖域内にいるか判定（マルチの味方が展開した聖域でも恩恵を受ける）
             if (this.player && this.player.pos) {
                 const dist = Math.hypot(this.player.pos.x - sf.x, this.player.pos.z - sf.z);
                 if (dist <= sf.radius) {
@@ -919,7 +970,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             return true;
         });
 
-        // 聖域バフ状態管理（攻撃・防御・移動速度アップ）
         if (insideAny) {
             if (!this._inSanctuaryBuff) {
                 this._inSanctuaryBuff = true;
@@ -933,7 +983,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         }
     },
 
-    // スキルLvに応じた進化オーラ装飾（Lv.3以上で魔法陣、Lv.5以上で公転オーブ付与）
     attachSkillLevelEvolution(rootGroup, skillLv, mainColor) {
         if (skillLv < 3) return null;
         const lvRingMat = new THREE.MeshBasicMaterial({
@@ -963,7 +1012,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         return { lvRing, lvRingMat, orbs };
     },
 
-    // 攻撃モーション＆スキル別3Dエフェクト（10系統完全分離＋スキルLv進化対応）
     triggerAttackVisual(entity, isSkill = false, skillInfo = null) {
         if (!entity) return;
         entity.attackAnimTimer = 0.34;
@@ -993,25 +1041,69 @@ Object.assign(KaomojiMMORPG.prototype, {
             tableMesh.rotation.y = rotY;
             this.scene.add(tableMesh);
             this._slashEffects.push({
-                kind: 'chabudai',
-                mesh: tableMesh,
-                life: 0.95,
-                maxLife: 0.95,
-                vx: dirX * (12.0 + skillLv * 0.4),
-                vz: dirZ * (12.0 + skillLv * 0.4)
+                kind: 'chabudai', mesh: tableMesh, life: 0.95, maxLife: 0.95,
+                vx: dirX * (12.0 + skillLv * 0.4), vz: dirZ * (12.0 + skillLv * 0.4)
             });
             return;
         }
 
         if (isSkill) {
-            // 1. 極光の聖域（フィールド展開＆継続回復バフ）
+            // 1. 極光の聖域（フィールド展開）
             if (/aurora|sanctuary|polar|極光|聖域|オーロラ/.test(fullKey)) {
                 const caster = (entity === this.player) ? this.getBasePlayerKaomoji() : (entity.kaomoji || '仲間');
                 this.spawnAuroraSanctuary(entity.pos.x, entity.pos.z, skillLv, caster);
                 return;
             }
 
-            // 2. 極太3Dレーザービーム系
+            // 2. 創世ビッグバン専用（宇宙超爆発＋虹色衝撃波＋16個の流星）※氷より先に判定
+            if (/bigbang|big_bang|genesis|cosmos|creation|supernova|ビッグバン|びっくばん|そうせい|創世|創星|創生/.test(fullKey)) {
+                const bbGrp = new THREE.Group();
+                const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.98 });
+                const coreSphere = new THREE.Mesh(new THREE.SphereGeometry(1.15 * lvScale, 24, 24), coreMat);
+                coreSphere.position.y = 1.6;
+
+                const auraMat = new THREE.MeshBasicMaterial({ color: 0xf43f5e, transparent: true, opacity: 0.55, wireframe: true });
+                const auraSphere = new THREE.Mesh(new THREE.SphereGeometry(2.3 * lvScale, 18, 16), auraMat);
+                auraSphere.position.y = 1.6;
+
+                const waveMat = new THREE.MeshBasicMaterial({ color: 0xfde047, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
+                const waveRing = new THREE.Mesh(new THREE.RingGeometry(1.0, 4.8 * lvScale, 36), waveMat);
+                waveRing.rotation.x = -Math.PI / 2;
+                waveRing.position.y = 0.16;
+
+                bbGrp.add(coreSphere, auraSphere, waveRing);
+
+                const meteors = [];
+                const mCols = [0xfde047, 0xf472b6, 0x38bdf8, 0xa855f7];
+                for (let i = 0; i < 16; i++) {
+                    const ang = (i / 16) * Math.PI * 2;
+                    const elev = ((i % 3) - 0.5) * 0.6;
+                    const star = new THREE.Mesh(
+                        new THREE.OctahedronGeometry(0.32 * lvScale, 0),
+                        new THREE.MeshBasicMaterial({ color: mCols[i % mCols.length] })
+                    );
+                    star.position.set(0, 1.6, 0);
+                    bbGrp.add(star);
+                    meteors.push({
+                        mesh: star,
+                        vx: Math.cos(ang) * (8.5 + (i % 4) * 1.5),
+                        vy: 3.0 + elev * 5.0,
+                        vz: Math.sin(ang) * (8.5 + (i % 4) * 1.5)
+                    });
+                }
+
+                const lvEvo = this.attachSkillLevelEvolution(bbGrp, skillLv, 0xf43f5e);
+                bbGrp.position.set(entity.pos.x + dirX * 2.5, 0, entity.pos.z + dirZ * 2.5);
+                this.scene.add(bbGrp);
+
+                this._slashEffects.push({
+                    kind: 'bigbang', mesh: bbGrp, coreSphere, auraSphere, waveRing,
+                    coreMat, auraMat, waveMat, meteors, lvEvo, life: 1.05, maxLife: 1.05
+                });
+                return;
+            }
+
+            // 3. 極太3Dレーザービーム系
             if (/beam|laser|ray|cannon|kame|ビーム|レーザー|光線|砲|波動|閃光/.test(fullKey)) {
                 const mainCol = this.getSkillAccentColor(sId, 0x38bdf8);
                 const beamGroup = new THREE.Group();
@@ -1052,7 +1144,7 @@ Object.assign(KaomojiMMORPG.prototype, {
                 return;
             }
 
-            // 3. 絶対零度ノヴァ・氷結系
+            // 4. 絶対零度ノヴァ・氷結系
             if (/zero|nova|absolute|blizzard|ice|frost|零度|ノヴァ|氷|吹雪|凍|雪/.test(fullKey)) {
                 const novaGroup = new THREE.Group();
                 const ringMat = new THREE.MeshBasicMaterial({ color: 0x7dd3fc, side: THREE.DoubleSide, transparent: true, opacity: 0.85 });
@@ -1091,7 +1183,7 @@ Object.assign(KaomojiMMORPG.prototype, {
                 return;
             }
 
-            // 4. 炎・メテオ・爆発系
+            // 5. 炎・メテオ・爆発系
             if (/fire|meteor|flare|burn|bomb|flame|炎|爆|火|隕|紅蓮|業火/.test(fullKey)) {
                 const fGrp = new THREE.Group();
                 const mat = new THREE.MeshBasicMaterial({ color: 0xf97316, transparent: true, opacity: 0.92 });
@@ -1111,7 +1203,7 @@ Object.assign(KaomojiMMORPG.prototype, {
                 return;
             }
 
-            // 5. 雷・電撃系
+            // 6. 雷・電撃系
             if (/thunder|bolt|spark|volt|lightning|雷|電|閃|迅/.test(fullKey)) {
                 const tGrp = new THREE.Group();
                 const mat = new THREE.MeshBasicMaterial({ color: 0xfacc15, side: THREE.DoubleSide, transparent: true, opacity: 0.88 });
@@ -1125,7 +1217,7 @@ Object.assign(KaomojiMMORPG.prototype, {
                 return;
             }
 
-            // 6. 風・竜巻・疾風系
+            // 7. 風・竜巻・疾風系
             if (/wind|storm|tornado|gale|cyclone|風|嵐|竜巻|疾風|旋風/.test(fullKey)) {
                 const wGrp = new THREE.Group();
                 const mat = new THREE.MeshBasicMaterial({ color: 0x34d399, wireframe: true, transparent: true, opacity: 0.88 });
@@ -1143,7 +1235,7 @@ Object.assign(KaomojiMMORPG.prototype, {
                 return;
             }
 
-            // 7. 闇・重力・ブラックホール系
+            // 8. 闇・重力・ブラックホール系
             if (/dark|void|shadow|abyss|gravity|闇|黒|影|重力|深淵|冥/.test(fullKey)) {
                 const dGrp = new THREE.Group();
                 const mat = new THREE.MeshBasicMaterial({ color: 0x3b0764, transparent: true, opacity: 0.92 });
@@ -1163,7 +1255,7 @@ Object.assign(KaomojiMMORPG.prototype, {
                 return;
             }
 
-            // 8. 回復・聖光・祈り系
+            // 9. 回復・聖光・祈り系
             if (/heal|cure|prayer|bless|holy|light|癒|回復|祈|聖|光|浄化/.test(fullKey)) {
                 const hGrp = new THREE.Group();
                 const mat = new THREE.MeshBasicMaterial({ color: 0xfef08a, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
@@ -1177,7 +1269,7 @@ Object.assign(KaomojiMMORPG.prototype, {
                 return;
             }
 
-            // 9. その他の攻撃スキル（スキル固有色＋多段十字斬撃波＋Lv進化）
+            // 10. その他の攻撃スキル（固有色＋多段斬撃波＋Lv進化）
             const customCol = this.getSkillAccentColor(sId, 0xf472b6);
             const sGrp = new THREE.Group();
             const mat = new THREE.MeshBasicMaterial({ color: customCol, side: THREE.DoubleSide, transparent: true, opacity: 0.92 });
@@ -1200,7 +1292,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             return;
         }
 
-        // 10. 通常攻撃（シンプルな青い単発斬撃）
         const mat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
         const mesh = new THREE.Mesh(new THREE.RingGeometry(0.7, 1.35, 24, 1, -Math.PI * 0.45, Math.PI * 0.9), mat);
         mesh.position.set(entity.pos.x + dirX * 1.2, 1.05, entity.pos.z + dirZ * 1.2);
@@ -1229,7 +1320,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                 }
                 const p = 1 - (ef.life / ef.maxLife);
 
-                // スキルLv進化パーツの回転アニメーション
                 if (ef.lvEvo) {
                     ef.lvEvo.lvRing.rotation.z += dt * 4.5;
                     ef.lvEvo.lvRingMat.opacity = (1 - p) * 0.85;
@@ -1241,7 +1331,23 @@ Object.assign(KaomojiMMORPG.prototype, {
                     });
                 }
 
-                if (ef.kind === 'chabudai') {
+                if (ef.kind === 'bigbang') {
+                    const expand = 0.4 + p * 2.4;
+                    ef.coreSphere.scale.setScalar(Math.max(0.1, (1 - p) * 2.2));
+                    ef.auraSphere.scale.setScalar(expand);
+                    ef.auraSphere.rotation.y += dt * 4.0;
+                    ef.waveRing.scale.setScalar(0.5 + p * 2.6);
+                    ef.coreMat.opacity = (1 - p);
+                    ef.auraMat.opacity = (1 - p) * 0.65;
+                    ef.waveMat.opacity = (1 - p) * 0.92;
+                    ef.meteors.forEach(m => {
+                        m.mesh.position.x += m.vx * dt;
+                        m.mesh.position.y += m.vy * dt;
+                        m.mesh.position.z += m.vz * dt;
+                        m.mesh.rotation.y += dt * 8.0;
+                        m.mesh.scale.setScalar(Math.max(0.1, 1 - p * 0.8));
+                    });
+                } else if (ef.kind === 'chabudai') {
                     ef.mesh.position.x += ef.vx * dt;
                     ef.mesh.position.z += ef.vz * dt;
                     ef.mesh.position.y = 1.0 + Math.sin(p * Math.PI) * 3.0;
@@ -1439,6 +1545,48 @@ Object.assign(KaomojiMMORPG.prototype, {
         this.remotePlayers.forEach(rp => applyPose(rp));
     },
 
+    // AUTOモード時：回復スキル・極光の聖域・バフスキルも自動使用
+    updateSmartAutoSkills(dt) {
+        if (!this.autoHunt || this.inTitleScreen || !this.player || !this.useSkillSlot) return;
+        const hp = this.player.hp ?? 100;
+        const maxHp = this.player.maxHp || this.saveData?.maxHp || 100;
+        if (hp <= 0) return;
+
+        this._autoSupportTimer = (this._autoSupportTimer || 0) + dt;
+        if (this._autoSupportTimer < 0.45) return;
+        this._autoSupportTimer = 0;
+
+        const hasNearbyEnemy = (this.monsters || []).some(m =>
+            !m.dead && m.pos && Math.hypot(m.pos.x - this.player.pos.x, m.pos.z - this.player.pos.z) < 15.0
+        );
+        const hpRatio = hp / Math.max(1, maxHp);
+
+        for (let i = 0; i < 5; i++) {
+            const curCd = (this.player.skillCds?.[i] ?? this.skillCds?.[i] ?? 0);
+            if (curCd > 0.05) continue;
+
+            const meta = this.resolveSkillMeta(i);
+            const key = `${meta.skillId} ${meta.skillName}`.toLowerCase();
+
+            // 1. HP70%未満なら回復・聖域を最優先で使用
+            if (hpRatio < 0.70 && /heal|cure|prayer|bless|aurora|sanctuary|polar|癒|回復|祈|聖域|極光/.test(key)) {
+                this.useSkillSlot(i);
+                return;
+            }
+            // 2. 戦闘中なら極光の聖域（未展開時）やバフ・守護・強化スキルを使用
+            if (hasNearbyEnemy) {
+                if (/aurora|sanctuary|polar|極光|聖域|オーロラ/.test(key) && !this._inSanctuaryBuff) {
+                    this.useSkillSlot(i);
+                    return;
+                }
+                if (/buff|boost|aura|guard|shield|haste|rage|holy|bless|強化|鼓舞|結界|加速|守護|祈/.test(key)) {
+                    this.useSkillSlot(i);
+                    return;
+                }
+            }
+        }
+    },
+
     updateFirebaseSync(dt) {
         if (!this.fbConnected) return;
         const moving = Math.hypot(this.joyVec.x, this.joyVec.y) > 0.08 ||
@@ -1507,7 +1655,7 @@ Object.assign(KaomojiMMORPG.prototype, {
                 this.syncFirebaseNow(false);
                 if (isNew) {
                     const zName = (typeof ZONES !== 'undefined' && ZONES[msg.zoneId]) ? ZONES[msg.zoneId].name : '試練の塔';
-                    this.pushSystemEventLog(`👋 ${msg.kaomoji || '(´・ω・`)'} (Lv.${msg.lv || 1}) がオンラインに参加！（${zName}）`, 2400);
+                    this.pushSystemEventLog(`👋 ${msg.kaomoji || '(´・ω・`)'} (Lv.${msg.lv || 1}) が参加！（${zName}）`, 2400);
                     this.refreshAllHUD();
                     if (this.isModalOpen && this.activeTab === 'online') this.renderModalContent();
                 }
@@ -1518,7 +1666,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             const lv = rp?.lv || msg.lv || 1;
             if (rp) {
                 this.removeRemotePlayerEntity(msg.uid);
-                this.pushSystemEventLog(`🚪 ${kao} (Lv.${lv}) がルームから退出しました`, 2200);
+                this.pushSystemEventLog(`🚪 ${kao} (Lv.${lv}) が退出しました`, 2200);
                 this.refreshAllHUD();
                 if (this.isModalOpen && this.activeTab === 'online') this.renderModalContent();
             }
@@ -1600,9 +1748,8 @@ Object.assign(KaomojiMMORPG.prototype, {
             if (rp.plateEl) rp.plateEl.innerHTML = `<div style="font-size:9px;font-weight:900;color:#f9a8d4;">Lv.${rp.lv} 仲間 (脅威+${rp.threatRank})</div>`;
         }
 
-        // 他プレイヤーのペット同期・3D生成
         const petInfo = p.pet;
-        const newPetSig = petInfo ? `${petInfo.petId}|${petInfo.kaomoji}|${petInfo.lv}|${petInfo.color}` : '';
+        const newPetSig = petInfo ? `${petInfo.petId}|${petInfo.kaomoji}|${petInfo.name}|${petInfo.lv}|${petInfo.color}` : '';
         if (rp.petSig !== newPetSig) {
             if (rp.petGroup && this.scene) this.scene.remove(rp.petGroup);
             if (rp.petPlateEl) rp.petPlateEl.remove();
@@ -1610,7 +1757,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             rp.petPlateEl = null;
             rp.petSig = newPetSig;
 
-            if (petInfo && this.useWebGL && this.scene && this.buildRemotePetMesh) {
+            if (petInfo && this.scene && typeof THREE !== 'undefined' && this.buildRemotePetMesh) {
                 const pMesh = this.buildRemotePetMesh(petInfo);
                 pMesh.position.set(rp.pos.x - 1.1, 0, rp.pos.z - 1.1);
                 this.scene.add(pMesh);
@@ -1618,7 +1765,8 @@ Object.assign(KaomojiMMORPG.prototype, {
 
                 const pPlate = document.createElement('div');
                 pPlate.className = 'world-plate';
-                pPlate.innerHTML = `<div style="font-size:8px;font-weight:900;color:#6ee7b7;">🐾 Lv.${petInfo.lv || 1} ${petInfo.name || 'ペット'}</div>`;
+                const safePetName = String(petInfo.name || 'ペット').replace(/[<>&"]/g, '');
+                pPlate.innerHTML = `<div style="font-size:8px;font-weight:900;color:#6ee7b7;">🐾 Lv.${petInfo.lv || 1} ${safePetName}</div>`;
                 this.overlayLayer?.appendChild(pPlate);
                 rp.petPlateEl = pPlate;
             }
@@ -1640,7 +1788,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                 rp.group.rotation.y = rp.rotY;
             }
 
-            // 仲間ペットの追従＆浮遊アニメーション
             if (rp.petGroup) {
                 rp.petGroup.visible = same;
                 if (same) {
@@ -1653,8 +1800,13 @@ Object.assign(KaomojiMMORPG.prototype, {
                     rp.petGroup.position.y = Math.sin(nowSec * 3.5) * 0.16;
                     rp.petGroup.rotation.y = rp.rotY;
 
-                    if (rp.petPlateEl && this.projectToScreen) {
-                        const sc = this.projectToScreen(new THREE.Vector3(rp.petGroup.position.x, 1.65, rp.petGroup.position.z));
+                    if (rp.petPlateEl) {
+                        const wPos = new THREE.Vector3(rp.petGroup.position.x, 1.65, rp.petGroup.position.z);
+                        let sc = this.projectToScreen ? this.projectToScreen(wPos) : null;
+                        if (!sc && this.camera && this.canvas) {
+                            const v = wPos.clone().project(this.camera);
+                            if (v.z < 1) sc = { x: (v.x * 0.5 + 0.5) * this.canvas.clientWidth, y: (-v.y * 0.5 + 0.5) * this.canvas.clientHeight };
+                        }
                         if (sc) {
                             rp.petPlateEl.style.display = 'block';
                             rp.petPlateEl.style.left = sc.x + 'px';
@@ -1669,7 +1821,6 @@ Object.assign(KaomojiMMORPG.prototype, {
             }
         });
 
-        // 自分の死亡検知＆マルチログ送信
         if (this.player && !this.inTitleScreen) {
             const hp = this.player.hp ?? 1;
             if (hp <= 0 && !this._wasPlayerDead) {
@@ -1685,6 +1836,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             }
         }
 
+        this.updateSmartAutoSkills(dt);
         this.updateSanctuaryFields(dt);
         this.updateCharacterAnimations(dt);
         this.updateHeadBubbles(dt);
@@ -1787,7 +1939,7 @@ Object.assign(KaomojiMMORPG.prototype, {
             e.stopPropagation(); sfx.init(); this.autoHunt = !this.autoHunt;
             e.currentTarget.textContent = this.autoHunt ? '🤖 AUTO:ON' : '🤖 AUTO:OFF';
             e.currentTarget.style.background = this.autoHunt ? '#059669' : '';
-            this.showAlertBanner(this.autoHunt ? '🤖 オート狩り ON' : '🤖 オート狩り OFF', 1400);
+            this.showAlertBanner(this.autoHunt ? '🤖 オート狩り ON（補助・回復も自動）' : '🤖 オート狩り OFF', 1400);
         });
         const adjThreat = (dlt) => {
             sfx.init();
@@ -1952,6 +2104,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
     if (P.enterGameFromTitle) {
         const _origEnter = P.enterGameFromTitle;
         P.enterGameFromTitle = function () {
+            this.syncSkillDescriptionsAndEffects?.();
             this.showLoadingOverlay('NOW LOADING... 冒険の世界へ出発！', 1100);
             _origEnter.call(this);
             this.startAutoReconnectWatchdog();
@@ -1998,6 +2151,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
     if (P.useSkillSlot) {
         const _origSkill = P.useSkillSlot;
         P.useSkillSlot = function (slotIdx) {
+            this.syncSkillDescriptionsAndEffects?.();
             const meta = this.resolveSkillMeta(slotIdx);
             const curCd = (this.player?.skillCds?.[slotIdx] || this.skillCds?.[slotIdx] || 0);
 
@@ -2022,7 +2176,6 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         };
     }
 
-    // 聖域バフ中のプレイヤー能力ボーナス反映
     if (P.getPlayerStats) {
         const _origStats = P.getPlayerStats;
         P.getPlayerStats = function () {
@@ -2049,28 +2202,52 @@ if (typeof KaomojiMMORPG !== 'undefined') {
     if (P.renderModalContent) {
         const _rMod = P.renderModalContent;
         P.renderModalContent = function () {
+            this.syncSkillDescriptionsAndEffects?.();
             _rMod.call(this);
+            const body = document.getElementById('modal-body');
+            if (!body) return;
+
             if (this.activeTab === 'online') {
-                const body = document.getElementById('modal-body');
                 const svList = this.getConnectedServerNames().join(', ') || '自動再接続中...';
-                if (body) {
-                    body.insertAdjacentHTML('afterbegin', `
-                        <div class="card-box" style="margin-bottom:8px;border-color:#fde047;">
-                            <div class="flex-between">
-                                <b style="color:#fde047;font-size:11px;">📡 接続サーバー: ${svList}</b>
-                                <button type="button" id="btn-diag-reconn" class="btn-ui btn-amber" style="padding:4px 8px;font-size:10px;">🔄 再接続</button>
-                            </div>
-                            <div style="font-size:10px;color:#cbd5e1;margin-top:3px;">
-                                送信: <b>${this.netTxCount || 0}</b>回 ／ 折返し: <b>${this.netEchoCount || 0}</b>回 ／ 仲間受信: <b>${this.netRxCount || 0}</b>回
-                            </div>
+                body.insertAdjacentHTML('afterbegin', `
+                    <div class="card-box" style="margin-bottom:8px;border-color:#fde047;">
+                        <div class="flex-between">
+                            <b style="color:#fde047;font-size:11px;">📡 接続サーバー: ${svList}</b>
+                            <button type="button" id="btn-diag-reconn" class="btn-ui btn-amber" style="padding:4px 8px;font-size:10px;">🔄 再接続</button>
                         </div>
-                    `);
-                    document.getElementById('btn-diag-reconn')?.addEventListener('click', () => {
-                        sfx.init();
-                        this._lastConnectAttemptTs = 0;
-                        this.connectMqttStart(false);
-                    });
-                }
+                        <div style="font-size:10px;color:#cbd5e1;margin-top:3px;">
+                            送信: <b>${this.netTxCount || 0}</b>回 ／ 折返し: <b>${this.netEchoCount || 0}</b>回 ／ 仲間受信: <b>${this.netRxCount || 0}</b>回
+                        </div>
+                    </div>
+                `);
+                document.getElementById('btn-diag-reconn')?.addEventListener('click', () => {
+                    sfx.init();
+                    this._lastConnectAttemptTs = 0;
+                    this.connectMqttStart(false);
+                });
+            }
+
+            // ペットタブ（またはペット情報表示中）にペット名前変更フォームを追加
+            if (/pet|companion/i.test(String(this.activeTab || ''))) {
+                const petInfo = this.getMyPetSyncInfo();
+                const curName = petInfo ? petInfo.name : (this.saveData?.customPetName || '');
+                body.insertAdjacentHTML('afterbegin', `
+                    <div class="card-box" style="margin-bottom:8px;border-color:#34d399;">
+                        <div style="font-size:11px;font-weight:900;color:#6ee7b7;margin-bottom:4px;">
+                            🐾 相棒ペットの名前変更（最大14文字・マルチ味方にも表示）
+                        </div>
+                        <div style="display:flex;gap:6px;">
+                            <input id="inp-pet-custom-name" type="text" maxlength="14" value="${String(curName).replace(/"/g, '&quot;')}" placeholder="好きなペット名を入力..." style="flex:1;background:#0f172a;border:1px solid #34d399;border-radius:6px;padding:5px 8px;color:#fff;font-size:12px;">
+                            <button type="button" id="btn-save-pet-name" class="btn-ui btn-emerald" style="padding:5px 10px;font-size:11px;">決定</button>
+                        </div>
+                    </div>
+                `);
+                document.getElementById('btn-save-pet-name')?.addEventListener('click', () => {
+                    sfx.init();
+                    const val = document.getElementById('inp-pet-custom-name')?.value || '';
+                    this.setPetCustomName(petInfo?.petId || '', val);
+                    this.renderModalContent();
+                });
             }
         };
     }
@@ -2087,7 +2264,10 @@ if (typeof KaomojiMMORPG !== 'undefined') {
 
 window.addEventListener('DOMContentLoaded', () => {
     if (!window.game && typeof KaomojiMMORPG !== 'undefined') window.game = new KaomojiMMORPG();
-    if (window.game && window.game.startAutoReconnectWatchdog) window.game.startAutoReconnectWatchdog();
+    if (window.game) {
+        window.game.syncSkillDescriptionsAndEffects?.();
+        window.game.startAutoReconnectWatchdog?.();
+    }
 });
-// === GAME6_V16_OK ===
-// ▲▲▲ ここまで【後半 2/2】 ▲▲▲
+// === GAME6_V17_OK ===
+// ▲▲▲ ここまで【3/3】 ▲▲▲
