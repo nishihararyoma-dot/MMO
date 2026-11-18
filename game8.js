@@ -1933,4 +1933,364 @@ window.addEventListener('DOMContentLoaded', () => {
 
 window.addEventListener('resize', syncUIOnViewportChange);
 window.visualViewport?.addEventListener('resize', syncUIOnViewportChange);
-// === GAME8_CLEAN_OK ===
+// =========================================================================
+// 統合バグ修正パッチ（完全初期化・メニュー空欄・UI配置消失・右上重なり解消）
+// =========================================================================
+(function applyAllHotfixesV36() {
+    if (typeof KaomojiMMORPG === 'undefined') return;
+    const P = KaomojiMMORPG.prototype;
+
+    // ---------------------------------------------------------------------
+    // 1. 欠落していた確認ダイアログ (openDialog) & 完全データ初期化の修復
+    // ---------------------------------------------------------------------
+    P.openDialog = function (opts = {}) {
+        document.getElementById('kmj-custom-dialog')?.remove();
+        const overlay = document.createElement('div');
+        overlay.id = 'kmj-custom-dialog';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:200;background:rgba(2,6,23,0.85);display:flex;align-items:center;justify-content:center;padding:16px;';
+
+        const title = opts.title || '確認';
+        const message = String(opts.message || '').replace(/\n/g, '<br>');
+        const confirmText = opts.confirmText || 'OK';
+        const cancelText = opts.cancelText || 'キャンセル';
+
+        overlay.innerHTML = `
+            <div style="width:min(360px,92vw);background:#0f172a;border:2px solid #f43f5e;border-radius:14px;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,0.85);color:#fff;">
+                <div style="font-size:15px;font-weight:900;color:#fda4af;margin-bottom:8px;">${title}</div>
+                <div style="font-size:12px;color:#e2e8f0;line-height:1.55;margin-bottom:14px;">${message}</div>
+                <div style="display:flex;gap:8px;justify-content:flex-end;">
+                    <button type="button" id="kmj-dlg-cancel" style="background:#334155;color:#fff;border:1px solid #64748b;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:900;cursor:pointer;">${cancelText}</button>
+                    <button type="button" id="kmj-dlg-ok" style="background:#e11d48;color:#fff;border:1px solid #fda4af;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:900;cursor:pointer;">${confirmText}</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        overlay.querySelector('#kmj-dlg-cancel')?.addEventListener('click', () => overlay.remove());
+        overlay.querySelector('#kmj-dlg-ok')?.addEventListener('click', () => {
+            overlay.remove();
+            if (typeof opts.onConfirm === 'function') opts.onConfirm();
+        });
+    };
+
+    const _origHardReset = P.hardResetGame;
+    P.hardResetGame = function () {
+        try {
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (k && (/kaomoji|kmj|mmo|save/i.test(k))) keysToRemove.push(k);
+            }
+            keysToRemove.forEach(k => localStorage.removeItem(k));
+            if (typeof SAVE_KEY !== 'undefined') localStorage.removeItem(SAVE_KEY);
+        } catch (e) {}
+        if (_origHardReset) {
+            try { _origHardReset.call(this); return; } catch (e) {}
+        }
+        window.location.reload();
+    };
+
+    // ---------------------------------------------------------------------
+    // 2. ステージ選択・メニューが空欄になる問題の完全統合
+    // ---------------------------------------------------------------------
+    const _baseOpenGrowth = P.openGrowthModal;
+    const _baseCloseGrowth = P.closeGrowthModal;
+    const _baseRenderGrowth = P.renderGrowthTabContent;
+
+    const normalizeTabName = (tab) => {
+        const t = String(tab || 'stats').toLowerCase();
+        if (t === 'travel' || t === 'stage' || t === 'map') return 'zones';
+        if (t === 'system' || t === 'setting' || t === 'settings') return 'online';
+        return t;
+    };
+
+    P.openGrowthModal = function (tab = 'stats') {
+        const mapped = normalizeTabName(tab);
+        if (_baseOpenGrowth) {
+            _baseOpenGrowth.call(this, mapped);
+        } else {
+            this.activeTab = mapped;
+            this.isModalOpen = true;
+            document.getElementById('growth-modal')?.classList.remove('hidden');
+            this.renderGrowthTabContent?.();
+        }
+    };
+
+    P.closeGrowthModal = function () {
+        if (_baseCloseGrowth) _baseCloseGrowth.call(this);
+        else {
+            this.isModalOpen = false;
+            document.getElementById('growth-modal')?.classList.add('hidden');
+        }
+    };
+
+    P.openModal = function (tab = 'stats') {
+        this.openGrowthModal(tab);
+    };
+
+    P.closeModal = function () {
+        this.closeGrowthModal();
+    };
+
+    P.renderGrowthTabContent = function () {
+        this.activeTab = normalizeTabName(this.activeTab);
+        this.enforce999CapsV27?.();
+        this.maintainInfiniteResources?.();
+        this.syncSkillDescriptionsAndEffects?.();
+        this.syncSkillMpCostsV22?.();
+        this.syncMageWeaponNamesV22?.();
+
+        if (_baseRenderGrowth) {
+            _baseRenderGrowth.call(this);
+        }
+
+        const body = document.getElementById('modal-body-content') || document.getElementById('modal-body');
+        if (!body) return;
+
+        // 魔道士時の杖名称変換を反映
+        if (this.isMageEvolution?.() && this.activeTab === 'equip') {
+            const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT, null);
+            let node;
+            while ((node = walker.nextNode())) {
+                if (node.nodeValue && /剣|刀|ソード|ブレード/.test(node.nodeValue)) {
+                    node.nodeValue = typeof convertWeaponNameToStaff === 'function'
+                        ? convertWeaponNameToStaff(node.nodeValue)
+                        : node.nodeValue;
+                }
+            }
+        }
+
+        // 転職後の即時反映フック
+        if (this.activeTab === 'evo') {
+            body.querySelectorAll('[data-change-job]').forEach(btn => {
+                if (btn.dataset.v36EvoHook) return;
+                btn.dataset.v36EvoHook = '1';
+                btn.addEventListener('click', () => {
+                    setTimeout(() => {
+                        this.syncMageWeaponNamesV22?.();
+                        if (this.player) this.enforceStrictWeaponVisualV27?.(this.player);
+                        this.syncFirebaseNow?.();
+                    }, 80);
+                });
+            });
+        }
+
+        // スキル枠使用状況＆進化説明カードの挿入（modal-body-content対応）
+        if (this.activeTab === 'skills') {
+            if (!document.getElementById('kmj-skill-evo-banner-v36')) {
+                body.insertAdjacentHTML('afterbegin', `
+                    <div id="kmj-skill-evo-banner-v36" class="card-box" style="margin-bottom:8px;border-color:#fde047;background:rgba(30,27,75,0.88);">
+                        <div style="font-size:11px;font-weight:900;color:#fde047;margin-bottom:2px;">⚡ スキル個別進化＆威力スケーリング</div>
+                        <div style="font-size:10px;color:#e2e8f0;">Lv.10【真】→ Lv.50【極】→ Lv.100【👑奥義】でモーション＆エフェクトが段階進化！</div>
+                    </div>
+                `);
+            }
+        }
+
+        this.purgeRebirthUIV27?.();
+    };
+
+    P.renderModalContent = function () {
+        this.renderGrowthTabContent();
+    };
+
+    // ---------------------------------------------------------------------
+    // 3. 右上メニューの重なり解消（クリーンな整列レイアウト化）
+    // ---------------------------------------------------------------------
+    P.fixTopRightMenuOverlapV36 = function () {
+        const topRightBar = document.getElementById('hud-top-right')
+            || document.getElementById('btn-open-menu')?.parentElement;
+        if (!topRightBar) return;
+
+        topRightBar.style.setProperty('display', 'flex', 'important');
+        topRightBar.style.setProperty('flex-wrap', 'wrap', 'important');
+        topRightBar.style.setProperty('justify-content', 'flex-end', 'important');
+        topRightBar.style.setProperty('align-items', 'center', 'important');
+        topRightBar.style.setProperty('gap', '4px', 'important');
+        topRightBar.style.setProperty('max-width', '58vw', 'important');
+        topRightBar.style.setProperty('z-index', '60', 'important');
+
+        // ボタン同士が重ならないようインライン配置に統一
+        topRightBar.querySelectorAll('button').forEach(b => {
+            if (b.id === 'kmj-btn-ui-edit-settings') return;
+            b.style.setProperty('position', 'static', 'important');
+            b.style.setProperty('margin', '0', 'important');
+            b.style.setProperty('padding', '4px 7px', 'important');
+            b.style.setProperty('font-size', '11px', 'important');
+            b.style.setProperty('line-height', '1.1', 'important');
+            b.style.setProperty('white-space', 'nowrap', 'important');
+        });
+    };
+
+    // ---------------------------------------------------------------------
+    // 4. ボタン配置・大きさ調整で「完了」を押すと消えるバグの完全修正
+    // ---------------------------------------------------------------------
+    P._controlPlaceholdersV36 = new Map();
+
+    P.portalControlToBodyV36 = function (key, el) {
+        if (!el || el.parentElement === document.body) return;
+        if (!this._controlPlaceholdersV36.has(key)) {
+            const ph = document.createElement('span');
+            ph.style.display = 'none';
+            ph.dataset.v36PlaceholderFor = key;
+            el.parentElement.insertBefore(ph, el);
+            this._controlPlaceholdersV36.set(key, ph);
+        }
+        document.body.appendChild(el);
+    };
+
+    P.restoreControlFromBodyV36 = function (key, el) {
+        if (!el) return;
+        const ph = this._controlPlaceholdersV36.get(key);
+        if (ph && ph.parentElement) {
+            ph.parentElement.insertBefore(el, ph);
+            ph.remove();
+        }
+        this._controlPlaceholdersV36.delete(key);
+        ['position', 'left', 'top', 'right', 'bottom', 'margin', 'transform', 'transform-origin', 'z-index'].forEach(prop => {
+            el.style.removeProperty(prop);
+        });
+    };
+
+    P.discoverCustomizableControlsV31 = function () {
+        const items = [];
+        const used = new Set();
+        const add = (key, label, el) => {
+            if (!el || used.has(el)) return;
+            const cs = window.getComputedStyle(el);
+            if (cs.display === 'none' || cs.visibility === 'hidden') return;
+            used.add(el);
+            el.dataset.v31ControlKey = key;
+            el.dataset.v31ControlLabel = label;
+            items.push({ key, label, el });
+        };
+
+        add('move_stick', '🕹️ 移動', document.getElementById('kmj-v33-movepad'));
+        add('btn_attack', '⚔️ 攻撃', document.getElementById('btn-basic-attack'));
+        add('btn_taunt', '💢 挑発', document.getElementById('kmj-btn-taunt-v26'));
+        for (let i = 0; i < 5; i++) {
+            add(`skill_${i}`, `枠${i + 1}`, document.getElementById(`skill-slot-${i}`));
+        }
+        return items;
+    };
+
+    P.applySavedUILayoutV31 = function () {
+        const layout = this.loadCustomUILayoutV31();
+        const items = this.discoverCustomizableControlsV31();
+        const defaultScale = window.innerWidth <= 920 ? 0.88 : 1.0;
+        let sanitized = false;
+
+        items.forEach(({ key, label, el }) => {
+            const cfg = layout[key];
+            const scale = cfg?.scale ? Math.max(0.55, Math.min(1.65, Number(cfg.scale))) : defaultScale;
+            const hasCustomPos = cfg && typeof cfg.leftPct === 'number' && typeof cfg.topPct === 'number' && !isNaN(cfg.leftPct) && !isNaN(cfg.topPct);
+
+            if (hasCustomPos) {
+                // 画面外へ消えないよう安全範囲(2%〜88%)に自動クランプ
+                const safeLeftPct = Math.max(2, Math.min(88, cfg.leftPct));
+                const safeTopPct = Math.max(5, Math.min(88, cfg.topPct));
+                if (safeLeftPct !== cfg.leftPct || safeTopPct !== cfg.topPct) {
+                    layout[key].leftPct = safeLeftPct;
+                    layout[key].topPct = safeTopPct;
+                    sanitized = true;
+                }
+
+                // 親枠のoverflowやtransformで消えないようbody直下へ安全に移動
+                this.portalControlToBodyV36(key, el);
+
+                const px = Math.round((safeLeftPct / 100) * window.innerWidth);
+                const py = Math.round((safeTopPct / 100) * window.innerHeight);
+                el.style.setProperty('position', 'fixed', 'important');
+                el.style.setProperty('left', `${px}px`, 'important');
+                el.style.setProperty('top', `${py}px`, 'important');
+                el.style.setProperty('right', 'auto', 'important');
+                el.style.setProperty('bottom', 'auto', 'important');
+                el.style.setProperty('margin', '0px', 'important');
+            }
+
+            el.style.setProperty('display', key === 'move_stick' || key === 'btn_taunt' ? 'flex' : '', 'important');
+            el.style.setProperty('visibility', 'visible', 'important');
+            el.style.setProperty('opacity', '1', 'important');
+            el.style.setProperty('transform', `scale(${scale.toFixed(2)})`, 'important');
+            el.style.setProperty('transform-origin', 'center center', 'important');
+            el.style.setProperty('z-index', (this._uiEditModeV31 && this._uiSelectedKeyV31 === key) ? '94' : '86', 'important');
+
+            let tag = el.querySelector('.v35-edit-tag');
+            if (this._uiEditModeV31) {
+                this.bindControlEditListenersV35(key, el);
+                el.style.setProperty('touch-action', 'none', 'important');
+                const selected = (this._uiSelectedKeyV31 === key);
+                el.style.setProperty('outline', selected ? '3px solid #fde047' : '2px dashed #38bdf8', 'important');
+                el.style.setProperty('outline-offset', '2px', 'important');
+
+                if (!tag) {
+                    tag = document.createElement('span');
+                    tag.className = 'v35-edit-tag';
+                    tag.style.cssText = 'position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fde047;border:1px solid #fde047;border-radius:4px;padding:0 4px;font-size:9px;font-weight:900;white-space:nowrap;pointer-events:none;z-index:96;';
+                    el.appendChild(tag);
+                }
+                tag.textContent = label;
+            } else {
+                el.style.removeProperty('outline');
+                el.style.removeProperty('outline-offset');
+                if (tag) tag.remove();
+            }
+        });
+
+        if (sanitized) this.saveCustomUILayoutV31(layout);
+    };
+
+    P.toggleUIEditModeV31 = function (forceState = null) {
+        this._uiEditModeV31 = (forceState !== null) ? Boolean(forceState) : !this._uiEditModeV31;
+        this.ensureStandardMoveStickV33?.();
+        this.injectTauntButtonUI?.();
+        const items = this.discoverCustomizableControlsV31();
+
+        if (!this._uiEditModeV31) {
+            document.getElementById('kmj-ui-custom-bar')?.remove();
+            this.applySavedUILayoutV31();
+            this.showAlertBanner?.('✅ ボタン配置とサイズを保存しました！', 1600);
+            return;
+        }
+
+        if (!this._uiSelectedKeyV31 && items[0]) this._uiSelectedKeyV31 = items[0].key;
+        items.forEach(({ key, el }) => this.bindControlEditListenersV35(key, el));
+        this.renderUICustomToolbarV31();
+        this.applySavedUILayoutV31();
+    };
+
+    // リセットボタン押し下げ時に元の親位置へ完全復帰させる
+    const _prevRenderToolbar = P.renderUICustomToolbarV31;
+    P.renderUICustomToolbarV31 = function () {
+        _prevRenderToolbar?.call(this);
+        const resetBtn = document.getElementById('v31-layout-reset');
+        if (resetBtn && !resetBtn.dataset.v36ResetHook) {
+            resetBtn.dataset.v36ResetHook = '1';
+            resetBtn.addEventListener('click', () => {
+                localStorage.removeItem('kmj_custom_ui_layout_v31');
+                this.discoverCustomizableControlsV31().forEach(({ key, el }) => {
+                    this.restoreControlFromBodyV36(key, el);
+                });
+                this.applySavedUILayoutV31();
+                this.renderUICustomToolbarV31();
+            });
+        }
+    };
+
+    // ---------------------------------------------------------------------
+    // 5. メインループ＆初期ロード時の自動整列
+    // ---------------------------------------------------------------------
+    const _prevAnim = P.updateCharacterAnimations;
+    P.updateCharacterAnimations = function (dt) {
+        _prevAnim?.call(this, dt);
+        this.fixTopRightMenuOverlapV36();
+    };
+
+    setTimeout(() => {
+        if (window.game) {
+            window.game.fixTopRightMenuOverlapV36?.();
+            window.game.applySavedUILayoutV31?.();
+        }
+    }, 300);
+})();
+// === GAME8_V36_HOTFIX_OK ===
