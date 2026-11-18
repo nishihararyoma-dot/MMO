@@ -2778,5 +2778,92 @@ setInterval(() => { document.querySelectorAll('[id="kmj-chat-resize-handle-v34"]
     setTimeout(ensurePadV42, 100);
     setInterval(ensurePadV42, 200);
 })();
-// === GAME8_V42_OK ===
+// ▼▼▼ 移動スティック座標リセット＆確実表示パッチ（v43） ▼▼▼
+(function () {
+    const fixAllV43 = () => {
+        // 1. 画面外に保存された移動スティック座標を自動修復
+        try {
+            const raw = localStorage.getItem('kmj_custom_ui_layout_v31');
+            if (raw) {
+                const layout = JSON.parse(raw);
+                const m = layout?.move_stick;
+                if (m && (m.leftPct < 0 || m.leftPct > 85 || m.topPct < 0 || m.topPct > 85 || isNaN(m.leftPct) || isNaN(m.topPct))) {
+                    delete layout.move_stick;
+                    localStorage.setItem('kmj_custom_ui_layout_v31', JSON.stringify(layout));
+                }
+            }
+        } catch (e) {}
+
+        // 2. 上部に浮く縦幅バーと古いスティックを除去・非表示
+        document.querySelectorAll('[id="kmj-chat-resize-handle-v34"]').forEach(el => el.remove());
+        document.querySelectorAll('#joystick, #joy-base, #joystick-zone, #move-pad, .joystick, .joy-base').forEach(el => {
+            if (el.id !== 'kmj-v33-movepad') el.style.setProperty('display', 'none', 'important');
+        });
+
+        // 3. 移動スティックを必ず1個だけ画面内に表示
+        const pads = document.querySelectorAll('#kmj-v33-movepad');
+        pads.forEach((p, i) => { if (i > 0) p.remove(); });
+        let pad = document.getElementById('kmj-v33-movepad');
+        if (!pad) {
+            pad = document.createElement('section');
+            pad.id = 'kmj-v33-movepad';
+            pad.style.cssText = 'position:fixed;left:24px;bottom:24px;width:96px;height:96px;border-radius:50%;background:radial-gradient(circle,rgba(15,23,42,0.55),rgba(30,41,59,0.82));border:2px solid rgba(148,163,184,0.9);box-shadow:0 3px 12px rgba(0,0,0,0.6);z-index:90;touch-action:none;user-select:none;display:flex;align-items:center;justify-content:center;';
+            const knob = document.createElement('span');
+            knob.style.cssText = 'display:block;width:40px;height:40px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#38bdf8,#0284c7);border:2px solid #e0f2fe;box-shadow:0 2px 8px rgba(0,0,0,0.5);pointer-events:none;position:relative;';
+            pad.appendChild(knob);
+
+            let pid = null;
+            const setKey = (k, c, down) => {
+                const g = window.game;
+                if (g?.keys) { g.keys[k] = g.keys[k.toLowerCase()] = g.keys[k.toUpperCase()] = g.keys[c] = down; }
+                try { window.dispatchEvent(new KeyboardEvent(down ? 'keydown' : 'keyup', { key: k, code: c, bubbles: true })); } catch (e) {}
+            };
+            const move = (cx0, cy0) => {
+                const r = pad.getBoundingClientRect();
+                const maxR = r.width * 0.36;
+                let dx = cx0 - (r.left + r.width / 2);
+                let dy = cy0 - (r.top + r.height / 2);
+                const d = Math.hypot(dx, dy);
+                if (d > maxR) { dx = (dx / d) * maxR; dy = (dy / d) * maxR; }
+                knob.style.transform = `translate(${dx}px, ${dy}px)`;
+                const nx = dx / maxR, ny = dy / maxR, g = window.game;
+                if (g) {
+                    if ('joyX' in g) g.joyX = nx;
+                    if ('joyY' in g) g.joyY = ny;
+                    if (g.joy) { g.joy.x = nx; g.joy.y = ny; g.joy.active = true; }
+                }
+                setKey('w', 'KeyW', ny < -0.28); setKey('s', 'KeyS', ny > 0.28);
+                setKey('a', 'KeyA', nx < -0.28); setKey('d', 'KeyD', nx > 0.28);
+                setKey('ArrowUp', 'ArrowUp', ny < -0.28); setKey('ArrowDown', 'ArrowDown', ny > 0.28);
+                setKey('ArrowLeft', 'ArrowLeft', nx < -0.28); setKey('ArrowRight', 'ArrowRight', nx > 0.28);
+            };
+            const end = () => {
+                pid = null;
+                knob.style.transform = 'translate(0px, 0px)';
+                const g = window.game;
+                if (g) {
+                    if ('joyX' in g) g.joyX = 0;
+                    if ('joyY' in g) g.joyY = 0;
+                    if (g.joy) { g.joy.x = 0; g.joy.y = 0; g.joy.active = false; }
+                }
+                ['w', 's', 'a', 'd', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].forEach(k => setKey(k, k.length === 1 ? `Key${k.toUpperCase()}` : k, false));
+            };
+            pad.addEventListener('pointerdown', e => { if (window.game?._uiEditModeV31) return; e.preventDefault(); e.stopPropagation(); pid = e.pointerId; pad.setPointerCapture?.(e.pointerId); move(e.clientX, e.clientY); });
+            pad.addEventListener('pointermove', e => { if (!window.game?._uiEditModeV31 && pid === e.pointerId) { e.preventDefault(); move(e.clientX, e.clientY); } });
+            pad.addEventListener('pointerup', e => { if (pid === e.pointerId) { pad.releasePointerCapture?.(e.pointerId); end(); } });
+            pad.addEventListener('pointercancel', end);
+            document.body.appendChild(pad);
+        }
+        pad.style.setProperty('display', 'flex', 'important');
+        pad.style.setProperty('visibility', 'visible', 'important');
+        pad.style.setProperty('opacity', '1', 'important');
+    };
+
+    if (typeof KaomojiMMORPG !== 'undefined') {
+        KaomojiMMORPG.prototype.ensureStandardMoveStickV33 = fixAllV43;
+    }
+    setTimeout(fixAllV43, 100);
+    setInterval(fixAllV43, 250);
+})();
+// === GAME8_V43_OK ===
 // ▲▲▲ ここまで【3/3】 ▲▲▲
