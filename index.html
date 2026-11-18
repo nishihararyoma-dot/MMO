@@ -53,10 +53,10 @@ button,.btn-ui{touch-action:manipulation;cursor:pointer;pointer-events:auto}
 .bar-fill-hp{height:100%;background:linear-gradient(90deg,#10b981,#34d399);width:100%}
 .bar-fill-mp{height:100%;background:linear-gradient(90deg,#0284c7,#38bdf8);width:100%}
 .bar-fill-exp{height:100%;background:linear-gradient(90deg,#d97706,#fde047);width:0%}
-.hud-top-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;pointer-events:none}
-.hud-zone-pill{background:rgba(15,23,42,.88);border:1px solid rgba(148,163,184,.4);border-radius:10px;padding:4px 9px;display:flex;align-items:center;gap:6px;font-size:11px;font-weight:900;pointer-events:auto}
-.hud-action-row{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:5px;pointer-events:none}
-.hud-action-row>button{pointer-events:auto;position:relative}
+.hud-top-right{flex:1;min-width:0;max-width:calc(100vw - 210px);display:flex;flex-direction:column;align-items:flex-end;gap:4px;pointer-events:none;z-index:35}
+.hud-zone-pill{background:rgba(15,23,42,.88);border:1px solid rgba(148,163,184,.4);border-radius:10px;padding:3px 8px;display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:5px;font-size:10px;font-weight:900;max-width:100%;pointer-events:auto}
+.hud-action-row{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px;max-width:100%;pointer-events:none}
+.hud-action-row>button{pointer-events:auto;position:static!important;margin:0!important;padding:4px 7px!important;font-size:10px!important;white-space:nowrap!important}
 .alert-dot{position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:#ef4444;border:1.5px solid #fff}
 #hud-drawer-menu{position:fixed;top:84px;right:8px;width:210px;background:rgba(15,23,42,.96);border:1.5px solid #38bdf8;border-radius:14px;padding:8px;display:flex;flex-direction:column;gap:6px;z-index:45;pointer-events:auto;box-shadow:0 12px 30px rgba(0,0,0,.7)}
 #emote-palette{position:fixed;top:84px;right:8px;width:240px;background:rgba(15,23,42,.96);border:1.5px solid #f472b6;border-radius:14px;padding:8px;display:grid;grid-template-columns:repeat(4,1fr);gap:5px;z-index:45;pointer-events:auto;box-shadow:0 12px 30px rgba(0,0,0,.7)}
@@ -76,10 +76,11 @@ button,.btn-ui{touch-action:manipulation;cursor:pointer;pointer-events:auto}
 #joystick-zone{position:fixed;left:18px;bottom:18px;width:114px;height:114px;border-radius:50%;background:rgba(15,23,42,.55);border:2px solid rgba(56,189,248,.45);display:flex;align-items:center;justify-content:center;z-index:28;pointer-events:auto;touch-action:none}
 #joystick-knob{width:46px;height:46px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#7dd3fc,#0284c7);border:2px solid #fff;box-shadow:0 4px 12px rgba(0,0,0,.5);pointer-events:none}
 #battle-pad{position:fixed;right:12px;bottom:12px;width:215px;height:215px;z-index:28;pointer-events:none!important}
-#btn-basic-attack{position:absolute;right:6px;bottom:6px;width:76px;height:76px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#fb7185,#e11d48);border:3px solid #fde047;color:#fff;font-size:13px;font-weight:900;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(225,29,72,.65);cursor:pointer;pointer-events:auto!important;touch-action:none;z-index:30}
+#skill-slots-container{display:block!important;visibility:visible!important;opacity:1!important}
+#btn-basic-attack{position:absolute;right:6px;bottom:6px;width:76px;height:76px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#fb7185,#e11d48);border:3px solid #fde047;color:#fff;font-size:13px;font-weight:900;display:flex!important;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(225,29,72,.65);cursor:pointer;pointer-events:auto!important;touch-action:none;z-index:30}
 #btn-basic-attack:active{transform:scale(.92)}
-#btn-cycle-target{position:absolute;right:12px;bottom:168px;border-radius:999px;padding:6px 11px;font-size:11px;pointer-events:auto!important;z-index:30}
-.skill-slot-btn{position:absolute;width:48px;height:48px;border-radius:50%;background:rgba(15,23,42,.92);border:2px solid #38bdf8;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.6);cursor:pointer;pointer-events:auto!important;touch-action:none;overflow:hidden;z-index:29}
+#btn-cycle-target{position:absolute;right:12px;bottom:168px;border-radius:999px;padding:6px 11px;font-size:11px;display:inline-flex!important;pointer-events:auto!important;z-index:30}
+.skill-slot-btn{position:absolute;width:48px;height:48px;border-radius:50%;background:rgba(15,23,42,.92);border:2px solid #38bdf8;color:#fff;display:flex!important;visibility:visible!important;opacity:1!important;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.6);cursor:pointer;pointer-events:auto!important;touch-action:none;overflow:hidden;z-index:29}
 .skill-slot-btn:active{transform:scale(.92)}
 .skill-arc-0{right:94px;bottom:8px}.skill-arc-1{right:86px;bottom:62px}.skill-arc-2{right:62px;bottom:108px}.skill-arc-3{right:16px;bottom:114px}.skill-arc-4{right:146px;bottom:10px}
 .skill-cd-overlay{position:absolute;inset:0;background:rgba(2,6,23,.82);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fde047;pointer-events:none}
@@ -255,415 +256,241 @@ button,.btn-ui{touch-action:manipulation;cursor:pointer;pointer-events:auto}
 <script src="game8.js?v=20261119fix"></script>
 <script>
 // =========================================================================
-// 統合修正パッチ（完全初期化・メニュー空欄・右上重なり・ボタン配置消失）
+// 軽量・安全統合パッチ（Safari落ち対策・スキル欄保護・正面通常攻撃・メニュー修復）
 // =========================================================================
 (function () {
-    if (typeof KaomojiMMORPG === 'undefined') return;
-    const P = KaomojiMMORPG.prototype;
+    if (window.__KMJ_CLEAN_PATCH_V40__) return;
+    window.__KMJ_CLEAN_PATCH_V40__ = true;
 
-    // ---------------------------------------------------------------------
-    // 1. 確認ダイアログ (openDialog) & 完全データ初期化の修復
-    // ---------------------------------------------------------------------
-    P.openDialog = function (title, message, buttons) {
-        if (title && typeof title === 'object') {
-            const opts = title;
-            title = opts.title || '確認';
-            message = opts.message || '';
-            buttons = [
-                { text: opts.cancelText || 'キャンセル', primary: false },
-                { text: opts.confirmText || 'OK', primary: true, onClick: opts.onConfirm }
-            ];
-        }
-        const modal = document.getElementById('dialog-modal');
-        const titleEl = document.getElementById('dialog-title');
-        const msgEl = document.getElementById('dialog-message');
-        const btnWrap = document.getElementById('dialog-buttons');
-        if (!modal || !btnWrap) {
-            const okBtn = (buttons || []).find(b => b.primary);
-            if (confirm(`${title}\n${message}`)) okBtn?.onClick?.();
-            return;
-        }
-        if (titleEl) titleEl.textContent = title || '確認';
-        if (msgEl) msgEl.textContent = message || '';
-        btnWrap.innerHTML = '';
-        (buttons || [{ text: 'OK', primary: true }]).forEach(b => {
-            const el = document.createElement('button');
-            el.type = 'button';
-            el.className = 'btn-ui ' + (b.primary ? 'btn-rose' : 'btn-slate');
-            el.textContent = b.text || 'OK';
-            el.addEventListener('click', (e) => {
-                e.stopPropagation();
-                modal.classList.add('hidden');
-                if (typeof b.onClick === 'function') b.onClick();
-            });
-            btnWrap.appendChild(el);
-        });
-        modal.classList.remove('hidden');
-    };
-
-    P.hardResetGame = function () {
-        this._hardResetting = true;
-        this.saveGame = function () {};
-        try { this.stopMqtt?.(false); } catch (e) {}
-        try { localStorage.clear(); } catch (e) {}
-        try { sessionStorage.clear(); } catch (e) {}
-        this.showAlertBanner?.('💥 データを完全初期化しました！再読み込みします…', 1500);
-        setTimeout(() => {
-            window.location.href = window.location.pathname + '?reset=' + Date.now();
-        }, 250);
-    };
-
-    // ---------------------------------------------------------------------
-    // 2. ステージ選択＆メニューが空欄になる問題の完全修正
-    // ---------------------------------------------------------------------
-    const MENU_TABS = [
-        { id: 'stats', label: '📊 ステータス' },
-        { id: 'skills', label: '📘 スキル' },
-        { id: 'tree', label: '🌳 ツリー' },
-        { id: 'equip', label: '⚔️ 装備･精錬' },
-        { id: 'evo', label: '👑 転職' },
-        { id: 'look', label: '🎨 見た目' },
-        { id: 'pets', label: '🐾 ペット' },
-        { id: 'titles', label: '🎖️ 称号･実績' },
-        { id: 'zones', label: '🗺️ ステージ' },
-        { id: 'online', label: '🌐 通信･設定' }
-    ];
-
-    const normalizeTab = (t) => {
-        const s = String(t || 'stats').toLowerCase();
-        if (s === 'travel' || s === 'stage' || s === 'map') return 'zones';
-        if (s === 'system' || s === 'setting' || s === 'settings') return 'online';
-        return s;
-    };
-
-    const _origRenderGrowth = P.renderGrowthTabContent;
-    const _origRenderModal = P.renderModalContent;
-
-    P.openGrowthModal = function (tab = 'stats') {
-        this.activeTab = normalizeTab(tab);
-        this.isModalOpen = true;
-        const modal = document.getElementById('growth-modal');
-        if (modal) modal.classList.remove('hidden');
-
-        const tabsEl = document.getElementById('modal-tabs');
-        if (tabsEl) {
-            tabsEl.innerHTML = MENU_TABS.map(t => `
-                <button type="button" class="tab-chip-btn ${t.id === this.activeTab ? 'active' : ''}" data-menu-tab="${t.id}">
-                    ${t.label}
-                </button>
-            `).join('');
-            tabsEl.querySelectorAll('[data-menu-tab]').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.openGrowthModal(btn.getAttribute('data-menu-tab'));
-                });
-            });
-        }
-        this.renderGrowthTabContent();
-    };
-
-    P.openModal = function (tab = 'stats') {
-        this.openGrowthModal(tab);
-    };
-
-    P.closeGrowthModal = function () {
-        this.isModalOpen = false;
-        document.getElementById('growth-modal')?.classList.add('hidden');
-        this.refreshAllHUD?.();
-    };
-
-    P.closeModal = function () {
-        this.closeGrowthModal();
-    };
-
-    P.renderGrowthTabContent = function () {
-        this.activeTab = normalizeTab(this.activeTab);
-        const modalBody = document.getElementById('modal-body');
-        if (!modalBody) return;
-
-        // game5.js が探す #modal-body-content を #modal-body 内に必ず用意
-        let inner = document.getElementById('modal-body-content');
-        if (!inner) {
-            modalBody.innerHTML = '<div id="modal-body-content"></div>';
-            inner = document.getElementById('modal-body-content');
-        }
-
-        if (_origRenderGrowth) {
-            _origRenderGrowth.call(this);
-        }
-
-        // game6.js のペット装備・名前変更・通信診断も続けて反映
-        if (_origRenderModal && _origRenderModal !== P.renderGrowthTabContent) {
-            try { _origRenderModal.call(this); } catch (e) {}
-        }
-    };
-
-    P.renderModalContent = function () {
-        this.renderGrowthTabContent();
-    };
-
-    // ---------------------------------------------------------------------
-    // 3. 右上メニューの重なり解消
-    // ---------------------------------------------------------------------
-    P.fixTopRightOverlap = function () {
-        const topRight = document.querySelector('.hud-top-right');
-        const actionRow = document.querySelector('.hud-action-row');
-        const zonePill = document.querySelector('.hud-zone-pill');
-        if (!topRight || !actionRow) return;
-
-        topRight.style.setProperty('flex', '1', 'important');
-        topRight.style.setProperty('min-width', '0', 'important');
-        topRight.style.setProperty('max-width', 'calc(100vw - 212px)', 'important');
-        topRight.style.setProperty('display', 'flex', 'important');
-        topRight.style.setProperty('flex-direction', 'column', 'important');
-        topRight.style.setProperty('align-items', 'flex-end', 'important');
-        topRight.style.setProperty('gap', '4px', 'important');
-        topRight.style.setProperty('z-index', '35', 'important');
-
-        if (zonePill) {
-            zonePill.style.setProperty('max-width', '100%', 'important');
-            zonePill.style.setProperty('flex-wrap', 'wrap', 'important');
-            zonePill.style.setProperty('justify-content', 'flex-end', 'important');
-            zonePill.style.setProperty('font-size', '10px', 'important');
-            zonePill.style.setProperty('padding', '3px 7px', 'important');
-        }
-
-        actionRow.style.setProperty('display', 'flex', 'important');
-        actionRow.style.setProperty('flex-wrap', 'wrap', 'important');
-        actionRow.style.setProperty('justify-content', 'flex-end', 'important');
-        actionRow.style.setProperty('gap', '4px', 'important');
-        actionRow.style.setProperty('max-width', '100%', 'important');
-
-        // 外に浮いているUI配置ボタン等があればアクション行の中に整列させる
-        ['kmj-btn-ui-edit-hud', 'kmj-v31-edit-btn', 'btn-ui-layout-edit'].forEach(id => {
-            const extraBtn = document.getElementById(id);
-            if (extraBtn && extraBtn.parentElement !== actionRow) {
-                actionRow.appendChild(extraBtn);
-            }
-        });
-
-        actionRow.querySelectorAll('button').forEach(btn => {
-            btn.style.setProperty('position', 'static', 'important');
-            btn.style.setProperty('margin', '0', 'important');
-            btn.style.setProperty('padding', '4px 7px', 'important');
-            btn.style.setProperty('font-size', '10px', 'important');
-            btn.style.setProperty('white-space', 'nowrap', 'important');
-        });
-    };
-
-    // ---------------------------------------------------------------------
-    // 4. ボタン位置・大きさで「完了」を押すと消えるバグの完全修正
-    // ---------------------------------------------------------------------
-    P._uiPlaceholders = new Map();
-
-    P.portalBtnToBody = function (key, el) {
-        if (!el || el.parentElement === document.body) return;
-        if (!this._uiPlaceholders.has(key)) {
-            const ph = document.createElement('span');
-            ph.style.display = 'none';
-            el.parentElement.insertBefore(ph, el);
-            this._uiPlaceholders.set(key, ph);
-        }
-        document.body.appendChild(el);
-    };
-
-    P.restoreBtnFromBody = function (key, el) {
-        if (!el) return;
-        const ph = this._uiPlaceholders.get(key);
-        if (ph && ph.parentElement) {
-            ph.parentElement.insertBefore(el, ph);
-            ph.remove();
-        }
-        this._uiPlaceholders.delete(key);
-        ['position', 'left', 'top', 'right', 'bottom', 'margin', 'transform', 'transform-origin', 'z-index'].forEach(p => {
-            el.style.removeProperty(p);
-        });
-    };
-
-    P.discoverCustomizableControlsV31 = function () {
-        const items = [];
-        const add = (key, label, el) => {
-            if (!el) return;
-            const cs = window.getComputedStyle(el);
-            if (cs.display === 'none') return;
-            el.dataset.v31ControlKey = key;
-            el.dataset.v31ControlLabel = label;
-            items.push({ key, label, el });
+    function throttle(fn, ms) {
+        if (typeof fn !== 'function') return fn;
+        let last = 0;
+        return function (...args) {
+            const now = performance.now();
+            if (now - last < ms) return;
+            last = now;
+            return fn.apply(this, args);
         };
-        const stick = document.getElementById('kmj-v33-movepad') || document.getElementById('joystick-zone');
-        add('move_stick', '🕹️ 移動', stick);
-        add('btn_attack', '⚔️ 攻撃', document.getElementById('btn-basic-attack'));
-        add('btn_target', '🎯 標的', document.getElementById('btn-cycle-target'));
-        add('btn_taunt', '💢 挑発', document.getElementById('kmj-btn-taunt-v26'));
-        for (let i = 0; i < 5; i++) {
-            add(`skill_${i}`, `枠${i + 1}`, document.getElementById(`skill-slot-${i}`));
-        }
-        return items;
-    };
+    }
 
-    P.bindControlEditListenersV35 = function (key, el) {
-        if (!el || el.dataset.v37DragBound) return;
-        el.dataset.v37DragBound = '1';
-        let dragging = false, sx = 0, sy = 0, sl = 0, st = 0;
-
-        const onStart = (cx, cy, e) => {
-            if (!this._uiEditModeV31) return;
-            e.preventDefault();
-            e.stopImmediatePropagation();
-            this._uiSelectedKeyV31 = key;
-            const r = el.getBoundingClientRect();
-            this.portalBtnToBody(key, el);
-            dragging = true;
-            sx = cx; sy = cy;
-            sl = r.left; st = r.top;
-            el.style.setProperty('position', 'fixed', 'important');
-            el.style.setProperty('left', `${Math.round(sl)}px`, 'important');
-            el.style.setProperty('top', `${Math.round(st)}px`, 'important');
-            el.style.setProperty('right', 'auto', 'important');
-            el.style.setProperty('bottom', 'auto', 'important');
-            this.renderUICustomToolbarV31?.();
-            this.applySavedUILayoutV31();
-        };
-
-        const onMove = (cx, cy) => {
-            if (!dragging || !this._uiEditModeV31) return;
-            const maxX = Math.max(10, window.innerWidth - 48);
-            const maxY = Math.max(10, window.innerHeight - 48);
-            const nx = Math.max(4, Math.min(maxX, sl + (cx - sx)));
-            const ny = Math.max(36, Math.min(maxY, st + (cy - sy)));
-            el.style.setProperty('left', `${Math.round(nx)}px`, 'important');
-            el.style.setProperty('top', `${Math.round(ny)}px`, 'important');
-            const layout = this.loadCustomUILayoutV31?.() || {};
-            layout[key] = layout[key] || {};
-            layout[key].leftPct = Number(((nx / window.innerWidth) * 100).toFixed(2));
-            layout[key].topPct = Number(((ny / window.innerHeight) * 100).toFixed(2));
-            this.saveCustomUILayoutV31?.(layout);
-        };
-
-        const onEnd = () => { dragging = false; };
-
-        el.addEventListener('touchstart', (e) => onStart(e.touches[0].clientX, e.touches[0].clientY, e), { capture: true, passive: false });
-        window.addEventListener('touchmove', (e) => { if (dragging) onMove(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
-        window.addEventListener('touchend', onEnd);
-
-        el.addEventListener('mousedown', (e) => onStart(e.clientX, e.clientY, e), true);
-        window.addEventListener('mousemove', (e) => { if (dragging) onMove(e.clientX, e.clientY); });
-        window.addEventListener('mouseup', onEnd);
-    };
-
-    P.applySavedUILayoutV31 = function () {
-        const layout = this.loadCustomUILayoutV31?.() || {};
-        const items = this.discoverCustomizableControlsV31();
-        const defScale = window.innerWidth <= 920 ? 0.9 : 1.0;
-
-        items.forEach(({ key, label, el }) => {
-            const cfg = layout[key];
-            const scale = (cfg && typeof cfg.scale === 'number' && !isNaN(cfg.scale))
-                ? Math.max(0.55, Math.min(1.65, cfg.scale))
-                : defScale;
-            const hasPos = cfg && typeof cfg.leftPct === 'number' && typeof cfg.topPct === 'number'
-                && !isNaN(cfg.leftPct) && !isNaN(cfg.topPct);
-
-            if (hasPos) {
-                const safeL = Math.max(1, Math.min(88, cfg.leftPct));
-                const safeT = Math.max(4, Math.min(88, cfg.topPct));
-                this.portalBtnToBody(key, el);
-                el.style.setProperty('position', 'fixed', 'important');
-                el.style.setProperty('left', `${Math.round((safeL / 100) * window.innerWidth)}px`, 'important');
-                el.style.setProperty('top', `${Math.round((safeT / 100) * window.innerHeight)}px`, 'important');
-                el.style.setProperty('right', 'auto', 'important');
-                el.style.setProperty('bottom', 'auto', 'important');
-                el.style.setProperty('margin', '0px', 'important');
-            }
-
-            el.style.setProperty('display', 'flex', 'important');
-            el.style.setProperty('visibility', 'visible', 'important');
-            el.style.setProperty('opacity', '1', 'important');
-            el.style.setProperty('pointer-events', 'auto', 'important');
-            el.style.setProperty('transform', `scale(${scale.toFixed(2)})`, 'important');
-            el.style.setProperty('transform-origin', 'center center', 'important');
-            el.style.setProperty('z-index', this._uiEditModeV31 ? '94' : '40', 'important');
-
-            let tag = el.querySelector('.v37-edit-tag');
-            if (this._uiEditModeV31) {
-                this.bindControlEditListenersV35(key, el);
-                const sel = this._uiSelectedKeyV31 === key;
-                el.style.setProperty('outline', sel ? '3px solid #fde047' : '2px dashed #38bdf8', 'important');
-                if (!tag) {
-                    tag = document.createElement('span');
-                    tag.className = 'v37-edit-tag';
-                    tag.style.cssText = 'position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fde047;border:1px solid #fde047;border-radius:4px;padding:0 4px;font-size:9px;font-weight:900;white-space:nowrap;pointer-events:none;z-index:96;';
-                    el.appendChild(tag);
-                }
-                tag.textContent = label;
-            } else {
-                el.style.removeProperty('outline');
-                if (tag) tag.remove();
-            }
-        });
-    };
-
-    P.toggleUIEditModeV31 = function (force = null) {
-        this._uiEditModeV31 = (force !== null) ? Boolean(force) : !this._uiEditModeV31;
-        const items = this.discoverCustomizableControlsV31();
-        if (!this._uiEditModeV31) {
-            document.getElementById('kmj-ui-custom-bar')?.remove();
-            this.applySavedUILayoutV31();
-            this.showAlertBanner?.('✅ ボタン配置とサイズを保存しました！', 1600);
-            return;
-        }
-        if (!this._uiSelectedKeyV31 && items[0]) this._uiSelectedKeyV31 = items[0].key;
-        items.forEach(({ key, el }) => this.bindControlEditListenersV35(key, el));
-        this.renderUICustomToolbarV31?.();
-        this.applySavedUILayoutV31();
-    };
-
-    const _origToolbar = P.renderUICustomToolbarV31;
-    P.renderUICustomToolbarV31 = function () {
-        _origToolbar?.call(this);
-        const resetBtn = document.getElementById('v31-layout-reset');
-        if (resetBtn && !resetBtn.dataset.v37Reset) {
-            resetBtn.dataset.v37Reset = '1';
-            resetBtn.addEventListener('click', () => {
-                localStorage.removeItem('kmj_custom_ui_layout_v31');
-                this.discoverCustomizableControlsV31().forEach(({ key, el }) => this.restoreBtnFromBody(key, el));
-                this.applySavedUILayoutV31();
-                this.renderUICustomToolbarV31();
-            });
-        }
-    };
-
-    // 初期起動＆リサイズ時の自動整列
-    window.addEventListener('resize', () => {
-        window.game?.fixTopRightOverlap?.();
-        window.game?.applySavedUILayoutV31?.();
-    });
-    setInterval(() => {
-        window.game?.fixTopRightOverlap?.();
-    }, 800);
-})();
-</script>
-<script>
-// =========================================================================
-// 通常攻撃の修正（敵がいない時も正面へ普通に飛ばす＆空中静止を防止）
-// =========================================================================
-(function () {
-    function patchBasicAttack() {
+    function installCleanPatch() {
         if (typeof KaomojiMMORPG === 'undefined') return;
         const P = KaomojiMMORPG.prototype;
+        if (P.__v40Installed) return;
+        P.__v40Installed = true;
+
+        // -----------------------------------------------------------------
+        // 1. iPad Safari クラッシュ対策：毎フレーム走っていた重いDOM処理を間引き
+        // -----------------------------------------------------------------
+        P.fixChatCompactLayoutV31 = throttle(P.fixChatCompactLayoutV31, 800);
+        P.ensureStandardMoveStickV33 = throttle(P.ensureStandardMoveStickV33, 800);
+        P.injectSettingsDropdownItemV33 = throttle(P.injectSettingsDropdownItemV33, 1200);
+        P.fixTopRightMenuOverlapV36 = throttle(P.fixTopRightMenuOverlapV36, 1000);
+        P.enforceStrictWeaponVisualV27 = throttle(P.enforceStrictWeaponVisualV27, 600);
+
+        // スキル欄が消える原因だったDOM移動(portal)を無効化し、常に元の枠内で表示維持
+        P.portalBtnToBody = function () {};
+        P.portalControlToBodyV36 = function () {};
+        P.applySavedUILayoutV31 = function () {
+            const container = document.getElementById('skill-slots-container');
+            if (container) {
+                container.style.setProperty('display', 'block', 'important');
+                container.style.setProperty('visibility', 'visible', 'important');
+                container.style.setProperty('opacity', '1', 'important');
+            }
+            document.querySelectorAll('.skill-slot-btn, #btn-basic-attack, #btn-cycle-target').forEach(el => {
+                el.style.removeProperty('left');
+                el.style.removeProperty('top');
+                el.style.setProperty('visibility', 'visible', 'important');
+                el.style.setProperty('opacity', '1', 'important');
+            });
+        };
+
+        // -----------------------------------------------------------------
+        // 2. 確認ダイアログ & 完全データ初期化の修復
+        // -----------------------------------------------------------------
+        P.openDialog = function (title, message, buttons) {
+            if (title && typeof title === 'object') {
+                const o = title;
+                title = o.title || '確認';
+                message = o.message || '';
+                buttons = [
+                    { text: o.cancelText || 'キャンセル', primary: false },
+                    { text: o.confirmText || 'OK', primary: true, onClick: o.onConfirm }
+                ];
+            }
+            const modal = document.getElementById('dialog-modal');
+            const titleEl = document.getElementById('dialog-title');
+            const msgEl = document.getElementById('dialog-message');
+            const btnWrap = document.getElementById('dialog-buttons');
+            if (!modal || !btnWrap) {
+                const okBtn = (buttons || []).find(b => b.primary);
+                if (confirm(`${title}\n${message}`)) okBtn?.onClick?.();
+                return;
+            }
+            if (titleEl) titleEl.textContent = title || '確認';
+            if (msgEl) msgEl.textContent = message || '';
+            btnWrap.innerHTML = '';
+            (buttons || [{ text: 'OK', primary: true }]).forEach(b => {
+                const el = document.createElement('button');
+                el.type = 'button';
+                el.className = 'btn-ui ' + (b.primary ? 'btn-rose' : 'btn-slate');
+                el.textContent = b.text || 'OK';
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    modal.classList.add('hidden');
+                    if (typeof b.onClick === 'function') b.onClick();
+                });
+                btnWrap.appendChild(el);
+            });
+            modal.classList.remove('hidden');
+        };
+
+        P.hardResetGame = function () {
+            this._hardResetting = true;
+            this.saveGame = function () {};
+            try { this.stopMqtt?.(false); } catch (e) {}
+            try { localStorage.clear(); } catch (e) {}
+            try { sessionStorage.clear(); } catch (e) {}
+            this.showAlertBanner?.('💥 データを完全初期化しました！再読み込みします…', 1500);
+            setTimeout(() => {
+                window.location.href = window.location.pathname + '?reset=' + Date.now();
+            }, 250);
+        };
+
+        // -----------------------------------------------------------------
+        // 3. メニュー＆ステージ選択が空欄になる問題の修復
+        // -----------------------------------------------------------------
+        const MENU_TABS = [
+            { id: 'stats', label: '📊 ステータス' },
+            { id: 'skills', label: '📘 スキル' },
+            { id: 'tree', label: '🌳 ツリー' },
+            { id: 'equip', label: '⚔️ 装備･精錬' },
+            { id: 'evo', label: '👑 転職' },
+            { id: 'look', label: '🎨 見た目' },
+            { id: 'pets', label: '🐾 ペット' },
+            { id: 'titles', label: '🎖️ 称号･実績' },
+            { id: 'zones', label: '🗺️ ステージ' },
+            { id: 'online', label: '🌐 通信･設定' }
+        ];
+
+        const normalizeTab = (t) => {
+            const s = String(t || 'stats').toLowerCase();
+            if (s === 'travel' || s === 'stage' || s === 'map') return 'zones';
+            if (s === 'system' || s === 'setting' || s === 'settings') return 'online';
+            return s;
+        };
+
+        const _baseRenderGrowth = P.renderGrowthTabContent;
+        const _baseRenderModal = P.renderModalContent;
+
+        P.openGrowthModal = function (tab = 'stats') {
+            this.activeTab = normalizeTab(tab);
+            this.isModalOpen = true;
+            document.getElementById('growth-modal')?.classList.remove('hidden');
+
+            const tabsEl = document.getElementById('modal-tabs');
+            if (tabsEl) {
+                tabsEl.innerHTML = MENU_TABS.map(t => `
+                    <button type="button" class="tab-chip-btn ${t.id === this.activeTab ? 'active' : ''}" data-menu-tab="${t.id}">
+                        ${t.label}
+                    </button>
+                `).join('');
+                tabsEl.querySelectorAll('[data-menu-tab]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.openGrowthModal(btn.getAttribute('data-menu-tab'));
+                    });
+                });
+            }
+            this.renderGrowthTabContent();
+        };
+
+        P.openModal = function (tab = 'stats') { this.openGrowthModal(tab); };
+        P.closeGrowthModal = function () {
+            this.isModalOpen = false;
+            document.getElementById('growth-modal')?.classList.add('hidden');
+            this.refreshAllHUD?.();
+        };
+        P.closeModal = function () { this.closeGrowthModal(); };
+
+        P.renderGrowthTabContent = function () {
+            this.activeTab = normalizeTab(this.activeTab);
+            const modalBody = document.getElementById('modal-body');
+            if (!modalBody) return;
+
+            let inner = document.getElementById('modal-body-content');
+            if (!inner) {
+                modalBody.innerHTML = '<div id="modal-body-content"></div>';
+                inner = document.getElementById('modal-body-content');
+            }
+            if (_baseRenderGrowth) _baseRenderGrowth.call(this);
+            if (_baseRenderModal && _baseRenderModal !== P.renderGrowthTabContent) {
+                try { _baseRenderModal.call(this); } catch (e) {}
+            }
+        };
+        P.renderModalContent = function () { this.renderGrowthTabContent(); };
+
+        // -----------------------------------------------------------------
+        // 4. 通常攻撃：敵がいない時も正面へ真っ直ぐ飛ぶ＆空中静止を完全防止
+        // -----------------------------------------------------------------
+        P.spawnSimpleForwardMagicBolt = function (rotY, colorHex = 0xc084fc) {
+            if (!this.useWebGL || !this.scene || !this.player?.pos || typeof THREE === 'undefined') return;
+            if (!this._simpleMagicBolts) this._simpleMagicBolts = [];
+
+            const dirX = Math.sin(rotY);
+            const dirZ = Math.cos(rotY);
+            const grp = new THREE.Group();
+
+            const coreGeo = new THREE.SphereGeometry(0.28, 10, 10);
+            const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const auraGeo = new THREE.SphereGeometry(0.46, 10, 10);
+            const auraMat = new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.72 });
+
+            grp.add(new THREE.Mesh(coreGeo, coreMat), new THREE.Mesh(auraGeo, auraMat));
+            grp.position.set(this.player.pos.x + dirX * 1.1, 1.25, this.player.pos.z + dirZ * 1.1);
+            this.scene.add(grp);
+
+            this._simpleMagicBolts.push({
+                grp, coreGeo, coreMat, auraGeo, auraMat,
+                vx: dirX * 19,
+                vz: dirZ * 19,
+                life: 0.65
+            });
+        };
+
+        P.updateSimpleForwardMagicBolts = function (dt) {
+            if (!this._simpleMagicBolts || !this._simpleMagicBolts.length) return;
+            this._simpleMagicBolts = this._simpleMagicBolts.filter(b => {
+                b.life -= dt;
+                if (b.life <= 0) {
+                    this.scene?.remove(b.grp);
+                    b.coreGeo.dispose(); b.coreMat.dispose();
+                    b.auraGeo.dispose(); b.auraMat.dispose();
+                    return false;
+                }
+                b.grp.position.x += b.vx * dt;
+                b.grp.position.z += b.vz * dt;
+                return true;
+            });
+        };
 
         P.performBasicAttack = function () {
-            if (!this.player || this.isDead || this.currentZoneId === 'town') return false;
+            if (!this.player || this.isDead) return false;
             if ((this.player.stunTimer || 0) > 0) return false;
 
-            // 空中で静止していた場合は地面(y=0)へ戻す
+            // 空中で静止しないよう地上座標を保証
             if (this.player.pos) this.player.pos.y = 0;
+            if (this.player.group) this.player.group.position.y = 0;
 
             const st = this.calcDerivedStats ? this.calcDerivedStats() : {};
             const isStaff = Boolean(st.isStaffEquipped || this.isMageEvolution?.());
-            const atkRange = isStaff ? 16.5 : 5.0;
+            const atkRange = isStaff ? 16.5 : 5.5;
 
-            const target = this.getValidTarget ? this.getValidTarget(atkRange) : null;
+            const target = (this.currentZoneId !== 'town' && this.getValidTarget)
+                ? this.getValidTarget(atkRange)
+                : null;
+
             if (target) {
                 const dx = target.pos.x - this.player.pos.x;
                 const dz = target.pos.z - this.player.pos.z;
@@ -671,60 +498,23 @@ button,.btn-ui{touch-action:manipulation;cursor:pointer;pointer-events:auto}
             }
 
             const rotY = this.player.rotY || 0;
-            const dirX = Math.sin(rotY);
-            const dirZ = Math.cos(rotY);
-            const px = this.player.pos.x;
-            const pz = this.player.pos.z;
 
             if (isStaff) {
-                // 杖・魔道士：敵がいれば敵へ、いなければ正面14mへ普通に魔法弾を飛ばす
-                this.triggerPlayerAttackAnim?.('staff_cast', 0.28);
-                sfx?.playTone?.(640, 'sine', 0.12, 0.06, 980);
-
-                if (typeof THREE !== 'undefined' && this.spawnMagicBolt) {
-                    const startPos = new THREE.Vector3(px, 1.35, pz);
-                    const endPos = target
-                        ? new THREE.Vector3(target.pos.x, 0.9, target.pos.z)
-                        : new THREE.Vector3(px + dirX * 14, 1.1, pz + dirZ * 14);
-                    this.spawnMagicBolt(startPos, endPos, st.wpnGlowColor || 0xc084fc);
-                } else {
-                    this.spawnMageBasicMagicShot?.(this.player);
-                }
+                // 杖・魔道士：敵がいなくても正面へ真っ直ぐ魔法弾が飛ぶ
+                this.triggerPlayerAttackAnim?.('staff_cast', 0.24);
+                sfx?.playTone?.(660, 'sine', 0.11, 0.06, 980);
+                this.spawnSimpleForwardMagicBolt(rotY, st.wpnGlowColor || 0x38bdf8);
             } else {
-                // 剣・物理：敵がいなくても正面へ普通に斬撃を飛ばす
-                this.triggerPlayerAttackAnim?.('slash', 0.24);
+                // 剣・物理：敵がいなくても正面へ斬撃エフェクトが出る
+                this.triggerPlayerAttackAnim?.('slash', 0.22);
                 sfx?.playHit?.(false);
-
                 if (this.spawnSlashArc) {
-                    this.spawnSlashArc(this.player.pos, rotY, st.wpnGlowColor || 0x38bdf8, 2.5);
-                }
-                // 正面へ飛ぶ斬撃波エフェクト
-                if (this.useWebGL && this.scene && typeof THREE !== 'undefined') {
-                    if (!this._v21SkillEffects) this._v21SkillEffects = [];
-                    const mat = new THREE.MeshBasicMaterial({
-                        color: st.wpnGlowColor || 0x38bdf8,
-                        side: THREE.DoubleSide,
-                        transparent: true,
-                        opacity: 0.9
-                    });
-                    const wave = new THREE.Mesh(
-                        new THREE.RingGeometry(0.7, 1.65, 20, 1, -Math.PI * 0.42, Math.PI * 0.84),
-                        mat
-                    );
-                    wave.position.set(px + dirX * 1.2, 1.15, pz + dirZ * 1.2);
-                    wave.rotation.set(Math.PI * 0.28, rotY, 0);
-                    this.scene.add(wave);
-                    this._v21SkillEffects.push({
-                        root: wave,
-                        animItems: [{ type: 'projectile', mesh: wave, mat, vx: dirX * 13.5, vz: dirZ * 13.5, spinZ: 0 }],
-                        life: 0.35,
-                        maxLife: 0.35
-                    });
+                    this.spawnSlashArc(this.player.pos, rotY, st.wpnGlowColor || 0x38bdf8, 2.6);
                 }
             }
 
-            // 射程内に敵がいる場合はダメージ計算を実行
-            if (target) {
+            // フィールドで敵が射程内にいる場合はダメージを与える
+            if (target && this.currentZoneId !== 'town') {
                 const isCrit = Math.random() < (st.critChance || 0.05);
                 const basePower = isStaff ? (st.magAtk || 10) : (st.physAtk || 10);
                 const variance = 0.92 + Math.random() * 0.16;
@@ -738,14 +528,15 @@ button,.btn-ui{touch-action:manipulation;cursor:pointer;pointer-events:auto}
                     this.player.hp = Math.min(st.maxHp || this.player.hp, this.player.hp + heal);
                 }
             }
-
             return true;
         };
 
-        // 空中静止の完全防止（スキル浮遊モーション中以外は常に地面へ接地）
+        // 毎フレーム処理：魔法弾の移動＋空中静止の完全防止
         const _prevAnim = P.updateCharacterAnimations;
         P.updateCharacterAnimations = function (dt) {
             _prevAnim?.call(this, dt);
+            this.updateSimpleForwardMagicBolts(dt);
+
             if (this.player && this.player.pos && this.player.group) {
                 const inSkillAir = this.player.skillMotionV25 && this.player.skillMotionV25.timer > 0;
                 if (!inSkillAir) {
@@ -758,13 +549,10 @@ button,.btn-ui{touch-action:manipulation;cursor:pointer;pointer-events:auto}
         };
     }
 
-    patchBasicAttack();
-    window.addEventListener('DOMContentLoaded', patchBasicAttack);
-    window.addEventListener('load', patchBasicAttack);
-    setTimeout(patchBasicAttack, 900);
+    installCleanPatch();
+    window.addEventListener('DOMContentLoaded', installCleanPatch);
+    setTimeout(installCleanPatch, 350);
 })();
 </script>
-
-
 </body>
 </html>
