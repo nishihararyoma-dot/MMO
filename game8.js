@@ -2438,6 +2438,6 @@ window.addEventListener('resize', () => {
     window.addEventListener('resize', fixStickCenterV36);
     setInterval(fixStickCenterV36, 300);
 })();
-setInterval(() => { const h = document.getElementById('kmj-chat-resize-handle-v34'); if (h) h.style.setProperty('display', 'none', 'important'); }, 300);
+setInterval(() => { document.querySelectorAll('[id="kmj-chat-resize-handle-v34"]').forEach(el => el.remove()); }, 200);
 // === GAME8_V36_OK ===
 // ▲▲▲ ここまで【3/3】 ▲▲▲
