@@ -654,8 +654,8 @@ if (typeof KaomojiMMORPG !== 'undefined') {
 
     // 9. チャットの定型文・タブの横並びスリム化＆下側の黒空白除去（スマホ・iPad両対応）
     P.fixChatCompactLayoutV31 = function () {
-        // v30で生成した重複パッドがあれば除去
         document.getElementById('kmj-v30-movepad')?.remove();
+        document.getElementById('kmj-btn-ui-edit-v31')?.remove();
 
         const vw = window.innerWidth;
         const isSmallMobile = vw <= 920;
@@ -746,7 +746,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         });
     };
 
-    // 10. 自分でボタンの大きさと配置を自由に変えられるカスタムシステム（v31）
+    // 10. 自分でボタンの大きさと配置を自由に変えられるカスタムシステム（設定画面から起動）
     P.loadCustomUILayoutV31 = function () {
         try {
             const raw = localStorage.getItem('kmj_custom_ui_layout_v31');
@@ -762,7 +762,6 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         } catch (e) {}
     };
 
-    // 操作対象のボタン・スティック一覧を自動検出
     P.discoverCustomizableControlsV31 = function () {
         const vw = window.innerWidth;
         const vh = window.innerHeight;
@@ -792,7 +791,6 @@ if (typeof KaomojiMMORPG !== 'undefined') {
             const br = parseFloat(cs.borderRadius) || 0;
             return br >= 25 || cs.borderRadius.includes('%') || /joy|stick|pad|move/i.test(`${el.id} ${el.className}`);
         });
-        // 外枠（最も大きい円）を優先して1つ登録
         stickCandidates.sort((a, b) => b.getBoundingClientRect().width - a.getBoundingClientRect().width);
         if (stickCandidates[0]) {
             register('move_stick', '移動スティック', stickCandidates[0]);
@@ -800,7 +798,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
 
         // ② 右側の操作ボタン（攻撃・枠1〜5・挑発・標的切替）
         document.querySelectorAll('button, [role="button"], .skill-btn, .skill-slot-btn, .attack-btn').forEach(btn => {
-            if (btn.id === 'kmj-btn-ui-edit-v31' || btn.id === 'kmj-debug-quick-exit') return;
+            if (btn.id === 'kmj-debug-quick-exit') return;
             if (btn.closest?.('#kmj-secret-debug-modal') || btn.closest?.('#kmj-ui-custom-bar')) return;
             const cs = window.getComputedStyle(btn);
             if (cs.display === 'none' || cs.visibility === 'hidden') return;
@@ -824,9 +822,9 @@ if (typeof KaomojiMMORPG !== 'undefined') {
                 key = 'skill_1'; label = '枠2';
             } else if (/枠\s*3/.test(txt) || btn.id === 'skill-btn-2') {
                 key = 'skill_2'; label = '枠3';
-            } else if (/枠\s*4/.test(txt) || btn.id === 'skill_3') {
+            } else if (/枠\s*4/.test(txt) || btn.id === 'skill-btn-3') {
                 key = 'skill_3'; label = '枠4';
-            } else if (/枠\s*5/.test(txt) || btn.id === 'skill_4') {
+            } else if (/枠\s*5/.test(txt) || btn.id === 'skill-btn-4') {
                 key = 'skill_4'; label = '枠5';
             } else if (r.width >= 36 && r.height >= 36 && Math.abs(r.width - r.height) <= 14) {
                 key = `custom_${btn.id || items.length}`;
@@ -838,7 +836,6 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         return items;
     };
 
-    // 保存済みの位置＆サイズを適用（スマホ横画面では未設定時に0.86倍の程よい余白を確保）
     P.applySavedUILayoutV31 = function () {
         const layout = this.loadCustomUILayoutV31();
         const items = this.discoverCustomizableControlsV31();
@@ -875,7 +872,6 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         });
     };
 
-    // 「🎛️ ボタン配置」編集モードの切り替え＆ドラッグ・拡大縮小バー
     P.toggleUIEditModeV31 = function (forceState = null) {
         this._uiEditModeV31 = (forceState !== null) ? Boolean(forceState) : !this._uiEditModeV31;
         const items = this.discoverCustomizableControlsV31();
@@ -891,8 +887,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
             this._uiSelectedKeyV31 = items[0].key;
         }
 
-        // 各ボタンにドラッグ＆選択イベントをバインド
-        items.forEach(({ key, label, el }) => {
+        items.forEach(({ key, el }) => {
             if (el.dataset.v31DragBound) return;
             el.dataset.v31DragBound = '1';
 
@@ -911,7 +906,6 @@ if (typeof KaomojiMMORPG !== 'undefined') {
                 startX = e.clientX;
                 startY = e.clientY;
                 const r = el.getBoundingClientRect();
-                // transform: scale が掛かっていても視覚左上から現在位置を算出
                 origLeft = parseFloat(el.style.left) || r.left;
                 origTop = parseFloat(el.style.top) || r.top;
                 el.setPointerCapture?.(e.pointerId);
@@ -1115,11 +1109,11 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         });
     };
 
-    // 「🎛️ ボタン配置」ボタンの設置＆既存「挑発」ボタンとの連動
+    // 既存「挑発」ボタンとの連動（浮遊「ボタン配置」ボタンは作成しない）
     P.injectTauntButtonUI = function () {
         this.fixChatCompactLayoutV31();
+        document.getElementById('kmj-btn-ui-edit-v31')?.remove();
 
-        // 既に画面上に「挑発」ボタンが存在する場合は重複を作らず機能だけ連動
         const nativeTaunt = Array.from(document.querySelectorAll('button')).find(b => b.id !== 'kmj-btn-taunt-v26' && /挑発/.test(b.textContent || ''));
         if (nativeTaunt) {
             document.getElementById('kmj-btn-taunt-v26')?.remove();
@@ -1139,21 +1133,6 @@ if (typeof KaomojiMMORPG !== 'undefined') {
                 if (!this._uiEditModeV31) this.triggerTauntAllEnemies();
             });
             document.body.appendChild(btn);
-        }
-
-        // 上部バーに「🎛️ ボタン配置」ボタンを設置（重複なし）
-        if (!document.getElementById('kmj-btn-ui-edit-v31')) {
-            const editBtn = document.createElement('button');
-            editBtn.id = 'kmj-btn-ui-edit-v31';
-            editBtn.type = 'button';
-            editBtn.textContent = '🎛️ ボタン配置';
-            editBtn.style.cssText = 'position:fixed;top:42px;right:12px;z-index:86;background:rgba(15,23,42,0.88);color:#7dd3fc;border:1px solid #38bdf8;border-radius:999px;padding:4px 10px;font-size:10px;font-weight:900;box-shadow:0 2px 8px rgba(0,0,0,0.5);cursor:pointer;';
-            editBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                sfx?.init?.();
-                this.toggleUIEditModeV31();
-            });
-            document.body.appendChild(editBtn);
         }
 
         this.applySavedUILayoutV31();
@@ -1327,7 +1306,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
     };
 
     if (P.useSkillSlot) {
-        const _prevUseSkillV31 = P.useSkillSlot;
+        const _prevUseSkillV32 = P.useSkillSlot;
         P.useSkillSlot = function (slotIdx) {
             if (this._uiEditModeV31) return;
             this.maintainInfiniteResources();
@@ -1335,7 +1314,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
             const meta = this.resolveSkillMeta ? this.resolveSkillMeta(slotIdx) : null;
             const curCd = (this.player?.skillCds?.[slotIdx] ?? this.skillCds?.[slotIdx] ?? 0);
 
-            _prevUseSkillV31.call(this, slotIdx);
+            _prevUseSkillV32.call(this, slotIdx);
             this.maintainInfiniteResources();
 
             if (curCd <= 0.05 && meta && this.player?.pos && Array.isArray(this.monsters)) {
@@ -1365,18 +1344,57 @@ if (typeof KaomojiMMORPG !== 'undefined') {
     }
 
     if (P.renderModalContent) {
-        const _prevRenderModalV31 = P.renderModalContent;
+        const _prevRenderModalV32 = P.renderModalContent;
         P.renderModalContent = function () {
             this.enforce999CapsV27();
             this.maintainInfiniteResources();
             this.syncSkillDescriptionsAndEffects?.();
             this.syncSkillMpCostsV22();
             this.syncMageWeaponNamesV22();
-            _prevRenderModalV31.call(this);
+            _prevRenderModalV32.call(this);
             this.purgeRebirthUIV27();
 
             const body = document.getElementById('modal-body');
             if (!body) return;
+
+            // 設定画面の中に「操作ボタン配置・サイズ調整」を追加
+            const tabStr = String(this.activeTab || '').toLowerCase();
+            const titleTxt = (document.getElementById('modal-title')?.textContent || '').trim();
+            const bodyTxt = body.textContent || '';
+            const isSettingsModal = /setting|option|config|設定/.test(tabStr)
+                || /設定|オプション/.test(titleTxt)
+                || (/BGM|SE|音量|画質|サウンド/i.test(bodyTxt) && !/ステータス|スキル|鍛冶|装備|進化/.test(titleTxt));
+
+            if (isSettingsModal && !document.getElementById('kmj-settings-ui-layout-box')) {
+                const box = document.createElement('div');
+                box.id = 'kmj-settings-ui-layout-box';
+                box.style.cssText = 'background:rgba(15,23,42,0.85);border:1px solid #38bdf8;border-radius:10px;padding:10px 12px;margin-bottom:10px;';
+                box.innerHTML = `
+                    <div style="font-size:12px;font-weight:900;color:#7dd3fc;margin-bottom:4px;">🎛️ 操作ボタンの配置・サイズカスタム</div>
+                    <div style="font-size:11px;color:#cbd5e1;margin-bottom:8px;">
+                        移動スティック・攻撃・スキル枠・挑発などの位置と大きさを指で自由に調整できます。
+                    </div>
+                    <button type="button" id="btn-open-ui-edit-from-settings" class="btn-ui btn-sky" style="width:100%;padding:8px 10px;font-size:12px;font-weight:900;">
+                        🎛️ ボタン配置・サイズを調整する
+                    </button>
+                `;
+                body.prepend(box);
+
+                document.getElementById('btn-open-ui-edit-from-settings')?.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    sfx?.init?.();
+                    if (typeof this.closeModal === 'function') {
+                        this.closeModal();
+                    } else {
+                        this.isModalOpen = false;
+                        const closeBtn = document.querySelector('#modal-close, #close-modal, #btn-close-modal, .modal-close, [data-close-modal]');
+                        if (closeBtn) closeBtn.click();
+                    }
+                    setTimeout(() => {
+                        this.toggleUIEditModeV31(true);
+                    }, 80);
+                });
+            }
 
             if (this.isMageEvolution() && /smith|forge|craft|equip|weapon|gear|item|鍛冶|装備|武器/i.test(String(this.activeTab || ''))) {
                 const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT, null);
@@ -1405,9 +1423,9 @@ if (typeof KaomojiMMORPG !== 'undefined') {
     }
 
     // 毎フレーム監視：チャット定型文スリム維持・カスタムボタン配置維持・魔道士の剣消去・挑発誘導・魔法弾・状態異常
-    const _prevUpdateAnimV31 = P.updateCharacterAnimations;
+    const _prevUpdateAnimV32 = P.updateCharacterAnimations;
     P.updateCharacterAnimations = function (dt) {
-        if (_prevUpdateAnimV31) _prevUpdateAnimV31.call(this, dt);
+        if (_prevUpdateAnimV32) _prevUpdateAnimV32.call(this, dt);
         this.enforce999CapsV27();
         this.maintainInfiniteResources();
         this.fixChatCompactLayoutV31();
@@ -1419,12 +1437,12 @@ if (typeof KaomojiMMORPG !== 'undefined') {
     };
 
     if (P.broadcastFirebaseEvent) {
-        const _prevBroadcastV31 = P.broadcastFirebaseEvent;
+        const _prevBroadcastV32 = P.broadcastFirebaseEvent;
         P.broadcastFirebaseEvent = function (type, payload) {
             if (type === 'attack' && payload && typeof payload === 'object') {
                 payload.isMage = this.isMageEvolution();
             }
-            _prevBroadcastV31.call(this, type, payload);
+            _prevBroadcastV32.call(this, type, payload);
         };
     }
 }
@@ -1830,7 +1848,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
     };
 
     if (P.sendChatMessage) {
-        const _prevSendChatV31 = P.sendChatMessage;
+        const _prevSendChatV32 = P.sendChatMessage;
         P.sendChatMessage = function (rawText) {
             const txt = String(rawText || '').trim();
             if (txt === SECRET_DEBUG_CODE) {
@@ -1838,7 +1856,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
                 this.openSecretDebugModal();
                 return;
             }
-            _prevSendChatV31.call(this, rawText);
+            _prevSendChatV32.call(this, rawText);
         };
     }
 
@@ -1864,8 +1882,9 @@ if (typeof KaomojiMMORPG !== 'undefined') {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-    const initV31 = () => {
+    const initV32 = () => {
         if (!window.game) return;
+        document.getElementById('kmj-btn-ui-edit-v31')?.remove();
         window.game.enforce999CapsV27?.();
         window.game.purgeRebirthUIV27?.();
         window.game.fixChatCompactLayoutV31?.();
@@ -1879,13 +1898,13 @@ window.addEventListener('DOMContentLoaded', () => {
             window.game.enforceStrictWeaponVisualV27?.(window.game.player);
         }
     };
-    setTimeout(initV31, 220);
-    setTimeout(initV31, 900);
+    setTimeout(initV32, 220);
+    setTimeout(initV32, 900);
 });
 
 window.addEventListener('resize', () => {
     window.game?.fixChatCompactLayoutV31?.();
     window.game?.applySavedUILayoutV31?.();
 });
-// === GAME8_V31_OK ===
+// === GAME8_V32_OK ===
 // ▲▲▲ ここまで【3/3】 ▲▲▲
