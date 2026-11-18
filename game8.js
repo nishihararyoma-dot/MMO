@@ -555,7 +555,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
             if (!badge) {
                 badge = document.createElement('span');
                 badge.className = 'v26-skill-lv-badge';
-                badge.style.cssText = 'display:block;font-size:9px;font-weight:900;color:#fde047;line-height:1.05;margin-top:1px;text-shadow:0 1px 3px #000;pointer-events:none;';
+                badge.style.cssText = 'display:block;font-size:8px;font-weight:900;color:#fde047;line-height:1.05;margin-top:1px;text-shadow:0 1px 2px #000;pointer-events:none;';
                 btn.appendChild(badge);
             }
 
@@ -652,32 +652,91 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         });
     };
 
-    // 9. チャット下側の黒い空白除去 ＋ 攻撃・スキルボタン大型化（v30）
-    P.applyCompactChatAndLargerControlsV30 = function () {
-        const vw = window.innerWidth;
-        const vh = window.innerHeight;
+    // 9. チャットの定型文・タブの横並びスリム化＆下側の黒空白除去（スマホ・iPad両対応）
+    P.fixChatCompactLayoutV31 = function () {
+        // v30で生成した重複パッドがあれば除去
+        document.getElementById('kmj-v30-movepad')?.remove();
 
-        // ① 「全体チャット」「ドラッグで移動」「メッセージを入力...」を含むチャットパネルを特定し、bottom:auto で下側の黒余白を完全カット
+        const vw = window.innerWidth;
+        const isSmallMobile = vw <= 920;
+
+        // ① チャットタブ（「全体チャット」「部屋/オフライン」）と定型文（「よろしく！」「ボス行こう！」等）の縦伸びを防止
+        document.querySelectorAll('button').forEach(btn => {
+            if (btn.closest?.('#kmj-secret-debug-modal') || btn.closest?.('#kmj-ui-custom-bar')) return;
+            const txt = (btn.textContent || '').trim();
+
+            if (/^(全体チャット|部屋\/オフライン)$/.test(txt)) {
+                btn.style.setProperty('height', '28px', 'important');
+                btn.style.setProperty('min-height', '26px', 'important');
+                btn.style.setProperty('max-height', '30px', 'important');
+                btn.style.setProperty('padding', '2px 8px', 'important');
+                btn.style.setProperty('font-size', '11px', 'important');
+                btn.style.setProperty('line-height', '1.1', 'important');
+                btn.style.setProperty('flex', '1 1 0%', 'important');
+                btn.style.setProperty('align-self', 'center', 'important');
+                if (btn.parentElement) {
+                    btn.parentElement.style.setProperty('height', 'auto', 'important');
+                    btn.parentElement.style.setProperty('min-height', '0px', 'important');
+                    btn.parentElement.style.setProperty('flex', '0 0 auto', 'important');
+                    btn.parentElement.style.setProperty('align-items', 'center', 'important');
+                }
+            } else if (/^(よろしく！|ボス行こう！|ありがとう！|おつかれ！)$/.test(txt)) {
+                btn.style.setProperty('height', '24px', 'important');
+                btn.style.setProperty('min-height', '22px', 'important');
+                btn.style.setProperty('max-height', '26px', 'important');
+                btn.style.setProperty('padding', '2px 8px', 'important');
+                btn.style.setProperty('font-size', '10px', 'important');
+                btn.style.setProperty('line-height', '1.1', 'important');
+                btn.style.setProperty('white-space', 'nowrap', 'important');
+                btn.style.setProperty('width', 'auto', 'important');
+                btn.style.setProperty('min-width', '0px', 'important');
+                btn.style.setProperty('flex', '0 0 auto', 'important');
+                btn.style.setProperty('display', 'inline-flex', 'important');
+                btn.style.setProperty('align-items', 'center', 'important');
+                btn.style.setProperty('justify-content', 'center', 'important');
+                btn.style.setProperty('border-radius', '999px', 'important');
+                if (btn.parentElement) {
+                    const row = btn.parentElement;
+                    row.style.setProperty('display', 'flex', 'important');
+                    row.style.setProperty('flex-direction', 'row', 'important');
+                    row.style.setProperty('flex-wrap', 'nowrap', 'important');
+                    row.style.setProperty('align-items', 'center', 'important');
+                    row.style.setProperty('gap', '4px', 'important');
+                    row.style.setProperty('height', 'auto', 'important');
+                    row.style.setProperty('min-height', '0px', 'important');
+                    row.style.setProperty('max-height', '30px', 'important');
+                    row.style.setProperty('flex', '0 0 auto', 'important');
+                    row.style.setProperty('overflow-x', 'auto', 'important');
+                }
+            }
+        });
+
+        // ② チャット外枠の下側黒空白をカット（入力欄のすぐ下で枠を閉じる）
         const chatInputs = document.querySelectorAll('input[placeholder*="メッセージ"], input[placeholder*="チャット"], #chat-input');
         chatInputs.forEach(inp => {
+            inp.style.setProperty('height', '28px', 'important');
+            inp.style.setProperty('min-height', '26px', 'important');
+            inp.style.setProperty('font-size', '11px', 'important');
+
             let cur = inp.parentElement;
             for (let depth = 0; depth < 6 && cur && cur !== document.body; depth++) {
                 const txt = cur.textContent || '';
                 const r = cur.getBoundingClientRect();
-                if ((/全体チャット|ドラッグで移動/.test(txt) || r.width > vw * 0.5) && r.height > 100) {
+                if ((/全体チャット|ドラッグで移動/.test(txt) || r.width > 240) && r.height > 85) {
                     cur.style.setProperty('bottom', 'auto', 'important');
                     cur.style.setProperty('height', 'auto', 'important');
                     cur.style.setProperty('min-height', '0px', 'important');
-                    cur.style.setProperty('max-height', 'none', 'important');
-                    cur.style.setProperty('padding-bottom', '6px', 'important');
-                    cur.style.setProperty('z-index', '60', 'important');
+                    cur.style.setProperty('padding-bottom', '5px', 'important');
+                    cur.style.setProperty('z-index', '45', 'important');
+                    if (isSmallMobile) {
+                        cur.style.setProperty('max-width', '46vw', 'important');
+                    }
 
-                    // 入力欄より下に空の黒スペース用要素があれば消去
                     const inpBottom = inp.getBoundingClientRect().bottom;
                     Array.from(cur.children).forEach(ch => {
                         if (ch.contains(inp)) return;
                         const cr = ch.getBoundingClientRect();
-                        if (cr.top >= inpBottom - 4 && ch.textContent.trim() === '') {
+                        if (cr.top >= inpBottom - 2 && ch.textContent.trim() === '') {
                             ch.style.setProperty('display', 'none', 'important');
                         }
                     });
@@ -685,162 +744,296 @@ if (typeof KaomojiMMORPG !== 'undefined') {
                 cur = cur.parentElement;
             }
         });
+    };
 
-        // ② 右下の攻撃ボタン・スキルボタン群を確実に大きくする
+    // 10. 自分でボタンの大きさと配置を自由に変えられるカスタムシステム（v31）
+    P.loadCustomUILayoutV31 = function () {
+        try {
+            const raw = localStorage.getItem('kmj_custom_ui_layout_v31');
+            return raw ? JSON.parse(raw) : {};
+        } catch (e) {
+            return {};
+        }
+    };
+
+    P.saveCustomUILayoutV31 = function (data) {
+        try {
+            localStorage.setItem('kmj_custom_ui_layout_v31', JSON.stringify(data || {}));
+        } catch (e) {}
+    };
+
+    // 操作対象のボタン・スティック一覧を自動検出
+    P.discoverCustomizableControlsV31 = function () {
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const items = [];
+        const usedEls = new Set();
+
+        const register = (key, label, el) => {
+            if (!el || usedEls.has(el)) return;
+            const cs = window.getComputedStyle(el);
+            if (cs.display === 'none' || cs.visibility === 'hidden') return;
+            const r = el.getBoundingClientRect();
+            if (r.width <= 12 || r.height <= 12) return;
+            usedEls.add(el);
+            el.dataset.v31ControlKey = key;
+            el.dataset.v31ControlLabel = label;
+            items.push({ key, label, el });
+        };
+
+        // ① 左下の移動スティック外枠
+        const stickCandidates = Array.from(document.querySelectorAll('#joystick, #joy-base, #joystick-zone, #move-pad, .joystick, .joy-base, div')).filter(el => {
+            if (el.closest?.('#kmj-secret-debug-modal') || el.closest?.('#kmj-ui-custom-bar')) return false;
+            const cs = window.getComputedStyle(el);
+            if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+            const r = el.getBoundingClientRect();
+            if (r.width < 55 || r.width > 160 || Math.abs(r.width - r.height) > 14) return false;
+            if (r.left > vw * 0.35 || r.bottom < vh * 0.62) return false;
+            const br = parseFloat(cs.borderRadius) || 0;
+            return br >= 25 || cs.borderRadius.includes('%') || /joy|stick|pad|move/i.test(`${el.id} ${el.className}`);
+        });
+        // 外枠（最も大きい円）を優先して1つ登録
+        stickCandidates.sort((a, b) => b.getBoundingClientRect().width - a.getBoundingClientRect().width);
+        if (stickCandidates[0]) {
+            register('move_stick', '移動スティック', stickCandidates[0]);
+        }
+
+        // ② 右側の操作ボタン（攻撃・枠1〜5・挑発・標的切替）
         document.querySelectorAll('button, [role="button"], .skill-btn, .skill-slot-btn, .attack-btn').forEach(btn => {
-            if (btn.id === 'kmj-btn-taunt-v26' || btn.id === 'kmj-debug-quick-exit') return;
-            if (btn.closest?.('#kmj-secret-debug-modal')) return;
+            if (btn.id === 'kmj-btn-ui-edit-v31' || btn.id === 'kmj-debug-quick-exit') return;
+            if (btn.closest?.('#kmj-secret-debug-modal') || btn.closest?.('#kmj-ui-custom-bar')) return;
             const cs = window.getComputedStyle(btn);
             if (cs.display === 'none' || cs.visibility === 'hidden') return;
             const r = btn.getBoundingClientRect();
-            if (r.width <= 0 || r.height <= 0) return;
+            if (r.left < vw * 0.45 || r.top < vh * 0.25) return;
 
-            // 右下操作エリアにあるボタンを対象
-            if (r.left > vw * 0.45 && r.top > vh * 0.45) {
-                const txt = (btn.textContent || '').trim();
-                if (/送信|戻す/.test(txt)) return;
+            const txt = (btn.textContent || '').trim();
+            if (/送信|戻す|自動/.test(txt)) return;
 
-                if (/自動/.test(txt)) {
-                    btn.style.setProperty('z-index', '90', 'important');
-                    btn.style.setProperty('padding', '6px 10px', 'important');
-                    btn.style.setProperty('font-size', '11px', 'important');
-                    return;
-                }
+            let key = null;
+            let label = txt.slice(0, 8) || btn.id || 'ボタン';
+            if (/攻撃/.test(txt) || /attack/i.test(btn.id)) {
+                key = 'btn_attack'; label = '⚔️ 攻撃';
+            } else if (/挑発/.test(txt) || btn.id === 'kmj-btn-taunt-v26') {
+                key = 'btn_taunt'; label = '💢 挑発';
+            } else if (/標的/.test(txt) || /target/i.test(btn.id)) {
+                key = 'btn_target'; label = '🎯 標的切替';
+            } else if (/枠\s*1/.test(txt) || btn.id === 'skill-btn-0') {
+                key = 'skill_0'; label = '枠1';
+            } else if (/枠\s*2/.test(txt) || btn.id === 'skill-btn-1') {
+                key = 'skill_1'; label = '枠2';
+            } else if (/枠\s*3/.test(txt) || btn.id === 'skill-btn-2') {
+                key = 'skill_2'; label = '枠3';
+            } else if (/枠\s*4/.test(txt) || btn.id === 'skill_3') {
+                key = 'skill_3'; label = '枠4';
+            } else if (/枠\s*5/.test(txt) || btn.id === 'skill_4') {
+                key = 'skill_4'; label = '枠5';
+            } else if (r.width >= 36 && r.height >= 36 && Math.abs(r.width - r.height) <= 14) {
+                key = `custom_${btn.id || items.length}`;
+            }
 
-                const isAtk = /攻撃|atk|attack/i.test(`${txt} ${btn.id} ${btn.className}`) || r.width >= 58;
-                const targetW = isAtk ? 88 : 68;
-                const targetH = isAtk ? 88 : 68;
-                if (Math.round(r.width) < targetW - 2 || Math.round(r.height) < targetH - 2) {
-                    btn.style.setProperty('width', `${targetW}px`, 'important');
-                    btn.style.setProperty('height', `${targetH}px`, 'important');
-                    btn.style.setProperty('min-width', `${targetW}px`, 'important');
-                    btn.style.setProperty('min-height', `${targetH}px`, 'important');
-                    btn.style.setProperty('font-size', isAtk ? '15px' : '12px', 'important');
-                }
-                btn.style.setProperty('z-index', '90', 'important');
-                btn.style.setProperty('opacity', '1', 'important');
+            if (key) register(key, label, btn);
+        });
+
+        return items;
+    };
+
+    // 保存済みの位置＆サイズを適用（スマホ横画面では未設定時に0.86倍の程よい余白を確保）
+    P.applySavedUILayoutV31 = function () {
+        const layout = this.loadCustomUILayoutV31();
+        const items = this.discoverCustomizableControlsV31();
+        const isSmallMobile = window.innerWidth <= 920;
+        const defaultScale = isSmallMobile ? 0.86 : 1.0;
+
+        items.forEach(({ key, el }) => {
+            const cfg = layout[key];
+            const scale = cfg?.scale ? Number(cfg.scale) : defaultScale;
+
+            if (cfg && typeof cfg.leftPct === 'number' && typeof cfg.topPct === 'number') {
+                const px = Math.round((cfg.leftPct / 100) * window.innerWidth);
+                const py = Math.round((cfg.topPct / 100) * window.innerHeight);
+                el.style.setProperty('position', 'fixed', 'important');
+                el.style.setProperty('left', `${px}px`, 'important');
+                el.style.setProperty('top', `${py}px`, 'important');
+                el.style.setProperty('right', 'auto', 'important');
+                el.style.setProperty('bottom', 'auto', 'important');
+                el.style.setProperty('margin', '0px', 'important');
+            }
+
+            el.style.setProperty('transform', `scale(${scale.toFixed(2)})`, 'important');
+            el.style.setProperty('transform-origin', 'center center', 'important');
+            el.style.setProperty('z-index', '85', 'important');
+
+            if (this._uiEditModeV31) {
+                const selected = (this._uiSelectedKeyV31 === key);
+                el.style.setProperty('outline', selected ? '3px solid #fde047' : '2px dashed #38bdf8', 'important');
+                el.style.setProperty('outline-offset', '2px', 'important');
+            } else {
+                el.style.removeProperty('outline');
+                el.style.removeProperty('outline-offset');
             }
         });
     };
 
-    // 10. 左下の大型バーチャルスティック（移動キー）を常時表示＆ゲーム本体と完全連動
-    P.ensureLargeMoveStickV30 = function () {
-        // 元のジョイスティック要素が隠れていれば可視化
-        document.querySelectorAll('#joystick, #joy-base, #joystick-zone, #move-pad, .joystick, .joy-base').forEach(el => {
-            el.style.setProperty('display', 'block', 'important');
-            el.style.setProperty('visibility', 'visible', 'important');
-            el.style.setProperty('opacity', '1', 'important');
-            el.style.setProperty('z-index', '89', 'important');
+    // 「🎛️ ボタン配置」編集モードの切り替え＆ドラッグ・拡大縮小バー
+    P.toggleUIEditModeV31 = function (forceState = null) {
+        this._uiEditModeV31 = (forceState !== null) ? Boolean(forceState) : !this._uiEditModeV31;
+        const items = this.discoverCustomizableControlsV31();
+
+        if (!this._uiEditModeV31) {
+            document.getElementById('kmj-ui-custom-bar')?.remove();
+            this.applySavedUILayoutV31();
+            this.showAlertBanner?.('✅ ボタン配置とサイズを保存しました！', 1600);
+            return;
+        }
+
+        if (!this._uiSelectedKeyV31 && items[0]) {
+            this._uiSelectedKeyV31 = items[0].key;
+        }
+
+        // 各ボタンにドラッグ＆選択イベントをバインド
+        items.forEach(({ key, label, el }) => {
+            if (el.dataset.v31DragBound) return;
+            el.dataset.v31DragBound = '1';
+
+            let dragging = false;
+            let startX = 0, startY = 0, origLeft = 0, origTop = 0;
+
+            el.addEventListener('pointerdown', (e) => {
+                if (!this._uiEditModeV31) return;
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                this._uiSelectedKeyV31 = key;
+                this.renderUICustomToolbarV31();
+                this.applySavedUILayoutV31();
+
+                dragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                const r = el.getBoundingClientRect();
+                // transform: scale が掛かっていても視覚左上から現在位置を算出
+                origLeft = parseFloat(el.style.left) || r.left;
+                origTop = parseFloat(el.style.top) || r.top;
+                el.setPointerCapture?.(e.pointerId);
+            }, true);
+
+            el.addEventListener('pointermove', (e) => {
+                if (!this._uiEditModeV31 || !dragging) return;
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                const nx = Math.max(4, Math.min(window.innerWidth - 36, origLeft + dx));
+                const ny = Math.max(4, Math.min(window.innerHeight - 36, origTop + dy));
+
+                const layout = this.loadCustomUILayoutV31();
+                const isSmallMobile = window.innerWidth <= 920;
+                const curScale = layout[key]?.scale ?? (isSmallMobile ? 0.86 : 1.0);
+                layout[key] = {
+                    leftPct: Number(((nx / window.innerWidth) * 100).toFixed(2)),
+                    topPct: Number(((ny / window.innerHeight) * 100).toFixed(2)),
+                    scale: curScale
+                };
+                this.saveCustomUILayoutV31(layout);
+                this.applySavedUILayoutV31();
+            }, true);
+
+            el.addEventListener('pointerup', (e) => {
+                if (!this._uiEditModeV31 || !dragging) return;
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                dragging = false;
+                el.releasePointerCapture?.(e.pointerId);
+            }, true);
         });
 
-        if (document.getElementById('kmj-v30-movepad')) return;
+        this.renderUICustomToolbarV31();
+        this.applySavedUILayoutV31();
+    };
 
-        const pad = document.createElement('div');
-        pad.id = 'kmj-v30-movepad';
-        pad.style.cssText = 'position:fixed;left:18px;bottom:18px;width:136px;height:136px;border-radius:50%;background:radial-gradient(circle,rgba(15,23,42,0.55),rgba(30,41,59,0.82));border:2.5px solid rgba(148,163,184,0.85);box-shadow:0 4px 18px rgba(0,0,0,0.65);z-index:92;touch-action:none;user-select:none;display:flex;align-items:center;justify-content:center;';
+    P.renderUICustomToolbarV31 = function () {
+        if (!this._uiEditModeV31) return;
+        let bar = document.getElementById('kmj-ui-custom-bar');
+        if (!bar) {
+            bar = document.createElement('div');
+            bar.id = 'kmj-ui-custom-bar';
+            bar.style.cssText = 'position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:98;background:rgba(15,23,42,0.95);border:2px solid #38bdf8;border-radius:12px;padding:7px 10px;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px;box-shadow:0 4px 20px rgba(0,0,0,0.75);color:#fff;font-size:11px;max-width:94vw;';
+            document.body.appendChild(bar);
+        }
 
-        const labels = [
-            { t: '▲', s: 'top:6px;left:50%;transform:translateX(-50%);' },
-            { t: '▼', s: 'bottom:6px;left:50%;transform:translateX(-50%);' },
-            { t: '◀', s: 'left:8px;top:50%;transform:translateY(-50%);' },
-            { t: '▶', s: 'right:8px;top:50%;transform:translateY(-50%);' }
-        ];
-        labels.forEach(lb => {
-            const sp = document.createElement('span');
-            sp.textContent = lb.t;
-            sp.style.cssText = `position:absolute;${lb.s}font-size:11px;color:rgba(226,232,240,0.75);pointer-events:none;font-weight:900;`;
-            pad.appendChild(sp);
-        });
+        const items = this.discoverCustomizableControlsV31();
+        const selItem = items.find(it => it.key === this._uiSelectedKeyV31) || items[0];
+        if (selItem) this._uiSelectedKeyV31 = selItem.key;
 
-        const knob = document.createElement('div');
-        knob.id = 'kmj-v30-moveknob';
-        knob.style.cssText = 'width:54px;height:54px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#38bdf8,#0284c7);border:2px solid #e0f2fe;box-shadow:0 3px 10px rgba(0,0,0,0.6);pointer-events:none;transition:transform 0.04s linear;';
-        pad.appendChild(knob);
+        const layout = this.loadCustomUILayoutV31();
+        const isSmallMobile = window.innerWidth <= 920;
+        const defScale = isSmallMobile ? 0.86 : 1.0;
+        const curScale = selItem ? (layout[selItem.key]?.scale ?? defScale) : defScale;
+        const pct = Math.round(curScale * 100);
 
-        let activePid = null;
-        this._v30StickVec = { x: 0, y: 0 };
+        bar.innerHTML = `
+            <span style="font-weight:900;color:#fde047;">🎛️ ドラッグ移動＆サイズ調整</span>
+            <span style="background:#1e293b;border:1px solid #475569;border-radius:6px;padding:2px 7px;color:#7dd3fc;font-weight:900;">
+                選択: ${selItem ? selItem.label : 'ボタン'} (${pct}%)
+            </span>
+            <button type="button" id="v31-scale-down" style="background:#334155;color:#fff;border:1px solid #64748b;border-radius:6px;padding:3px 9px;font-weight:900;cursor:pointer;">－ 小さく</button>
+            <button type="button" id="v31-scale-up" style="background:#334155;color:#fff;border:1px solid #64748b;border-radius:6px;padding:3px 9px;font-weight:900;cursor:pointer;">＋ 大きく</button>
+            <button type="button" id="v31-scale-all-down" style="background:#1e293b;color:#cbd5e1;border:1px solid #475569;border-radius:6px;padding:3px 7px;font-size:10px;cursor:pointer;">全体縮小</button>
+            <button type="button" id="v31-scale-all-up" style="background:#1e293b;color:#cbd5e1;border:1px solid #475569;border-radius:6px;padding:3px 7px;font-size:10px;cursor:pointer;">全体拡大</button>
+            <button type="button" id="v31-layout-reset" style="background:#7f1d1d;color:#fecaca;border:1px solid #f87171;border-radius:6px;padding:3px 8px;font-weight:900;cursor:pointer;">↺ リセット</button>
+            <button type="button" id="v31-layout-done" style="background:#059669;color:#fff;border:1px solid #6ee7b7;border-radius:6px;padding:3px 10px;font-weight:900;cursor:pointer;">✅ 完了</button>
+        `;
 
-        const setKeyState = (keyName, codeName, down) => {
-            if (this.keys && typeof this.keys === 'object') {
-                this.keys[keyName] = down;
-                this.keys[keyName.toLowerCase()] = down;
-                this.keys[keyName.toUpperCase()] = down;
-                this.keys[codeName] = down;
-            }
-            try {
-                window.dispatchEvent(new KeyboardEvent(down ? 'keydown' : 'keyup', { key: keyName, code: codeName, bubbles: true }));
-            } catch (e) {}
+        const adjustOne = (delta) => {
+            if (!selItem) return;
+            const l = this.loadCustomUILayoutV31();
+            const prev = l[selItem.key] || {};
+            const base = prev.scale ?? defScale;
+            const nextScale = Math.max(0.55, Math.min(1.65, Number((base + delta).toFixed(2))));
+            l[selItem.key] = { ...prev, scale: nextScale };
+            this.saveCustomUILayoutV31(l);
+            this.applySavedUILayoutV31();
+            this.renderUICustomToolbarV31();
         };
 
-        const updateStick = (clientX, clientY) => {
-            const rect = pad.getBoundingClientRect();
-            const cx = rect.left + rect.width / 2;
-            const cy = rect.top + rect.height / 2;
-            const maxR = rect.width * 0.36;
-            let dx = clientX - cx;
-            let dy = clientY - cy;
-            const dist = Math.hypot(dx, dy);
-            if (dist > maxR) {
-                dx = (dx / dist) * maxR;
-                dy = (dy / dist) * maxR;
-            }
-            knob.style.transform = `translate(${dx}px, ${dy}px)`;
-
-            const nx = dx / maxR;
-            const ny = dy / maxR;
-            this._v30StickVec = { x: nx, y: ny };
-
-            if ('joyX' in this) this.joyX = nx;
-            if ('joyY' in this) this.joyY = ny;
-            if (this.joy && typeof this.joy === 'object') { this.joy.x = nx; this.joy.y = ny; this.joy.active = true; }
-
-            setKeyState('w', 'KeyW', ny < -0.28);
-            setKeyState('s', 'KeyS', ny > 0.28);
-            setKeyState('a', 'KeyA', nx < -0.28);
-            setKeyState('d', 'KeyD', nx > 0.28);
-            setKeyState('ArrowUp', 'ArrowUp', ny < -0.28);
-            setKeyState('ArrowDown', 'ArrowDown', ny > 0.28);
-            setKeyState('ArrowLeft', 'ArrowLeft', nx < -0.28);
-            setKeyState('ArrowRight', 'ArrowRight', nx > 0.28);
-        };
-
-        const resetStick = () => {
-            activePid = null;
-            knob.style.transform = 'translate(0px, 0px)';
-            this._v30StickVec = { x: 0, y: 0 };
-            if ('joyX' in this) this.joyX = 0;
-            if ('joyY' in this) this.joyY = 0;
-            if (this.joy && typeof this.joy === 'object') { this.joy.x = 0; this.joy.y = 0; this.joy.active = false; }
-
-            ['w', 's', 'a', 'd', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].forEach(k => {
-                const c = k.length === 1 ? `Key${k.toUpperCase()}` : k;
-                setKeyState(k, c, false);
+        const adjustAll = (delta) => {
+            const l = this.loadCustomUILayoutV31();
+            items.forEach(it => {
+                const prev = l[it.key] || {};
+                const base = prev.scale ?? defScale;
+                const nextScale = Math.max(0.55, Math.min(1.65, Number((base + delta).toFixed(2))));
+                l[it.key] = { ...prev, scale: nextScale };
             });
+            this.saveCustomUILayoutV31(l);
+            this.applySavedUILayoutV31();
+            this.renderUICustomToolbarV31();
         };
 
-        pad.addEventListener('pointerdown', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            activePid = e.pointerId;
-            pad.setPointerCapture?.(e.pointerId);
-            updateStick(e.clientX, e.clientY);
-        });
-        pad.addEventListener('pointermove', (e) => {
-            if (activePid !== e.pointerId) return;
-            e.preventDefault();
-            updateStick(e.clientX, e.clientY);
-        });
-        pad.addEventListener('pointerup', (e) => {
-            if (activePid !== e.pointerId) return;
-            pad.releasePointerCapture?.(e.pointerId);
-            resetStick();
-        });
-        pad.addEventListener('pointercancel', resetStick);
+        document.getElementById('v31-scale-down')?.addEventListener('click', () => adjustOne(-0.1));
+        document.getElementById('v31-scale-up')?.addEventListener('click', () => adjustOne(0.1));
+        document.getElementById('v31-scale-all-down')?.addEventListener('click', () => adjustAll(-0.1));
+        document.getElementById('v31-scale-all-up')?.addEventListener('click', () => adjustAll(0.1));
 
-        document.body.appendChild(pad);
+        document.getElementById('v31-layout-reset')?.addEventListener('click', () => {
+            localStorage.removeItem('kmj_custom_ui_layout_v31');
+            items.forEach(({ el }) => {
+                el.style.removeProperty('left');
+                el.style.removeProperty('top');
+                el.style.removeProperty('right');
+                el.style.removeProperty('bottom');
+                el.style.removeProperty('margin');
+            });
+            this.applySavedUILayoutV31();
+            this.renderUICustomToolbarV31();
+            this.showAlertBanner?.('↺ ボタン位置とサイズを初期値に戻しました', 1400);
+        });
+
+        document.getElementById('v31-layout-done')?.addEventListener('click', () => {
+            this.toggleUIEditModeV31(false);
+        });
     };
 
-    // 11. 💢 挑発（マップ中の敵全員を引きつける）＆スキルボタンすぐ左隣への配置
+    // 11. 💢 挑発機能（既存の「挑発」ボタンがある場合は重複生成せず連動させる）
     P.triggerTauntAllEnemies = function () {
         if (!this.player || !this.player.pos) return;
         const now = performance.now();
@@ -922,91 +1115,48 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         });
     };
 
-    // スキルボタン群のすぐ左隣に同じくらいの大きさで配置（ドラッグ移動も可）
+    // 「🎛️ ボタン配置」ボタンの設置＆既存「挑発」ボタンとの連動
     P.injectTauntButtonUI = function () {
-        this.applyCompactChatAndLargerControlsV30();
-        this.ensureLargeMoveStickV30();
+        this.fixChatCompactLayoutV31();
 
-        let btn = document.getElementById('kmj-btn-taunt-v26');
-        if (!btn) {
-            btn = document.createElement('button');
+        // 既に画面上に「挑発」ボタンが存在する場合は重複を作らず機能だけ連動
+        const nativeTaunt = Array.from(document.querySelectorAll('button')).find(b => b.id !== 'kmj-btn-taunt-v26' && /挑発/.test(b.textContent || ''));
+        if (nativeTaunt) {
+            document.getElementById('kmj-btn-taunt-v26')?.remove();
+            if (!nativeTaunt.dataset.v31TauntHook) {
+                nativeTaunt.dataset.v31TauntHook = '1';
+                nativeTaunt.addEventListener('click', () => {
+                    if (!this._uiEditModeV31) this.triggerTauntAllEnemies();
+                });
+            }
+        } else if (!document.getElementById('kmj-btn-taunt-v26')) {
+            const btn = document.createElement('button');
             btn.id = 'kmj-btn-taunt-v26';
             btn.type = 'button';
-            btn.innerHTML = '💢<br><span style="font-size:11px;">挑発</span>';
-            btn.style.cssText = 'position:fixed;right:235px;bottom:22px;z-index:92;width:68px;height:68px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#ef4444,#991b1b);color:#fff;border:2px solid #fca5a5;font-size:16px;font-weight:900;line-height:1.05;box-shadow:0 4px 14px rgba(0,0,0,0.65);cursor:pointer;user-select:none;touch-action:none;display:flex;flex-direction:column;align-items:center;justify-content:center;';
-
-            let dragging = false;
-            let moved = false;
-            let startX = 0, startY = 0, origLeft = 0, origTop = 0;
-
-            btn.addEventListener('pointerdown', (e) => {
-                dragging = true;
-                moved = false;
-                startX = e.clientX;
-                startY = e.clientY;
-                const rect = btn.getBoundingClientRect();
-                origLeft = rect.left;
-                origTop = rect.top;
-                btn.setPointerCapture?.(e.pointerId);
+            btn.innerHTML = '💢<br><span style="font-size:10px;">挑発</span>';
+            btn.style.cssText = 'position:fixed;right:192px;bottom:18px;z-index:85;width:52px;height:52px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#ef4444,#991b1b);color:#fff;border:2px solid #fca5a5;font-size:13px;font-weight:900;line-height:1.05;box-shadow:0 3px 10px rgba(0,0,0,0.6);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;';
+            btn.addEventListener('click', () => {
+                if (!this._uiEditModeV31) this.triggerTauntAllEnemies();
             });
-            btn.addEventListener('pointermove', (e) => {
-                if (!dragging) return;
-                const dx = e.clientX - startX;
-                const dy = e.clientY - startY;
-                if (Math.hypot(dx, dy) > 6) moved = true;
-                if (moved) {
-                    btn.dataset.customMoved = '1';
-                    btn.style.right = 'auto';
-                    btn.style.bottom = 'auto';
-                    const nx = Math.max(4, Math.min(window.innerWidth - 72, origLeft + dx));
-                    const ny = Math.max(4, Math.min(window.innerHeight - 72, origTop + dy));
-                    btn.style.left = `${nx}px`;
-                    btn.style.top = `${ny}px`;
-                }
-            });
-            btn.addEventListener('pointerup', (e) => {
-                dragging = false;
-                btn.releasePointerCapture?.(e.pointerId);
-                if (!moved) {
-                    e.stopPropagation();
-                    this.triggerTauntAllEnemies();
-                }
-            });
-
             document.body.appendChild(btn);
         }
 
-        // 右下のスキルボタン群のすぐ左隣へ自動整列
-        if (!btn.dataset.customMoved) {
-            const vw = window.innerWidth;
-            const vh = window.innerHeight;
-            const rightBtns = Array.from(document.querySelectorAll('button, [role="button"]')).filter(el => {
-                if (el === btn) return false;
-                const cs = window.getComputedStyle(el);
-                if (cs.display === 'none' || cs.visibility === 'hidden') return false;
-                const r = el.getBoundingClientRect();
-                const txt = (el.textContent || '').trim();
-                return r.width > 34 && r.left > vw * 0.5 && r.top > vh * 0.5 && !/送信|自動|戻す/.test(txt);
+        // 上部バーに「🎛️ ボタン配置」ボタンを設置（重複なし）
+        if (!document.getElementById('kmj-btn-ui-edit-v31')) {
+            const editBtn = document.createElement('button');
+            editBtn.id = 'kmj-btn-ui-edit-v31';
+            editBtn.type = 'button';
+            editBtn.textContent = '🎛️ ボタン配置';
+            editBtn.style.cssText = 'position:fixed;top:42px;right:12px;z-index:86;background:rgba(15,23,42,0.88);color:#7dd3fc;border:1px solid #38bdf8;border-radius:999px;padding:4px 10px;font-size:10px;font-weight:900;box-shadow:0 2px 8px rgba(0,0,0,0.5);cursor:pointer;';
+            editBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                sfx?.init?.();
+                this.toggleUIEditModeV31();
             });
-
-            if (rightBtns.length > 0) {
-                let minLeft = Infinity;
-                let maxBottom = 0;
-                rightBtns.forEach(el => {
-                    const r = el.getBoundingClientRect();
-                    if (r.left < minLeft) minLeft = r.left;
-                    if (r.bottom > maxBottom) maxBottom = r.bottom;
-                });
-                if (minLeft < Infinity && minLeft > 140) {
-                    const rightOffset = Math.max(210, Math.round(vw - minLeft + 14));
-                    const bottomOffset = Math.max(18, Math.round(vh - maxBottom));
-                    btn.style.left = 'auto';
-                    btn.style.top = 'auto';
-                    btn.style.right = `${rightOffset}px`;
-                    btn.style.bottom = `${bottomOffset}px`;
-                }
-            }
+            document.body.appendChild(editBtn);
         }
+
+        this.applySavedUILayoutV31();
     };
 
     // 12. 全素材・アイテムID収集＆デバッグ状態維持
@@ -1177,14 +1327,15 @@ if (typeof KaomojiMMORPG !== 'undefined') {
     };
 
     if (P.useSkillSlot) {
-        const _prevUseSkillV30 = P.useSkillSlot;
+        const _prevUseSkillV31 = P.useSkillSlot;
         P.useSkillSlot = function (slotIdx) {
+            if (this._uiEditModeV31) return;
             this.maintainInfiniteResources();
             this.syncSkillMpCostsV22();
             const meta = this.resolveSkillMeta ? this.resolveSkillMeta(slotIdx) : null;
             const curCd = (this.player?.skillCds?.[slotIdx] ?? this.skillCds?.[slotIdx] ?? 0);
 
-            _prevUseSkillV30.call(this, slotIdx);
+            _prevUseSkillV31.call(this, slotIdx);
             this.maintainInfiniteResources();
 
             if (curCd <= 0.05 && meta && this.player?.pos && Array.isArray(this.monsters)) {
@@ -1214,14 +1365,14 @@ if (typeof KaomojiMMORPG !== 'undefined') {
     }
 
     if (P.renderModalContent) {
-        const _prevRenderModalV30 = P.renderModalContent;
+        const _prevRenderModalV31 = P.renderModalContent;
         P.renderModalContent = function () {
             this.enforce999CapsV27();
             this.maintainInfiniteResources();
             this.syncSkillDescriptionsAndEffects?.();
             this.syncSkillMpCostsV22();
             this.syncMageWeaponNamesV22();
-            _prevRenderModalV30.call(this);
+            _prevRenderModalV31.call(this);
             this.purgeRebirthUIV27();
 
             const body = document.getElementById('modal-body');
@@ -1253,13 +1404,14 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         };
     }
 
-    // 毎フレーム監視：チャット空白カット・ボタン拡大維持・魔道士の剣消去・挑発誘導・魔法弾・状態異常
-    const _prevUpdateAnimV30 = P.updateCharacterAnimations;
+    // 毎フレーム監視：チャット定型文スリム維持・カスタムボタン配置維持・魔道士の剣消去・挑発誘導・魔法弾・状態異常
+    const _prevUpdateAnimV31 = P.updateCharacterAnimations;
     P.updateCharacterAnimations = function (dt) {
-        if (_prevUpdateAnimV30) _prevUpdateAnimV30.call(this, dt);
+        if (_prevUpdateAnimV31) _prevUpdateAnimV31.call(this, dt);
         this.enforce999CapsV27();
         this.maintainInfiniteResources();
-        this.applyCompactChatAndLargerControlsV30();
+        this.fixChatCompactLayoutV31();
+        this.applySavedUILayoutV31();
         if (this.player) this.enforceStrictWeaponVisualV27(this.player);
         this.updateTauntAggroLoop(dt);
         this.updateMageBasicMagicShots(dt);
@@ -1267,12 +1419,12 @@ if (typeof KaomojiMMORPG !== 'undefined') {
     };
 
     if (P.broadcastFirebaseEvent) {
-        const _prevBroadcastV30 = P.broadcastFirebaseEvent;
+        const _prevBroadcastV31 = P.broadcastFirebaseEvent;
         P.broadcastFirebaseEvent = function (type, payload) {
             if (type === 'attack' && payload && typeof payload === 'object') {
                 payload.isMage = this.isMageEvolution();
             }
-            _prevBroadcastV30.call(this, type, payload);
+            _prevBroadcastV31.call(this, type, payload);
         };
     }
 }
@@ -1307,8 +1459,8 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         });
 
         this.purgeRebirthUIV27?.();
-        this.applyCompactChatAndLargerControlsV30?.();
-        this.ensureLargeMoveStickV30?.();
+        this.fixChatCompactLayoutV31?.();
+        this.applySavedUILayoutV31?.();
         this.syncSkillDescriptionsAndEffects?.();
         this.syncSkillMpCostsV22?.();
         this.syncSkillSlotButtonsUI?.();
@@ -1678,7 +1830,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
     };
 
     if (P.sendChatMessage) {
-        const _prevSendChatV30 = P.sendChatMessage;
+        const _prevSendChatV31 = P.sendChatMessage;
         P.sendChatMessage = function (rawText) {
             const txt = String(rawText || '').trim();
             if (txt === SECRET_DEBUG_CODE) {
@@ -1686,7 +1838,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
                 this.openSecretDebugModal();
                 return;
             }
-            _prevSendChatV30.call(this, rawText);
+            _prevSendChatV31.call(this, rawText);
         };
     }
 
@@ -1712,29 +1864,28 @@ if (typeof KaomojiMMORPG !== 'undefined') {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-    const initV30 = () => {
+    const initV31 = () => {
         if (!window.game) return;
         window.game.enforce999CapsV27?.();
         window.game.purgeRebirthUIV27?.();
-        window.game.applyCompactChatAndLargerControlsV30?.();
-        window.game.ensureLargeMoveStickV30?.();
+        window.game.fixChatCompactLayoutV31?.();
         window.game.syncSkillDescriptionsAndEffects?.();
         window.game.syncSkillMpCostsV22?.();
         window.game.syncMageWeaponNamesV22?.();
         window.game.bindSecretDebugGesture?.();
         window.game.injectTauntButtonUI?.();
+        window.game.applySavedUILayoutV31?.();
         if (window.game.player) {
             window.game.enforceStrictWeaponVisualV27?.(window.game.player);
         }
     };
-    setTimeout(initV30, 220);
-    setTimeout(initV30, 900);
+    setTimeout(initV31, 220);
+    setTimeout(initV31, 900);
 });
 
 window.addEventListener('resize', () => {
-    window.game?.applyCompactChatAndLargerControlsV30?.();
-    window.game?.ensureLargeMoveStickV30?.();
-    window.game?.injectTauntButtonUI?.();
+    window.game?.fixChatCompactLayoutV31?.();
+    window.game?.applySavedUILayoutV31?.();
 });
-// === GAME8_V30_OK ===
+// === GAME8_V31_OK ===
 // ▲▲▲ ここまで【3/3】 ▲▲▲
