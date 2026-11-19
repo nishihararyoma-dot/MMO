@@ -31,7 +31,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#090d16;color:#f8faf
 button,.btn-ui{touch-action:manipulation;cursor:pointer;pointer-events:auto}
 .btn-ui{display:inline-flex;align-items:center;justify-content:center;gap:4px;border:none;border-radius:8px;padding:7px 11px;font-size:11px;font-weight:900;color:#fff;transition:transform .08s ease;box-shadow:0 2px 6px rgba(0,0,0,.35)}
 .btn-ui:active:not(:disabled){transform:scale(.95)}
-.btn-ui:disabled{opacity:.4;cursor:not-allowed}
+.btn-ui:disabled{opacity:.45;cursor:not-allowed}
 .btn-sky{background:linear-gradient(135deg,#0284c7,#2563eb);color:#fff}
 .btn-emerald{background:linear-gradient(135deg,#059669,#10b981);color:#fff}
 .btn-amber{background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff}
@@ -65,17 +65,17 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
 #alert-banner{position:fixed;top:96px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,.94);border:1.5px solid #fde047;border-radius:999px;padding:6px 16px;font-size:12px;font-weight:900;color:#fde047;z-index:40;pointer-events:none;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis;box-shadow:0 4px 16px rgba(0,0,0,.6)}
 #boss-cast-box{position:fixed;top:132px;left:50%;transform:translateX(-50%);width:min(340px,88vw);background:rgba(69,10,10,.92);border:1.5px solid #f43f5e;border-radius:10px;padding:6px 10px;z-index:38;pointer-events:none}
 #warp-prompt-box{position:fixed;bottom:135px;left:50%;transform:translateX(-50%);z-index:32;pointer-events:auto}
-#chat-wrapper{position:fixed;left:10px;bottom:146px;width:min(290px,66vw);z-index:30;pointer-events:none;display:flex;flex-direction:column;align-items:flex-start;gap:4px}
-#chat-panel{width:100%;background:rgba(15,23,42,.88);border:1px solid rgba(56,189,248,.45);border-radius:12px;padding:6px;pointer-events:auto;display:flex;flex-direction:column;gap:5px;resize:both;overflow:hidden;min-width:210px;min-height:110px;max-width:85vw;max-height:55vh}
-/* チャット上部ドラッグリサイズハンドルを完全に無効化・非表示 */
+#chat-wrapper{position:fixed;left:10px;bottom:146px;z-index:30;pointer-events:none;display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+/* 右下の大きさ変更（resize:both）を確実に有効化・表示し、上端ドラッグバーだけ非表示 */
+#chat-panel{width:290px;height:185px;min-width:210px;min-height:115px;max-width:88vw;max-height:60vh;background:rgba(15,23,42,.90);border:1.5px solid rgba(56,189,248,.55);border-radius:12px;padding:6px 8px 10px 6px;pointer-events:auto;display:flex;flex-direction:column;gap:5px;resize:both!important;overflow:auto!important}
 #chat-panel [style*="ns-resize"],#chat-panel [style*="row-resize"],#chat-wrapper [style*="ns-resize"],#chat-wrapper [style*="row-resize"],.kmj-chat-drag-handle,.chat-resize-bar{display:none!important;pointer-events:none!important;height:0!important}
-.chat-tabs{display:flex;gap:4px;align-items:center}
+.chat-tabs{display:flex;gap:4px;align-items:center;flex-shrink:0}
 .chat-tab-btn{flex:1;border:none;border-radius:6px;padding:4px 6px;font-size:10px;font-weight:900;color:#cbd5e1;background:#1e293b;cursor:pointer;pointer-events:auto}
 .chat-tab-btn.active{background:#0284c7;color:#fff}
-#chat-messages{flex:1;min-height:52px;height:82px;overflow-y:auto;-webkit-overflow-scrolling:touch;font-size:11px;line-height:1.35;padding:3px 4px;background:rgba(2,6,23,.55);border-radius:6px;display:flex;flex-direction:column;gap:3px;user-select:text}
-.chat-quick-row{display:flex;gap:3px;overflow-x:auto}
+#chat-messages{flex:1;min-height:42px;overflow-y:auto;-webkit-overflow-scrolling:touch;font-size:11px;line-height:1.35;padding:3px 4px;background:rgba(2,6,23,.55);border-radius:6px;display:flex;flex-direction:column;gap:3px;user-select:text}
+.chat-quick-row{display:flex;gap:3px;overflow-x:auto;flex-shrink:0}
 .chat-quick-chip{background:#334155;border:none;border-radius:5px;padding:2px 6px;font-size:10px;font-weight:800;color:#f8fafc;white-space:nowrap;cursor:pointer;pointer-events:auto}
-.chat-input-row{display:flex;gap:4px}
+.chat-input-row{display:flex;gap:4px;flex-shrink:0}
 #joystick-zone{position:fixed;left:18px;bottom:18px;width:114px;height:114px;border-radius:50%;background:rgba(15,23,42,.55);border:2px solid rgba(56,189,248,.45);display:flex;align-items:center;justify-content:center;z-index:28;pointer-events:auto;touch-action:none}
 #joystick-knob{width:46px;height:46px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#7dd3fc,#0284c7);border:2px solid #fff;box-shadow:0 4px 12px rgba(0,0,0,.5);pointer-events:none}
 #battle-pad{position:fixed;right:12px;bottom:12px;width:215px;height:215px;z-index:28;pointer-events:none!important;display:block!important;visibility:visible!important}
@@ -88,7 +88,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
 .skill-arc-0{right:94px;bottom:8px}.skill-arc-1{right:86px;bottom:62px}.skill-arc-2{right:62px;bottom:108px}.skill-arc-3{right:16px;bottom:114px}.skill-arc-4{right:146px;bottom:10px}
 .skill-cd-overlay{position:absolute;inset:0;background:rgba(2,6,23,.82);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fde047;pointer-events:none}
 #growth-modal{position:fixed;inset:0;z-index:70;background:rgba(2,6,23,.78);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:10px;pointer-events:auto}
-.modal-window{width:100%;max-width:780px;max-height:88vh;background:#0f172a;border:2px solid #38bdf8;border-radius:16px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.85);pointer-events:auto}
+.modal-window{width:100%;max-width:860px;max-height:90vh;background:#0f172a;border:2px solid #38bdf8;border-radius:16px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.85);pointer-events:auto}
 .modal-header{padding:10px 14px;background:#1e293b;border-bottom:1px solid #334155;display:flex;justify-content:space-between;align-items:center}
 #modal-tabs{display:flex;gap:5px;padding:8px 10px;background:#0b1120;border-bottom:1px solid #1e293b;overflow-x:auto;-webkit-overflow-scrolling:touch;flex-shrink:0}
 .tab-chip-btn{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:900;color:#cbd5e1;white-space:nowrap;cursor:pointer;pointer-events:auto}
@@ -99,6 +99,8 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
 .flex-wrap-gap{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
 .grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px}
 .grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px}
+.evo-split-cols{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start}
+@media(max-width:540px){.evo-split-cols{grid-template-columns:1fr 1fr;gap:6px}}
 .badge-pill{display:inline-block;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}
 #dialog-modal{position:fixed;inset:0;z-index:100;background:rgba(2,6,23,.82);display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:auto}
 .dialog-box{width:100%;max-width:360px;background:#0f172a;border:2px solid #f59e0b;border-radius:14px;padding:16px;text-align:center;display:flex;flex-direction:column;gap:12px;color:#f8fafc}
@@ -112,7 +114,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
 <div id="title-screen">
     <div class="title-card">
         <div class="title-logo-kaomoji font-kaomoji">(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧ ⚔️ (=^・ω・^=)</div>
-        <h1 class="title-main-heading">顔文字ファンタジー3D<br><span style="font-size:13px;-webkit-text-fill-color:#94a3b8;">KAOMOJI FANTASY 3D ONLINE [v3.2 完成版]</span></h1>
+        <h1 class="title-main-heading">顔文字ファンタジー3D<br><span style="font-size:13px;-webkit-text-fill-color:#94a3b8;">KAOMOJI FANTASY 3D ONLINE [v3.3 Lv999役職対応]</span></h1>
         <div class="title-save-preview" id="title-save-info">データ準備中...</div>
         <div class="title-room-box">
             <div class="flex-between">
@@ -261,11 +263,11 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
 <script src="game8.js?v=20261119fix"></script>
 <script>
 // =========================================================================
-// 統合修正パッチ v3.2（単一武器・役職連動攻撃・チャット整理・新役職6種追加）
+// 統合修正パッチ v3.3（Lv999段階役職ツリー・左右2列・単一武器同期・チャット整理）
 // =========================================================================
 (function () {
-    if (window.__KMJ_MASTER_PATCH_V42__) return;
-    window.__KMJ_MASTER_PATCH_V42__ = true;
+    if (window.__KMJ_MASTER_PATCH_V43__) return;
+    window.__KMJ_MASTER_PATCH_V43__ = true;
 
     function throttle(fn, ms) {
         if (typeof fn !== 'function') return fn;
@@ -279,134 +281,68 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
     }
 
     // =====================================================================
-    // 追加する6種類の新役職データ（剣士・物理系 3種 ＋ 魔道士系 3種）
+    // Lv.1 〜 Lv.999 段階的役職データ（左列：剣士系 ／ 右列：魔法使い系）
+    // 順番にレベルを上げて1段階ずつ転職していくツリー構造
     // =====================================================================
-    const EXTRA_EVOLUTIONS = [
-        {
-            id: 'evo_gale_blademaster',
-            name: '疾風剣豪',
-            category: 'sword',
-            isMage: false,
-            icon: '⚔️',
-            kaomoji: '(｀・ω・´)⚔️',
-            reqLv: 15,
-            cost: 800,
-            color: '#38bdf8',
-            desc: '【剣士系】神速の太刀筋で敵を斬り伏せる剣の達人。通常攻撃は鋭い蒼い斬撃（魔法は出ない）。',
-            bonus: { physAtk: 38, critChance: 0.14, critDmg: 0.35, speed: 1.25 }
-        },
-        {
-            id: 'evo_silver_paladin',
-            name: '聖銀の守護騎士',
-            category: 'sword',
-            isMage: false,
-            icon: '🛡️',
-            kaomoji: '( •̀ᄇ• ́)ﻭ✧',
-            reqLv: 25,
-            cost: 1800,
-            color: '#fde047',
-            desc: '【剣士系】聖銀の大剣を振るう不屈の聖騎士。高いHP・防御と攻撃吸収を備える（魔法は出ない）。',
-            bonus: { maxHp: 260, physAtk: 48, def: 28, lifesteal: 0.08 }
-        },
-        {
-            id: 'evo_crimson_berserker',
-            name: '紅蓮の狂戦士',
-            category: 'sword',
-            isMage: false,
-            icon: '🩸',
-            kaomoji: '(╬◣д◢)🔥',
-            reqLv: 40,
-            cost: 3500,
-            color: '#f43f5e',
-            desc: '【剣士系】紅蓮の大剣で全てを両断する一撃必殺の狂戦士。物理攻撃と会心威力が極限まで上昇。',
-            bonus: { physAtk: 85, critChance: 0.18, critDmg: 0.55, maxHp: 140 }
-        },
-        {
-            id: 'evo_astral_archmage',
-            name: '星詠みの大賢者',
-            category: 'mage',
-            isMage: true,
-            icon: '🔮',
-            kaomoji: '(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧',
-            reqLv: 15,
-            cost: 800,
-            color: '#c084fc',
-            desc: '【魔道士系】星屑の聖杖を操る大賢者。武器が杖に変わり、通常攻撃で星光の魔法弾が真っ直ぐ飛ぶ。',
-            bonus: { magAtk: 45, maxMp: 120, critChance: 0.10 }
-        },
-        {
-            id: 'evo_abyss_necromancer',
-            name: '宵闇の死霊術師',
-            category: 'mage',
-            isMage: true,
-            icon: '🌙',
-            kaomoji: '(☍﹏⁰)†',
-            reqLv: 25,
-            cost: 1800,
-            color: '#a855f7',
-            desc: '【魔道士系】冥府の呪杖を携える闇の魔導師。闇の魔法弾を放ち、与えた魔法ダメージでHPを吸収する。',
-            bonus: { magAtk: 62, maxMp: 150, lifesteal: 0.10, maxHp: 100 }
-        },
-        {
-            id: 'evo_chrono_sorcerer',
-            name: '時空の魔導士',
-            category: 'mage',
-            isMage: true,
-            icon: '⏳',
-            kaomoji: '(⊃｡•́‿•̀｡)⊃━☆',
-            reqLv: 40,
-            cost: 3500,
-            color: '#22d3ee',
-            desc: '【魔道士系】時空の星杖を操る究極の術師。強力な時空魔法弾と高い魔法会心で戦場を支配する。',
-            bonus: { magAtk: 90, maxMp: 220, critChance: 0.16, critDmg: 0.45 }
-        }
+    const SWORD_CAREER_PATH = [
+        { id: 'sw_01_apprentice', tier: 1, branch: 'sword', isMage: false, name: '見習い剣士', reqLv: 1, cost: 0, icon: '🗡️', kaomoji: '(｀・ω・´)', color: '#94a3b8', desc: '剣の道を歩み始めた初心者剣士。', bonus: { physAtk: 5, maxHp: 20 } },
+        { id: 'sw_02_warrior', tier: 2, branch: 'sword', isMage: false, name: '熟練戦士', reqLv: 10, cost: 200, icon: '⚔️', kaomoji: '( •̀ᄇ• ́)ﻭ', color: '#38bdf8', desc: '基本剣技を習得した一人前の戦士。', bonus: { physAtk: 18, maxHp: 80, def: 6 } },
+        { id: 'sw_03_knight', tier: 3, branch: 'sword', isMage: false, name: '白銀騎士', reqLv: 25, cost: 600, icon: '🛡️', kaomoji: '(｀・ω・´)🛡️', color: '#60a5fa', desc: '攻守に優れた王国の正規騎士。', bonus: { physAtk: 35, maxHp: 180, def: 15 } },
+        { id: 'sw_04_blademaster', tier: 4, branch: 'sword', isMage: false, name: '疾風剣豪', reqLv: 50, cost: 1500, icon: '🌪️', kaomoji: '(｀・ω・´)⚔️', color: '#22d3ee', desc: '神速の太刀筋で敵を斬り伏せる剣豪。', bonus: { physAtk: 65, maxHp: 320, critChance: 0.08, critDmg: 0.25 } },
+        { id: 'sw_05_paladin', tier: 5, branch: 'sword', isMage: false, name: '聖銀の守護騎士', reqLv: 85, cost: 3500, icon: '✨', kaomoji: '( •̀ᄇ• ́)ﻭ✧', color: '#fde047', desc: '聖なる加護を受けた不屈の聖騎士。', bonus: { physAtk: 105, maxHp: 560, def: 32, lifesteal: 0.05 } },
+        { id: 'sw_06_berserker', tier: 6, branch: 'sword', isMage: false, name: '紅蓮の狂戦士', reqLv: 130, cost: 8000, icon: '🔥', kaomoji: '(╬◣д◢)🔥', color: '#f43f5e', desc: '闘気を燃やし全てを両断する狂戦士。', bonus: { physAtk: 170, maxHp: 850, critChance: 0.12, critDmg: 0.45 } },
+        { id: 'sw_07_dragonslayer', tier: 7, branch: 'sword', isMage: false, name: '龍殺しの剣聖', reqLv: 190, cost: 18000, icon: '🐉', kaomoji: '(ง •̀_•́)ง🐉', color: '#fb923c', desc: '古龍の鱗さえ断ち切る伝説の剣聖。', bonus: { physAtk: 260, maxHp: 1300, def: 55, critDmg: 0.65 } },
+        { id: 'sw_08_overlord', tier: 8, branch: 'sword', isMage: false, name: '蒼穹の覇王騎士', reqLv: 270, cost: 40000, icon: '👑', kaomoji: '( ｰ`дｰ´)👑', color: '#818cf8', desc: '戦場を統べる無双の覇王騎士。', bonus: { physAtk: 390, maxHp: 2000, def: 85, lifesteal: 0.08 } },
+        { id: 'sw_09_flashemperor', tier: 9, branch: 'sword', isMage: false, name: '神速の閃光剣帝', reqLv: 370, cost: 90000, icon: '⚡', kaomoji: '⚡(｀・ω・´)⚡', color: '#facc15', desc: '光速の斬撃を放つ雷光の剣帝。', bonus: { physAtk: 560, maxHp: 3000, critChance: 0.16, critDmg: 0.90 } },
+        { id: 'sw_10_wargod', tier: 10, branch: 'sword', isMage: false, name: '修羅の戦神', reqLv: 500, cost: 200000, icon: '👹', kaomoji: '(╬ಠ益ಠ)⚔️', color: '#e11d48', desc: '百戦錬磨の果てに戦神と化した剣士。', bonus: { physAtk: 820, maxHp: 4500, def: 130, critDmg: 1.15 } },
+        { id: 'sw_11_starbreaker', tier: 11, branch: 'sword', isMage: false, name: '星砕きの天剣士', reqLv: 650, cost: 450000, icon: '🌠', kaomoji: '★( •̀ᄇ• ́)ﻭ★', color: '#38bdf8', desc: '一振りで流星を両断する天界の剣士。', bonus: { physAtk: 1180, maxHp: 6800, def: 185, lifesteal: 0.11 } },
+        { id: 'sw_12_genesisking', tier: 12, branch: 'sword', isMage: false, name: '創世の聖剣王', reqLv: 800, cost: 900000, icon: '🌟', kaomoji: '✧(｀・ω・´)✧', color: '#fde047', desc: '聖剣の真の力を解放した創世の王。', bonus: { physAtk: 1650, maxHp: 9800, def: 260, critChance: 0.20, critDmg: 1.45 } },
+        { id: 'sw_13_dimensiongod', tier: 13, branch: 'sword', isMage: false, name: '次元斬りの超越剣神', reqLv: 900, cost: 2000000, icon: '🌌', kaomoji: '🌌( ｰ`дｰ´)⚔️', color: '#a78bfa', desc: '空間と次元そのものを斬り裂く超越剣神。', bonus: { physAtk: 2300, maxHp: 14000, def: 350, critDmg: 1.80 } },
+        { id: 'sw_14_ultimatesword', tier: 14, branch: 'sword', isMage: false, name: '終焉と創生の究極剣聖神', reqLv: 999, cost: 5000000, icon: '👑', kaomoji: '👑⚔️(ﾉ◕ヮ◕)ﾉ⚔️👑', color: '#f59e0b', desc: 'Lv.999到達者のみが至る剣の頂点。', bonus: { physAtk: 3500, maxHp: 22000, def: 500, critChance: 0.25, critDmg: 2.30, lifesteal: 0.15 } }
     ];
 
-    // 既存グローバル役職テーブルがあれば安全に登録する
-    function registerExtraEvolutionsToGlobals() {
+    const MAGE_CAREER_PATH = [
+        { id: 'mg_01_apprentice', tier: 1, branch: 'mage', isMage: true, name: '見習い魔道士', reqLv: 1, cost: 0, icon: '🪄', kaomoji: '(´・ω・`)☆', color: '#c084fc', desc: '杖を携え魔法弾を放つ初心者魔道士。', bonus: { magAtk: 6, maxMp: 25 } },
+        { id: 'mg_02_magician', tier: 2, branch: 'mage', isMage: true, name: '正規魔術師', reqLv: 10, cost: 200, icon: '🔮', kaomoji: '(⊃｡•́‿•̀｡)⊃━☆', color: '#a855f7', desc: '魔力制御を身につけた一人前の魔術師。', bonus: { magAtk: 22, maxMp: 80, maxHp: 40 } },
+        { id: 'mg_03_elementalist', tier: 3, branch: 'mage', isMage: true, name: '元素使い', reqLv: 25, cost: 600, icon: '🔥', kaomoji: '(ﾉ◕ヮ◕)ﾉ🔥❄️', color: '#38bdf8', desc: '火・氷・雷の元素魔法を操る術師。', bonus: { magAtk: 42, maxMp: 160, critChance: 0.06 } },
+        { id: 'mg_04_archmage', tier: 4, branch: 'mage', isMage: true, name: '星詠みの大賢者', reqLv: 50, cost: 1500, icon: '✨', kaomoji: '(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧', color: '#e879f9', desc: '星屑の聖杖から高密度の魔法弾を放つ大賢者。', bonus: { magAtk: 78, maxMp: 280, critChance: 0.10, critDmg: 0.30 } },
+        { id: 'mg_05_necromancer', tier: 5, branch: 'mage', isMage: true, name: '宵闇の死霊術師', reqLv: 85, cost: 3500, icon: '🌙', kaomoji: '(☍﹏⁰)†', color: '#9333ea', desc: '冥府の魔力で敵の生命力を吸収する術師。', bonus: { magAtk: 125, maxMp: 420, maxHp: 350, lifesteal: 0.07 } },
+        { id: 'mg_06_chronomancer', tier: 6, branch: 'mage', isMage: true, name: '時空の魔導士', reqLv: 130, cost: 8000, icon: '⏳', kaomoji: '⏳(⊃｡•́‿•̀｡)⊃', color: '#22d3ee', desc: '時間の流れと空間を操る高位の魔導士。', bonus: { magAtk: 195, maxMp: 650, critChance: 0.14, critDmg: 0.50 } },
+        { id: 'mg_07_abysswarlock', tier: 7, branch: 'mage', isMage: true, name: '深淵の禁呪導師', reqLv: 190, cost: 18000, icon: '🌑', kaomoji: '🌑(ΦωΦ)✨', color: '#7c3aed', desc: '古代の禁呪を解き放つ深淵の導師。', bonus: { magAtk: 295, maxMp: 950, maxHp: 750, critDmg: 0.75 } },
+        { id: 'mg_08_astralqueen', tier: 8, branch: 'mage', isMage: true, name: '天球の星霊賢王', reqLv: 270, cost: 40000, icon: '🌟', kaomoji: '🌟(ﾉ◕ヮ◕)ﾉ👑', color: '#f472b6', desc: '星霊たちの祝福を受けた魔道の王。', bonus: { magAtk: 440, maxMp: 1400, def: 65, lifesteal: 0.09 } },
+        { id: 'mg_09_chaosemperor', tier: 9, branch: 'mage', isMage: true, name: '混沌の元素魔帝', reqLv: 370, cost: 90000, icon: '☄️', kaomoji: '🔥❄️⚡(｀・ω・´)', color: '#fb7185', desc: '全属性の根源を束ねる混沌の魔帝。', bonus: { magAtk: 640, maxMp: 2100, critChance: 0.17, critDmg: 0.95 } },
+        { id: 'mg_10_voidseeker', tier: 10, branch: 'mage', isMage: true, name: '虚空の真理探究者', reqLv: 500, cost: 200000, icon: '👁️', kaomoji: '👁️(⊃｡•́‿•̀｡)⊃', color: '#818cf8', desc: '世界の理と真理に到達した大魔導。', bonus: { magAtk: 930, maxMp: 3100, maxHp: 2800, critDmg: 1.25 } },
+        { id: 'mg_11_galaxysage', tier: 11, branch: 'mage', isMage: true, name: '銀河の星神大魔導', reqLv: 650, cost: 450000, icon: '🌌', kaomoji: '🌌(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧', color: '#38bdf8', desc: '無数の星々の魔力を宿す銀河の魔導神。', bonus: { magAtk: 1340, maxMp: 4500, def: 145, lifesteal: 0.12 } },
+        { id: 'mg_12_wisdomgod', tier: 12, branch: 'mage', isMage: true, name: '創世の叡智神', reqLv: 800, cost: 900000, icon: '📜', kaomoji: '✧(⊃｡•́‿•̀｡)⊃✧', color: '#fde047', desc: '万物の知識と魔力を司る創世の叡智神。', bonus: { magAtk: 1880, maxMp: 6500, maxHp: 6200, critChance: 0.21, critDmg: 1.55 } },
+        { id: 'mg_13_dimensionmage', tier: 13, branch: 'mage', isMage: true, name: '次元支配の超越魔神', reqLv: 900, cost: 2000000, icon: '🔮', kaomoji: '🌌🔮(ΦωΦ)🔮🌌', color: '#c084fc', desc: '異次元の魔力を自在に操る超越魔神。', bonus: { magAtk: 2600, maxMp: 9200, def: 260, critDmg: 1.90 } },
+        { id: 'mg_14_ultimatemage', tier: 14, branch: 'mage', isMage: true, name: '万象と星辰の究極大魔導神', reqLv: 999, cost: 5000000, icon: '👑', kaomoji: '👑🔮(ﾉ◕ヮ◕)ﾉ🔮👑', color: '#e879f9', desc: 'Lv.999到達者のみが至る魔道の極致。', bonus: { magAtk: 3900, maxMp: 15000, maxHp: 15000, def: 380, critChance: 0.25, critDmg: 2.40, lifesteal: 0.15 } }
+    ];
+
+    const ALL_CAREERS = [...SWORD_CAREER_PATH, ...MAGE_CAREER_PATH];
+
+    // 既存EVOLUTIONSグローバルにも統合登録
+    function syncCareerGlobals() {
         try {
             if (typeof EVOLUTIONS !== 'undefined' && EVOLUTIONS) {
                 if (Array.isArray(EVOLUTIONS)) {
-                    EXTRA_EVOLUTIONS.forEach(ev => {
-                        if (!EVOLUTIONS.some(x => x && x.id === ev.id)) {
+                    ALL_CAREERS.forEach(c => {
+                        if (!EVOLUTIONS.some(x => x && x.id === c.id)) {
                             EVOLUTIONS.push({
-                                id: ev.id,
-                                name: ev.name,
-                                kaomoji: ev.kaomoji,
-                                icon: ev.icon,
-                                reqLv: ev.reqLv,
-                                levelReq: ev.reqLv,
-                                cost: ev.cost,
-                                goldCost: ev.cost,
-                                desc: ev.desc,
-                                description: ev.desc,
-                                bonus: ev.bonus,
-                                stats: ev.bonus,
-                                isMage: ev.isMage,
-                                weaponType: ev.isMage ? 'staff' : 'sword'
+                                id: c.id, name: c.name, kaomoji: c.kaomoji, icon: c.icon,
+                                reqLv: c.reqLv, levelReq: c.reqLv, cost: c.cost, goldCost: c.cost,
+                                desc: c.desc, description: c.desc, bonus: c.bonus, stats: c.bonus,
+                                isMage: c.isMage, branch: c.branch, tier: c.tier
                             });
                         }
                     });
                 } else if (typeof EVOLUTIONS === 'object') {
-                    EXTRA_EVOLUTIONS.forEach(ev => {
-                        if (!EVOLUTIONS[ev.id]) {
-                            EVOLUTIONS[ev.id] = {
-                                id: ev.id,
-                                name: ev.name,
-                                kaomoji: ev.kaomoji,
-                                icon: ev.icon,
-                                reqLv: ev.reqLv,
-                                levelReq: ev.reqLv,
-                                cost: ev.cost,
-                                goldCost: ev.cost,
-                                desc: ev.desc,
-                                description: ev.desc,
-                                bonus: ev.bonus,
-                                stats: ev.bonus,
-                                isMage: ev.isMage,
-                                weaponType: ev.isMage ? 'staff' : 'sword'
-                            };
-                        }
+                    ALL_CAREERS.forEach(c => {
+                        EVOLUTIONS[c.id] = {
+                            id: c.id, name: c.name, kaomoji: c.kaomoji, icon: c.icon,
+                            reqLv: c.reqLv, levelReq: c.reqLv, cost: c.cost, goldCost: c.cost,
+                            desc: c.desc, description: c.desc, bonus: c.bonus, stats: c.bonus,
+                            isMage: c.isMage, branch: c.branch, tier: c.tier
+                        };
                     });
                 }
             }
@@ -434,13 +370,15 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
         } catch (e) {}
     }
 
-    // チャット欄の整理（上端ドラッグ縦幅変更を削除＆右上の「戻す」を「✕ 消す」に変更）
+    // チャット欄の整理：
+    // 1. 「消す」ボタンは1つだけにする（重複を除去）
+    // 2. 右下の大きさ変更（resize:both）は残し、上端ドラッグバーだけ削除
     function cleanChatPanelUI() {
         const panel = document.getElementById('chat-panel');
         const wrapper = document.getElementById('chat-wrapper');
         if (!panel) return;
 
-        // 1. 縦幅ドラッグ変更ハンドルを削除
+        // 上端の縦幅ドラッグバーのみ削除
         panel.querySelectorAll('*').forEach(el => {
             const styleAttr = (el.getAttribute('style') || '').toLowerCase();
             const cls = String(el.className || '').toLowerCase();
@@ -459,88 +397,111 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             wrapper.querySelectorAll('[style*="ns-resize"], [style*="row-resize"]').forEach(el => el.remove());
         }
 
-        // 2. 右上の「戻す」ボタンを「✕ 消す（チャット欄を消す）」に置換
+        // 重複した「戻す」「消す」ボタンを削除し、#btn-hide-chat-panel 1つだけにする
         panel.querySelectorAll('button').forEach(btn => {
             if (btn.id === 'btn-hide-chat-panel') return;
             const txt = (btn.textContent || '').trim();
-            if (txt.includes('戻す') || txt.includes('リセット') || txt === '縮小' || txt === '最小化') {
-                const newBtn = btn.cloneNode(true);
-                newBtn.textContent = '✕ 消す';
-                newBtn.title = 'チャット欄を消す';
-                newBtn.className = 'btn-ui btn-rose';
-                newBtn.style.cssText = 'padding:3px 7px;font-size:10px;flex-shrink:0;';
-                newBtn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopImmediatePropagation();
-                    panel.classList.add('hidden');
-                });
-                btn.replaceWith(newBtn);
+            if (txt.includes('戻す') || txt.includes('消す') || txt === '縮小' || txt === '最小化') {
+                btn.remove();
             }
         });
 
         const hideBtn = document.getElementById('btn-hide-chat-panel');
-        if (hideBtn && !hideBtn.dataset.v42Bound) {
-            hideBtn.dataset.v42Bound = '1';
+        if (hideBtn && !hideBtn.dataset.v43Bound) {
+            hideBtn.dataset.v43Bound = '1';
             hideBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 panel.classList.add('hidden');
             });
         }
+
+        // 右下のサイズ変更ハンドルが消えないように強制維持
+        panel.style.setProperty('resize', 'both', 'important');
+        panel.style.setProperty('overflow', 'auto', 'important');
     }
 
     function installMasterPatch() {
-        registerExtraEvolutionsToGlobals();
+        syncCareerGlobals();
         if (typeof KaomojiMMORPG === 'undefined') return;
         const P = KaomojiMMORPG.prototype;
-        if (P.__v42Installed) return;
-        P.__v42Installed = true;
+        if (P.__v43Installed) return;
+        P.__v43Installed = true;
 
-        // -----------------------------------------------------------------
-        // 1. iPad Safari 落ち防止 & 既存過剰装飾パッチの無効化
-        // -----------------------------------------------------------------
+        // 1. iPad Safari 落ち防止 & 勝手に杖を生やす旧処理の無効化
         P.fixChatCompactLayoutV31 = function () { cleanChatPanelUI(); };
         P.ensureStandardMoveStickV33 = throttle(P.ensureStandardMoveStickV33, 1000);
         P.injectSettingsDropdownItemV33 = function () {};
         P.fixTopRightMenuOverlapV36 = throttle(P.fixTopRightMenuOverlapV36, 1200);
-        // 杖を勝手に常時生やしていた旧関数を無効化
         P.enforceStrictWeaponVisualV27 = function () {};
         P.attachMageStaffV27 = function () {};
         P.ensureLeftHandWeaponV27 = function () {};
 
-        // -----------------------------------------------------------------
-        // 2. 現在の役職が「魔道士系」か「剣士・物理系」かの厳密判定
-        // -----------------------------------------------------------------
-        P.getCurrentEvolutionObjV42 = function () {
-            const evoId = this.saveData?.evolution || this.saveData?.job || this.saveData?.classId || '';
-            const extra = EXTRA_EVOLUTIONS.find(e => e.id === evoId || e.name === evoId);
-            if (extra) return extra;
+        // 2. 現在の役職取得＆保存キーの完全同期（既存上側役職＆Lv999ツリー両方対応）
+        P.getCurrentCareerIdV43 = function () {
+            const sd = this.saveData || {};
+            return String(sd.evolution || sd.evo || sd.job || sd.classId || 'sw_01_apprentice');
+        };
+
+        P.setCurrentCareerIdV43 = function (careerId) {
+            if (!this.saveData) this.saveData = {};
+            this.saveData.evolution = careerId;
+            this.saveData.evo = careerId;
+            this.saveData.job = careerId;
+            this.saveData.classId = careerId;
+        };
+
+        P.findCareerByIdOrNameV43 = function (idOrName) {
+            const key = String(idOrName || '').trim();
+            if (!key) return null;
+            const found = ALL_CAREERS.find(c => c.id === key || c.name === key);
+            if (found) return found;
+
+            // 既存の初期EVOLUTIONSにある場合も剣士系か魔法使い系かを自動分類
             if (typeof EVOLUTIONS !== 'undefined' && EVOLUTIONS) {
-                if (Array.isArray(EVOLUTIONS)) {
-                    return EVOLUTIONS.find(e => e && (e.id === evoId || e.name === evoId)) || null;
+                const raw = Array.isArray(EVOLUTIONS)
+                    ? EVOLUTIONS.find(e => e && (e.id === key || e.name === key))
+                    : EVOLUTIONS[key];
+                if (raw) {
+                    const nm = String(raw.name || key);
+                    const isMage = /(mage|wizard|sorcerer|sage|witch|priest|necro|魔|賢者|術師|巫女|星詠|召喚|死霊)/i.test(`${key} ${nm}`);
+                    return {
+                        id: raw.id || key,
+                        name: nm,
+                        branch: isMage ? 'mage' : 'sword',
+                        isMage,
+                        tier: raw.tier || 1,
+                        reqLv: raw.reqLv || raw.levelReq || 1,
+                        cost: raw.cost || raw.goldCost || 0,
+                        icon: raw.icon || (isMage ? '🔮' : '⚔️'),
+                        kaomoji: raw.kaomoji || '(｀・ω・´)',
+                        color: isMage ? '#c084fc' : '#38bdf8',
+                        desc: raw.desc || raw.description || '',
+                        bonus: raw.bonus || raw.stats || {}
+                    };
                 }
-                return EVOLUTIONS[evoId] || null;
             }
             return null;
         };
 
+        // 剣士系なら確実に false（剣・斬撃のみ）、魔法使い系なら確実に true（杖・魔法弾）
         P.isMageEvolution = function () {
-            const ev = this.getCurrentEvolutionObjV42();
-            if (ev && typeof ev.isMage === 'boolean') return ev.isMage;
-            const evoStr = String(this.saveData?.evolution || ev?.name || '').toLowerCase();
-            // 魔道士系キーワードが含まれる場合のみ true（それ以外の剣士系・見習いは false）
-            return /(mage|wizard|sorcerer|sage|witch|archmage|priest|necromancer|chronomancer|astral|魔|賢者|術師|巫女|星詠|召喚|死霊)/.test(evoStr);
+            const id = this.getCurrentCareerIdV43();
+            const c = this.findCareerByIdOrNameV43(id);
+            if (c) return Boolean(c.isMage);
+            const rawStr = `${id} ${this.saveData?.jobName || ''} ${this.saveData?.className || ''}`.toLowerCase();
+            if (/(sword|warrior|knight|paladin|berserker|blade|fighter|samurai|剣|戦|騎|侍|武|盾|狂|覇|修羅)/.test(rawStr)) {
+                return false;
+            }
+            return /(mage|wizard|sorcerer|sage|witch|priest|necro|魔|賢者|術師|巫女|星詠|召喚|死霊)/.test(rawStr);
         };
 
-        // -----------------------------------------------------------------
-        // 3. 3Dキャラの武器を「右手に1本だけ（剣士系は剣／魔道士系は杖）」に統一
-        //    ※ 両手持ち・常時ついていた不要な杖を完全に消去
-        // -----------------------------------------------------------------
+        // 3. 3D武器モデルを「右手に1本だけ（剣士系＝剣 ／ 魔法使い系＝杖）」に厳密同期
         P.syncSingleWeaponVisualV42 = function (force = false) {
             if (!this.player?.group || typeof THREE === 'undefined') return;
             const isMage = this.isMageEvolution();
-            const ev = this.getCurrentEvolutionObjV42();
-            const colorHex = ev?.color ? Number(String(ev.color).replace('#', '0x')) : (isMage ? 0xc084fc : 0x38bdf8);
+            const c = this.findCareerByIdOrNameV43(this.getCurrentCareerIdV43());
+            const colorHex = c?.color ? Number(String(c.color).replace('#', '0x')) : (isMage ? 0xc084fc : 0x38bdf8);
             const stateKey = `${isMage ? 'staff' : 'sword'}_${colorHex}`;
 
             if (!force && this.player._v42WeaponKey === stateKey && this.player._v42WeaponMesh?.parent === this.player.group) {
@@ -548,7 +509,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             }
             this.player._v42WeaponKey = stateKey;
 
-            // 既存の武器・杖メッシュをすべて削除・非表示（両手持ち＆常駐杖の完全消去）
+            // 既存の武器・杖メッシュをすべて除去・非表示（両手持ち＆常駐杖の完全消去）
             const toRemove = [];
             this.player.group.traverse(obj => {
                 if (obj === this.player.group) return;
@@ -560,7 +521,6 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                 if (/(weapon|staff|sword|wand|blade|axe|shield|wpn|rod|orb|spear|dagger)/.test(nm)) {
                     obj.visible = false;
                 }
-                // 左手側（x < -0.25）に突き出ている細長い棒や武器パーツを非表示
                 if (obj.parent === this.player.group && obj.position && obj.position.x < -0.25 && obj.position.y > 0.3) {
                     if (obj.type === 'Group' || (obj.geometry && obj.geometry.parameters && (obj.geometry.parameters.height > 0.9 || obj.geometry.parameters.depth > 0.9))) {
                         obj.visible = false;
@@ -569,54 +529,47 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             });
             toRemove.forEach(o => o.parent?.remove(o));
 
-            // 既存の参照も非表示化
             ['weaponGroup', 'staffGroup', 'leftWeaponGroup', 'subWeaponGroup', 'rightWeaponGroup'].forEach(prop => {
                 if (this.player[prop] && this.player[prop] !== this.player._v42WeaponMesh) {
                     this.player[prop].visible = false;
                 }
             });
 
-            // 右手用の単一武器グループを作成（剣 or 杖のどちらか1本のみ）
             const wpn = new THREE.Group();
             wpn.name = 'v42_single_weapon';
             wpn.userData.isV42Weapon = true;
 
             if (isMage) {
-                // 【魔道士系】魔法の杖 1本
+                // 魔法使い系：杖 1本のみ
                 const shaft = new THREE.Mesh(
                     new THREE.CylinderGeometry(0.045, 0.06, 1.75, 8),
                     new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.6 })
                 );
                 shaft.position.y = 0.75;
-
                 const orb = new THREE.Mesh(
                     new THREE.OctahedronGeometry(0.19, 1),
                     new THREE.MeshBasicMaterial({ color: colorHex })
                 );
                 orb.position.y = 1.72;
-
                 const ring = new THREE.Mesh(
                     new THREE.TorusGeometry(0.26, 0.025, 8, 20),
                     new THREE.MeshBasicMaterial({ color: 0xfde047 })
                 );
                 ring.position.y = 1.72;
                 ring.rotation.x = Math.PI * 0.35;
-
                 wpn.add(shaft, orb, ring);
             } else {
-                // 【剣士・物理系】剣 1本
+                // 剣士系：剣 1本のみ
                 const grip = new THREE.Mesh(
                     new THREE.CylinderGeometry(0.045, 0.05, 0.34, 8),
                     new THREE.MeshStandardMaterial({ color: 0x1e293b })
                 );
                 grip.position.y = 0.12;
-
                 const guard = new THREE.Mesh(
                     new THREE.BoxGeometry(0.42, 0.07, 0.12),
                     new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.7, roughness: 0.3 })
                 );
                 guard.position.y = 0.30;
-
                 const blade = new THREE.Mesh(
                     new THREE.BoxGeometry(0.11, 1.32, 0.035),
                     new THREE.MeshStandardMaterial({
@@ -628,49 +581,38 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                     })
                 );
                 blade.position.y = 0.98;
-
                 wpn.add(grip, guard, blade);
             }
 
-            // 右手位置に1本だけ装着
             wpn.position.set(0.68, 0.62, 0.25);
             wpn.rotation.set(0.32, 0, -0.15);
             this.player.group.add(wpn);
             this.player._v42WeaponMesh = wpn;
         };
 
-        // -----------------------------------------------------------------
-        // 4. ステータス計算＆通常攻撃の役職完全連動
-        //    ・剣士系なら武器は剣、通常攻撃は斬撃のみ（魔法は出ない）
-        //    ・魔道士系なら武器は杖、通常攻撃は魔法弾が真っ直ぐ飛ぶ
-        // -----------------------------------------------------------------
+        // 4. ステータス計算＆通常攻撃の完全連動
         const _origCalcStats = P.calcDerivedStats;
         P.calcDerivedStats = function () {
             const st = _origCalcStats ? _origCalcStats.call(this) : {};
             const isMage = this.isMageEvolution();
-            const ev = this.getCurrentEvolutionObjV42();
+            const c = this.findCareerByIdOrNameV43(this.getCurrentCareerIdV43());
 
-            // 追加役職のステータスボーナスを反映
-            if (ev && EXTRA_EVOLUTIONS.some(x => x.id === ev.id) && ev.bonus) {
-                st.maxHp = (st.maxHp || 100) + (ev.bonus.maxHp || 0);
-                st.maxMp = (st.maxMp || 50) + (ev.bonus.maxMp || 0);
-                st.physAtk = (st.physAtk || 10) + (ev.bonus.physAtk || 0);
-                st.magAtk = (st.magAtk || 10) + (ev.bonus.magAtk || 0);
-                st.def = (st.def || 5) + (ev.bonus.def || 0);
-                st.critChance = (st.critChance || 0.05) + (ev.bonus.critChance || 0);
-                st.critDmg = (st.critDmg || 1.5) + (ev.bonus.critDmg || 0);
-                st.lifesteal = (st.lifesteal || 0) + (ev.bonus.lifesteal || 0);
+            if (c && ALL_CAREERS.some(x => x.id === c.id) && c.bonus) {
+                st.maxHp = (st.maxHp || 100) + (c.bonus.maxHp || 0);
+                st.maxMp = (st.maxMp || 50) + (c.bonus.maxMp || 0);
+                st.physAtk = (st.physAtk || 10) + (c.bonus.physAtk || 0);
+                st.magAtk = (st.magAtk || 10) + (c.bonus.magAtk || 0);
+                st.def = (st.def || 5) + (c.bonus.def || 0);
+                st.critChance = (st.critChance || 0.05) + (c.bonus.critChance || 0);
+                st.critDmg = (st.critDmg || 1.5) + (c.bonus.critDmg || 0);
+                st.lifesteal = (st.lifesteal || 0) + (c.bonus.lifesteal || 0);
             }
 
-            // 役職によって武器種別を厳密に決定（剣士なのに杖扱いになるのを防止）
             st.isStaffEquipped = isMage;
-            if (ev?.color) {
-                st.wpnGlowColor = Number(String(ev.color).replace('#', '0x'));
-            }
+            if (c?.color) st.wpnGlowColor = Number(String(c.color).replace('#', '0x'));
             return st;
         };
 
-        // 剣士系のときに他の処理から魔法弾が誤爆するのを完全ブロック
         const _origMageShot = P.spawnMageBasicMagicShot;
         P.spawnMageBasicMagicShot = function (...args) {
             if (!this.isMageEvolution()) return;
@@ -743,12 +685,12 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             const rotY = this.player.rotY || 0;
 
             if (isMage) {
-                // 魔道士系：杖を振り、正面へ魔法弾が真っ直ぐ飛ぶ
+                // 魔法使い系：杖を振り正面へ魔法弾を飛ばす
                 this.triggerPlayerAttackAnim?.('staff_cast', 0.24);
                 sfx?.playTone?.(680, 'sine', 0.11, 0.06, 980);
                 this.spawnForwardBasicShotV41(rotY, st.wpnGlowColor || 0xc084fc);
             } else {
-                // 剣士・物理系：剣を振り、斬撃エフェクトのみ（魔法は一切出ない）
+                // 剣士系：剣を振り斬撃のみ（魔法は一切出ない）
                 this.triggerPlayerAttackAnim?.('slash', 0.22);
                 sfx?.playHit?.(false);
                 if (this.spawnSlashArc) {
@@ -773,9 +715,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             return true;
         };
 
-        // -----------------------------------------------------------------
         // 5. 確認ダイアログ & 完全初期化
-        // -----------------------------------------------------------------
         P.openDialog = function (title, message, buttons) {
             if (title && typeof title === 'object') {
                 const o = title;
@@ -825,15 +765,167 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             }, 250);
         };
 
-        // -----------------------------------------------------------------
-        // 6. メニュー描画 ＋ 転職タブへの新役職6種表示＆即座武器切替
-        // -----------------------------------------------------------------
+        // 6. 転職タブ（evo）を「左：剣士系 ／ 右：魔法使い系」の2列＆Lv.999段階昇格ツリーとして描画
+        P.renderCareerTreeTabV43 = function (container) {
+            const sd = this.saveData || {};
+            const lv = sd.lv || 1;
+            const gold = sd.gold || 0;
+            const curId = this.getCurrentCareerIdV43();
+            const curCareer = this.findCareerByIdOrNameV43(curId) || SWORD_CAREER_PATH[0];
+            const isMageNow = this.isMageEvolution();
+
+            // 各ルート（剣士系／魔法使い系）の現在到達段階(tier)を算出
+            if (!sd.careerProgress) sd.careerProgress = { sword: 1, mage: 1 };
+            const curSwordObj = SWORD_CAREER_PATH.find(x => x.id === curId || x.name === curId);
+            const curMageObj = MAGE_CAREER_PATH.find(x => x.id === curId || x.name === curId);
+            if (curSwordObj && curSwordObj.tier > (sd.careerProgress.sword || 1)) {
+                sd.careerProgress.sword = curSwordObj.tier;
+            }
+            if (curMageObj && curMageObj.tier > (sd.careerProgress.mage || 1)) {
+                sd.careerProgress.mage = curMageObj.tier;
+            }
+
+            const renderColumn = (title, subtitle, list, branchKey, accentColor) => {
+                const unlockedTier = sd.careerProgress[branchKey] || 1;
+                return `
+                    <div style="display:flex;flex-direction:column;gap:7px;">
+                        <div class="card-box" style="border-color:${accentColor};background:rgba(15,23,42,0.95);text-align:center;">
+                            <div style="font-size:13px;font-weight:900;color:${accentColor};">${title}</div>
+                            <div style="font-size:10px;color:#cbd5e1;margin-top:2px;">${subtitle}</div>
+                            <div style="font-size:10px;color:#fde047;margin-top:2px;">到達段階: ${unlockedTier} / ${list.length}</div>
+                        </div>
+                        ${list.map((c, idx) => {
+                            const isCurrent = (curId === c.id || curId === c.name);
+                            // 順番に役職のレベルを上げる仕様：
+                            // ・既に開放済みの段階（tier <= unlockedTier）ならいつでも転職可能
+                            // ・次の段階（tier === unlockedTier + 1）は必要LvとGを満たせば昇格可能
+                            // ・それより先の段階は前の役職に転職してから開放
+                            const isAlreadyUnlocked = c.tier <= unlockedTier;
+                            const isNextStep = c.tier === unlockedTier + 1;
+                            const isLockedOrder = !isAlreadyUnlocked && !isNextStep;
+                            const canLv = lv >= c.reqLv;
+                            const costToPay = isAlreadyUnlocked ? 0 : c.cost;
+                            const canGold = gold >= costToPay;
+                            const canPromote = !isCurrent && !isLockedOrder && canLv && canGold;
+
+                            const bonusStr = Object.entries(c.bonus).map(([k, v]) => {
+                                const map = { physAtk: '物攻', magAtk: '魔攻', maxHp: 'HP', maxMp: 'MP', def: '防御', critChance: '会心', critDmg: '会心ダメ', lifesteal: '吸収' };
+                                const val = (k === 'critChance' || k === 'critDmg' || k === 'lifesteal') ? `+${Math.round(v * 100)}%` : `+${v}`;
+                                return `${map[k] || k}${val}`;
+                            }).join(' ');
+
+                            let btnLabel = '';
+                            let btnClass = 'btn-sky';
+                            if (isCurrent) {
+                                btnLabel = '✅ 現在の役職';
+                                btnClass = 'btn-emerald';
+                            } else if (isLockedOrder) {
+                                btnLabel = `🔒 前段階の転職が必要`;
+                                btnClass = 'btn-slate';
+                            } else if (!canLv) {
+                                btnLabel = `Lv.${c.reqLv} 必要`;
+                                btnClass = 'btn-slate';
+                            } else if (!canGold) {
+                                btnLabel = `${costToPay.toLocaleString()}G 不足`;
+                                btnClass = 'btn-slate';
+                            } else if (isAlreadyUnlocked) {
+                                btnLabel = '🔄 この役職へ切替 (0G)';
+                                btnClass = 'btn-sky';
+                            } else {
+                                btnLabel = `⬆️ 昇格転職 (${costToPay.toLocaleString()}G)`;
+                                btnClass = 'btn-amber';
+                            }
+
+                            return `
+                                <div class="card-box" style="border-color:${isCurrent ? '#10b981' : (isLockedOrder ? '#334155' : c.color)};opacity:${isLockedOrder ? '0.62' : '1'};padding:8px;">
+                                    <div class="flex-between">
+                                        <span style="font-size:10px;font-weight:900;color:#94a3b8;">STEP ${c.tier} (Lv.${c.reqLv})</span>
+                                        <span class="font-kaomoji" style="font-size:11px;color:#fde047;">${c.kaomoji}</span>
+                                    </div>
+                                    <div style="font-size:12px;font-weight:900;color:${c.color};margin-top:2px;">${c.icon} ${c.name}</div>
+                                    <div style="font-size:10px;color:#cbd5e1;line-height:1.35;margin-top:2px;">${c.desc}</div>
+                                    <div style="font-size:10px;color:#34d399;font-weight:900;margin-top:3px;">${bonusStr}</div>
+                                    <button type="button" class="btn-ui ${btnClass}" style="width:100%;margin-top:6px;padding:6px 4px;font-size:10px;" data-career-select="${c.id}" ${canPromote ? '' : 'disabled'}>
+                                        ${btnLabel}
+                                    </button>
+                                </div>
+                                ${idx < list.length - 1 ? '<div style="text-align:center;color:#64748b;font-size:11px;line-height:1;">⬇️</div>' : ''}
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+            };
+
+            container.innerHTML = `
+                <div class="card-box" style="border-color:#38bdf8;margin-bottom:10px;">
+                    <div class="flex-between" style="flex-wrap:wrap;">
+                        <div>
+                            <div style="font-size:13px;font-weight:900;color:#fde047;">👑 役職・クラス昇格ツリー（Lv.1 〜 Lv.999）</div>
+                            <div style="font-size:11px;color:#e2e8f0;margin-top:2px;">
+                                現在: <b style="color:${curCareer.color};">${curCareer.icon} ${curCareer.name}</b>（Lv.${lv} / 所持金 ${gold.toLocaleString()}G）
+                            </div>
+                        </div>
+                        <span class="badge-pill" style="background:${isMageNow ? '#6b21a8' : '#0369a1'};color:#fff;">
+                            ${isMageNow ? '🔮 杖装備・魔法弾スタイル' : '⚔️ 剣装備・斬撃スタイル（魔法なし）'}
+                        </span>
+                    </div>
+                    <div style="font-size:10px;color:#94a3b8;margin-top:4px;">
+                        ※ 左が<b>剣士系</b>、右が<b>魔法使い系</b>です。STEP 1から順番にレベルを上げて昇格していきます。
+                    </div>
+                </div>
+                <div class="evo-split-cols">
+                    ${renderColumn('⚔️ 左：剣士系ルート', '武器：剣 ／ 通常攻撃：斬撃のみ', SWORD_CAREER_PATH, 'sword', '#38bdf8')}
+                    ${renderColumn('🔮 右：魔法使い系ルート', '武器：杖 ／ 通常攻撃：魔法弾', MAGE_CAREER_PATH, 'mage', '#c084fc')}
+                </div>
+            `;
+
+            container.querySelectorAll('[data-career-select]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const targetId = btn.getAttribute('data-career-select');
+                    const targetCareer = ALL_CAREERS.find(x => x.id === targetId);
+                    if (!targetCareer || !this.saveData) return;
+
+                    const branchKey = targetCareer.branch;
+                    if (!this.saveData.careerProgress) this.saveData.careerProgress = { sword: 1, mage: 1 };
+                    const unlockedTier = this.saveData.careerProgress[branchKey] || 1;
+                    const isAlreadyUnlocked = targetCareer.tier <= unlockedTier;
+                    const costToPay = isAlreadyUnlocked ? 0 : targetCareer.cost;
+
+                    if ((this.saveData.lv || 1) < targetCareer.reqLv) return;
+                    if (targetCareer.tier > unlockedTier + 1) return;
+                    if ((this.saveData.gold || 0) < costToPay) return;
+
+                    this.saveData.gold -= costToPay;
+                    if (targetCareer.tier > unlockedTier) {
+                        this.saveData.careerProgress[branchKey] = targetCareer.tier;
+                    }
+
+                    // 役職を全保存キーに反映し、武器（剣⇔杖）と攻撃を即座に切り替え
+                    this.setCurrentCareerIdV43(targetCareer.id);
+                    if (targetCareer.kaomoji) this.saveData.kaomoji = targetCareer.kaomoji;
+
+                    this.syncSingleWeaponVisualV42(true);
+                    const st = this.calcDerivedStats();
+                    if (this.player) {
+                        this.player.hp = st.maxHp || this.player.hp;
+                        this.player.mp = st.maxMp || this.player.mp;
+                    }
+                    this.saveGame?.();
+                    this.refreshAllHUD?.();
+                    this.showAlertBanner?.(`👑 「${targetCareer.name}」に転職！武器が${targetCareer.isMage ? '杖（魔法弾）' : '剣（斬撃のみ）'}になりました！`, 2600);
+                    this.renderGrowthTabContent();
+                });
+            });
+        };
+
+        // 7. メニュー描画統合
         const MENU_TABS = [
             { id: 'stats', label: '📊 ステータス' },
             { id: 'skills', label: '📘 スキル' },
             { id: 'tree', label: '🌳 ツリー' },
             { id: 'equip', label: '⚔️ 装備･精錬' },
-            { id: 'evo', label: '👑 転職' },
+            { id: 'evo', label: '👑 転職(Lv999)' },
             { id: 'look', label: '🎨 見た目' },
             { id: 'pets', label: '🐾 ペット' },
             { id: 'titles', label: '🎖️ 称号･実績' },
@@ -892,115 +984,22 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                 modalBody.innerHTML = '<div id="modal-body-content"></div>';
                 inner = document.getElementById('modal-body-content');
             }
+
+            if (this.activeTab === 'evo') {
+                this.renderCareerTreeTabV43(inner);
+                fixLightBgTextContrast(modalBody);
+                return;
+            }
+
             if (_baseRenderGrowth) _baseRenderGrowth.call(this);
             if (_baseRenderModal && _baseRenderModal !== P.renderGrowthTabContent) {
                 try { _baseRenderModal.call(this); } catch (e) {}
             }
-
-            // 転職タブ（evo）には新役職6種の専用パネルも必ず表示し、転職時に武器と攻撃方式を即座に切替
-            if (this.activeTab === 'evo') {
-                const curEvo = this.saveData?.evolution || '';
-                const lv = this.saveData?.lv || 1;
-                const gold = this.saveData?.gold || 0;
-                const isMageNow = this.isMageEvolution();
-
-                let extraBox = document.getElementById('v42-extra-evo-section');
-                if (!extraBox) {
-                    extraBox = document.createElement('div');
-                    extraBox.id = 'v42-extra-evo-section';
-                    extraBox.style.marginTop = '12px';
-                    inner.appendChild(extraBox);
-                }
-
-                extraBox.innerHTML = `
-                    <div class="card-box" style="border-color:#fde047;margin-bottom:8px;">
-                        <div style="font-size:12px;font-weight:900;color:#fde047;">✨ 上級・特化役職（武器＆通常攻撃スタイル切替）</div>
-                        <div style="font-size:11px;color:#cbd5e1;margin-top:3px;">
-                            現在の武器スタイル：<b style="color:${isMageNow ? '#c084fc' : '#38bdf8'};">${isMageNow ? '🔮 魔道士系（杖・通常攻撃＝魔法弾）' : '⚔️ 剣士系（剣・通常攻撃＝斬撃のみ）'}</b>
-                        </div>
-                    </div>
-                    <div class="grid-2">
-                        ${EXTRA_EVOLUTIONS.map(ev => {
-                            const isCur = curEvo === ev.id || curEvo === ev.name;
-                            const canLv = lv >= ev.reqLv;
-                            const canGold = gold >= ev.cost;
-                            const bonusText = Object.entries(ev.bonus).map(([k, v]) => {
-                                const map = { physAtk: '物攻', magAtk: '魔攻', maxHp: 'HP', maxMp: 'MP', def: '防御', critChance: '会心率', critDmg: '会心ダメ', lifesteal: '吸収', speed: '速度' };
-                                const val = (k === 'critChance' || k === 'critDmg' || k === 'lifesteal') ? `+${Math.round(v * 100)}%` : `+${v}`;
-                                return `${map[k] || k}${val}`;
-                            }).join(' / ');
-
-                            return `
-                                <div class="card-box" style="border-color:${isCur ? '#10b981' : ev.color};">
-                                    <div class="flex-between">
-                                        <span style="font-size:13px;font-weight:900;color:${ev.color};">${ev.icon} ${ev.name}</span>
-                                        <span class="badge-pill" style="background:${ev.isMage ? '#6b21a8' : '#0369a1'};color:#fff;">
-                                            ${ev.isMage ? '杖・魔法' : '剣・斬撃'}
-                                        </span>
-                                    </div>
-                                    <div class="font-kaomoji" style="font-size:13px;color:#fde047;margin:3px 0;">${ev.kaomoji}</div>
-                                    <div style="font-size:11px;color:#e2e8f0;line-height:1.4;">${ev.desc}</div>
-                                    <div style="font-size:10px;color:#34d399;font-weight:900;margin-top:4px;">補正: ${bonusText}</div>
-                                    <div class="flex-between" style="margin-top:7px;">
-                                        <span style="font-size:10px;color:#94a3b8;">条件: Lv.${ev.reqLv} / ${ev.cost}G</span>
-                                        <button type="button" class="btn-ui ${isCur ? 'btn-emerald' : 'btn-sky'}" data-v42-evo="${ev.id}" ${isCur || !canLv || !canGold ? 'disabled' : ''}>
-                                            ${isCur ? '✅ 現在の役職' : (!canLv ? `Lv.${ev.reqLv}必要` : (!canGold ? 'G不足' : '👑 転職する'))}
-                                        </button>
-                                    </div>
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
-                `;
-
-                extraBox.querySelectorAll('[data-v42-evo]').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const targetId = btn.getAttribute('data-v42-evo');
-                        const ev = EXTRA_EVOLUTIONS.find(x => x.id === targetId);
-                        if (!ev || !this.saveData) return;
-                        if ((this.saveData.lv || 1) < ev.reqLv || (this.saveData.gold || 0) < ev.cost) return;
-
-                        this.saveData.gold -= ev.cost;
-                        this.saveData.evolution = ev.id;
-                        if (ev.kaomoji) this.saveData.kaomoji = ev.kaomoji;
-
-                        // 転職直後に武器メッシュ（剣⇔杖）を即座に切り替え、ステータスとHUDを更新
-                        this.syncSingleWeaponVisualV42(true);
-                        const st = this.calcDerivedStats();
-                        if (this.player) {
-                            this.player.hp = st.maxHp || this.player.hp;
-                            this.player.mp = st.maxMp || this.player.mp;
-                        }
-                        this.saveGame?.();
-                        this.refreshAllHUD?.();
-                        this.showAlertBanner?.(`👑 「${ev.name}」に転職！武器が${ev.isMage ? '杖（魔法攻撃）' : '剣（斬撃のみ）'}に変わりました！`, 2600);
-                        this.renderGrowthTabContent();
-                    });
-                });
-            }
-
-            // 既存役職への転職ボタン押下時も武器を即座に切り替える
-            if (this.activeTab === 'evo') {
-                inner.querySelectorAll('button:not([data-v42-evo])').forEach(btn => {
-                    if (btn.dataset.v42Hooked) return;
-                    btn.dataset.v42Hooked = '1';
-                    btn.addEventListener('click', () => {
-                        setTimeout(() => {
-                            this.syncSingleWeaponVisualV42(true);
-                            this.refreshAllHUD?.();
-                        }, 50);
-                    });
-                });
-            }
-
             fixLightBgTextContrast(modalBody);
         };
         P.renderModalContent = function () { this.renderGrowthTabContent(); };
 
-        // -----------------------------------------------------------------
-        // 7. スキルボタン保護・復元 & ボタン配置編集
-        // -----------------------------------------------------------------
+        // 8. スキルボタン保護・復元 & ボタン配置編集
         P.ensureSkillButtonsRestored = function () {
             const container = document.getElementById('skill-slots-container');
             if (!container) return;
@@ -1187,9 +1186,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             document.getElementById('v41-btn-done')?.addEventListener('click', () => this.toggleUIEditModeV31(false));
         };
 
-        // -----------------------------------------------------------------
-        // 8. 毎フレーム処理（魔法弾移動・接地保証・単一武器維持）
-        // -----------------------------------------------------------------
+        // 9. 毎フレーム処理（魔法弾移動・接地保証・単一武器維持）
         const _origCombatUpdate = P.updateCombatAndEntities;
         P.updateCombatAndEntities = function (dt, elapsed) {
             _origCombatUpdate?.call(this, dt, elapsed);
@@ -1211,7 +1208,6 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
         installMasterPatch();
         cleanChatPanelUI();
 
-        // チャットパネルに後から「戻す」やドラッグバーが挿入されても即座に整理
         const chatPanel = document.getElementById('chat-panel');
         if (chatPanel && typeof MutationObserver !== 'undefined') {
             let obsLock = false;
