@@ -4,7 +4,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
     const P = KaomojiMMORPG.prototype;
 
     // ---------------------------------------------------------------------
-    // 1. セーブデータ構造の双方向同期（skills <-> skillLevels / petEquip 等）
+    // 1. セーブデータ構造の双方向同期（skills <-> skillLevels 等）
     // ---------------------------------------------------------------------
     P.syncSaveDataCompatV38 = function () {
         const d = this.saveData;
@@ -17,10 +17,6 @@ if (typeof KaomojiMMORPG !== 'undefined') {
             d.equippedSkills = ['sk_slash', 'sk_fire', 'sk_nova_ice', 'sk_support', 'sk_chabudai'];
         }
         if (!Array.isArray(d.ownedPets)) d.ownedPets = [];
-        if (!Array.isArray(d.ownedPetEquips)) d.ownedPetEquips = [];
-        if (!d.petEquip || typeof d.petEquip !== 'object') {
-            d.petEquip = { head: null, weapon: null, wing: null, aura: null };
-        }
         if (!d.petNames || typeof d.petNames !== 'object') d.petNames = {};
 
         // スキルLvの全形式を統一（最大値を採用）
@@ -56,55 +52,71 @@ if (typeof KaomojiMMORPG !== 'undefined') {
     };
 
     // ---------------------------------------------------------------------
-    // 2. ステータス計算の統合（calcDerivedStats <-> getPlayerStats）
+    // 2. ステータス計算（修正版 v39）
+    //    ・game1 の calcDerivedStats は進化倍率を「適用済み」なので、ここで再度掛けない
+    //    ・返るキーは physAtk/magAtk/basicAtkPower/maxHp/moveSpeed/defMitigation 等
+    //      （atk / def / spd というキーは存在しない）
+    //    ・game6 が getPlayerStats の包み込みで入れるつもりだった
+    //      「ペット装備％」「極光の聖域バフ」は、getPlayerStats が元々存在せず一度も動いていなかった
+    //      → 実際に戦闘が使う calcDerivedStats の中で適用する
     // ---------------------------------------------------------------------
     const _origCalcDerivedStats = P.calcDerivedStats;
-    const _origGetPlayerStats = P.getPlayerStats;
+
+    P.getPetEquipPctV39 = function () {
+        const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+        const c = this._petEqCacheV39;
+        if (c && now - c.t < 250) return c.v;
+        let v = null;
+        try {
+            const info = this.getMyPetSyncInfo?.();
+            if (info && info.equipId && info.equipId !== 'none') {
+                const eq = this.getPetEquipDef?.(info.equipId);
+                if (eq && eq.id !== 'none') v = eq;
+            }
+        } catch (e) { v = null; }
+        this._petEqCacheV39 = { t: now, v };
+        return v;
+    };
 
     P.calcDerivedStats = function () {
         this.syncSaveDataCompatV38();
-        const base = _origCalcDerivedStats ? _origCalcDerivedStats.call(this) : {
-            maxHp: 100, maxMp: 50, atk: 15, def: 5, spd: 6.5, crit: 0.05
+        const st = _origCalcDerivedStats ? _origCalcDerivedStats.call(this) : null;
+        if (!st) return st;
+
+        const scaleAtk = (m) => {
+            if (typeof st.physAtk === 'number') st.physAtk = Math.floor(st.physAtk * m);
+            if (typeof st.magAtk === 'number') st.magAtk = Math.floor(st.magAtk * m);
+            if (typeof st.basicAtkPower === 'number') st.basicAtkPower = Math.floor(st.basicAtkPower * m);
         };
 
-        // 職業・進化倍率の反映
-        const evoId = this.saveData?.evolutionId || this.saveData?.evolution || 'novice';
-        const evo = (typeof EVOLUTIONS !== 'undefined') ? EVOLUTIONS[evoId] : null;
-        if (evo) {
-            base.atk = Math.floor(base.atk * (evo.atkMult || 1));
-            base.def = Math.floor(base.def * (evo.defMult || 1));
-            base.maxHp = Math.floor(base.maxHp * (evo.hpMult || 1));
-            base.maxMp = Math.floor(base.maxMp * (evo.mpMult || 1));
+        // ペット装備ボーナス（game6 の PET_EQUIPS の atk/def/hp/spd ％）
+        const eq = this.getPetEquipPctV39();
+        if (eq) {
+            if (eq.atkPct) scaleAtk(1 + eq.atkPct);
+            if (eq.hpPct && typeof st.maxHp === 'number') st.maxHp = Math.floor(st.maxHp * (1 + eq.hpPct));
+            if (eq.defPct && typeof st.defMitigation === 'number') st.defMitigation = Math.min(0.82, st.defMitigation * (1 + eq.defPct));
+            if (eq.spdPct && typeof st.moveSpeed === 'number') st.moveSpeed = Math.min(17, st.moveSpeed * (1 + eq.spdPct));
         }
 
-        // ペット装備ボーナス＆極光の聖域バフの反映
-        if (typeof this.getPetEquipBonus === 'function') {
-            const pb = this.getPetEquipBonus();
-            if (pb) {
-                base.atk += Number(pb.atk) || 0;
-                base.def += Number(pb.def) || 0;
-                base.maxHp += Number(pb.hp) || 0;
-                base.maxMp += Number(pb.mp) || 0;
-            }
-        }
-        if (this._auroraBuffMult && this._auroraBuffMult > 1) {
-            base.atk = Math.floor(base.atk * this._auroraBuffMult);
-            base.def = Math.floor(base.def * this._auroraBuffMult);
-        }
-        return base;
-    };
-
-    P.getPlayerStats = function () {
-        const st = this.calcDerivedStats();
-        if (_origGetPlayerStats && _origGetPlayerStats !== P.getPlayerStats) {
-            try {
-                const extra = _origGetPlayerStats.call(this);
-                if (extra && typeof extra === 'object') {
-                    return { ...extra, ...st };
-                }
-            } catch (e) {}
+        // 極光の聖域バフ（game6 の updateSanctuaryFields が _inSanctuaryBuff を立てる）
+        if (this._inSanctuaryBuff) {
+            const mult = 1.15 + Math.min(0.35, (this._sanctuaryBuffLv || 1) * 0.03);
+            scaleAtk(mult);
+            if (typeof st.defMitigation === 'number') st.defMitigation = Math.min(0.82, st.defMitigation * mult);
+            if (typeof st.moveSpeed === 'number') st.moveSpeed = Math.min(17, st.moveSpeed * 1.15);
         }
         return st;
+    };
+
+    // getPlayerStats は game7/8 が参照する互換用。別名キー(atk/spd/crit)を足して返す。
+    P.getPlayerStats = function () {
+        const st = this.calcDerivedStats();
+        if (!st) return st;
+        return Object.assign({}, st, {
+            atk: st.basicAtkPower,
+            spd: st.moveSpeed,
+            crit: st.critChance
+        });
     };
 
     // ---------------------------------------------------------------------
@@ -162,21 +174,45 @@ if (typeof KaomojiMMORPG !== 'undefined') {
     P.useSkill = function (slotIdx) { return this.useSkillSlot(slotIdx); };
 
     // ---------------------------------------------------------------------
-    // 4. 自分のペット3D参照の統一（this.pet <-> this.petEntity）
+    // 3.5 未実装だった呼び出し先の補完（v39）
     // ---------------------------------------------------------------------
-    if (P.rebuildPetEntity) {
-        const _origRebuildPet = P.rebuildPetEntity;
-        P.rebuildPetEntity = function () {
-            _origRebuildPet.call(this);
-            this.pet = this.petEntity || this.pet;
-            if (this.petEntity && typeof this.applyPetEquipment3D === 'function') {
-                this.applyPetEquipment3D(this.petEntity, this.saveData?.petEquip);
+    // 標的ボタン(btn-cycle-target)・Tabキーが呼ぶ cycleTarget が存在しなかった。
+    // 近い順に生存中の敵を並べ、いまの標的の「次」へ切り替える。
+    if (typeof P.cycleTarget !== 'function') {
+        P.cycleTarget = function () {
+            if (!this.player || !this.player.pos || !Array.isArray(this.monsters)) return null;
+            if (this.currentZoneId === 'town') return null;
+            const px = this.player.pos.x, pz = this.player.pos.z;
+            const list = this.monsters
+                .filter(m => m && !m.dead && m.pos)
+                .map(m => ({ m, d: Math.hypot(m.pos.x - px, m.pos.z - pz) }))
+                .filter(o => o.d <= 40)
+                .sort((a, b) => a.d - b.d)
+                .map(o => o.m);
+            if (!list.length) {
+                this.selectedTarget = null;
+                this.showAlertBanner?.('🎯 近くに標的がいません', 800);
+                return null;
             }
+            const idx = list.indexOf(this.selectedTarget);
+            const next = list[(idx + 1) % list.length];
+            this.selectedTarget = next;
+            try { sfx.playTone(620, 'sine', 0.08, 0.06); } catch (e) {}
+            return next;
+        };
+    }
+
+    // game6/7/8 が呼ぶ spawnFloatingText の実体は spawnFloatText（game4）。名前違いで文字が出なかった。
+    if (typeof P.spawnFloatingText !== 'function' && typeof P.spawnFloatText === 'function') {
+        P.spawnFloatingText = function (pos, text, color, size) {
+            const p = (pos && typeof pos.clone === 'function') ? pos.clone() : pos;
+            if (p && typeof p.y === 'number') p.y += 1.6;
+            return this.spawnFloatText(p, text, color || '#ffffff', size || 14);
         };
     }
 
     // ---------------------------------------------------------------------
-    // 5. メインループでのリモートプレイヤー・聖域・ペット更新保証
+    // 5. メインループでのリモートプレイヤー更新保証（極光の聖域は updateRemotePlayers 内の updateSanctuaryFields が処理）
     // ---------------------------------------------------------------------
     if (P.loop) {
         const _origLoop = P.loop;
@@ -188,9 +224,6 @@ if (typeof KaomojiMMORPG !== 'undefined') {
             this.aliasSkillCooldownsV39?.();
             if (typeof this.updateRemotePlayers === 'function') {
                 try { this.updateRemotePlayers(rdt); } catch (e) { if (!this._warnRemoteV39) { this._warnRemoteV39 = 1; console.warn('updateRemotePlayers:', e); } }
-            }
-            if (typeof this.updateAuroraSanctuaries === 'function') {
-                try { this.updateAuroraSanctuaries(rdt); } catch (e) { if (!this._warnAuroraV39) { this._warnAuroraV39 = 1; console.warn('updateAuroraSanctuaries:', e); } }
             }
             _origLoop.call(this, now);
         };
@@ -288,7 +321,6 @@ window.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         if (!window.game) return;
         window.game.syncSaveDataCompatV38?.();
-        window.game.rebuildPetEntity?.();
         window.game.syncSkillDescriptionsAndEffects?.();
         window.game.syncSkillMpCostsV22?.();
         window.game.syncSkillSlotButtonsUI?.();
