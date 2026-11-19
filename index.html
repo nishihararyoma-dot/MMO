@@ -112,7 +112,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
 <div id="title-screen">
     <div class="title-card">
         <div class="title-logo-kaomoji font-kaomoji">(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧ ⚔️ (=^・ω・^=)</div>
-        <h1 class="title-main-heading">顔文字ファンタジー3D<br><span style="font-size:13px;-webkit-text-fill-color:#94a3b8;">KAOMOJI FANTASY 3D ONLINE [v3.6 修正版]</span></h1>
+        <h1 class="title-main-heading">顔文字ファンタジー3D<br><span style="font-size:13px;-webkit-text-fill-color:#94a3b8;">KAOMOJI FANTASY 3D ONLINE [v3.7 修正版]</span></h1>
         <div class="title-save-preview" id="title-save-info">データ準備中...</div>
         <div class="title-room-box">
             <div class="flex-between">
@@ -269,13 +269,12 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
 <script>
 // === [PART 1 ここまで] このすぐ下に PART 2 を貼り付けてください ===
 // =========================================================================
-// 統合修正パッチ v3.6 [PART 2]（役職Lv999データ・武器3D反映・飛ばない正面剣斬撃・スキル残骸消去）
+// 統合修正パッチ v3.7 [PART 2]（右手1本持ち固定・武器見た目即時反映・飛ばない剣斬撃・スキル残骸消去）
 // =========================================================================
 (function () {
-    if (window.__KMJ_PATCH_V46_PART2__) return;
-    window.__KMJ_PATCH_V46_PART2__ = true;
+    if (window.__KMJ_PATCH_V47_PART2__) return;
+    window.__KMJ_PATCH_V47_PART2__ = true;
 
-    // 1. Lv.1 〜 Lv.999 段階的役職データ（剣士系 14段階 ／ 魔法使い系 14段階）
     const SWORD_CAREER_PATH = [
         { id: 'sw_01_apprentice', tier: 1, branch: 'sword', isMage: false, name: '見習い剣士', reqLv: 1, cost: 0, icon: '🗡️', kaomoji: '(｀・ω・´)', color: '#94a3b8', desc: '剣の道を歩み始めた初心者剣士。', bonus: { physAtk: 5, maxHp: 20 } },
         { id: 'sw_02_warrior', tier: 2, branch: 'sword', isMage: false, name: '熟練戦士', reqLv: 10, cost: 200, icon: '⚔️', kaomoji: '( •̀ᄇ• ́)ﻭ', color: '#38bdf8', desc: '基本剣技を習得した一人前の戦士。', bonus: { physAtk: 18, maxHp: 80, def: 6 } },
@@ -319,8 +318,13 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
     function installCombatAndVisuals() {
         if (typeof KaomojiMMORPG === 'undefined') return;
         const P = KaomojiMMORPG.prototype;
-        if (P.__v46CombatInstalled) return;
-        P.__v46CombatInstalled = true;
+        if (P.__v47CombatInstalled) return;
+        P.__v47CombatInstalled = true;
+
+        // 元スクリプト側の両手持ち・左手武器追加処理を完全に封印
+        ['ensureLeftHandWeaponV27', 'attachMageStaffV27', 'enforceStrictWeaponVisualV27', 'attachSubWeapon', 'updateOffhandVisual'].forEach(m => {
+            P[m] = function () {};
+        });
 
         P.getCurrentCareerIdV43 = function () {
             const sd = this.saveData || {};
@@ -396,7 +400,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             return { wId, wName, wRarity, refine, sig, hash: Math.abs(hash) };
         };
 
-        // 武器変更で3D見た目・色・形状・オーラを即時更新
+        // 武器は必ず「右手に1本だけ」構築・更新する（両手持ち防止）
         P.syncSingleWeaponVisualV42 = function (force = false) {
             if (!this.player?.group || typeof THREE === 'undefined') return;
             const isMage = this.isMageEvolution();
@@ -404,21 +408,37 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             const wInfo = this.getEquippedWeaponSignatureV44();
             const stateKey = `${isMage ? 'staff' : 'sword'}|${career.id}|${wInfo.sig}`;
 
-            if (!force && this.player._v46WeaponKey === stateKey && this.player._v42WeaponMesh?.parent === this.player.group) return;
-            this.player._v46WeaponKey = stateKey;
-
+            // 既存の不要な武器（特に左手側の武器）を常に隠す
             const toRemove = [];
             this.player.group.traverse(obj => {
                 if (obj === this.player.group) return;
-                if (obj.userData?.isV42Weapon) { toRemove.push(obj); return; }
+                if (obj.userData?.isV42Weapon) {
+                    if (force || this.player._v47WeaponKey !== stateKey) toRemove.push(obj);
+                    return;
+                }
                 const nm = String(obj.name || '').toLowerCase();
-                if (/(weapon|staff|sword|wand|blade|axe|shield|wpn|rod|orb|spear|dagger)/.test(nm)) obj.visible = false;
+                if (/(weapon|staff|sword|wand|blade|axe|shield|wpn|rod|orb|spear|dagger|offhand|left)/.test(nm)) {
+                    obj.visible = false;
+                }
+                // プレイヤー直下で左手側(x < -0.25)に飛び出している武器グループを非表示
+                if (obj.parent === this.player.group && obj.position && obj.position.x < -0.25 && obj.position.y > 0.25) {
+                    if (obj.type === 'Group' || (obj.geometry?.parameters && (obj.geometry.parameters.height > 0.7 || obj.geometry.parameters.depth > 0.7))) {
+                        obj.visible = false;
+                    }
+                }
             });
             toRemove.forEach(o => o.parent?.remove(o));
 
-            ['weaponGroup', 'staffGroup', 'leftWeaponGroup', 'subWeaponGroup', 'rightWeaponGroup'].forEach(prop => {
-                if (this.player[prop] && this.player[prop] !== this.player._v42WeaponMesh) this.player[prop].visible = false;
+            ['weaponGroup', 'staffGroup', 'leftWeaponGroup', 'subWeaponGroup', 'rightWeaponGroup', 'offhandGroup'].forEach(prop => {
+                if (this.player[prop] && this.player[prop] !== this.player._v42WeaponMesh) {
+                    this.player[prop].visible = false;
+                }
             });
+
+            if (!force && this.player._v47WeaponKey === stateKey && this.player._v42WeaponMesh?.parent === this.player.group) {
+                return;
+            }
+            this.player._v47WeaponKey = stateKey;
 
             const palette = [0x38bdf8, 0xf43f5e, 0xfde047, 0x10b981, 0xc084fc, 0xfb923c, 0x22d3ee, 0xe879f9];
             const wColor = wInfo.wId ? palette[wInfo.hash % palette.length] : Number(String(career.color).replace('#', '0x'));
@@ -493,12 +513,12 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             this.player._v42WeaponMesh = wpn;
         };
 
-        // 剣のエフェクトは【飛ばさずに目の前（正面）で斬り払う】
+        // 剣のエフェクトは飛ばさず、目の前（正面）で半月斬撃を出す
         P.spawnTieredAttackEffectV44 = function (isMage, rotY, tier, colorHex) {
             if (!this.scene || !this.player?.pos || typeof THREE === 'undefined') return;
             if (!this._v44Effects) this._v44Effects = [];
 
-            while (this._v44Effects.length > 16) {
+            while (this._v44Effects.length > 14) {
                 const old = this._v44Effects.shift();
                 this.scene?.remove(old.mesh);
                 old.mesh.traverse?.(o => { o.geometry?.dispose?.(); o.material?.dispose?.(); });
@@ -511,13 +531,12 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             const t = Math.max(1, Math.min(14, Number(tier) || 1));
 
             const addFx = (mesh, vx, vz, life, rotSpeedY = 0, scaleGrow = 0) => {
-                mesh.userData._v46OwnedFx = true;
+                mesh.userData._v47OwnedFx = true;
                 this.scene.add(mesh);
                 this._v44Effects.push({ mesh, vx, vz, life, maxLife: life, rotSpeedY, scaleGrow });
             };
 
             if (!isMage) {
-                // 剣の半月斬撃は飛ばさない（vx=0, vz=0）！目の前(1.4m付近)で正面を向いて豪快に斬り払う
                 const waveCount = t >= 12 ? 4 : (t >= 7 ? 3 : (t >= 3 ? 2 : 1));
                 const baseRadius = 1.65 + Math.min(1.65, (t - 1) * 0.12);
 
@@ -525,45 +544,25 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                     const grp = new THREE.Group();
                     const mat = new THREE.MeshBasicMaterial({
                         color: i === 0 ? 0xffffff : (i % 2 === 1 ? colorHex : 0xfde047),
-                        side: THREE.DoubleSide,
-                        transparent: true,
-                        opacity: 0.92
+                        side: THREE.DoubleSide, transparent: true, opacity: 0.92
                     });
                     const arc = new THREE.Mesh(
                         new THREE.RingGeometry(baseRadius * 0.56, baseRadius, 22, 1, Math.PI * 0.15, Math.PI * 0.70),
                         mat
                     );
-                    // +90度回転で半月の頂点がローカル +Z（キャラの正面）を向く
                     arc.rotation.x = Math.PI * 0.5;
                     grp.add(arc);
-
-                    if (t >= 3 && i > 0) {
-                        grp.rotation.z = (i % 2 === 1 ? 0.42 : -0.42);
-                    }
-                    const forwardDist = 1.35 + i * 0.28;
+                    if (t >= 3 && i > 0) grp.rotation.z = (i % 2 === 1 ? 0.42 : -0.42);
+                    const forwardDist = 1.35 + i * 0.26;
                     grp.position.set(px + dirX * forwardDist, 1.05 + i * 0.12, pz + dirZ * forwardDist);
                     grp.rotation.y = rotY;
-
-                    // 速度はゼロ（飛ばさない）で、その場で少し広がりながらスッと消える
-                    addFx(grp, 0, 0, 0.24 + i * 0.03, 0, 0.35);
-                }
-
-                // 高ランク剣士：目の前の足元に斬撃の衝撃リング（飛ばない）
-                if (t >= 6) {
-                    const shockMat = new THREE.MeshBasicMaterial({ color: colorHex, side: THREE.DoubleSide, transparent: true, opacity: 0.72 });
-                    const shock = new THREE.Mesh(new THREE.RingGeometry(0.7, 1.5, 20), shockMat);
-                    shock.rotation.x = Math.PI * 0.5;
-                    shock.position.set(px + dirX * 1.5, 0.12, pz + dirZ * 1.5);
-                    addFx(shock, 0, 0, 0.26, 0, 1.2);
+                    addFx(grp, 0, 0, 0.24 + i * 0.03, 0, 0.32);
                 }
             } else {
-                // 魔法使い系は魔法弾を正面へ発射
                 const shotCount = t >= 9 ? 3 : (t >= 5 ? 2 : 1);
                 const orbRadius = 0.30 + Math.min(0.32, (t - 1) * 0.024);
-
                 for (let i = 0; i < shotCount; i++) {
-                    const spread = (i - (shotCount - 1) / 2) * 0.15;
-                    const a = rotY + spread;
+                    const a = rotY + (i - (shotCount - 1) / 2) * 0.15;
                     const grp = new THREE.Group();
                     grp.add(
                         new THREE.Mesh(new THREE.SphereGeometry(orbRadius * 0.65, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffffff })),
@@ -590,61 +589,37 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                     fx.mesh.position.z += fx.vz * step;
                 }
                 if (fx.rotSpeedY) fx.mesh.rotation.y += fx.rotSpeedY * step;
-                if (fx.scaleGrow) {
-                    const s = 1 + (1 - fx.life / fx.maxLife) * fx.scaleGrow;
-                    fx.mesh.scale.setScalar(s);
-                }
+                if (fx.scaleGrow) fx.mesh.scale.setScalar(1 + (1 - fx.life / fx.maxLife) * fx.scaleGrow);
                 return true;
             });
         };
 
-        // スキル発動後の残骸3Dエフェクトを確実に自動消去
-        P.markSkillWindowV46 = function () {
-            this._v46SkillWatchUntil = performance.now() + 2600;
-        };
-
-        P.cleanupOrphanSkillEffectsV46 = function () {
+        // スキル発動でsceneに追加されたエフェクト残骸を2.1秒後に自動消去
+        P.cleanupOrphanSkillEffectsV47 = function () {
             if (!this.scene) return;
             const now = performance.now();
-            if (!this._v46FxBirthMap) this._v46FxBirthMap = new Map();
+            if (!this._v47SceneBirth) this._v47SceneBirth = new Map();
 
-            const watching = (this._v46SkillWatchUntil || 0) > now;
-            if (watching) {
-                this.scene.traverse(obj => {
-                    if (obj === this.scene || obj.userData?._v46OwnedFx || obj.userData?.isV42Weapon) return;
-                    if (this._v46FxBirthMap.has(obj)) return;
-                    if (!obj.isMesh && obj.type !== 'Group' && obj.type !== 'Points' && obj.type !== 'Line') return;
-
-                    // プレイヤー・敵・ペット・マップ構造物は除外
-                    let p = obj;
-                    while (p) {
-                        if (p === this.player?.group || p.userData?.isPlayer || p.userData?.isMonster || p.userData?.isPet || p.userData?.isMap || p.userData?.isTerrain || p.userData?.isNpc) return;
-                        const nm = String(p.name || '').toLowerCase();
-                        if (/(player|monster|enemy|boss|pet|npc|ground|terrain|floor|wall|tree|rock|portal|warp|light|camera)/.test(nm)) return;
-                        p = p.parent;
+            if ((this._v47SkillWatchUntil || 0) > now) {
+                for (let i = 0; i < this.scene.children.length; i++) {
+                    const obj = this.scene.children[i];
+                    if (obj.userData?._v47OwnedFx || obj.userData?.isV42Weapon || this._v47SceneBirth.has(obj)) continue;
+                    if (obj === this.player?.group || obj.userData?.isPlayer || obj.userData?.isMonster || obj.userData?.isPet || obj.userData?.isMap) continue;
+                    const nm = String(obj.name || '').toLowerCase();
+                    if (/(player|monster|enemy|boss|pet|npc|ground|terrain|floor|wall|tree|rock|portal|warp|light|camera)/.test(nm)) continue;
+                    if (obj.isMesh || obj.type === 'Group' || obj.type === 'Points' || obj.type === 'Line') {
+                        this._v47SceneBirth.set(obj, now);
                     }
-
-                    // メッシュやエフェクト用グループなら生成時刻を記録（2.2秒後に強制消去）
-                    if (obj.isMesh || (obj.type === 'Group' && obj.parent === this.scene)) {
-                        this._v46FxBirthMap.set(obj, now);
-                    }
-                });
+                }
             }
 
-            if (this._v46FxBirthMap.size > 0) {
-                for (const [obj, bornAt] of this._v46FxBirthMap.entries()) {
-                    if (!obj || !obj.parent) {
-                        this._v46FxBirthMap.delete(obj);
-                        continue;
-                    }
-                    if (now - bornAt >= 2200) {
-                        obj.parent.remove(obj);
-                        obj.traverse?.(o => {
-                            o.geometry?.dispose?.();
-                            o.material?.dispose?.();
-                        });
-                        this._v46FxBirthMap.delete(obj);
-                    }
+            for (const [obj, bornAt] of this._v47SceneBirth.entries()) {
+                if (!obj || !obj.parent) {
+                    this._v47SceneBirth.delete(obj);
+                } else if (now - bornAt >= 2100) {
+                    obj.parent.remove(obj);
+                    obj.traverse?.(o => { o.geometry?.dispose?.(); o.material?.dispose?.(); });
+                    this._v47SceneBirth.delete(obj);
                 }
             }
         };
@@ -653,9 +628,9 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             if (typeof P[mName] === 'function') {
                 const orig = P[mName];
                 P[mName] = function (...args) {
-                    this.markSkillWindowV46();
+                    this._v47SkillWatchUntil = performance.now() + 2500;
                     const r = orig.apply(this, args);
-                    this.markSkillWindowV46();
+                    this._v47SkillWatchUntil = performance.now() + 2500;
                     return r;
                 };
             }
@@ -710,13 +685,12 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
 })();
 // === [PART 2 ここまで] このすぐ下に PART 3 を貼り付けてください ===
 // =========================================================================
-// 統合修正パッチ v3.6 [PART 3 / 最終]（Lv999上限解放・一気に+25追加・オンライン復元・スキル残骸掃除）
+// 統合修正パッチ v3.7 [PART 3 / 最終]（メニュー開閉修復・Lv999上限解放・+25ボタン・オンライン維持）
 // =========================================================================
 (function () {
-    if (window.__KMJ_PATCH_V46_PART3__) return;
-    window.__KMJ_PATCH_V46_PART3__ = true;
+    if (window.__KMJ_PATCH_V47_PART3__) return;
+    window.__KMJ_PATCH_V47_PART3__ = true;
 
-    // 1. レベル上限を 999 に完全解放
     window.MAX_LEVEL = 999;
     window.MAX_LV = 999;
     if (typeof CONFIG !== 'undefined' && CONFIG) {
@@ -724,7 +698,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
         CONFIG.maxLevel = 999;
     }
 
-    const ACHIEVEMENTS_V46 = [
+    const ACHIEVEMENTS_V47 = [
         { id: 'ach_lv_10', name: '駆け出し冒険者', desc: 'Lv.10到達', check: (sd) => (sd.lv || 1) >= 10, buff: { maxHp: 80, physAtk: 8, magAtk: 8 } },
         { id: 'ach_lv_50', name: '熟練の討伐者', desc: 'Lv.50到達', check: (sd) => (sd.lv || 1) >= 50, buff: { maxHp: 400, physAtk: 40, magAtk: 40, def: 15 } },
         { id: 'ach_lv_100', name: '百戦錬磨の英雄', desc: 'Lv.100到達', check: (sd) => (sd.lv || 1) >= 100, buff: { maxHp: 1000, maxMp: 350, physAtk: 100, magAtk: 100 } },
@@ -738,7 +712,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
         { id: 'ach_evo_14', name: '究極神職到達', desc: '役職STEP14到達', check: (sd) => Math.max(sd.careerProgress?.sword || 1, sd.careerProgress?.mage || 1) >= 14, buff: { maxHp: 12000, maxMp: 5000, physAtk: 1200, magAtk: 1200 } }
     ];
 
-    const PET_EQUIPS_V46 = [
+    const PET_EQUIPS_V47 = [
         { id: 'peq_bell_collar', slot: 'collar', name: '🔔 幸せの鈴首輪', reqLv: 1, cost: 250, desc: '相棒の元気を引き出す金の鈴。', bonus: { maxHp: 120, physAtk: 14, magAtk: 14 } },
         { id: 'peq_knight_scarf', slot: 'collar', name: '🧣 勇者の紅蓮マフラー', reqLv: 15, cost: 1200, desc: '闘志を燃やす赤いマフラー。', bonus: { maxHp: 350, physAtk: 42, magAtk: 42, critChance: 0.03 } },
         { id: 'peq_astral_crown', slot: 'collar', name: '👑 星霊のティアラ', reqLv: 45, cost: 6500, desc: '星の魔力を宿す美しい王冠。', bonus: { maxHp: 900, maxMp: 350, physAtk: 110, magAtk: 110 } },
@@ -752,14 +726,25 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
         return Math.max(0, Math.min(999, Number(g?.threatLevel ?? sd?.threat ?? sd?.threatLevel ?? 0) || 0));
     }
 
+    function ensureModalBodyInner() {
+        const body = document.getElementById('modal-body');
+        if (!body) return null;
+        let inner = document.getElementById('modal-body-content');
+        if (!inner) {
+            body.innerHTML = '<div id="modal-body-content"></div>';
+            inner = document.getElementById('modal-body-content');
+        }
+        return inner;
+    }
+
     function installMainPatchPart3() {
         if (typeof KaomojiMMORPG === 'undefined') return;
         const P = KaomojiMMORPG.prototype;
-        if (P.__v46Part3Installed) return;
-        P.__v46Part3Installed = true;
+        if (P.__v47Part3Installed) return;
+        P.__v47Part3Installed = true;
 
         // -----------------------------------------------------------------
-        // A. Lv.999 上限解放（Lv100制限の解除）
+        // A. Lv.999 上限解放
         // -----------------------------------------------------------------
         const _origAddExp = P.addExp;
         if (typeof _origAddExp === 'function') {
@@ -786,22 +771,11 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             };
         }
 
-        // 既存の一気レベルアップ系メソッドがあれば上限999で拡張
-        ['buyLevel', 'levelUpGold', 'trainLevel', 'powerUpLevel'].forEach(fnName => {
-            if (typeof P[fnName] === 'function') {
-                const origFn = P[fnName];
-                P[fnName] = function (count = 1, ...rest) {
-                    return origFn.call(this, count, ...rest);
-                };
-            }
-        });
-
         // -----------------------------------------------------------------
         // B. 「一気にレベル+5」機能の上に「一気にレベル+25」を追加
         // -----------------------------------------------------------------
-        P.injectLevelUp25ButtonV46 = function (container) {
-            if (!container || container.querySelector('#btn-lv-up-plus25-v46')) return;
-
+        P.injectLevelUp25ButtonV47 = function (container) {
+            if (!container || container.querySelector('#btn-lv-up-plus25-v47')) return;
             const buttons = Array.from(container.querySelectorAll('button'));
             const btnPlus5 = buttons.find(b => {
                 const t = (b.textContent || '').replace(/\s+/g, '');
@@ -811,16 +785,13 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                 const t = (b.textContent || '').replace(/\s+/g, '');
                 return /(\+1|1レベル|レベルアップ|Lv\+1|訓練)/.test(t) && !t.includes('脅威') && !t.includes('+5');
             });
-
             const anchorBtn = btnPlus5 || btnPlus1;
             if (!anchorBtn) return;
 
             const sd = this.saveData || {};
             const curLv = sd.lv || 1;
-            const remainToMax = Math.max(0, 999 - curLv);
-            const stepCount = Math.min(25, remainToMax);
+            const stepCount = Math.min(25, Math.max(0, 999 - curLv));
 
-            // コスト算出（既存関数があれば利用、なければ標準式）
             const getSingleCost = (lv) => {
                 if (typeof this.getLevelUpCost === 'function') return Number(this.getLevelUpCost(lv)) || (lv * 50);
                 if (typeof this.getTrainCost === 'function') return Number(this.getTrainCost(lv)) || (lv * 50);
@@ -828,11 +799,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             };
 
             let totalCost25 = 0;
-            for (let i = 0; i < stepCount; i++) {
-                totalCost25 += getSingleCost(curLv + i);
-            }
-
-            // 既存の+5ボタンに費用表記があれば比率で補正
+            for (let i = 0; i < stepCount; i++) totalCost25 += getSingleCost(curLv + i);
             if (btnPlus5) {
                 const m = (btnPlus5.textContent || '').replace(/,/g, '').match(/(\d+)\s*G/i);
                 if (m && Number(m[1]) > 0 && stepCount > 0) {
@@ -841,11 +808,10 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             }
 
             const rowWrap = document.createElement('div');
-            rowWrap.style.cssText = 'width:100%;margin-bottom:6px;display:flex;justify-content:stretch;';
-
+            rowWrap.style.cssText = 'width:100%;margin-bottom:6px;display:flex;';
             const btn25 = document.createElement('button');
             btn25.type = 'button';
-            btn25.id = 'btn-lv-up-plus25-v46';
+            btn25.id = 'btn-lv-up-plus25-v47';
             btn25.className = 'btn-ui btn-fuchsia';
             btn25.style.cssText = 'width:100%;padding:8px 10px;font-size:12px;border:1.5px solid #fde047;';
 
@@ -853,8 +819,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                 btn25.disabled = true;
                 btn25.textContent = '👑 最大レベル Lv.999 到達済み';
             } else {
-                const canAfford = (sd.gold || 0) >= totalCost25;
-                btn25.disabled = !canAfford;
+                btn25.disabled = (sd.gold || 0) < totalCost25;
                 btn25.textContent = `⚡ 一気にレベル +${stepCount}（${totalCost25.toLocaleString()}G / Lv.${curLv}→${curLv + stepCount}）`;
             }
 
@@ -866,12 +831,10 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                     this.showAlertBanner?.('⚠️ ゴールドが足りません！', 1500);
                     return;
                 }
-
                 this.saveData.gold -= totalCost25;
                 this.saveData.lv = Math.min(999, (this.saveData.lv || 1) + stepCount);
                 this.saveData.statPoints = (this.saveData.statPoints || 0) + stepCount * 3;
                 this.saveData.skillPoints = (this.saveData.skillPoints || 0) + stepCount;
-
                 const st = this.calcDerivedStats();
                 if (this.player) {
                     this.player.hp = st.maxHp || this.player.hp;
@@ -880,16 +843,16 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                 this.evaluateAchievementsV44?.(true);
                 this.saveGame?.();
                 this.refreshAllHUD?.();
-                this.showAlertBanner?.(`🎉 一気に Lv.${this.saveData.lv} までレベルアップしました！`, 2200);
+                this.showAlertBanner?.(`🎉 一気に Lv.${this.saveData.lv} までレベルアップ！`, 2000);
                 this.renderGrowthTabContent();
             });
 
             rowWrap.appendChild(btn25);
-            const targetParent = anchorBtn.parentElement;
-            if (targetParent && targetParent.parentElement && getComputedStyle(targetParent).display === 'flex') {
-                targetParent.parentElement.insertBefore(rowWrap, targetParent);
-            } else if (targetParent) {
-                targetParent.insertBefore(rowWrap, anchorBtn);
+            const parent = anchorBtn.parentElement;
+            if (parent && parent.parentElement && getComputedStyle(parent).display === 'flex') {
+                parent.parentElement.insertBefore(rowWrap, parent);
+            } else if (parent) {
+                parent.insertBefore(rowWrap, anchorBtn);
             }
         };
 
@@ -917,7 +880,6 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             const badge = document.getElementById('hud-rec-lv-badge');
             const threatBadge = document.getElementById('hud-threat-badge');
             const threat = getThreatVal(this.saveData, this);
-
             if (threatBadge) {
                 if (threat > 0) {
                     threatBadge.classList.remove('hidden');
@@ -926,7 +888,6 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                     threatBadge.classList.add('hidden');
                 }
             }
-
             if (badge) {
                 const isTown = (this.currentZoneId || 'town') === 'town';
                 let baseLv = 1;
@@ -948,7 +909,6 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                 if (!/(移動|出発|行く|テレポート|ワープ|挑戦)/.test(bTxt)) return;
                 const card = btn.closest('.card-box') || btn.parentElement;
                 if (!card || card.querySelector('.v44-zone-reclv')) return;
-
                 const txt = card.textContent || '';
                 const isTown = txt.includes('安全街') || txt.includes('広場');
                 const m = txt.match(/Lv\.?\s*(\d+)/i);
@@ -971,7 +931,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             if (!Array.isArray(this.saveData.unlockedAchievementsV44)) this.saveData.unlockedAchievementsV44 = [];
             const unlocked = this.saveData.unlockedAchievementsV44;
             let count = 0;
-            ACHIEVEMENTS_V46.forEach(ach => {
+            ACHIEVEMENTS_V47.forEach(ach => {
                 if (!unlocked.includes(ach.id) && ach.check(this.saveData, this)) {
                     unlocked.push(ach.id);
                     count++;
@@ -988,11 +948,11 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                 Object.entries(c.bonus).forEach(([k, v]) => { if (typeof v === 'number') st[k] = (st[k] || 0) + v; });
             }
             (this.saveData?.unlockedAchievementsV44 || []).forEach(id => {
-                const ach = ACHIEVEMENTS_V46.find(x => x.id === id);
+                const ach = ACHIEVEMENTS_V47.find(x => x.id === id);
                 if (ach?.buff) Object.entries(ach.buff).forEach(([k, v]) => { st[k] = (st[k] || 0) + v; });
             });
             Object.values(this.saveData?.equippedPetEquips || {}).forEach(peqId => {
-                const item = PET_EQUIPS_V46.find(x => x.id === peqId);
+                const item = PET_EQUIPS_V47.find(x => x.id === peqId);
                 if (item?.bonus) Object.entries(item.bonus).forEach(([k, v]) => { st[k] = (st[k] || 0) + v; });
             });
             st.isStaffEquipped = this.isMageEvolution?.() || false;
@@ -1001,7 +961,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
 
         P.renderCareerTreeTabV43 = function (container) {
             const data = window.__KMJ_CAREER_DATA__;
-            if (!data) return;
+            if (!data || !container) return;
             const sd = this.saveData || {};
             const lv = sd.lv || 1, gold = sd.gold || 0;
             const curId = this.getCurrentCareerIdV43();
@@ -1054,8 +1014,8 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             const unlocked = this.saveData?.unlockedAchievementsV44 || [];
             const box = document.createElement('div');
             box.style.marginTop = '10px';
-            box.innerHTML = `<div class="card-box" style="border-color:#fde047;margin-bottom:6px;font-weight:900;color:#fde047;">🏆 実績コレクション（達成 ${unlocked.length}/${ACHIEVEMENTS_V46.length}・全常時バフ適用）</div>
-                <div class="grid-2">${ACHIEVEMENTS_V46.map(a => {
+            box.innerHTML = `<div class="card-box" style="border-color:#fde047;margin-bottom:6px;font-weight:900;color:#fde047;">🏆 実績コレクション（達成 ${unlocked.length}/${ACHIEVEMENTS_V47.length}・全常時バフ適用）</div>
+                <div class="grid-2">${ACHIEVEMENTS_V47.map(a => {
                     const ok = unlocked.includes(a.id);
                     return `<div class="card-box" style="border-color:${ok ? '#10b981' : '#334155'};opacity:${ok ? '1' : '0.65'};">
                         <div style="font-size:12px;font-weight:900;color:${ok ? '#fde047' : '#cbd5e1'};">${ok ? '🏆' : '🔒'} ${a.name}</div>
@@ -1072,7 +1032,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             const box = document.createElement('div');
             box.style.marginTop = '10px';
             box.innerHTML = `<div class="card-box" style="border-color:#f472b6;margin-bottom:6px;font-weight:900;color:#f472b6;">🎀 ペット専用装備（作成＆装着で主人公も強化）</div>
-                <div class="grid-2">${PET_EQUIPS_V46.map(p => {
+                <div class="grid-2">${PET_EQUIPS_V47.map(p => {
                     const owned = sd.ownedPetEquips.includes(p.id);
                     const eq = sd.equippedPetEquips[p.slot] === p.id;
                     return `<div class="card-box" style="border-color:${eq ? '#10b981' : '#334155'};">
@@ -1085,7 +1045,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                 }).join('')}</div>`;
             box.querySelectorAll('[data-peq]').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    const p = PET_EQUIPS_V46.find(x => x.id === btn.getAttribute('data-peq'));
+                    const p = PET_EQUIPS_V47.find(x => x.id === btn.getAttribute('data-peq'));
                     if (!p) return;
                     if (!sd.ownedPetEquips.includes(p.id)) {
                         if ((sd.lv || 1) < p.reqLv || (sd.gold || 0) < p.cost) return;
@@ -1102,31 +1062,51 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
         };
 
         // -----------------------------------------------------------------
-        // E. メニュー描画（元のオンラインタブやステージ移動はそのまま維持）
+        // E. 育成メニューの開閉と描画を完全に保護（#modal-body-content保証）
         // -----------------------------------------------------------------
+        const _origOpenGrowth = P.openGrowthModal;
+        P.openGrowthModal = function (tab = 'stats') {
+            document.getElementById('growth-modal')?.classList.remove('hidden');
+            ensureModalBodyInner();
+            if (typeof _origOpenGrowth === 'function') {
+                _origOpenGrowth.call(this, tab);
+            } else {
+                this.activeTab = tab;
+                this.isModalOpen = true;
+                this.renderGrowthTabContent();
+            }
+            document.getElementById('growth-modal')?.classList.remove('hidden');
+        };
+        if (typeof P.openModal !== 'function') {
+            P.openModal = function (tab = 'stats') { this.openGrowthModal(tab); };
+        }
+
         const _origRenderGrowth = P.renderGrowthTabContent;
         P.renderGrowthTabContent = function () {
+            const inner = ensureModalBodyInner();
+            const body = document.getElementById('modal-body');
+
             if (this.activeTab === 'evo') {
-                const body = document.getElementById('modal-body');
-                if (body) this.renderCareerTreeTabV43(body);
+                if (inner) this.renderCareerTreeTabV43(inner);
                 return;
             }
             if (_origRenderGrowth) _origRenderGrowth.call(this);
 
-            const body = document.getElementById('modal-body');
-            if (!body) return;
+            const targetRoot = document.getElementById('modal-body-content') || body;
+            if (!targetRoot) return;
+
             if (this.activeTab === 'stats') {
-                this.injectLevelUp25ButtonV46(body);
+                this.injectLevelUp25ButtonV47(targetRoot);
             } else if (this.activeTab === 'titles') {
-                this.appendAchievementsPanelV44(body);
+                this.appendAchievementsPanelV44(targetRoot);
             } else if (this.activeTab === 'pets') {
-                this.appendPetEquipPanelV44(body);
+                this.appendPetEquipPanelV44(targetRoot);
             } else if (this.activeTab === 'equip') {
-                body.querySelectorAll('button').forEach(b => {
+                targetRoot.querySelectorAll('button').forEach(b => {
                     b.addEventListener('click', () => setTimeout(() => this.syncSingleWeaponVisualV42?.(true), 80));
                 });
             } else if (this.activeTab === 'zones' || this.activeTab === 'travel') {
-                this.enhanceZonesRecommendedLevelV44(body);
+                this.enhanceZonesRecommendedLevelV44(targetRoot);
             }
         };
 
@@ -1141,12 +1121,34 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
         P.updateCombatAndEntities = function (dt, elapsed) {
             _origCombatUpdate?.call(this, dt, elapsed);
             this.updateTieredAttackEffectsV44?.(dt);
-            this.cleanupOrphanSkillEffectsV46?.();
+            this.cleanupOrphanSkillEffectsV47?.();
         };
     }
 
     document.addEventListener('DOMContentLoaded', () => {
         installMainPatchPart3();
+
+        // メニュー開閉ボタンの確実なフォールバック保護
+        const bindFallback = (id, fn) => {
+            const el = document.getElementById(id);
+            if (!el || el.dataset.v47SafeBind) return;
+            el.dataset.v47SafeBind = '1';
+            el.addEventListener('click', () => {
+                setTimeout(() => {
+                    if (document.getElementById('growth-modal')?.classList.contains('hidden')) fn();
+                }, 40);
+            });
+        };
+        bindFallback('btn-open-growth', () => window.game?.openGrowthModal?.('stats'));
+        bindFallback('btn-open-travel', () => window.game?.openGrowthModal?.('zones'));
+        bindFallback('btn-open-cloud', () => window.game?.openGrowthModal?.('online'));
+        bindFallback('btn-title-cloud', () => window.game?.openGrowthModal?.('online'));
+        bindFallback('btn-exec-warp', () => window.game?.openGrowthModal?.('zones'));
+        document.getElementById('btn-close-modal')?.addEventListener('click', () => {
+            document.getElementById('growth-modal')?.classList.add('hidden');
+            window.game?.syncSingleWeaponVisualV42?.(true);
+        });
+
         document.getElementById('btn-threat-plus10')?.addEventListener('click', (e) => { e.stopPropagation(); window.game?.changeThreatLevel?.(10); });
         document.getElementById('btn-threat-plus100')?.addEventListener('click', (e) => { e.stopPropagation(); window.game?.changeThreatLevel?.(100); });
         document.getElementById('btn-threat-max999')?.addEventListener('click', (e) => { e.stopPropagation(); window.game?.setThreatLevelV44?.(999); });
