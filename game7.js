@@ -1,7 +1,7 @@
 'use strict';
 
 // スキルLv.100到達で解放される「覚醒奥義（新技）」マスター定義（全11系統完全個別化）
-const AWAKENED_SKILL_ARTS = {
+window.AWAKENED_SKILL_ARTS = window.AWAKENED_SKILL_ARTS || {
     slash: {
         lv10Title: '真・双連クロス斬',
         lv50Title: '極・五連次元断空斬',
