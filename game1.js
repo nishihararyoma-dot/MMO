@@ -13,6 +13,23 @@ window.canEquipWeaponForJob = window.canEquipWeaponForJob || function (weaponOrI
     if (Array.isArray(wpn.allowedJobs) && wpn.allowedJobs.length > 0) return wpn.allowedJobs.includes(jobId);
     return true;
 };
+window.ACCESSORIES = window.ACCESSORIES || (function () {
+    const list = [
+        { id: 'acc_none', name: 'なし', atk: 0, def: 0, hp: 0, mp: 0, cost: 0, reqLv: 1, icon: '➖', desc: '装飾品を装備していない状態' },
+        { id: 'acc_ring_wood', name: 'お守りの木輪', atk: 3, def: 3, hp: 20, mp: 10, cost: 80, reqLv: 1, icon: '💍', desc: '旅の安全を祈願した素朴な指輪' },
+        { id: 'acc_charm_life', name: '生命のペンダント', atk: 5, def: 8, hp: 85, mp: 25, cost: 320, reqLv: 5, icon: '📿', desc: '装備者の生命力を高める護符' },
+        { id: 'acc_ring_power', name: '剛力の指輪', atk: 22, def: 6, hp: 60, mp: 20, cost: 950, reqLv: 12, icon: '💍', desc: '闘志と攻撃力を引き出す赤銅の指輪' },
+        { id: 'acc_amulet_mana', name: '蒼水晶のアミュレット', atk: 18, def: 15, hp: 140, mp: 110, cost: 2400, reqLv: 22, icon: '💠', desc: '澄んだ魔力が循環する結晶の首飾り' },
+        { id: 'acc_ring_mythril', name: 'ミスリルリング', atk: 55, def: 45, hp: 380, mp: 180, cost: 7800, reqLv: 38, icon: '✨', desc: '神銀の加護を宿す精巧な指輪' },
+        { id: 'acc_emblem_dragon', name: '古竜の紋章', atk: 145, def: 110, hp: 950, mp: 320, cost: 28000, reqLv: 62, icon: '🐉', desc: '古竜の威厳と力を授ける秘宝の紋章' },
+        { id: 'acc_ring_orichalcum', name: 'オリハルコンリング', atk: 360, def: 280, hp: 2400, mp: 750, cost: 110000, reqLv: 90, icon: '🌟', desc: '星々の輝きを封じた神話の指輪' },
+        { id: 'acc_orb_genesis', name: '創世の宝珠', atk: 950, def: 750, hp: 6500, mp: 1800, cost: 480000, reqLv: 140, icon: '🌌', desc: '全次元の理を宿す究極の装飾品' }
+    ];
+    list.forEach(item => { list[item.id] = item; });
+    return list;
+})();
+
+window.canEquipAccessoryForJob = window.canEquipAccessoryForJob || function () { return true; };
 window.__faceTexCache = window.__faceTexCache || new Map();
 function getKaomojiFaceTexture(kaomoji, bgHex = '#073b66', textHex = '#ffffff', borderHex = '#38bdf8') {
     const key = `${kaomoji}|${bgHex}|${textHex}|${borderHex}`;
