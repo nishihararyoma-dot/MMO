@@ -93,6 +93,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
 .tab-chip-btn{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:900;color:#cbd5e1;white-space:nowrap;cursor:pointer;pointer-events:auto}
 .tab-chip-btn.active{background:#0284c7;border-color:#7dd3fc;color:#fff}
 #modal-body{padding:12px;overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1;color:#f8fafc}
+#modal-body .card-box{background:rgba(30,41,59,.88);border:1px solid #334155;border-radius:10px;padding:9px 10px;color:#f8fafc}
 .card-box{background:rgba(30,41,59,.82);border:1px solid #334155;border-radius:10px;padding:9px 10px;color:#f8fafc}
 .flex-between{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .flex-wrap-gap{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
@@ -113,7 +114,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
 <div id="title-screen">
     <div class="title-card">
         <div class="title-logo-kaomoji font-kaomoji">(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧ ⚔️ (=^・ω・^=)</div>
-        <h1 class="title-main-heading">顔文字ファンタジー3D<br><span style="font-size:13px;-webkit-text-fill-color:#94a3b8;">KAOMOJI FANTASY 3D ONLINE [v3.4 完全版]</span></h1>
+        <h1 class="title-main-heading">顔文字ファンタジー3D<br><span style="font-size:13px;-webkit-text-fill-color:#94a3b8;">KAOMOJI FANTASY 3D ONLINE [v3.5 軽量･修正版]</span></h1>
         <div class="title-save-preview" id="title-save-info">データ準備中...</div>
         <div class="title-room-box">
             <div class="flex-between">
@@ -270,11 +271,11 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
 <script>
 // === [PART 1 ここまで] このすぐ下に PART 2 を貼り付けてください ===
 // =========================================================================
-// 統合完成パッチ v3.4 [PART 2]
+// 統合完成パッチ v3.5 [PART 2]（軽量化・半月エフェクト正面修正・武器見た目即時反映・スキル残骸自動消去）
 // =========================================================================
 (function () {
-    if (window.__KMJ_MASTER_PATCH_V44__) return;
-    window.__KMJ_MASTER_PATCH_V44__ = true;
+    if (window.__KMJ_MASTER_PATCH_V45__) return;
+    window.__KMJ_MASTER_PATCH_V45__ = true;
 
     function throttle(fn, ms) {
         if (typeof fn !== 'function') return fn;
@@ -302,7 +303,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
         { id: 'sw_09_flashemperor', tier: 9, branch: 'sword', isMage: false, name: '神速の閃光剣帝', reqLv: 370, cost: 90000, icon: '⚡', kaomoji: '⚡(｀・ω・´)⚡', color: '#facc15', desc: '光速の斬撃と光の飛翔剣を放つ剣帝。', bonus: { physAtk: 560, maxHp: 3000, critChance: 0.16, critDmg: 0.90 } },
         { id: 'sw_10_wargod', tier: 10, branch: 'sword', isMage: false, name: '修羅の戦神', reqLv: 500, cost: 200000, icon: '👹', kaomoji: '(╬ಠ益ಠ)⚔️', color: '#e11d48', desc: '百戦錬磨の果てに戦神と化した剣士。', bonus: { physAtk: 820, maxHp: 4500, def: 130, critDmg: 1.15 } },
         { id: 'sw_11_starbreaker', tier: 11, branch: 'sword', isMage: false, name: '星砕きの天剣士', reqLv: 650, cost: 450000, icon: '🌠', kaomoji: '★( •̀ᄇ• ́)ﻭ★', color: '#38bdf8', desc: '一振りで流星を両断する天界の剣士。', bonus: { physAtk: 1180, maxHp: 6800, def: 185, lifesteal: 0.11 } },
-        { id: 'sw_12_genesisking', tier: 12, branch: 'sword', isMage: false, name: '創世の聖剣王', reqLv: 800, cost: 900000, icon: '🌟', kaomoji: '✧(｀・ω・´)✧', color: '#fde047', desc: '十字裂空の極大斬撃を放つ創世の聖剣王。', bonus: { physAtk: 1650, maxHp: 9800, def: 260, critChance: 0.20, critDmg: 1.45 } },
+        { id: 'sw_12_genesisking', tier: 12, branch: 'sword', isMage: false, name: '創世の聖剣王', reqLv: 800, cost: 900000, icon: '🌟', kaomoji: '✧(｀・ω・´)✧', color: '#fde047', desc: '四重裂空の極大斬撃を放つ創世の聖剣王。', bonus: { physAtk: 1650, maxHp: 9800, def: 260, critChance: 0.20, critDmg: 1.45 } },
         { id: 'sw_13_dimensiongod', tier: 13, branch: 'sword', isMage: false, name: '次元斬りの超越剣神', reqLv: 900, cost: 2000000, icon: '🌌', kaomoji: '🌌( ｰ`дｰ´)⚔️', color: '#a78bfa', desc: '空間と次元そのものを斬り裂く超越剣神。', bonus: { physAtk: 2300, maxHp: 14000, def: 350, critDmg: 1.80 } },
         { id: 'sw_14_ultimatesword', tier: 14, branch: 'sword', isMage: false, name: '終焉と創生の究極剣聖神', reqLv: 999, cost: 5000000, icon: '👑', kaomoji: '👑⚔️(ﾉ◕ヮ◕)ﾉ⚔️👑', color: '#f59e0b', desc: 'Lv.999到達者のみが至る剣の頂点。', bonus: { physAtk: 3500, maxHp: 22000, def: 500, critChance: 0.25, critDmg: 2.30, lifesteal: 0.15 } }
     ];
@@ -327,7 +328,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
     const ALL_CAREERS = [...SWORD_CAREER_PATH, ...MAGE_CAREER_PATH];
 
     // =====================================================================
-    // 2. 実績システム（36種追加 ＋ 所持分すべて常時バフ適用）
+    // 2. 実績システム（36種 ＋ 所持分すべて常時バフ適用）
     // =====================================================================
     const ACHIEVEMENTS_V44 = [
         { id: 'ach_lv_5', name: '駆け出し冒険者', desc: 'Lv.5に到達する', check: (sd) => (sd.lv || 1) >= 5, buff: { maxHp: 40, physAtk: 4, magAtk: 4 } },
@@ -415,25 +416,22 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
     ];
 
     // =====================================================================
-    // 4. 画面コントラスト補正 & チャット欄整理
+    // 4. 軽量なコントラスト補正 & チャット欄整理
     // =====================================================================
-    function fixLightBgTextContrast(root = document) {
+    function fixLightBgTextContrast(root) {
+        if (!root) return;
         try {
-            root.querySelectorAll('#modal-body *, #dialog-modal *, #hud-drawer-menu *, button, span, div, label, select, option').forEach(el => {
-                if (el.children.length > 0 && el.tagName !== 'SELECT' && el.tagName !== 'BUTTON') return;
-                const cs = window.getComputedStyle(el);
-                const bg = cs.backgroundColor;
-                const m = bg && bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
-                if (!m) return;
-                const alpha = m[4] !== undefined ? parseFloat(m[4]) : 1;
-                if (alpha < 0.35) return;
-                const r = Number(m[1]), g = Number(m[2]), b = Number(m[3]);
-                const lum = (r * 299 + g * 587 + b * 114) / 1000;
-                if (lum > 175) {
+            const nodes = root.querySelectorAll('button, span, div, label, select');
+            const limit = Math.min(nodes.length, 160);
+            for (let i = 0; i < limit; i++) {
+                const el = nodes[i];
+                if (el.children.length > 0 && el.tagName !== 'SELECT' && el.tagName !== 'BUTTON') continue;
+                const bg = el.style.backgroundColor || el.style.background;
+                if (!bg) continue;
+                if (bg.includes('#fff') || bg.includes('255, 255, 255') || bg.includes('#f8fafc') || bg.includes('#e2e8f0')) {
                     el.style.setProperty('color', '#0f172a', 'important');
-                    el.style.setProperty('text-shadow', 'none', 'important');
                 }
-            });
+            }
         } catch (e) {}
     }
 
@@ -442,14 +440,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
         const wrapper = document.getElementById('chat-wrapper');
         if (!panel) return;
 
-        panel.querySelectorAll('*').forEach(el => {
-            const styleAttr = (el.getAttribute('style') || '').toLowerCase();
-            const cls = String(el.className || '').toLowerCase();
-            const id = String(el.id || '').toLowerCase();
-            if (styleAttr.includes('ns-resize') || styleAttr.includes('row-resize') || cls.includes('drag-handle') || cls.includes('resize-bar') || id.includes('resize')) {
-                el.remove();
-            }
-        });
+        panel.querySelectorAll('[style*="ns-resize"], [style*="row-resize"], .kmj-chat-drag-handle, .chat-resize-bar').forEach(el => el.remove());
         if (wrapper) {
             wrapper.querySelectorAll('[style*="ns-resize"], [style*="row-resize"]').forEach(el => el.remove());
         }
@@ -463,8 +454,8 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
         });
 
         const hideBtn = document.getElementById('btn-hide-chat-panel');
-        if (hideBtn && !hideBtn.dataset.v44Bound) {
-            hideBtn.dataset.v44Bound = '1';
+        if (hideBtn && !hideBtn.dataset.v45Bound) {
+            hideBtn.dataset.v45Bound = '1';
             hideBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -481,22 +472,22 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
     function installMasterPatch() {
         if (typeof KaomojiMMORPG === 'undefined') return;
         const P = KaomojiMMORPG.prototype;
-        if (P.__v44Installed) return;
-        P.__v44Installed = true;
+        if (P.__v45Installed) return;
+        P.__v45Installed = true;
 
         // -----------------------------------------------------------------
-        // A. iPad Safari クラッシュ防止 & 不要旧パッチ無効化
+        // A. 重いループ処理を抑制（軽量化） & 不要旧パッチ無効化
         // -----------------------------------------------------------------
-        P.fixChatCompactLayoutV31 = function () { cleanChatPanelUI(); };
-        P.ensureStandardMoveStickV33 = throttle(P.ensureStandardMoveStickV33, 1000);
+        P.fixChatCompactLayoutV31 = function () {};
+        P.ensureStandardMoveStickV33 = throttle(P.ensureStandardMoveStickV33, 2500);
         P.injectSettingsDropdownItemV33 = function () {};
-        P.fixTopRightMenuOverlapV36 = throttle(P.fixTopRightMenuOverlapV36, 1200);
+        P.fixTopRightMenuOverlapV36 = throttle(P.fixTopRightMenuOverlapV36, 2500);
         P.enforceStrictWeaponVisualV27 = function () {};
         P.attachMageStaffV27 = function () {};
         P.ensureLeftHandWeaponV27 = function () {};
 
         // -----------------------------------------------------------------
-        // B. 驚異度の上限を常に 999 に固定 ＋ 推奨レベル計算＆可視化
+        // B. 驚異度（上限999）＋ 推奨レベル計算＆可視化
         // -----------------------------------------------------------------
         P.setThreatLevelV44 = function (val) {
             const clamped = Math.max(0, Math.min(999, Math.round(Number(val) || 0)));
@@ -505,10 +496,11 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                 this.saveData.threat = clamped;
                 this.saveData.threatLevel = clamped;
             }
+            this._v45StatsDirty = true;
             this.evaluateAchievementsV44?.(true);
             this.saveGame?.();
             this.refreshAllHUD?.();
-            this.showAlertBanner?.(`🔥 驚異度を ${clamped} / 999 に設定しました！`, 1600);
+            this.showAlertBanner?.(`🔥 驚異度を ${clamped} / 999 に設定しました！`, 1500);
         };
 
         P.changeThreatLevel = function (delta) {
@@ -516,7 +508,6 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             this.setThreatLevelV44(cur + (Number(delta) || 0));
         };
 
-        // ゾーンIDと驚異度から現在の「推奨レベル」を算出
         P.getZoneRecommendedLevelV44 = function (zoneId, threatOverride = null) {
             const zid = String(zoneId || this.currentZoneId || 'town');
             const threat = threatOverride !== null ? threatOverride : getThreatVal(this.saveData, this);
@@ -534,7 +525,6 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                 const m = zid.match(/(\d+)/);
                 baseLv = m ? Math.max(1, Number(m[1]) * 12) : 5;
             }
-            // 驚異度1ごとに推奨レベルが +3 上昇（驚異度999なら +2997）
             return Math.max(1, Math.round(baseLv + threat * 3));
         };
 
@@ -574,7 +564,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
         };
 
         // -----------------------------------------------------------------
-        // C. 役職取得・判定・武器データ取得（武器変更時の見た目反映対応）
+        // C. 役職＆武器の完全検出（武器変更時の見た目反映を確実に動作させる）
         // -----------------------------------------------------------------
         P.getCurrentCareerIdV43 = function () {
             const sd = this.saveData || {};
@@ -587,6 +577,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             this.saveData.evo = careerId;
             this.saveData.job = careerId;
             this.saveData.classId = careerId;
+            this._v45StatsDirty = true;
         };
 
         P.findCareerByIdOrNameV43 = function (idOrName) {
@@ -622,37 +613,58 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             return /(mage|wizard|sorcerer|sage|witch|priest|necro|魔|賢者|術師|巫女|星詠|召喚|死霊)/.test(rawStr);
         };
 
-        // 装備中の武器情報を取得（名前・レア度・精錬値・ハッシュ色）
+        // セーブデータ内のあらゆる武器装備スロット構造から現在の武器ID・精錬値・レア度を抽出
         P.getEquippedWeaponSignatureV44 = function () {
             const sd = this.saveData || {};
-            const wObj = sd.equipped?.weapon || sd.equip?.weapon || sd.equippedWeapon || sd.weapon || null;
+            const candidates = [
+                sd.equips?.weapon,
+                sd.equipped?.weapon,
+                sd.equip?.weapon,
+                sd.equipment?.weapon,
+                sd.gear?.weapon,
+                sd.slots?.weapon,
+                sd.equippedWeapon,
+                sd.weaponId,
+                sd.weapon
+            ];
+            let wObj = candidates.find(x => x !== undefined && x !== null && x !== '');
+
+            // インベントリ配列内に equipped: true の武器がある場合も検出
+            if (!wObj && Array.isArray(sd.inventory)) {
+                wObj = sd.inventory.find(it => it && it.equipped && (it.slot === 'weapon' || it.type === 'weapon' || String(it.id || '').includes('wpn') || String(it.id || '').includes('sword') || String(it.id || '').includes('staff')));
+            }
+
             let wId = '';
             let wName = '';
             let wRarity = 'common';
             let refine = 0;
 
-            if (typeof wObj === 'string') {
-                wId = wObj;
+            if (typeof wObj === 'string' || typeof wObj === 'number') {
+                wId = String(wObj);
             } else if (wObj && typeof wObj === 'object') {
-                wId = String(wObj.id || wObj.itemId || wObj.key || '');
+                wId = String(wObj.id || wObj.itemId || wObj.equipId || wObj.key || wObj.uid || '');
                 wName = String(wObj.name || '');
-                wRarity = String(wObj.rarity || wObj.rank || 'common');
-                refine = Number(wObj.refine || wObj.plus || wObj.lv || 0);
+                wRarity = String(wObj.rarity || wObj.rank || wObj.grade || 'common');
+                refine = Number(wObj.refine || wObj.plus || wObj.enhance || wObj.lv || 0);
             }
 
-            if (wId && typeof ITEMS !== 'undefined' && ITEMS) {
-                const itemDef = Array.isArray(ITEMS) ? ITEMS.find(x => x && x.id === wId) : ITEMS[wId];
-                if (itemDef) {
-                    wName = wName || String(itemDef.name || wId);
-                    wRarity = String(itemDef.rarity || itemDef.rank || wRarity);
-                }
+            // マスタデータから武器定義を引く
+            const lookupMaster = (db) => {
+                if (!db || !wId) return null;
+                return Array.isArray(db) ? db.find(x => x && (x.id === wId || x.key === wId)) : db[wId];
+            };
+            const itemDef = (typeof ITEMS !== 'undefined' ? lookupMaster(ITEMS) : null) ||
+                            (typeof EQUIPS !== 'undefined' ? lookupMaster(EQUIPS) : null) ||
+                            (typeof WEAPONS !== 'undefined' ? lookupMaster(WEAPONS) : null);
+
+            if (itemDef) {
+                wName = wName || String(itemDef.name || wId);
+                wRarity = String(itemDef.rarity || itemDef.rank || wRarity);
             }
-            if (wId && typeof EQUIPS !== 'undefined' && EQUIPS) {
-                const eqDef = Array.isArray(EQUIPS) ? EQUIPS.find(x => x && x.id === wId) : EQUIPS[wId];
-                if (eqDef) {
-                    wName = wName || String(eqDef.name || wId);
-                    wRarity = String(eqDef.rarity || eqDef.rank || wRarity);
-                }
+
+            // 精錬マップ（sd.refines[wId] など）も確認
+            if (!refine && wId && sd.refines && typeof sd.refines === 'object') {
+                refine = Number(sd.refines[wId] || sd.refines.weapon || 0);
             }
 
             const sig = `${wId}|${wName}|${wRarity}|${refine}`;
@@ -663,7 +675,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             return { wId, wName, wRarity, refine, sig, hash: Math.abs(hash) };
         };
 
-        // 3D武器モデルを「右手に1本だけ」構築し、武器変更＆役職変更のたびに見た目が変わるようにする
+        // 3D武器モデルを「右手に1本だけ」構築（武器変更で見た目・色・形状・オーラがはっきり変わる）
         P.syncSingleWeaponVisualV42 = function (force = false) {
             if (!this.player?.group || typeof THREE === 'undefined') return;
             const isMage = this.isMageEvolution();
@@ -671,12 +683,12 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             const wInfo = this.getEquippedWeaponSignatureV44();
 
             const stateKey = `${isMage ? 'staff' : 'sword'}|${career.id}|${wInfo.sig}`;
-            if (!force && this.player._v44WeaponKey === stateKey && this.player._v42WeaponMesh?.parent === this.player.group) {
+            if (!force && this.player._v45WeaponKey === stateKey && this.player._v42WeaponMesh?.parent === this.player.group) {
                 return;
             }
-            this.player._v44WeaponKey = stateKey;
+            this.player._v45WeaponKey = stateKey;
 
-            // 既存の武器・杖メッシュをすべて除去・非表示（両手持ち・常駐杖の完全消去）
+            // 既存の武器・杖メッシュをすべて除去・非表示
             const toRemove = [];
             this.player.group.traverse(obj => {
                 if (obj === this.player.group) return;
@@ -702,66 +714,64 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                 }
             });
 
-            // 武器ハッシュとレア度から見た目バリエーションと色を決定
+            // 武器ハッシュ＆名前から見た目バリエーションと色を明確に分ける
             const palette = [0x38bdf8, 0xf43f5e, 0xfde047, 0x10b981, 0xc084fc, 0xfb923c, 0x22d3ee, 0xe879f9];
             const wColor = wInfo.wId ? palette[wInfo.hash % palette.length] : Number(String(career.color).replace('#', '0x'));
-            const styleVariant = wInfo.hash % 4; // 0:標準, 1:大ぶり/結晶型, 2:双翼/十字型, 3:神聖リング型
-            const scaleBoost = 1 + Math.min(0.35, (career.tier - 1) * 0.02 + wInfo.refine * 0.015);
+            const styleVariant = wInfo.wId ? (wInfo.hash % 4) : 0;
+            const scaleBoost = 1 + Math.min(0.35, (career.tier - 1) * 0.02 + wInfo.refine * 0.02);
 
             const wpn = new THREE.Group();
             wpn.name = 'v42_single_weapon';
             wpn.userData.isV42Weapon = true;
 
             if (isMage) {
-                // 【魔法使い系】武器変更＆役職で形・色が変わる杖 1本
-                const shaftColor = styleVariant === 1 ? 0xf8fafc : (styleVariant === 2 ? 0x312e81 : 0x78350f);
+                const shaftColor = styleVariant === 1 ? 0xf8fafc : (styleVariant === 2 ? 0x1e1b4b : (styleVariant === 3 ? 0x991b1b : 0x78350f));
                 const shaft = new THREE.Mesh(
-                    new THREE.CylinderGeometry(0.04, 0.058, 1.82, 8),
-                    new THREE.MeshStandardMaterial({ color: shaftColor, metalness: 0.4, roughness: 0.4 })
+                    new THREE.CylinderGeometry(0.042, 0.06, 1.85, 8),
+                    new THREE.MeshStandardMaterial({ color: shaftColor, metalness: 0.45, roughness: 0.35 })
                 );
                 shaft.position.y = 0.78;
                 wpn.add(shaft);
 
                 const headGeo = styleVariant === 0
-                    ? new THREE.OctahedronGeometry(0.21, 1)
-                    : (styleVariant === 1 ? new THREE.DodecahedronGeometry(0.23, 0) : (styleVariant === 2 ? new THREE.ConeGeometry(0.22, 0.42, 6) : new THREE.TorusKnotGeometry(0.14, 0.04, 24, 6)));
+                    ? new THREE.OctahedronGeometry(0.22, 1)
+                    : (styleVariant === 1 ? new THREE.DodecahedronGeometry(0.25, 0) : (styleVariant === 2 ? new THREE.ConeGeometry(0.24, 0.46, 6) : new THREE.TorusKnotGeometry(0.15, 0.045, 24, 6)));
                 const orb = new THREE.Mesh(headGeo, new THREE.MeshBasicMaterial({ color: wColor }));
-                orb.position.y = 1.76;
+                orb.position.y = 1.78;
                 wpn.add(orb);
 
                 if (styleVariant >= 1 || career.tier >= 3 || wInfo.refine > 0) {
                     const ring = new THREE.Mesh(
-                        new THREE.TorusGeometry(0.28, 0.026, 8, 20),
+                        new THREE.TorusGeometry(0.30, 0.028, 8, 20),
                         new THREE.MeshBasicMaterial({ color: 0xfde047 })
                     );
-                    ring.position.y = 1.76;
+                    ring.position.y = 1.78;
                     ring.rotation.x = Math.PI * 0.35;
                     wpn.add(ring);
                 }
             } else {
-                // 【剣士系】武器変更＆役職で刀身・鍔・オーラが変わる剣 1本
                 const grip = new THREE.Mesh(
-                    new THREE.CylinderGeometry(0.045, 0.05, 0.34, 8),
-                    new THREE.MeshStandardMaterial({ color: 0x1e293b })
+                    new THREE.CylinderGeometry(0.045, 0.052, 0.34, 8),
+                    new THREE.MeshStandardMaterial({ color: 0x0f172a })
                 );
                 grip.position.y = 0.12;
 
-                const guardWidth = styleVariant === 1 ? 0.56 : (styleVariant === 2 ? 0.48 : 0.40);
+                const guardWidth = styleVariant === 1 ? 0.62 : (styleVariant === 2 ? 0.50 : 0.40);
                 const guard = new THREE.Mesh(
-                    new THREE.BoxGeometry(guardWidth, 0.08, 0.13),
-                    new THREE.MeshStandardMaterial({ color: styleVariant === 2 ? wColor : 0xfbbf24, metalness: 0.75, roughness: 0.25 })
+                    new THREE.BoxGeometry(guardWidth, 0.085, 0.14),
+                    new THREE.MeshStandardMaterial({ color: styleVariant >= 1 ? wColor : 0xfbbf24, metalness: 0.75, roughness: 0.25 })
                 );
                 guard.position.y = 0.30;
 
-                const bladeW = styleVariant === 1 ? 0.17 : (styleVariant === 3 ? 0.13 : 0.10);
-                const bladeH = styleVariant === 1 ? 1.52 : (styleVariant === 2 ? 1.42 : 1.32);
-                const bladeColor = styleVariant === 2 ? 0x1e293b : 0xf8fafc;
+                const bladeW = styleVariant === 1 ? 0.19 : (styleVariant === 3 ? 0.14 : 0.10);
+                const bladeH = styleVariant === 1 ? 1.60 : (styleVariant === 2 ? 1.48 : 1.34);
+                const bladeColor = styleVariant === 2 ? 0x1e293b : (styleVariant === 3 ? wColor : 0xf8fafc);
                 const blade = new THREE.Mesh(
-                    new THREE.BoxGeometry(bladeW, bladeH, 0.038),
+                    new THREE.BoxGeometry(bladeW, bladeH, 0.04),
                     new THREE.MeshStandardMaterial({
                         color: bladeColor,
                         emissive: wColor,
-                        emissiveIntensity: 0.45 + Math.min(0.45, wInfo.refine * 0.05),
+                        emissiveIntensity: 0.52 + Math.min(0.45, wInfo.refine * 0.05),
                         metalness: 0.85,
                         roughness: 0.18
                     })
@@ -769,11 +779,11 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                 blade.position.y = 0.32 + bladeH * 0.5;
                 wpn.add(grip, guard, blade);
 
-                // 高レア・精錬・上位役職なら刀身オーラエフェクトを追加
-                if (styleVariant >= 2 || career.tier >= 4 || wInfo.refine > 0) {
+                // 武器変更または高ランク時に刀身オーラ＆結晶装飾を追加
+                if (wInfo.wId || career.tier >= 3 || wInfo.refine > 0) {
                     const aura = new THREE.Mesh(
-                        new THREE.BoxGeometry(bladeW * 1.45, bladeH * 1.03, 0.06),
-                        new THREE.MeshBasicMaterial({ color: wColor, transparent: true, opacity: 0.32 })
+                        new THREE.BoxGeometry(bladeW * 1.48, bladeH * 1.04, 0.065),
+                        new THREE.MeshBasicMaterial({ color: wColor, transparent: true, opacity: 0.34 })
                     );
                     aura.position.copy(blade.position);
                     wpn.add(aura);
@@ -788,11 +798,18 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
         };
 
         // -----------------------------------------------------------------
-        // D. 攻撃エフェクト：必ず正面に出る ＋ 役職レベルが高いほど豪華に進化
+        // D. 剣の半月エフェクトの向きを正面(+Z)に完全修正 ＋ 役職レベル豪華化
         // -----------------------------------------------------------------
         P.spawnTieredAttackEffectV44 = function (isMage, rotY, tier, colorHex) {
             if (!this.scene || !this.player?.pos || typeof THREE === 'undefined') return;
             if (!this._v44Effects) this._v44Effects = [];
+
+            // 上限数を制限して軽量化維持
+            while (this._v44Effects.length > 18) {
+                const old = this._v44Effects.shift();
+                this.scene?.remove(old.mesh);
+                old.mesh.traverse?.(o => { o.geometry?.dispose?.(); o.material?.dispose?.(); });
+            }
 
             const dirX = Math.sin(rotY);
             const dirZ = Math.cos(rotY);
@@ -806,11 +823,10 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             };
 
             if (!isMage) {
-                // =========================================================
-                // 【剣士系】必ずキャラの正面（+dirX, +dirZ）に斬撃を展開
-                // =========================================================
+                // 【剣士系】RingGeometryを rotation.x = +Math.PI * 0.5 にすることで
+                // theta = 0.15π〜0.85π（sin > 0）が必ずローカル +Z（キャラの正面）を向く！
                 const waveCount = t >= 12 ? 4 : (t >= 7 ? 3 : (t >= 3 ? 2 : 1));
-                const baseRadius = 1.6 + Math.min(1.8, (t - 1) * 0.13);
+                const baseRadius = 1.65 + Math.min(1.75, (t - 1) * 0.13);
 
                 for (let i = 0; i < waveCount; i++) {
                     const grp = new THREE.Group();
@@ -820,40 +836,38 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                         transparent: true,
                         opacity: 0.92
                     });
-                    // 正面(+Z)を向く三日月型斬撃アーチ
                     const arc = new THREE.Mesh(
-                        new THREE.RingGeometry(baseRadius * 0.55, baseRadius, 24, 1, Math.PI * 0.15, Math.PI * 0.70),
+                        new THREE.RingGeometry(baseRadius * 0.55, baseRadius, 22, 1, Math.PI * 0.15, Math.PI * 0.70),
                         mat
                     );
-                    arc.rotation.x = -Math.PI * 0.5;
+                    // +90度回転でローカル +Z（正面）に半月の頂点が向く！
+                    arc.rotation.x = Math.PI * 0.5;
                     grp.add(arc);
 
-                    // クロス斬撃（STEP 3以上）
                     if (t >= 3 && i > 0) {
                         grp.rotation.z = (i % 2 === 1 ? 0.35 : -0.35);
                     }
-                    // 必ずプレイヤーの前方 1.5m に配置し、プレイヤーと同じ向き(rotY)にする
-                    const forwardOffset = 1.5 + i * 0.45;
-                    grp.position.set(px + dirX * forwardOffset, 1.05 + i * 0.15, pz + dirZ * forwardOffset);
+                    const forwardOffset = 1.35 + i * 0.42;
+                    grp.position.set(px + dirX * forwardOffset, 1.05 + i * 0.14, pz + dirZ * forwardOffset);
                     grp.rotation.y = rotY;
 
-                    addFx(grp, dirX * (15 + i * 3), dirZ * (15 + i * 3), 0.34 + i * 0.04, 0, 1.4);
+                    addFx(grp, dirX * (15 + i * 3), dirZ * (15 + i * 3), 0.32 + i * 0.04, 0, 1.3);
                 }
 
                 // STEP 6以上：正面への地面衝撃波リング
                 if (t >= 6) {
-                    const shockMat = new THREE.MeshBasicMaterial({ color: colorHex, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
-                    const shock = new THREE.Mesh(new THREE.RingGeometry(0.6, 1.35, 24), shockMat);
-                    shock.rotation.x = -Math.PI * 0.5;
-                    shock.position.set(px + dirX * 2.2, 0.12, pz + dirZ * 2.2);
-                    addFx(shock, dirX * 12, dirZ * 12, 0.38, 0, 3.2);
+                    const shockMat = new THREE.MeshBasicMaterial({ color: colorHex, side: THREE.DoubleSide, transparent: true, opacity: 0.78 });
+                    const shock = new THREE.Mesh(new THREE.RingGeometry(0.6, 1.35, 20), shockMat);
+                    shock.rotation.x = Math.PI * 0.5;
+                    shock.position.set(px + dirX * 2.1, 0.12, pz + dirZ * 2.1);
+                    addFx(shock, dirX * 12, dirZ * 12, 0.36, 0, 3.0);
                 }
 
                 // STEP 9以上：正面へ飛ぶ光の飛翔剣（ファントムソード）
                 if (t >= 9) {
                     const bladeCount = t >= 13 ? 3 : 2;
                     for (let b = 0; b < bladeCount; b++) {
-                        const sideAngle = rotY + (b - (bladeCount - 1) / 2) * 0.24;
+                        const sideAngle = rotY + (b - (bladeCount - 1) / 2) * 0.22;
                         const bdx = Math.sin(sideAngle);
                         const bdz = Math.cos(sideAngle);
                         const swordGeo = new THREE.ConeGeometry(0.18, 1.45, 4);
@@ -861,37 +875,34 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                         const swordMesh = new THREE.Mesh(swordGeo, new THREE.MeshBasicMaterial({ color: 0xfde047 }));
                         swordMesh.position.set(px + bdx * 1.4, 1.35, pz + bdz * 1.4);
                         swordMesh.rotation.y = sideAngle;
-                        addFx(swordMesh, bdx * 24, bdz * 24, 0.55, 0, 0);
+                        addFx(swordMesh, bdx * 24, bdz * 24, 0.52, 0, 0);
                     }
                 }
             } else {
-                // =========================================================
                 // 【魔法使い系】役職レベルに応じて豪華になる正面魔法弾＆魔法陣
-                // =========================================================
                 const shotCount = t >= 9 ? 3 : (t >= 5 ? 2 : 1);
                 const orbRadius = 0.30 + Math.min(0.32, (t - 1) * 0.024);
 
                 for (let i = 0; i < shotCount; i++) {
-                    const spread = (i - (shotCount - 1) / 2) * 0.16;
+                    const spread = (i - (shotCount - 1) / 2) * 0.15;
                     const a = rotY + spread;
                     const vx = Math.sin(a) * 22;
                     const vz = Math.cos(a) * 22;
 
                     const grp = new THREE.Group();
                     const core = new THREE.Mesh(
-                        new THREE.SphereGeometry(orbRadius * 0.65, 10, 10),
+                        new THREE.SphereGeometry(orbRadius * 0.65, 8, 8),
                         new THREE.MeshBasicMaterial({ color: 0xffffff })
                     );
                     const aura = new THREE.Mesh(
-                        new THREE.SphereGeometry(orbRadius, 12, 12),
+                        new THREE.SphereGeometry(orbRadius, 10, 10),
                         new THREE.MeshBasicMaterial({ color: i === 0 ? colorHex : 0xfde047, transparent: true, opacity: 0.82 })
                     );
                     grp.add(core, aura);
 
-                    // STEP 4以上：魔法弾の周囲に回転リング
                     if (t >= 4) {
                         const halo = new THREE.Mesh(
-                            new THREE.TorusGeometry(orbRadius * 1.45, 0.04, 8, 18),
+                            new THREE.TorusGeometry(orbRadius * 1.45, 0.04, 6, 16),
                             new THREE.MeshBasicMaterial({ color: 0xfde047 })
                         );
                         halo.rotation.x = Math.PI * 0.5;
@@ -899,21 +910,20 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                     }
 
                     grp.position.set(px + Math.sin(a) * 1.2, 1.25, pz + Math.cos(a) * 1.2);
-                    addFx(grp, vx, vz, 0.78, 8.0, 0.25);
+                    addFx(grp, vx, vz, 0.74, 8.0, 0.22);
                 }
 
-                // STEP 3以上：足元＆正面に展開する回転魔法陣
                 if (t >= 3) {
                     const circleCount = t >= 12 ? 2 : 1;
                     for (let c = 0; c < circleCount; c++) {
                         const r = (1.3 + t * 0.12) * (1 + c * 0.45);
                         const ring = new THREE.Mesh(
-                            new THREE.RingGeometry(r * 0.82, r, 24),
+                            new THREE.RingGeometry(r * 0.82, r, 20),
                             new THREE.MeshBasicMaterial({ color: c === 0 ? colorHex : 0xfde047, side: THREE.DoubleSide, transparent: true, opacity: 0.75 })
                         );
-                        ring.rotation.x = -Math.PI * 0.5;
+                        ring.rotation.x = Math.PI * 0.5;
                         ring.position.set(px + dirX * 0.6, 0.12 + c * 0.08, pz + dirZ * 0.6);
-                        addFx(ring, 0, 0, 0.45, c === 0 ? 5.5 : -5.5, 0.6);
+                        addFx(ring, 0, 0, 0.42, c === 0 ? 5.5 : -5.5, 0.5);
                     }
                 }
             }
@@ -942,6 +952,54 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                 return true;
             });
         };
+
+        // -----------------------------------------------------------------
+        // E. スキル発動後の残骸3Dエフェクト自動消去システム
+        // -----------------------------------------------------------------
+        P.trackAndCleanSkillEffectsV45 = function (fn) {
+            return function (...args) {
+                const beforeSet = new Set(this.scene ? this.scene.children : []);
+                const res = fn.apply(this, args);
+                if (this.scene && this.scene.children) {
+                    if (!this._v45TrackedSkillObjs) this._v45TrackedSkillObjs = [];
+                    const now = performance.now();
+                    for (let i = 0; i < this.scene.children.length; i++) {
+                        const obj = this.scene.children[i];
+                        if (!beforeSet.has(obj) && !obj.userData?.isV42Weapon) {
+                            const nm = String(obj.name || '').toLowerCase();
+                            // プレイヤー・モンスター・ペット本体は除外し、エフェクトオブジェクトのみ自動消去対象にする
+                            if (!/(player|monster|enemy|boss|pet|npc|ground|terrain|light|camera)/.test(nm)) {
+                                this._v45TrackedSkillObjs.push({ obj, expireAt: now + 2400 });
+                            }
+                        }
+                    }
+                }
+                return res;
+            };
+        };
+
+        P.cleanupExpiredSkillEffectsV45 = function () {
+            if (!this._v45TrackedSkillObjs || !this._v45TrackedSkillObjs.length) return;
+            const now = performance.now();
+            this._v45TrackedSkillObjs = this._v45TrackedSkillObjs.filter(item => {
+                if (!item.obj || !item.obj.parent) return false;
+                if (now >= item.expireAt) {
+                    item.obj.parent.remove(item.obj);
+                    item.obj.traverse?.(o => {
+                        o.geometry?.dispose?.();
+                        o.material?.dispose?.();
+                    });
+                    return false;
+                }
+                return true;
+            });
+        };
+
+        ['useSkillSlot', 'castSkill', 'performSkill', 'triggerSkillEffect'].forEach(mName => {
+            if (typeof P[mName] === 'function') {
+                P[mName] = P.trackAndCleanSkillEffectsV45(P[mName]);
+            }
+        });
 
         P.performBasicAttack = function () {
             if (!this.player || this.isDead) return false;
@@ -976,7 +1034,6 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                 sfx?.playHit?.(false);
             }
 
-            // 必ずキャラの正面に出る＆役職レベルに応じた豪華エフェクトを再生
             this.spawnTieredAttackEffectV44(isMage, rotY, career.tier || 1, glowColor);
 
             if (target && this.currentZoneId !== 'town') {
@@ -997,7 +1054,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
         };
 
         // -----------------------------------------------------------------
-        // E. ステータス計算（役職 ＋ 所持実績すべての常時バフ ＋ ペット装備バフ）
+        // F. 実績・ペット装備・ステータス計算（キャッシュ化して超軽量化）
         // -----------------------------------------------------------------
         P.evaluateAchievementsV44 = function (silent = false) {
             if (!this.saveData) return;
@@ -1007,7 +1064,6 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             const unlocked = this.saveData.unlockedAchievementsV44;
             let newlyUnlocked = 0;
 
-            // 複数回ループして「実績20個達成」のような連鎖実績も即反映
             for (let pass = 0; pass < 2; pass++) {
                 ACHIEVEMENTS_V44.forEach(ach => {
                     if (!unlocked.includes(ach.id) && ach.check(this.saveData, this)) {
@@ -1016,8 +1072,11 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                     }
                 });
             }
-            if (newlyUnlocked > 0 && !silent) {
-                this.showAlertBanner?.(`🏆 実績を ${newlyUnlocked}個 達成！常時バフが永続強化されました！`, 2400);
+            if (newlyUnlocked > 0) {
+                this._v45StatsDirty = true;
+                if (!silent) {
+                    this.showAlertBanner?.(`🏆 実績を ${newlyUnlocked}個 達成！常時バフが永続強化されました！`, 2400);
+                }
             }
         };
 
@@ -1053,23 +1112,23 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             const isMage = this.isMageEvolution();
             const c = this.findCareerByIdOrNameV43(this.getCurrentCareerIdV43());
 
-            // 1. 役職ボーナス
-            if (c && c.bonus) {
-                Object.entries(c.bonus).forEach(([k, v]) => {
-                    if (typeof v === 'number') st[k] = (st[k] || 0) + v;
-                });
+            // 毎フレーム重くならないように実績とバフはキャッシュを利用
+            const cacheSig = `${this.saveData?.lv || 1}|${c.id}|${this.saveData?.unlockedAchievementsV44?.length || 0}|${JSON.stringify(this.saveData?.equippedPetEquips || {})}`;
+            if (!this._v45BonusCache || this._v45BonusCacheSig !== cacheSig || this._v45StatsDirty) {
+                this._v45StatsDirty = false;
+                this._v45BonusCacheSig = cacheSig;
+                const bonusSum = { maxHp: 0, maxMp: 0, physAtk: 0, magAtk: 0, def: 0, critChance: 0, critDmg: 0, lifesteal: 0 };
+                if (c && c.bonus) {
+                    Object.entries(c.bonus).forEach(([k, v]) => { if (typeof v === 'number') bonusSum[k] = (bonusSum[k] || 0) + v; });
+                }
+                const achBuff = this.getTotalAchievementBuffV44();
+                Object.entries(achBuff).forEach(([k, v]) => { bonusSum[k] = (bonusSum[k] || 0) + v; });
+                const petBuff = this.getTotalPetEquipBuffV44();
+                Object.entries(petBuff).forEach(([k, v]) => { bonusSum[k] = (bonusSum[k] || 0) + v; });
+                this._v45BonusCache = bonusSum;
             }
 
-            // 2. 実績の常時バフ（所持分すべて加算）
-            this.evaluateAchievementsV44?.(true);
-            const achBuff = this.getTotalAchievementBuffV44();
-            Object.entries(achBuff).forEach(([k, v]) => {
-                st[k] = (st[k] || 0) + v;
-            });
-
-            // 3. ペット専用装備バフ
-            const petBuff = this.getTotalPetEquipBuffV44();
-            Object.entries(petBuff).forEach(([k, v]) => {
+            Object.entries(this._v45BonusCache).forEach(([k, v]) => {
                 st[k] = (st[k] || 0) + v;
             });
 
@@ -1079,9 +1138,8 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
         };
 
         // -----------------------------------------------------------------
-        // F. 各専用タブのUI描画（転職Lv999・実績常時バフ・ペット装備・装備必要Lv・ステージ推奨Lv）
+        // G. 各タブUI描画（転職Lv999・実績・ペット装備・装備必要Lv・ステージ推奨Lv）
         // -----------------------------------------------------------------
-        // 1) 転職タブ（左：剣士系 ／ 右：魔法使い系）
         P.renderCareerTreeTabV43 = function (container) {
             const sd = this.saveData || {};
             const lv = sd.lv || 1;
@@ -1203,13 +1261,12 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                     }
                     this.saveGame?.();
                     this.refreshAllHUD?.();
-                    this.showAlertBanner?.(`👑 「${targetCareer.name}」に転職！武器＆エフェクトが進化しました！`, 2600);
+                    this.showAlertBanner?.(`👑 「${targetCareer.name}」に転職！武器＆エフェクトが進化しました！`, 2400);
                     this.renderGrowthTabContent();
                 });
             });
         };
 
-        // 2) 実績タブ（36種 ＋ 所持分すべて常時バフ表示）
         P.appendAchievementsPanelV44 = function (container) {
             this.evaluateAchievementsV44(true);
             const unlocked = this.saveData?.unlockedAchievementsV44 || [];
@@ -1251,7 +1308,6 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             container.appendChild(box);
         };
 
-        // 3) ペット装備パネル（🐾 ペットタブ内に表示）
         P.appendPetEquipPanelV44 = function (container) {
             if (!this.saveData) return;
             if (!Array.isArray(this.saveData.ownedPetEquips)) this.saveData.ownedPetEquips = [];
@@ -1319,6 +1375,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                     this.saveData.gold -= item.cost;
                     if (!this.saveData.ownedPetEquips.includes(item.id)) this.saveData.ownedPetEquips.push(item.id);
                     this.saveData.equippedPetEquips[item.slot] = item.id;
+                    this._v45StatsDirty = true;
                     this.evaluateAchievementsV44(true);
                     this.saveGame?.();
                     this.refreshAllHUD?.();
@@ -1333,6 +1390,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                     const item = PET_EQUIPS_V44.find(x => x.id === btn.getAttribute('data-peq-equip'));
                     if (!item) return;
                     this.saveData.equippedPetEquips[item.slot] = item.id;
+                    this._v45StatsDirty = true;
                     this.saveGame?.();
                     this.refreshAllHUD?.();
                     this.showAlertBanner?.(`🎀 「${item.name}」をペットに装着しました！`, 1800);
@@ -1343,7 +1401,6 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             container.appendChild(box);
         };
 
-        // 4) 装備作る系に「必要レベル」制限を適用（既存クラフトボタン保護 ＋ 装備タブ表示）
         P.enforceEquipCraftLevelRequirementV44 = function (container) {
             const myLv = this.saveData?.lv || 1;
             const craftButtons = Array.from(container.querySelectorAll('button')).filter(b => {
@@ -1362,7 +1419,6 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                 if (lvMatch) {
                     reqLv = Number(lvMatch[1]);
                 } else {
-                    // 順番に応じて必要レベルを段階設定（1, 5, 12, 22, 35, 50...）
                     reqLv = idx === 0 ? 1 : Math.round(idx * 8 + Math.pow(idx, 1.45) * 3);
                     const badge = document.createElement('span');
                     badge.className = 'badge-pill';
@@ -1383,45 +1439,54 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             });
         };
 
-        // 5) ステージ一覧タブ：驚異度に応じた推奨レベルと危険度の可視化
+        // ステージタブ：元の移動ボタンやステージ一覧を一切壊さず、驚異度に応じた推奨レベルだけを追加表示
         P.enhanceZonesRecommendedLevelV44 = function (container) {
             const threat = getThreatVal(this.saveData, this);
             const myLv = this.saveData?.lv || 1;
 
-            const banner = document.createElement('div');
-            banner.className = 'card-box';
-            banner.style.cssText = 'border-color:#f59e0b;margin-bottom:8px;background:rgba(15,23,42,0.95);';
-            banner.innerHTML = `
-                <div class="flex-between" style="flex-wrap:wrap;">
-                    <span style="font-size:12px;font-weight:900;color:#fde047;">🔥 現在の驚異度: ${threat} / 999（推奨Lv +${threat * 3} 上昇中）</span>
-                    <span style="font-size:11px;color:#38bdf8;font-weight:900;">あなたの現在Lv: ${myLv}</span>
-                </div>
-                <div style="font-size:10px;color:#cbd5e1;margin-top:2px;">※ 驚異度が上がるほど全フィールドの推奨レベルと敵の強さ・報酬が跳ね上がります。</div>
-            `;
-            container.prepend(banner);
+            if (!container.querySelector('.v45-threat-header')) {
+                const banner = document.createElement('div');
+                banner.className = 'card-box v45-threat-header';
+                banner.style.cssText = 'border-color:#f59e0b;margin-bottom:8px;background:rgba(15,23,42,0.95);';
+                banner.innerHTML = `
+                    <div class="flex-between" style="flex-wrap:wrap;">
+                        <span style="font-size:12px;font-weight:900;color:#fde047;">🔥 現在の驚異度: ${threat} / 999（推奨Lv +${threat * 3} 上昇中）</span>
+                        <span style="font-size:11px;color:#38bdf8;font-weight:900;">現在Lv: ${myLv}</span>
+                    </div>
+                `;
+                container.prepend(banner);
+            }
 
-            container.querySelectorAll('.card-box').forEach((card, idx) => {
-                if (card === banner) return;
+            // 移動ボタンを持つ各ステージカードにのみ推奨Lvタグを追加（増殖防止）
+            let stageIdx = 0;
+            container.querySelectorAll('button').forEach(btn => {
+                const bTxt = (btn.textContent || '').trim();
+                if (!/(移動|出発|行く|テレポート|ワープ|挑戦)/.test(bTxt)) return;
+                const card = btn.closest('.card-box') || btn.parentElement;
+                if (!card || card.querySelector('.v44-zone-reclv')) return;
+
                 const txt = card.textContent || '';
-                if (txt.includes('安全街') || txt.includes('広場')) return;
+                const isTown = txt.includes('安全街') || txt.includes('広場');
                 const baseMatch = txt.match(/Lv\.?\s*(\d+)/i);
-                const baseLv = baseMatch ? Number(baseMatch[1]) : Math.max(1, idx * 12);
-                const scaledRecLv = baseLv + threat * 3;
-                const danger = scaledRecLv - myLv >= 30 ? '💀 危険' : (scaledRecLv > myLv ? '⚠️ 注意' : '✅ 適正');
-                const col = scaledRecLv - myLv >= 30 ? '#fb7185' : (scaledRecLv > myLv ? '#fde047' : '#34d399');
+                const baseLv = isTown ? 1 : (baseMatch ? Number(baseMatch[1]) : Math.max(1, stageIdx * 12));
+                stageIdx++;
 
-                if (!card.querySelector('.v44-zone-reclv')) {
-                    const tag = document.createElement('div');
-                    tag.className = 'v44-zone-reclv';
-                    tag.style.cssText = `font-size:11px;font-weight:900;color:${col};margin-top:4px;`;
-                    tag.textContent = `📊 驚異度反映 推奨Lv.${scaledRecLv}（基本Lv.${baseLv} + ${threat * 3}） [${danger}]`;
-                    card.appendChild(tag);
-                }
+                const scaledRecLv = isTown ? 1 : (baseLv + threat * 3);
+                const danger = isTown ? '🛡️ 安全' : (scaledRecLv - myLv >= 30 ? '💀 危険' : (scaledRecLv > myLv ? '⚠️ 注意' : '✅ 適正'));
+                const col = isTown ? '#34d399' : (scaledRecLv - myLv >= 30 ? '#fb7185' : (scaledRecLv > myLv ? '#fde047' : '#34d399'));
+
+                const tag = document.createElement('div');
+                tag.className = 'v44-zone-reclv';
+                tag.style.cssText = `font-size:11px;font-weight:900;color:${col};margin-top:4px;`;
+                tag.textContent = isTown
+                    ? `📊 推奨Lv.1 [🛡️ 安全街]`
+                    : `📊 驚異度反映 推奨Lv.${scaledRecLv}（基本Lv.${baseLv} + ${threat * 3}） [${danger}]`;
+                card.appendChild(tag);
             });
         };
 
         // -----------------------------------------------------------------
-        // G. メニュー統合（描画のたびに武器・実績・ペット装備・装備Lv・推奨Lvを反映）
+        // H. メニュー統合（ステージ二重描画を防止し、入れないバグを解消）
         // -----------------------------------------------------------------
         const MENU_TABS = [
             { id: 'stats', label: '📊 ステータス' },
@@ -1482,11 +1547,8 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             const modalBody = document.getElementById('modal-body');
             if (!modalBody) return;
 
-            let inner = document.getElementById('modal-body-content');
-            if (!inner) {
-                modalBody.innerHTML = '<div id="modal-body-content"></div>';
-                inner = document.getElementById('modal-body-content');
-            }
+            modalBody.innerHTML = '<div id="modal-body-content"></div>';
+            const inner = document.getElementById('modal-body-content');
 
             if (this.activeTab === 'evo') {
                 this.renderCareerTreeTabV43(inner);
@@ -1494,30 +1556,34 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                 return;
             }
 
-            if (_baseRenderGrowth) _baseRenderGrowth.call(this);
-            if (_baseRenderModal && _baseRenderModal !== P.renderGrowthTabContent) {
-                try { _baseRenderModal.call(this); } catch (e) {}
+            if (_baseRenderGrowth) {
+                _baseRenderGrowth.call(this);
+            } else if (_baseRenderModal && _baseRenderModal !== P.renderGrowthTabContent) {
+                _baseRenderModal.call(this);
             }
 
+            // 元の描画が modalBody 直下に出力した場合でも確実に拾う
+            const targetRoot = document.getElementById('modal-body-content') || modalBody;
+
             if (this.activeTab === 'titles') {
-                this.appendAchievementsPanelV44(inner);
+                this.appendAchievementsPanelV44(targetRoot);
             } else if (this.activeTab === 'pets') {
-                this.appendPetEquipPanelV44(inner);
+                this.appendPetEquipPanelV44(targetRoot);
             } else if (this.activeTab === 'equip') {
-                this.enforceEquipCraftLevelRequirementV44(inner);
-                // 装備変更ボタン押下時に3D武器の見た目を即座に更新
-                inner.querySelectorAll('button').forEach(btn => {
+                this.enforceEquipCraftLevelRequirementV44(targetRoot);
+                targetRoot.querySelectorAll('button').forEach(btn => {
                     if (btn.dataset.v44EquipHook) return;
                     btn.dataset.v44EquipHook = '1';
                     btn.addEventListener('click', () => {
                         setTimeout(() => {
+                            this._v45StatsDirty = true;
                             this.syncSingleWeaponVisualV42(true);
                             this.refreshAllHUD?.();
-                        }, 60);
+                        }, 80);
                     });
                 });
             } else if (this.activeTab === 'zones') {
-                this.enhanceZonesRecommendedLevelV44(inner);
+                this.enhanceZonesRecommendedLevelV44(targetRoot);
             }
 
             fixLightBgTextContrast(modalBody);
@@ -1525,7 +1591,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
         P.renderModalContent = function () { this.renderGrowthTabContent(); };
 
         // -----------------------------------------------------------------
-        // H. スキルボタン保護・復元 & ボタン配置・サイズ調整
+        // I. スキルボタン保護・復元 & ボタン配置・サイズ調整
         // -----------------------------------------------------------------
         P.ensureSkillButtonsRestored = function () {
             const container = document.getElementById('skill-slots-container');
@@ -1715,7 +1781,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
         };
 
         // -----------------------------------------------------------------
-        // I. 確認ダイアログ & 完全初期化 & 毎フレーム更新
+        // J. 確認ダイアログ & 完全初期化 & 毎フレーム更新
         // -----------------------------------------------------------------
         P.openDialog = function (title, message, buttons) {
             if (title && typeof title === 'object') {
@@ -1770,6 +1836,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
         P.updateCombatAndEntities = function (dt, elapsed) {
             _origCombatUpdate?.call(this, dt, elapsed);
             this.updateTieredAttackEffectsV44(dt);
+            this.cleanupExpiredSkillEffectsV45();
 
             if (this.player && this.player.pos && this.player.group) {
                 const inSkillAir = this.player.skillMotionV25 && this.player.skillMotionV25.timer > 0;
@@ -1787,7 +1854,6 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
         installMasterPatch();
         cleanChatPanelUI();
 
-        // 驚異度クイックボタン接続（上限999）
         document.getElementById('btn-threat-plus10')?.addEventListener('click', (e) => { e.stopPropagation(); window.game?.changeThreatLevel?.(10); });
         document.getElementById('btn-threat-plus100')?.addEventListener('click', (e) => { e.stopPropagation(); window.game?.changeThreatLevel?.(100); });
         document.getElementById('btn-threat-max999')?.addEventListener('click', (e) => { e.stopPropagation(); window.game?.setThreatLevelV44?.(999); });
@@ -1802,17 +1868,12 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             });
         }
 
-        const chatPanel = document.getElementById('chat-panel');
-        if (chatPanel && typeof MutationObserver !== 'undefined') {
-            let obsLock = false;
-            const obs = new MutationObserver(() => {
-                if (obsLock) return;
-                obsLock = true;
-                cleanChatPanelUI();
-                setTimeout(() => { obsLock = false; }, 100);
-            });
-            obs.observe(chatPanel, { childList: true, subtree: true });
-        }
+        // 実績は重い常時監視ではなく2.5秒に1回だけ軽量チェック
+        setInterval(() => {
+            if (window.game && !window.game.isModalOpen) {
+                window.game.evaluateAchievementsV44?.(false);
+            }
+        }, 2500);
 
         setTimeout(() => {
             installMasterPatch();
@@ -1821,8 +1882,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             window.game?.syncSingleWeaponVisualV42?.(true);
             window.game?.ensureSkillButtonsRestored?.();
             window.game?.updateRecommendedLevelBadgeV44?.();
-            fixLightBgTextContrast();
-        }, 450);
+        }, 500);
 
         setTimeout(() => {
             window.game?.syncSingleWeaponVisualV42?.(true);
