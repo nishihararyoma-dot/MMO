@@ -3,7 +3,16 @@
 // =========================================================================
 // 顔文字ファンタジー3D コアシステム・セーブ・タイトル・チャット基盤 (game1.js)
 // =========================================================================
-
+window.canEquipWeaponForJob = window.canEquipWeaponForJob || function (weaponOrId, jobOrEvoId) {
+    const wpn = (typeof weaponOrId === 'string' && typeof WEAPONS !== 'undefined')
+        ? WEAPONS[weaponOrId]
+        : weaponOrId;
+    if (!wpn) return true;
+    const jobId = String(typeof jobOrEvoId === 'object' ? (jobOrEvoId?.id || '') : (jobOrEvoId || 'novice'));
+    if (Array.isArray(wpn.jobs) && wpn.jobs.length > 0) return wpn.jobs.includes(jobId);
+    if (Array.isArray(wpn.allowedJobs) && wpn.allowedJobs.length > 0) return wpn.allowedJobs.includes(jobId);
+    return true;
+};
 window.__faceTexCache = window.__faceTexCache || new Map();
 function getKaomojiFaceTexture(kaomoji, bgHex = '#073b66', textHex = '#ffffff', borderHex = '#38bdf8') {
     const key = `${kaomoji}|${bgHex}|${textHex}|${borderHex}`;
