@@ -1,5 +1,18 @@
 'use strict';
-
+window.MAX_PLAYER_LEVEL = 999;
+window.MAX_PET_LEVEL = 999;
+window.MAX_ENHANCE_LEVEL = 20;
+window.MAX_THREAT_RANK = 50;
+window.EMOTES = window.EMOTES || [
+    { kaomoji: '(≧▽≦)', label: 'やったー！', motion: 'jump' },
+    { kaomoji: '(´・ω・`)', label: 'しょぼん…', motion: 'none' },
+    { kaomoji: '(｀・ω・´)', label: 'いくぞ！', motion: 'nod' },
+    { kaomoji: '(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧', label: 'わーい！', motion: 'spin' },
+    { kaomoji: '(=^・ω・^=)', label: 'にゃーん', motion: 'jump' },
+    { kaomoji: '(╬ﾟ皿ﾟ)', label: '怒ったぞ！', motion: 'shake' },
+    { kaomoji: '(´；ω；`)', label: 'たすけて…', motion: 'shake' },
+    { kaomoji: '(๑•̀ㅂ•́)و✧', label: 'ナイス！', motion: 'nod' }
+];
 window.SAVE_KEY = 'kaomoji_mmorpg_3d_save_v2';
 
 function createHybridRegistry(list) {
