@@ -108,81 +108,58 @@ if (typeof KaomojiMMORPG !== 'undefined') {
     };
 
     // ---------------------------------------------------------------------
-    // 3. スキル使用（useSkill <-> useSkillSlot）＆クールダウン配列の完全統合
+    // 3. スキル使用の統合（修正版）
+    //    ・クールダウンの実体は this.skillCooldowns（game3 が毎フレーム減算）
+    //    ・game6/7/8 は player.skillCds を見るので、同じ配列を指す「別名」にする
+    //    ・Lv追加ダメージは game7、状態異常は game8 が既に付与しているのでここでは足さない
+    //    ・包んだ層が握りつぶしていた戻り値(true/false)をここで復元する
     // ---------------------------------------------------------------------
-    const _origUseSkill = P.useSkill;
+    P.aliasSkillCooldownsV39 = function () {
+        if (!Array.isArray(this.skillCooldowns)) this.skillCooldowns = [0, 0, 0, 0, 0];
+        if (this.player && this.player.skillCds !== this.skillCooldowns) {
+            this.player.skillCds = this.skillCooldowns;
+        }
+        this.skillCds = this.skillCooldowns;
+    };
+
     const _origUseSkillSlot = P.useSkillSlot;
 
-    P.useSkill = function (slotIdx) {
-        if (this._uiEditModeV31) return;
+    P.useSkillSlot = function (slotIdx) {
+        if (this._uiEditModeV31) return false;
+        if (!this.player || this.isDead || !this.saveData) return false;
         this.syncSaveDataCompatV38();
+        this.aliasSkillCooldownsV39();
         this.maintainInfiniteResources?.();
         this.syncSkillMpCostsV22?.();
 
-        if (!Array.isArray(this.skillCooldowns)) this.skillCooldowns = [0, 0, 0, 0, 0];
-        if (this.player && !Array.isArray(this.player.skillCds)) {
-            this.player.skillCds = [...this.skillCooldowns];
+        // 内側の層（演出・追加ダメージ・状態異常）を失敗時に動かさないための事前チェック
+        // （game3 の useSkillSlot 冒頭と同じ条件）
+        const skillId = (this.saveData.equippedSkills || [])[slotIdx];
+        if (typeof SKILLS === 'undefined' || !skillId || !SKILLS[skillId]) return false;
+        if ((this.player.stunTimer || 0) > 0) return _origUseSkillSlot ? !!_origUseSkillSlot.call(this, slotIdx) : false;
+        if ((this.skillCooldowns[slotIdx] || 0) > 0) return false;
+        const sk = SKILLS[skillId];
+        if (!sk.isSupport && this.currentZoneId === 'town') {
+            this.showAlertBanner?.('🏰 広場では攻撃スキルは使えません', 1000);
+            return false;
+        }
+        const lv = Math.max(1, (this.saveData.skills && this.saveData.skills[skillId]) || 1);
+        const mpCost = (typeof getSkillMpCost === 'function') ? getSkillMpCost(sk, lv) : (sk.mpCost || 0);
+        if ((this.player.mp || 0) < mpCost) {
+            this.showAlertBanner?.(`💧 MPが足りません！（必要MP: ${mpCost}）`, 1000);
+            return false;
         }
 
-        const meta = this.resolveSkillMeta ? this.resolveSkillMeta(slotIdx) : null;
-        const lv = meta ? meta.skillLv : 1;
-        const beforeCd = Math.max(this.skillCooldowns[slotIdx] || 0, this.player?.skillCds?.[slotIdx] || 0);
-
-        if (_origUseSkill) {
-            _origUseSkill.call(this, slotIdx);
-        } else if (_origUseSkillSlot) {
-            _origUseSkillSlot.call(this, slotIdx);
-        }
-
-        // クールダウン配列を双方向同期
-        if (this.player && Array.isArray(this.player.skillCds)) {
-            this.player.skillCds[slotIdx] = this.skillCooldowns[slotIdx] || 0;
-        }
-
-        // 発動成功時のLvスケーリング追加ダメージ＆状態異常付与
-        const afterCd = this.skillCooldowns[slotIdx] || 0;
-        if (beforeCd <= 0.05 && afterCd > 0.1 && meta && this.player?.pos && Array.isArray(this.monsters)) {
-            const st = this.getPlayerStats();
-            const mult = this.calcSkillPowerMultiplierV26 ? this.calcSkillPowerMultiplierV26(lv) : (1 + (lv - 1) * 0.25);
-            const bonusDmg = lv >= 2 ? Math.max(12, Math.floor((st.atk || 30) * (mult - 1) * 0.55)) : 0;
-            const range = lv >= 100 ? 11.0 : (lv >= 50 ? 8.8 : 7.0);
-            const px = this.player.pos.x;
-            const pz = this.player.pos.z;
-
-            let stType = null;
-            if (meta.skillCategory === 'fire' || meta.skillCategory === 'bigbang') stType = 'burn';
-            else if (meta.skillCategory === 'nova_ice') stType = 'freeze';
-            else if (meta.skillCategory === 'thunder') stType = 'shock';
-            else if (meta.skillCategory === 'void') stType = 'poison';
-
-            this.monsters.forEach(m => {
-                if (!m || m.dead || !m.pos) return;
-                if (Math.hypot(m.pos.x - px, m.pos.z - pz) <= range) {
-                    if (bonusDmg > 0) {
-                        if (typeof this.damageMonster === 'function') {
-                            this.damageMonster(m, bonusDmg, lv >= 50);
-                        } else if (typeof m.hp === 'number') {
-                            m.hp = Math.max(0, m.hp - bonusDmg);
-                            const tag = lv >= 100 ? `👑奥義 +${bonusDmg}` : `⚡Lv.${lv} +${bonusDmg}`;
-                            this.spawnFloatingText?.(m.pos, tag, lv >= 100 ? '#fde047' : '#38bdf8');
-                        }
-                    }
-                    if (stType) {
-                        m._visualStatus = { type: stType, timer: 5.5 };
-                        if (stType === 'burn') m.burnTimer = Math.max(m.burnTimer || 0, 5.5);
-                        if (stType === 'freeze') m.freezeTimer = Math.max(m.freezeTimer || 0, 4.5);
-                        if (stType === 'poison') m.poisonTimer = Math.max(m.poisonTimer || 0, 6.0);
-                        if (stType === 'shock') m.stun = Math.max(m.stun || 0, 3.5);
-                    }
-                }
-            });
-        }
+        if (!_origUseSkillSlot) return false;
+        _origUseSkillSlot.call(this, slotIdx);
         this.maintainInfiniteResources?.();
+
+        // 戻り値の復元：クールダウンが入っていれば発動成功
+        return (this.skillCooldowns[slotIdx] || 0) > 0.1;
     };
 
-    P.useSkillSlot = function (slotIdx) {
-        this.useSkill(slotIdx);
-    };
+    // useSkill という名前で呼ぶ外部コード向けの互換エイリアス
+    P.useSkill = function (slotIdx) { return this.useSkillSlot(slotIdx); };
 
     // ---------------------------------------------------------------------
     // 4. 自分のペット3D参照の統一（this.pet <-> this.petEntity）
@@ -208,11 +185,12 @@ if (typeof KaomojiMMORPG !== 'undefined') {
             const rdt = Math.min(0.1, Math.max(0.001, (now - this._lastRemoteSyncTsV38) / 1000));
             this._lastRemoteSyncTsV38 = now;
 
+            this.aliasSkillCooldownsV39?.();
             if (typeof this.updateRemotePlayers === 'function') {
-                try { this.updateRemotePlayers(rdt); } catch (e) {}
+                try { this.updateRemotePlayers(rdt); } catch (e) { if (!this._warnRemoteV39) { this._warnRemoteV39 = 1; console.warn('updateRemotePlayers:', e); } }
             }
             if (typeof this.updateAuroraSanctuaries === 'function') {
-                try { this.updateAuroraSanctuaries(rdt); } catch (e) {}
+                try { this.updateAuroraSanctuaries(rdt); } catch (e) { if (!this._warnAuroraV39) { this._warnAuroraV39 = 1; console.warn('updateAuroraSanctuaries:', e); } }
             }
             _origLoop.call(this, now);
         };
@@ -273,7 +251,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         add('move_stick', '🕹️ 移動', document.getElementById('kmj-v33-movepad'));
         add('btn_attack', '⚔️ 攻撃', document.getElementById('btn-attack') || document.getElementById('btn-basic-attack'));
         add('btn_taunt', '💢 挑発', document.getElementById('kmj-btn-taunt-v26'));
-        add('btn_target', '🎯 標的', document.getElementById('btn-target') || document.getElementById('btn-target-switch'));
+        add('btn_target', '🎯 標的', document.getElementById('btn-cycle-target') || document.getElementById('btn-target') || document.getElementById('btn-target-switch'));
 
         for (let i = 0; i < 5; i++) {
             const slotEl = document.getElementById(`btn-skill-${i}`) || document.getElementById(`skill-slot-${i}`);
@@ -317,4 +295,4 @@ window.addEventListener('DOMContentLoaded', () => {
         window.game.refreshAllHUD?.();
     }, 300);
 });
-// === GAME9_BRIDGE_OK ===
+// === GAME9_BRIDGE_OK (v39: skill chain unified) ===
