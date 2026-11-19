@@ -67,6 +67,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
 #warp-prompt-box{position:fixed;bottom:135px;left:50%;transform:translateX(-50%);z-index:32;pointer-events:auto}
 #chat-wrapper{position:fixed;left:10px;bottom:146px;z-index:30;pointer-events:none;display:flex;flex-direction:column;align-items:flex-start;gap:4px}
 #chat-panel{width:290px;height:185px;min-width:210px;min-height:115px;max-width:88vw;max-height:60vh;background:rgba(15,23,42,.90);border:1.5px solid rgba(56,189,248,.55);border-radius:12px;padding:6px 8px 10px 6px;pointer-events:auto;display:flex;flex-direction:column;gap:5px;resize:both!important;overflow:auto!important}
+#chat-panel [style*="ns-resize"],#chat-panel [style*="row-resize"],#chat-wrapper [style*="ns-resize"],#chat-wrapper [style*="row-resize"],.kmj-chat-drag-handle,.chat-resize-bar{display:none!important;pointer-events:none!important;height:0!important}
 .chat-tabs{display:flex;gap:4px;align-items:center;flex-shrink:0}
 .chat-tab-btn{flex:1;border:none;border-radius:6px;padding:4px 6px;font-size:10px;font-weight:900;color:#cbd5e1;background:#1e293b;cursor:pointer;pointer-events:auto}
 .chat-tab-btn.active{background:#0284c7;color:#fff}
@@ -76,11 +77,12 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
 .chat-input-row{display:flex;gap:4px;flex-shrink:0}
 #joystick-zone{position:fixed;left:18px;bottom:18px;width:114px;height:114px;border-radius:50%;background:rgba(15,23,42,.55);border:2px solid rgba(56,189,248,.45);display:flex;align-items:center;justify-content:center;z-index:28;pointer-events:auto;touch-action:none}
 #joystick-knob{width:46px;height:46px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#7dd3fc,#0284c7);border:2px solid #fff;box-shadow:0 4px 12px rgba(0,0,0,.5);pointer-events:none}
-#battle-pad{position:fixed;right:12px;bottom:12px;width:215px;height:215px;z-index:28;pointer-events:none!important}
-#btn-basic-attack{position:absolute;right:6px;bottom:6px;width:76px;height:76px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#fb7185,#e11d48);border:3px solid #fde047;color:#fff;font-size:13px;font-weight:900;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(225,29,72,.65);cursor:pointer;pointer-events:auto!important;touch-action:none;z-index:30}
+#battle-pad{position:fixed;right:12px;bottom:12px;width:215px;height:215px;z-index:28;pointer-events:none!important;display:block!important;visibility:visible!important}
+#skill-slots-container{display:block!important;visibility:visible!important;opacity:1!important}
+#btn-basic-attack{position:absolute;right:6px;bottom:6px;width:76px;height:76px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#fb7185,#e11d48);border:3px solid #fde047;color:#fff;font-size:13px;font-weight:900;display:flex!important;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(225,29,72,.65);cursor:pointer;pointer-events:auto!important;touch-action:none;z-index:30}
 #btn-basic-attack:active{transform:scale(.92)}
-#btn-cycle-target{position:absolute;right:12px;bottom:168px;border-radius:999px;padding:6px 11px;font-size:11px;pointer-events:auto!important;z-index:30}
-.skill-slot-btn{position:absolute;width:48px;height:48px;border-radius:50%;background:rgba(15,23,42,.92);border:2px solid #38bdf8;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.6);cursor:pointer;pointer-events:auto!important;touch-action:none;overflow:hidden;z-index:29}
+#btn-cycle-target{position:absolute;right:12px;bottom:168px;border-radius:999px;padding:6px 11px;font-size:11px;display:inline-flex!important;pointer-events:auto!important;z-index:30}
+.skill-slot-btn{position:absolute;width:48px;height:48px;border-radius:50%;background:rgba(15,23,42,.92);border:2px solid #38bdf8;color:#fff;display:flex!important;visibility:visible!important;opacity:1!important;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.6);cursor:pointer;pointer-events:auto!important;touch-action:none;overflow:hidden;z-index:29}
 .skill-slot-btn:active{transform:scale(.92)}
 .skill-arc-0{right:94px;bottom:8px}.skill-arc-1{right:86px;bottom:62px}.skill-arc-2{right:62px;bottom:108px}.skill-arc-3{right:16px;bottom:114px}.skill-arc-4{right:146px;bottom:10px}
 .skill-cd-overlay{position:absolute;inset:0;background:rgba(2,6,23,.82);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fde047;pointer-events:none}
@@ -91,11 +93,13 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
 .tab-chip-btn{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:900;color:#cbd5e1;white-space:nowrap;cursor:pointer;pointer-events:auto}
 .tab-chip-btn.active{background:#0284c7;border-color:#7dd3fc;color:#fff}
 #modal-body{padding:12px;overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1;color:#f8fafc}
-.card-box{background:rgba(30,41,59,.85);border:1px solid #334155;border-radius:10px;padding:9px 10px;color:#f8fafc}
+.card-box{background:rgba(30,41,59,.82);border:1px solid #334155;border-radius:10px;padding:9px 10px;color:#f8fafc}
 .flex-between{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .flex-wrap-gap{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
 .grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px}
 .grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px}
+.evo-split-cols{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start}
+@media(max-width:540px){.evo-split-cols{grid-template-columns:1fr 1fr;gap:6px}}
 .badge-pill{display:inline-block;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}
 #dialog-modal{position:fixed;inset:0;z-index:100;background:rgba(2,6,23,.82);display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:auto}
 .dialog-box{width:100%;max-width:360px;background:#0f172a;border:2px solid #f59e0b;border-radius:14px;padding:16px;text-align:center;display:flex;flex-direction:column;gap:12px;color:#f8fafc}
@@ -109,7 +113,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
 <div id="title-screen">
     <div class="title-card">
         <div class="title-logo-kaomoji font-kaomoji">(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧ ⚔️ (=^・ω・^=)</div>
-        <h1 class="title-main-heading">顔文字ファンタジー3D<br><span style="font-size:13px;-webkit-text-fill-color:#94a3b8;">KAOMOJI FANTASY 3D ONLINE</span></h1>
+        <h1 class="title-main-heading">顔文字ファンタジー3D<br><span style="font-size:13px;-webkit-text-fill-color:#94a3b8;">KAOMOJI FANTASY 3D ONLINE [v3.4 完全版]</span></h1>
         <div class="title-save-preview" id="title-save-info">データ準備中...</div>
         <div class="title-room-box">
             <div class="flex-between">
@@ -157,6 +161,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
                 <span id="hud-zone-name">始まりの顔文字広場</span>
                 <span id="hud-safe-badge" class="badge-pill" style="background:#059669;color:#fff;">🛡️安全街</span>
                 <span id="hud-threat-badge" class="badge-pill hidden" style="background:#be123c;color:#fff;">脅威+1</span>
+                <span id="hud-rec-lv-badge" class="badge-pill" style="background:#065f46;color:#a7f3d0;">推奨Lv.1</span>
             </div>
             <div class="hud-action-row">
                 <button type="button" id="btn-hud-online-toggle" class="btn-ui btn-slate">📴 オフライン</button>
@@ -175,9 +180,16 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             <button type="button" id="btn-threat-down" class="btn-ui btn-slate" style="flex:1;">🔥脅威 -1</button>
             <button type="button" id="btn-threat-up" class="btn-ui btn-rose" style="flex:1;">🔥脅威 +1</button>
         </div>
+        <div style="display:flex;gap:4px;">
+            <button type="button" id="btn-threat-plus10" class="btn-ui btn-amber" style="flex:1;padding:5px;font-size:10px;">+10</button>
+            <button type="button" id="btn-threat-plus100" class="btn-ui btn-rose" style="flex:1;padding:5px;font-size:10px;">+100</button>
+            <button type="button" id="btn-threat-max999" class="btn-ui btn-fuchsia" style="flex:1;padding:5px;font-size:10px;">999</button>
+            <button type="button" id="btn-threat-zero" class="btn-ui btn-slate" style="flex:1;padding:5px;font-size:10px;">0</button>
+        </div>
         <button type="button" id="btn-open-cloud" class="btn-ui btn-sky" style="width:100%;">🌐 通信･部屋･引継ぎ</button>
         <button type="button" id="btn-manual-save" class="btn-ui btn-emerald" style="width:100%;">💾 手動セーブ</button>
         <button type="button" id="btn-toggle-bgm" class="btn-ui btn-slate" style="width:100%;">🔊 BGM:ON</button>
+        <button type="button" id="btn-ui-layout-settings" class="btn-ui btn-sky" style="width:100%;">🎛️ ボタン配置・サイズ</button>
         <button type="button" id="btn-back-title" class="btn-ui btn-amber" style="width:100%;">🏠 タイトル画面へ戻る</button>
         <button type="button" id="btn-reset-save" class="btn-ui btn-rose" style="width:100%;">💥 完全データ初期化</button>
     </div>
@@ -198,6 +210,7 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
             <div class="chat-tabs">
                 <button type="button" id="btn-chat-tab-global" class="chat-tab-btn active">🌍 全体チャット</button>
                 <button type="button" id="btn-chat-tab-room" class="chat-tab-btn">🏠 部屋/オフライン</button>
+                <button type="button" id="btn-hide-chat-panel" class="btn-ui btn-rose" style="padding:3px 7px;font-size:10px;flex-shrink:0;">✕ 消す</button>
             </div>
             <div id="chat-messages"></div>
             <div class="chat-quick-row">
@@ -254,5 +267,1572 @@ select,option,textarea,input,.input-ui{background-color:#0f172a!important;color:
 <script src="game6.js?v=20261118mqtt"></script>
 <script src="game7.js?v=20261119fix"></script>
 <script src="game8.js?v=20261119fix"></script>
+<script>
+// === [PART 1 ここまで] このすぐ下に PART 2 を貼り付けてください ===
+// =========================================================================
+// 統合完成パッチ v3.4 [PART 2]
+// =========================================================================
+(function () {
+    if (window.__KMJ_MASTER_PATCH_V44__) return;
+    window.__KMJ_MASTER_PATCH_V44__ = true;
+
+    function throttle(fn, ms) {
+        if (typeof fn !== 'function') return fn;
+        let last = 0;
+        return function (...args) {
+            const now = performance.now();
+            if (now - last < ms) return;
+            last = now;
+            return fn.apply(this, args);
+        };
+    }
+
+    // =====================================================================
+    // 1. Lv.1 〜 Lv.999 段階的役職データ（左：剣士系 ／ 右：魔法使い系）
+    // =====================================================================
+    const SWORD_CAREER_PATH = [
+        { id: 'sw_01_apprentice', tier: 1, branch: 'sword', isMage: false, name: '見習い剣士', reqLv: 1, cost: 0, icon: '🗡️', kaomoji: '(｀・ω・´)', color: '#94a3b8', desc: '剣の道を歩み始めた初心者剣士。', bonus: { physAtk: 5, maxHp: 20 } },
+        { id: 'sw_02_warrior', tier: 2, branch: 'sword', isMage: false, name: '熟練戦士', reqLv: 10, cost: 200, icon: '⚔️', kaomoji: '( •̀ᄇ• ́)ﻭ', color: '#38bdf8', desc: '基本剣技を習得した一人前の戦士。', bonus: { physAtk: 18, maxHp: 80, def: 6 } },
+        { id: 'sw_03_knight', tier: 3, branch: 'sword', isMage: false, name: '白銀騎士', reqLv: 25, cost: 600, icon: '🛡️', kaomoji: '(｀・ω・´)🛡️', color: '#60a5fa', desc: '攻守に優れた王国の正規騎士。二重斬撃を放つ。', bonus: { physAtk: 35, maxHp: 180, def: 15 } },
+        { id: 'sw_04_blademaster', tier: 4, branch: 'sword', isMage: false, name: '疾風剣豪', reqLv: 50, cost: 1500, icon: '🌪️', kaomoji: '(｀・ω・´)⚔️', color: '#22d3ee', desc: '神速の太刀筋で敵を斬り伏せる剣豪。', bonus: { physAtk: 65, maxHp: 320, critChance: 0.08, critDmg: 0.25 } },
+        { id: 'sw_05_paladin', tier: 5, branch: 'sword', isMage: false, name: '聖銀の守護騎士', reqLv: 85, cost: 3500, icon: '✨', kaomoji: '( •̀ᄇ• ́)ﻭ✧', color: '#fde047', desc: '聖なる加護を受けた不屈の聖騎士。', bonus: { physAtk: 105, maxHp: 560, def: 32, lifesteal: 0.05 } },
+        { id: 'sw_06_berserker', tier: 6, branch: 'sword', isMage: false, name: '紅蓮の狂戦士', reqLv: 130, cost: 8000, icon: '🔥', kaomoji: '(╬◣д◢)🔥', color: '#f43f5e', desc: '闘気を燃やし三重斬撃と衝撃波を放つ狂戦士。', bonus: { physAtk: 170, maxHp: 850, critChance: 0.12, critDmg: 0.45 } },
+        { id: 'sw_07_dragonslayer', tier: 7, branch: 'sword', isMage: false, name: '龍殺しの剣聖', reqLv: 190, cost: 18000, icon: '🐉', kaomoji: '(ง •̀_•́)ง🐉', color: '#fb923c', desc: '古龍の鱗さえ断ち切る伝説の剣聖。', bonus: { physAtk: 260, maxHp: 1300, def: 55, critDmg: 0.65 } },
+        { id: 'sw_08_overlord', tier: 8, branch: 'sword', isMage: false, name: '蒼穹の覇王騎士', reqLv: 270, cost: 40000, icon: '👑', kaomoji: '( ｰ`дｰ´)👑', color: '#818cf8', desc: '戦場を統べる無双の覇王騎士。', bonus: { physAtk: 390, maxHp: 2000, def: 85, lifesteal: 0.08 } },
+        { id: 'sw_09_flashemperor', tier: 9, branch: 'sword', isMage: false, name: '神速の閃光剣帝', reqLv: 370, cost: 90000, icon: '⚡', kaomoji: '⚡(｀・ω・´)⚡', color: '#facc15', desc: '光速の斬撃と光の飛翔剣を放つ剣帝。', bonus: { physAtk: 560, maxHp: 3000, critChance: 0.16, critDmg: 0.90 } },
+        { id: 'sw_10_wargod', tier: 10, branch: 'sword', isMage: false, name: '修羅の戦神', reqLv: 500, cost: 200000, icon: '👹', kaomoji: '(╬ಠ益ಠ)⚔️', color: '#e11d48', desc: '百戦錬磨の果てに戦神と化した剣士。', bonus: { physAtk: 820, maxHp: 4500, def: 130, critDmg: 1.15 } },
+        { id: 'sw_11_starbreaker', tier: 11, branch: 'sword', isMage: false, name: '星砕きの天剣士', reqLv: 650, cost: 450000, icon: '🌠', kaomoji: '★( •̀ᄇ• ́)ﻭ★', color: '#38bdf8', desc: '一振りで流星を両断する天界の剣士。', bonus: { physAtk: 1180, maxHp: 6800, def: 185, lifesteal: 0.11 } },
+        { id: 'sw_12_genesisking', tier: 12, branch: 'sword', isMage: false, name: '創世の聖剣王', reqLv: 800, cost: 900000, icon: '🌟', kaomoji: '✧(｀・ω・´)✧', color: '#fde047', desc: '十字裂空の極大斬撃を放つ創世の聖剣王。', bonus: { physAtk: 1650, maxHp: 9800, def: 260, critChance: 0.20, critDmg: 1.45 } },
+        { id: 'sw_13_dimensiongod', tier: 13, branch: 'sword', isMage: false, name: '次元斬りの超越剣神', reqLv: 900, cost: 2000000, icon: '🌌', kaomoji: '🌌( ｰ`дｰ´)⚔️', color: '#a78bfa', desc: '空間と次元そのものを斬り裂く超越剣神。', bonus: { physAtk: 2300, maxHp: 14000, def: 350, critDmg: 1.80 } },
+        { id: 'sw_14_ultimatesword', tier: 14, branch: 'sword', isMage: false, name: '終焉と創生の究極剣聖神', reqLv: 999, cost: 5000000, icon: '👑', kaomoji: '👑⚔️(ﾉ◕ヮ◕)ﾉ⚔️👑', color: '#f59e0b', desc: 'Lv.999到達者のみが至る剣の頂点。', bonus: { physAtk: 3500, maxHp: 22000, def: 500, critChance: 0.25, critDmg: 2.30, lifesteal: 0.15 } }
+    ];
+
+    const MAGE_CAREER_PATH = [
+        { id: 'mg_01_apprentice', tier: 1, branch: 'mage', isMage: true, name: '見習い魔道士', reqLv: 1, cost: 0, icon: '🪄', kaomoji: '(´・ω・`)☆', color: '#c084fc', desc: '杖を携え魔法弾を放つ初心者魔道士。', bonus: { magAtk: 6, maxMp: 25 } },
+        { id: 'mg_02_magician', tier: 2, branch: 'mage', isMage: true, name: '正規魔術師', reqLv: 10, cost: 200, icon: '🔮', kaomoji: '(⊃｡•́‿•̀｡)⊃━☆', color: '#a855f7', desc: '魔力制御を身につけた一人前の魔術師。', bonus: { magAtk: 22, maxMp: 80, maxHp: 40 } },
+        { id: 'mg_03_elementalist', tier: 3, branch: 'mage', isMage: true, name: '元素使い', reqLv: 25, cost: 600, icon: '🔥', kaomoji: '(ﾉ◕ヮ◕)ﾉ🔥❄️', color: '#38bdf8', desc: '魔法陣を展開し元素魔法弾を放つ術師。', bonus: { magAtk: 42, maxMp: 160, critChance: 0.06 } },
+        { id: 'mg_04_archmage', tier: 4, branch: 'mage', isMage: true, name: '星詠みの大賢者', reqLv: 50, cost: 1500, icon: '✨', kaomoji: '(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧', color: '#e879f9', desc: '星屑の聖杖から高密度の魔法弾を放つ大賢者。', bonus: { magAtk: 78, maxMp: 280, critChance: 0.10, critDmg: 0.30 } },
+        { id: 'mg_05_necromancer', tier: 5, branch: 'mage', isMage: true, name: '宵闇の死霊術師', reqLv: 85, cost: 3500, icon: '🌙', kaomoji: '(☍﹏⁰)†', color: '#9333ea', desc: '冥府の魔力で敵の生命力を吸収する術師。', bonus: { magAtk: 125, maxMp: 420, maxHp: 350, lifesteal: 0.07 } },
+        { id: 'mg_06_chronomancer', tier: 6, branch: 'mage', isMage: true, name: '時空の魔導士', reqLv: 130, cost: 8000, icon: '⏳', kaomoji: '⏳(⊃｡•́‿•̀｡)⊃', color: '#22d3ee', desc: '二重魔法陣と衛星魔弾を操る高位の魔導士。', bonus: { magAtk: 195, maxMp: 650, critChance: 0.14, critDmg: 0.50 } },
+        { id: 'mg_07_abysswarlock', tier: 7, branch: 'mage', isMage: true, name: '深淵の禁呪導師', reqLv: 190, cost: 18000, icon: '🌑', kaomoji: '🌑(ΦωΦ)✨', color: '#7c3aed', desc: '古代の禁呪を解き放つ深淵の導師。', bonus: { magAtk: 295, maxMp: 950, maxHp: 750, critDmg: 0.75 } },
+        { id: 'mg_08_astralqueen', tier: 8, branch: 'mage', isMage: true, name: '天球の星霊賢王', reqLv: 270, cost: 40000, icon: '🌟', kaomoji: '🌟(ﾉ◕ヮ◕)ﾉ👑', color: '#f472b6', desc: '星霊たちの祝福を受けた魔道の王。', bonus: { magAtk: 440, maxMp: 1400, def: 65, lifesteal: 0.09 } },
+        { id: 'mg_09_chaosemperor', tier: 9, branch: 'mage', isMage: true, name: '混沌の元素魔帝', reqLv: 370, cost: 90000, icon: '☄️', kaomoji: '🔥❄️⚡(｀・ω・´)', color: '#fb7185', desc: '三重極大魔弾と流星陣を放つ混沌の魔帝。', bonus: { magAtk: 640, maxMp: 2100, critChance: 0.17, critDmg: 0.95 } },
+        { id: 'mg_10_voidseeker', tier: 10, branch: 'mage', isMage: true, name: '虚空の真理探究者', reqLv: 500, cost: 200000, icon: '👁️', kaomoji: '👁️(⊃｡•́‿•̀｡)⊃', color: '#818cf8', desc: '世界の理と真理に到達した大魔導。', bonus: { magAtk: 930, maxMp: 3100, maxHp: 2800, critDmg: 1.25 } },
+        { id: 'mg_11_galaxysage', tier: 11, branch: 'mage', isMage: true, name: '銀河の星神大魔導', reqLv: 650, cost: 450000, icon: '🌌', kaomoji: '🌌(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧', color: '#38bdf8', desc: '無数の星々の魔力を宿す銀河の魔導神。', bonus: { magAtk: 1340, maxMp: 4500, def: 145, lifesteal: 0.12 } },
+        { id: 'mg_12_wisdomgod', tier: 12, branch: 'mage', isMage: true, name: '創世の叡智神', reqLv: 800, cost: 900000, icon: '📜', kaomoji: '✧(⊃｡•́‿•̀｡)⊃✧', color: '#fde047', desc: '三重神聖魔法陣と極光星辰弾を放つ叡智神。', bonus: { magAtk: 1880, maxMp: 6500, maxHp: 6200, critChance: 0.21, critDmg: 1.55 } },
+        { id: 'mg_13_dimensionmage', tier: 13, branch: 'mage', isMage: true, name: '次元支配の超越魔神', reqLv: 900, cost: 2000000, icon: '🔮', kaomoji: '🌌🔮(ΦωΦ)🔮🌌', color: '#c084fc', desc: '異次元の魔力を自在に操る超越魔神。', bonus: { magAtk: 2600, maxMp: 9200, def: 260, critDmg: 1.90 } },
+        { id: 'mg_14_ultimatemage', tier: 14, branch: 'mage', isMage: true, name: '万象と星辰の究極大魔導神', reqLv: 999, cost: 5000000, icon: '👑', kaomoji: '👑🔮(ﾉ◕ヮ◕)ﾉ🔮👑', color: '#e879f9', desc: 'Lv.999到達者のみが至る魔道の極致。', bonus: { magAtk: 3900, maxMp: 15000, maxHp: 15000, def: 380, critChance: 0.25, critDmg: 2.40, lifesteal: 0.15 } }
+    ];
+
+    const ALL_CAREERS = [...SWORD_CAREER_PATH, ...MAGE_CAREER_PATH];
+
+    // =====================================================================
+    // 2. 実績システム（36種追加 ＋ 所持分すべて常時バフ適用）
+    // =====================================================================
+    const ACHIEVEMENTS_V44 = [
+        { id: 'ach_lv_5', name: '駆け出し冒険者', desc: 'Lv.5に到達する', check: (sd) => (sd.lv || 1) >= 5, buff: { maxHp: 40, physAtk: 4, magAtk: 4 } },
+        { id: 'ach_lv_15', name: '一人前の顔文字戦士', desc: 'Lv.15に到達する', check: (sd) => (sd.lv || 1) >= 15, buff: { maxHp: 100, physAtk: 10, magAtk: 10 } },
+        { id: 'ach_lv_30', name: '熟練の討伐者', desc: 'Lv.30に到達する', check: (sd) => (sd.lv || 1) >= 30, buff: { maxHp: 220, physAtk: 22, magAtk: 22, def: 8 } },
+        { id: 'ach_lv_60', name: '英雄の器', desc: 'Lv.60に到達する', check: (sd) => (sd.lv || 1) >= 60, buff: { maxHp: 450, physAtk: 45, magAtk: 45, critChance: 0.02 } },
+        { id: 'ach_lv_100', name: '百戦錬磨の達人', desc: 'Lv.100に到達する', check: (sd) => (sd.lv || 1) >= 100, buff: { maxHp: 900, maxMp: 300, physAtk: 90, magAtk: 90 } },
+        { id: 'ach_lv_200', name: '伝説を超えし者', desc: 'Lv.200に到達する', check: (sd) => (sd.lv || 1) >= 200, buff: { maxHp: 1800, physAtk: 180, magAtk: 180, critDmg: 0.15 } },
+        { id: 'ach_lv_350', name: '天界の覇者', desc: 'Lv.350に到達する', check: (sd) => (sd.lv || 1) >= 350, buff: { maxHp: 3500, physAtk: 340, magAtk: 340, def: 60 } },
+        { id: 'ach_lv_500', name: '半神の領域', desc: 'Lv.500に到達する', check: (sd) => (sd.lv || 1) >= 500, buff: { maxHp: 6000, maxMp: 2000, physAtk: 600, magAtk: 600 } },
+        { id: 'ach_lv_750', name: '星辰の支配者', desc: 'Lv.750に到達する', check: (sd) => (sd.lv || 1) >= 750, buff: { maxHp: 11000, physAtk: 1100, magAtk: 1100, critChance: 0.04 } },
+        { id: 'ach_lv_999', name: 'カンスト神話 Lv.999', desc: '最大レベル999に到達する', check: (sd) => (sd.lv || 1) >= 999, buff: { maxHp: 25000, maxMp: 10000, physAtk: 2500, magAtk: 2500, critDmg: 0.50 } },
+
+        { id: 'ach_kill_1', name: '初陣勝利', desc: 'モンスターを1体討伐', check: (sd) => getTotalKills(sd) >= 1, buff: { physAtk: 3, magAtk: 3 } },
+        { id: 'ach_kill_25', name: 'モンスターハンター', desc: 'モンスターを25体討伐', check: (sd) => getTotalKills(sd) >= 25, buff: { maxHp: 80, physAtk: 8, magAtk: 8 } },
+        { id: 'ach_kill_100', name: '百体斬り達成', desc: 'モンスターを100体討伐', check: (sd) => getTotalKills(sd) >= 100, buff: { maxHp: 200, physAtk: 20, magAtk: 20, critChance: 0.02 } },
+        { id: 'ach_kill_500', name: '魔物討伐隊長', desc: 'モンスターを500体討伐', check: (sd) => getTotalKills(sd) >= 500, buff: { maxHp: 600, physAtk: 55, magAtk: 55 } },
+        { id: 'ach_kill_2000', name: '千軍万馬の無双者', desc: 'モンスターを2,000体討伐', check: (sd) => getTotalKills(sd) >= 2000, buff: { maxHp: 1500, physAtk: 150, magAtk: 150, lifesteal: 0.02 } },
+        { id: 'ach_kill_10000', name: '万魔を滅ぼす者', desc: 'モンスターを10,000体討伐', check: (sd) => getTotalKills(sd) >= 10000, buff: { maxHp: 4000, physAtk: 420, magAtk: 420, critDmg: 0.25 } },
+
+        { id: 'ach_gold_1k', name: 'はじめての貯金', desc: '所持金1,000G達成', check: (sd) => (sd.gold || 0) >= 1000, buff: { maxHp: 50, def: 4 } },
+        { id: 'ach_gold_10k', name: '小金持ち冒険者', desc: '所持金10,000G達成', check: (sd) => (sd.gold || 0) >= 10000, buff: { maxHp: 180, physAtk: 15, magAtk: 15 } },
+        { id: 'ach_gold_100k', name: '大富豪の風格', desc: '所持金100,000G達成', check: (sd) => (sd.gold || 0) >= 100000, buff: { maxHp: 650, maxMp: 300, def: 25 } },
+        { id: 'ach_gold_1m', name: '黄金王の財宝', desc: '所持金1,000,000G達成', check: (sd) => (sd.gold || 0) >= 1000000, buff: { maxHp: 2200, physAtk: 220, magAtk: 220 } },
+        { id: 'ach_gold_10m', name: '世界経済の支配者', desc: '所持金10,000,000G達成', check: (sd) => (sd.gold || 0) >= 10000000, buff: { maxHp: 6500, physAtk: 650, magAtk: 650, critChance: 0.03 } },
+
+        { id: 'ach_threat_1', name: '危険地帯への一歩', desc: '驚異度1以上で冒険する', check: (sd, g) => getThreatVal(sd, g) >= 1, buff: { physAtk: 10, magAtk: 10 } },
+        { id: 'ach_threat_10', name: '修羅の道', desc: '驚異度10以上に設定する', check: (sd, g) => getThreatVal(sd, g) >= 10, buff: { maxHp: 300, physAtk: 35, magAtk: 35 } },
+        { id: 'ach_threat_50', name: '絶望に挑む者', desc: '驚異度50以上に設定する', check: (sd, g) => getThreatVal(sd, g) >= 50, buff: { maxHp: 1200, physAtk: 130, magAtk: 130, def: 30 } },
+        { id: 'ach_threat_200', name: '悪夢を狩る英雄', desc: '驚異度200以上に設定する', check: (sd, g) => getThreatVal(sd, g) >= 200, buff: { maxHp: 3800, physAtk: 380, magAtk: 380, critDmg: 0.20 } },
+        { id: 'ach_threat_500', name: '深淵の征服者', desc: '驚異度500以上に設定する', check: (sd, g) => getThreatVal(sd, g) >= 500, buff: { maxHp: 8500, physAtk: 850, magAtk: 850, lifesteal: 0.03 } },
+        { id: 'ach_threat_999', name: '極限驚異999の覇王', desc: '最大驚異度999に挑む', check: (sd, g) => getThreatVal(sd, g) >= 999, buff: { maxHp: 18000, physAtk: 1800, magAtk: 1800, critChance: 0.05, critDmg: 0.40 } },
+
+        { id: 'ach_evo_3', name: '上級クラス昇格', desc: '役職STEP3以上に到達', check: (sd) => Math.max(sd.careerProgress?.sword || 1, sd.careerProgress?.mage || 1) >= 3, buff: { maxHp: 150, physAtk: 18, magAtk: 18 } },
+        { id: 'ach_evo_6', name: '超人クラス到達', desc: '役職STEP6以上に到達', check: (sd) => Math.max(sd.careerProgress?.sword || 1, sd.careerProgress?.mage || 1) >= 6, buff: { maxHp: 750, physAtk: 80, magAtk: 80 } },
+        { id: 'ach_evo_10', name: '神話クラス到達', desc: '役職STEP10以上に到達', check: (sd) => Math.max(sd.careerProgress?.sword || 1, sd.careerProgress?.mage || 1) >= 10, buff: { maxHp: 3000, physAtk: 320, magAtk: 320 } },
+        { id: 'ach_evo_14', name: '究極神職到達', desc: '役職STEP14（Lv.999役職）に到達', check: (sd) => Math.max(sd.careerProgress?.sword || 1, sd.careerProgress?.mage || 1) >= 14, buff: { maxHp: 12000, maxMp: 5000, physAtk: 1200, magAtk: 1200 } },
+        { id: 'ach_dual_master', name: '剣魔両道の極み', desc: '剣士系・魔法使い系ともにSTEP5以上', check: (sd) => (sd.careerProgress?.sword || 1) >= 5 && (sd.careerProgress?.mage || 1) >= 5, buff: { physAtk: 250, magAtk: 250, critChance: 0.04, critDmg: 0.25 } },
+
+        { id: 'ach_pet_1', name: '初めての相棒', desc: 'ペットを1体以上所持する', check: (sd) => getPetCount(sd) >= 1, buff: { maxHp: 90, maxMp: 40 } },
+        { id: 'ach_pet_equip', name: 'ペットおしゃれ達人', desc: 'ペット専用装備を作成する', check: (sd) => (sd.ownedPetEquips?.length || 0) >= 1, buff: { physAtk: 35, magAtk: 35, maxHp: 160 } },
+        { id: 'ach_equip_5', name: '武具コレクター', desc: '装備を5個以上所持する', check: (sd) => getEquipCount(sd) >= 5, buff: { physAtk: 25, magAtk: 25, def: 12 } },
+        { id: 'ach_ach_20', name: '実績ハンター', desc: '実績を20個以上達成する', check: (sd) => (sd.unlockedAchievementsV44?.length || 0) >= 20, buff: { maxHp: 2500, maxMp: 1000, physAtk: 260, magAtk: 260, critChance: 0.03 } }
+    ];
+
+    function getTotalKills(sd) {
+        if (!sd) return 0;
+        if (typeof sd.totalKills === 'number') return sd.totalKills;
+        if (typeof sd.kills === 'number') return sd.kills;
+        if (sd.monsterKills && typeof sd.monsterKills === 'object') {
+            return Object.values(sd.monsterKills).reduce((a, b) => a + (Number(b) || 0), 0);
+        }
+        return 0;
+    }
+
+    function getThreatVal(sd, g) {
+        return Math.max(0, Math.min(999, Number(g?.threatLevel ?? sd?.threat ?? sd?.threatLevel ?? 0) || 0));
+    }
+
+    function getPetCount(sd) {
+        if (!sd) return 0;
+        if (Array.isArray(sd.pets)) return sd.pets.length;
+        if (Array.isArray(sd.ownedPets)) return sd.ownedPets.length;
+        return 0;
+    }
+
+    function getEquipCount(sd) {
+        if (!sd) return 0;
+        if (Array.isArray(sd.inventory)) return sd.inventory.length;
+        if (Array.isArray(sd.ownedEquips)) return sd.ownedEquips.length;
+        return 0;
+    }
+
+    // =====================================================================
+    // 3. ペット専用装備データ
+    // =====================================================================
+    const PET_EQUIPS_V44 = [
+        { id: 'peq_bell_collar', slot: 'collar', name: '🔔 幸せの鈴首輪', reqLv: 1, cost: 250, desc: '相棒の元気を引き出す金の鈴。', bonus: { maxHp: 120, physAtk: 14, magAtk: 14 } },
+        { id: 'peq_knight_scarf', slot: 'collar', name: '🧣 勇者の紅蓮マフラー', reqLv: 15, cost: 1200, desc: '闘志を燃やす赤いマフラー。', bonus: { maxHp: 350, physAtk: 42, magAtk: 42, critChance: 0.03 } },
+        { id: 'peq_astral_crown', slot: 'collar', name: '👑 星霊のティアラ', reqLv: 45, cost: 6500, desc: '星の魔力を宿す美しい王冠。', bonus: { maxHp: 900, maxMp: 350, physAtk: 110, magAtk: 110 } },
+        { id: 'peq_dragon_fang', slot: 'collar', name: '🐉 古龍の牙ネックレス', reqLv: 120, cost: 35000, desc: '古龍の力が宿る最強の首飾り。', bonus: { maxHp: 2800, physAtk: 320, magAtk: 320, critDmg: 0.25 } },
+        { id: 'peq_angel_wings', slot: 'wing', name: '🕊️ 天使のミニ翼', reqLv: 10, cost: 800, desc: 'ペットの背中に生える白い小さな翼。', bonus: { maxMp: 150, def: 15, lifesteal: 0.02 } },
+        { id: 'peq_galaxy_aura', slot: 'wing', name: '🌌 銀河の星屑オーラ', reqLv: 80, cost: 22000, desc: '星々の輝きを纏う神聖オーラ。', bonus: { maxHp: 1800, maxMp: 800, physAtk: 210, magAtk: 210, critChance: 0.05 } },
+        { id: 'peq_god_halo', slot: 'wing', name: '🌟 創世神の光輪', reqLv: 300, cost: 180000, desc: '神域に達した相棒だけが纏う光輪。', bonus: { maxHp: 7500, maxMp: 3000, physAtk: 850, magAtk: 850, critDmg: 0.45 } }
+    ];
+
+    // =====================================================================
+    // 4. 画面コントラスト補正 & チャット欄整理
+    // =====================================================================
+    function fixLightBgTextContrast(root = document) {
+        try {
+            root.querySelectorAll('#modal-body *, #dialog-modal *, #hud-drawer-menu *, button, span, div, label, select, option').forEach(el => {
+                if (el.children.length > 0 && el.tagName !== 'SELECT' && el.tagName !== 'BUTTON') return;
+                const cs = window.getComputedStyle(el);
+                const bg = cs.backgroundColor;
+                const m = bg && bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+                if (!m) return;
+                const alpha = m[4] !== undefined ? parseFloat(m[4]) : 1;
+                if (alpha < 0.35) return;
+                const r = Number(m[1]), g = Number(m[2]), b = Number(m[3]);
+                const lum = (r * 299 + g * 587 + b * 114) / 1000;
+                if (lum > 175) {
+                    el.style.setProperty('color', '#0f172a', 'important');
+                    el.style.setProperty('text-shadow', 'none', 'important');
+                }
+            });
+        } catch (e) {}
+    }
+
+    function cleanChatPanelUI() {
+        const panel = document.getElementById('chat-panel');
+        const wrapper = document.getElementById('chat-wrapper');
+        if (!panel) return;
+
+        panel.querySelectorAll('*').forEach(el => {
+            const styleAttr = (el.getAttribute('style') || '').toLowerCase();
+            const cls = String(el.className || '').toLowerCase();
+            const id = String(el.id || '').toLowerCase();
+            if (styleAttr.includes('ns-resize') || styleAttr.includes('row-resize') || cls.includes('drag-handle') || cls.includes('resize-bar') || id.includes('resize')) {
+                el.remove();
+            }
+        });
+        if (wrapper) {
+            wrapper.querySelectorAll('[style*="ns-resize"], [style*="row-resize"]').forEach(el => el.remove());
+        }
+
+        panel.querySelectorAll('button').forEach(btn => {
+            if (btn.id === 'btn-hide-chat-panel') return;
+            const txt = (btn.textContent || '').trim();
+            if (txt.includes('戻す') || txt.includes('消す') || txt === '縮小' || txt === '最小化') {
+                btn.remove();
+            }
+        });
+
+        const hideBtn = document.getElementById('btn-hide-chat-panel');
+        if (hideBtn && !hideBtn.dataset.v44Bound) {
+            hideBtn.dataset.v44Bound = '1';
+            hideBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                panel.classList.add('hidden');
+            });
+        }
+        panel.style.setProperty('resize', 'both', 'important');
+        panel.style.setProperty('overflow', 'auto', 'important');
+    }
+
+    // =====================================================================
+    // 5. メインパッチ適用
+    // =====================================================================
+    function installMasterPatch() {
+        if (typeof KaomojiMMORPG === 'undefined') return;
+        const P = KaomojiMMORPG.prototype;
+        if (P.__v44Installed) return;
+        P.__v44Installed = true;
+
+        // -----------------------------------------------------------------
+        // A. iPad Safari クラッシュ防止 & 不要旧パッチ無効化
+        // -----------------------------------------------------------------
+        P.fixChatCompactLayoutV31 = function () { cleanChatPanelUI(); };
+        P.ensureStandardMoveStickV33 = throttle(P.ensureStandardMoveStickV33, 1000);
+        P.injectSettingsDropdownItemV33 = function () {};
+        P.fixTopRightMenuOverlapV36 = throttle(P.fixTopRightMenuOverlapV36, 1200);
+        P.enforceStrictWeaponVisualV27 = function () {};
+        P.attachMageStaffV27 = function () {};
+        P.ensureLeftHandWeaponV27 = function () {};
+
+        // -----------------------------------------------------------------
+        // B. 驚異度の上限を常に 999 に固定 ＋ 推奨レベル計算＆可視化
+        // -----------------------------------------------------------------
+        P.setThreatLevelV44 = function (val) {
+            const clamped = Math.max(0, Math.min(999, Math.round(Number(val) || 0)));
+            this.threatLevel = clamped;
+            if (this.saveData) {
+                this.saveData.threat = clamped;
+                this.saveData.threatLevel = clamped;
+            }
+            this.evaluateAchievementsV44?.(true);
+            this.saveGame?.();
+            this.refreshAllHUD?.();
+            this.showAlertBanner?.(`🔥 驚異度を ${clamped} / 999 に設定しました！`, 1600);
+        };
+
+        P.changeThreatLevel = function (delta) {
+            const cur = getThreatVal(this.saveData, this);
+            this.setThreatLevelV44(cur + (Number(delta) || 0));
+        };
+
+        // ゾーンIDと驚異度から現在の「推奨レベル」を算出
+        P.getZoneRecommendedLevelV44 = function (zoneId, threatOverride = null) {
+            const zid = String(zoneId || this.currentZoneId || 'town');
+            const threat = threatOverride !== null ? threatOverride : getThreatVal(this.saveData, this);
+            if (zid === 'town') return 1;
+
+            let baseLv = 1;
+            if (typeof ZONES !== 'undefined' && ZONES) {
+                const z = Array.isArray(ZONES) ? ZONES.find(x => x && x.id === zid) : ZONES[zid];
+                if (z) {
+                    baseLv = Number(z.recLv || z.recommendedLv || z.minLv || z.reqLv || z.level || 0);
+                    if (!baseLv && typeof z.stage === 'number') baseLv = Math.max(1, z.stage * 10);
+                }
+            }
+            if (!baseLv) {
+                const m = zid.match(/(\d+)/);
+                baseLv = m ? Math.max(1, Number(m[1]) * 12) : 5;
+            }
+            // 驚異度1ごとに推奨レベルが +3 上昇（驚異度999なら +2997）
+            return Math.max(1, Math.round(baseLv + threat * 3));
+        };
+
+        P.updateRecommendedLevelBadgeV44 = function () {
+            const badge = document.getElementById('hud-rec-lv-badge');
+            const threatBadge = document.getElementById('hud-threat-badge');
+            const threat = getThreatVal(this.saveData, this);
+
+            if (threatBadge) {
+                if (threat > 0) {
+                    threatBadge.classList.remove('hidden');
+                    threatBadge.textContent = `🔥脅威+${threat}/999`;
+                } else {
+                    threatBadge.classList.add('hidden');
+                }
+            }
+
+            if (badge) {
+                const recLv = this.getZoneRecommendedLevelV44(this.currentZoneId, threat);
+                const myLv = this.saveData?.lv || 1;
+                const diff = recLv - myLv;
+                badge.textContent = `推奨Lv.${recLv}`;
+                if (this.currentZoneId === 'town') {
+                    badge.style.background = '#065f46';
+                    badge.style.color = '#a7f3d0';
+                } else if (diff >= 30) {
+                    badge.style.background = '#9f1239';
+                    badge.style.color = '#ffe4e6';
+                } else if (diff > 0) {
+                    badge.style.background = '#92400e';
+                    badge.style.color = '#fef3c7';
+                } else {
+                    badge.style.background = '#065f46';
+                    badge.style.color = '#a7f3d0';
+                }
+            }
+        };
+
+        // -----------------------------------------------------------------
+        // C. 役職取得・判定・武器データ取得（武器変更時の見た目反映対応）
+        // -----------------------------------------------------------------
+        P.getCurrentCareerIdV43 = function () {
+            const sd = this.saveData || {};
+            return String(sd.evolution || sd.evo || sd.job || sd.classId || 'sw_01_apprentice');
+        };
+
+        P.setCurrentCareerIdV43 = function (careerId) {
+            if (!this.saveData) this.saveData = {};
+            this.saveData.evolution = careerId;
+            this.saveData.evo = careerId;
+            this.saveData.job = careerId;
+            this.saveData.classId = careerId;
+        };
+
+        P.findCareerByIdOrNameV43 = function (idOrName) {
+            const key = String(idOrName || '').trim();
+            if (!key) return SWORD_CAREER_PATH[0];
+            const found = ALL_CAREERS.find(c => c.id === key || c.name === key);
+            if (found) return found;
+
+            if (typeof EVOLUTIONS !== 'undefined' && EVOLUTIONS) {
+                const raw = Array.isArray(EVOLUTIONS)
+                    ? EVOLUTIONS.find(e => e && (e.id === key || e.name === key))
+                    : EVOLUTIONS[key];
+                if (raw) {
+                    const nm = String(raw.name || key);
+                    const isMage = /(mage|wizard|sorcerer|sage|witch|priest|necro|魔|賢者|術師|巫女|星詠|召喚|死霊)/i.test(`${key} ${nm}`);
+                    return {
+                        id: raw.id || key, name: nm, branch: isMage ? 'mage' : 'sword', isMage,
+                        tier: raw.tier || 1, reqLv: raw.reqLv || 1, cost: raw.cost || 0,
+                        icon: raw.icon || (isMage ? '🔮' : '⚔️'), kaomoji: raw.kaomoji || '(｀・ω・´)',
+                        color: isMage ? '#c084fc' : '#38bdf8', desc: raw.desc || '', bonus: raw.bonus || {}
+                    };
+                }
+            }
+            return SWORD_CAREER_PATH[0];
+        };
+
+        P.isMageEvolution = function () {
+            const id = this.getCurrentCareerIdV43();
+            const c = this.findCareerByIdOrNameV43(id);
+            if (c) return Boolean(c.isMage);
+            const rawStr = `${id} ${this.saveData?.jobName || ''} ${this.saveData?.className || ''}`.toLowerCase();
+            if (/(sword|warrior|knight|paladin|berserker|blade|fighter|samurai|剣|戦|騎|侍|武|盾|狂|覇|修羅)/.test(rawStr)) return false;
+            return /(mage|wizard|sorcerer|sage|witch|priest|necro|魔|賢者|術師|巫女|星詠|召喚|死霊)/.test(rawStr);
+        };
+
+        // 装備中の武器情報を取得（名前・レア度・精錬値・ハッシュ色）
+        P.getEquippedWeaponSignatureV44 = function () {
+            const sd = this.saveData || {};
+            const wObj = sd.equipped?.weapon || sd.equip?.weapon || sd.equippedWeapon || sd.weapon || null;
+            let wId = '';
+            let wName = '';
+            let wRarity = 'common';
+            let refine = 0;
+
+            if (typeof wObj === 'string') {
+                wId = wObj;
+            } else if (wObj && typeof wObj === 'object') {
+                wId = String(wObj.id || wObj.itemId || wObj.key || '');
+                wName = String(wObj.name || '');
+                wRarity = String(wObj.rarity || wObj.rank || 'common');
+                refine = Number(wObj.refine || wObj.plus || wObj.lv || 0);
+            }
+
+            if (wId && typeof ITEMS !== 'undefined' && ITEMS) {
+                const itemDef = Array.isArray(ITEMS) ? ITEMS.find(x => x && x.id === wId) : ITEMS[wId];
+                if (itemDef) {
+                    wName = wName || String(itemDef.name || wId);
+                    wRarity = String(itemDef.rarity || itemDef.rank || wRarity);
+                }
+            }
+            if (wId && typeof EQUIPS !== 'undefined' && EQUIPS) {
+                const eqDef = Array.isArray(EQUIPS) ? EQUIPS.find(x => x && x.id === wId) : EQUIPS[wId];
+                if (eqDef) {
+                    wName = wName || String(eqDef.name || wId);
+                    wRarity = String(eqDef.rarity || eqDef.rank || wRarity);
+                }
+            }
+
+            const sig = `${wId}|${wName}|${wRarity}|${refine}`;
+            let hash = 0;
+            for (let i = 0; i < sig.length; i++) {
+                hash = ((hash << 5) - hash + sig.charCodeAt(i)) | 0;
+            }
+            return { wId, wName, wRarity, refine, sig, hash: Math.abs(hash) };
+        };
+
+        // 3D武器モデルを「右手に1本だけ」構築し、武器変更＆役職変更のたびに見た目が変わるようにする
+        P.syncSingleWeaponVisualV42 = function (force = false) {
+            if (!this.player?.group || typeof THREE === 'undefined') return;
+            const isMage = this.isMageEvolution();
+            const career = this.findCareerByIdOrNameV43(this.getCurrentCareerIdV43());
+            const wInfo = this.getEquippedWeaponSignatureV44();
+
+            const stateKey = `${isMage ? 'staff' : 'sword'}|${career.id}|${wInfo.sig}`;
+            if (!force && this.player._v44WeaponKey === stateKey && this.player._v42WeaponMesh?.parent === this.player.group) {
+                return;
+            }
+            this.player._v44WeaponKey = stateKey;
+
+            // 既存の武器・杖メッシュをすべて除去・非表示（両手持ち・常駐杖の完全消去）
+            const toRemove = [];
+            this.player.group.traverse(obj => {
+                if (obj === this.player.group) return;
+                if (obj.userData?.isV42Weapon) {
+                    toRemove.push(obj);
+                    return;
+                }
+                const nm = String(obj.name || '').toLowerCase();
+                if (/(weapon|staff|sword|wand|blade|axe|shield|wpn|rod|orb|spear|dagger)/.test(nm)) {
+                    obj.visible = false;
+                }
+                if (obj.parent === this.player.group && obj.position && obj.position.x < -0.25 && obj.position.y > 0.3) {
+                    if (obj.type === 'Group' || (obj.geometry && obj.geometry.parameters && (obj.geometry.parameters.height > 0.9 || obj.geometry.parameters.depth > 0.9))) {
+                        obj.visible = false;
+                    }
+                }
+            });
+            toRemove.forEach(o => o.parent?.remove(o));
+
+            ['weaponGroup', 'staffGroup', 'leftWeaponGroup', 'subWeaponGroup', 'rightWeaponGroup'].forEach(prop => {
+                if (this.player[prop] && this.player[prop] !== this.player._v42WeaponMesh) {
+                    this.player[prop].visible = false;
+                }
+            });
+
+            // 武器ハッシュとレア度から見た目バリエーションと色を決定
+            const palette = [0x38bdf8, 0xf43f5e, 0xfde047, 0x10b981, 0xc084fc, 0xfb923c, 0x22d3ee, 0xe879f9];
+            const wColor = wInfo.wId ? palette[wInfo.hash % palette.length] : Number(String(career.color).replace('#', '0x'));
+            const styleVariant = wInfo.hash % 4; // 0:標準, 1:大ぶり/結晶型, 2:双翼/十字型, 3:神聖リング型
+            const scaleBoost = 1 + Math.min(0.35, (career.tier - 1) * 0.02 + wInfo.refine * 0.015);
+
+            const wpn = new THREE.Group();
+            wpn.name = 'v42_single_weapon';
+            wpn.userData.isV42Weapon = true;
+
+            if (isMage) {
+                // 【魔法使い系】武器変更＆役職で形・色が変わる杖 1本
+                const shaftColor = styleVariant === 1 ? 0xf8fafc : (styleVariant === 2 ? 0x312e81 : 0x78350f);
+                const shaft = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.04, 0.058, 1.82, 8),
+                    new THREE.MeshStandardMaterial({ color: shaftColor, metalness: 0.4, roughness: 0.4 })
+                );
+                shaft.position.y = 0.78;
+                wpn.add(shaft);
+
+                const headGeo = styleVariant === 0
+                    ? new THREE.OctahedronGeometry(0.21, 1)
+                    : (styleVariant === 1 ? new THREE.DodecahedronGeometry(0.23, 0) : (styleVariant === 2 ? new THREE.ConeGeometry(0.22, 0.42, 6) : new THREE.TorusKnotGeometry(0.14, 0.04, 24, 6)));
+                const orb = new THREE.Mesh(headGeo, new THREE.MeshBasicMaterial({ color: wColor }));
+                orb.position.y = 1.76;
+                wpn.add(orb);
+
+                if (styleVariant >= 1 || career.tier >= 3 || wInfo.refine > 0) {
+                    const ring = new THREE.Mesh(
+                        new THREE.TorusGeometry(0.28, 0.026, 8, 20),
+                        new THREE.MeshBasicMaterial({ color: 0xfde047 })
+                    );
+                    ring.position.y = 1.76;
+                    ring.rotation.x = Math.PI * 0.35;
+                    wpn.add(ring);
+                }
+            } else {
+                // 【剣士系】武器変更＆役職で刀身・鍔・オーラが変わる剣 1本
+                const grip = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.045, 0.05, 0.34, 8),
+                    new THREE.MeshStandardMaterial({ color: 0x1e293b })
+                );
+                grip.position.y = 0.12;
+
+                const guardWidth = styleVariant === 1 ? 0.56 : (styleVariant === 2 ? 0.48 : 0.40);
+                const guard = new THREE.Mesh(
+                    new THREE.BoxGeometry(guardWidth, 0.08, 0.13),
+                    new THREE.MeshStandardMaterial({ color: styleVariant === 2 ? wColor : 0xfbbf24, metalness: 0.75, roughness: 0.25 })
+                );
+                guard.position.y = 0.30;
+
+                const bladeW = styleVariant === 1 ? 0.17 : (styleVariant === 3 ? 0.13 : 0.10);
+                const bladeH = styleVariant === 1 ? 1.52 : (styleVariant === 2 ? 1.42 : 1.32);
+                const bladeColor = styleVariant === 2 ? 0x1e293b : 0xf8fafc;
+                const blade = new THREE.Mesh(
+                    new THREE.BoxGeometry(bladeW, bladeH, 0.038),
+                    new THREE.MeshStandardMaterial({
+                        color: bladeColor,
+                        emissive: wColor,
+                        emissiveIntensity: 0.45 + Math.min(0.45, wInfo.refine * 0.05),
+                        metalness: 0.85,
+                        roughness: 0.18
+                    })
+                );
+                blade.position.y = 0.32 + bladeH * 0.5;
+                wpn.add(grip, guard, blade);
+
+                // 高レア・精錬・上位役職なら刀身オーラエフェクトを追加
+                if (styleVariant >= 2 || career.tier >= 4 || wInfo.refine > 0) {
+                    const aura = new THREE.Mesh(
+                        new THREE.BoxGeometry(bladeW * 1.45, bladeH * 1.03, 0.06),
+                        new THREE.MeshBasicMaterial({ color: wColor, transparent: true, opacity: 0.32 })
+                    );
+                    aura.position.copy(blade.position);
+                    wpn.add(aura);
+                }
+            }
+
+            wpn.scale.setScalar(scaleBoost);
+            wpn.position.set(0.68, 0.62, 0.25);
+            wpn.rotation.set(0.32, 0, -0.15);
+            this.player.group.add(wpn);
+            this.player._v42WeaponMesh = wpn;
+        };
+
+        // -----------------------------------------------------------------
+        // D. 攻撃エフェクト：必ず正面に出る ＋ 役職レベルが高いほど豪華に進化
+        // -----------------------------------------------------------------
+        P.spawnTieredAttackEffectV44 = function (isMage, rotY, tier, colorHex) {
+            if (!this.scene || !this.player?.pos || typeof THREE === 'undefined') return;
+            if (!this._v44Effects) this._v44Effects = [];
+
+            const dirX = Math.sin(rotY);
+            const dirZ = Math.cos(rotY);
+            const px = this.player.pos.x;
+            const pz = this.player.pos.z;
+            const t = Math.max(1, Math.min(14, Number(tier) || 1));
+
+            const addFx = (mesh, vx, vz, life, rotSpeedY = 0, scaleGrow = 0) => {
+                this.scene.add(mesh);
+                this._v44Effects.push({ mesh, vx, vz, life, maxLife: life, rotSpeedY, scaleGrow });
+            };
+
+            if (!isMage) {
+                // =========================================================
+                // 【剣士系】必ずキャラの正面（+dirX, +dirZ）に斬撃を展開
+                // =========================================================
+                const waveCount = t >= 12 ? 4 : (t >= 7 ? 3 : (t >= 3 ? 2 : 1));
+                const baseRadius = 1.6 + Math.min(1.8, (t - 1) * 0.13);
+
+                for (let i = 0; i < waveCount; i++) {
+                    const grp = new THREE.Group();
+                    const mat = new THREE.MeshBasicMaterial({
+                        color: i === 0 ? 0xffffff : (i % 2 === 1 ? colorHex : 0xfde047),
+                        side: THREE.DoubleSide,
+                        transparent: true,
+                        opacity: 0.92
+                    });
+                    // 正面(+Z)を向く三日月型斬撃アーチ
+                    const arc = new THREE.Mesh(
+                        new THREE.RingGeometry(baseRadius * 0.55, baseRadius, 24, 1, Math.PI * 0.15, Math.PI * 0.70),
+                        mat
+                    );
+                    arc.rotation.x = -Math.PI * 0.5;
+                    grp.add(arc);
+
+                    // クロス斬撃（STEP 3以上）
+                    if (t >= 3 && i > 0) {
+                        grp.rotation.z = (i % 2 === 1 ? 0.35 : -0.35);
+                    }
+                    // 必ずプレイヤーの前方 1.5m に配置し、プレイヤーと同じ向き(rotY)にする
+                    const forwardOffset = 1.5 + i * 0.45;
+                    grp.position.set(px + dirX * forwardOffset, 1.05 + i * 0.15, pz + dirZ * forwardOffset);
+                    grp.rotation.y = rotY;
+
+                    addFx(grp, dirX * (15 + i * 3), dirZ * (15 + i * 3), 0.34 + i * 0.04, 0, 1.4);
+                }
+
+                // STEP 6以上：正面への地面衝撃波リング
+                if (t >= 6) {
+                    const shockMat = new THREE.MeshBasicMaterial({ color: colorHex, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
+                    const shock = new THREE.Mesh(new THREE.RingGeometry(0.6, 1.35, 24), shockMat);
+                    shock.rotation.x = -Math.PI * 0.5;
+                    shock.position.set(px + dirX * 2.2, 0.12, pz + dirZ * 2.2);
+                    addFx(shock, dirX * 12, dirZ * 12, 0.38, 0, 3.2);
+                }
+
+                // STEP 9以上：正面へ飛ぶ光の飛翔剣（ファントムソード）
+                if (t >= 9) {
+                    const bladeCount = t >= 13 ? 3 : 2;
+                    for (let b = 0; b < bladeCount; b++) {
+                        const sideAngle = rotY + (b - (bladeCount - 1) / 2) * 0.24;
+                        const bdx = Math.sin(sideAngle);
+                        const bdz = Math.cos(sideAngle);
+                        const swordGeo = new THREE.ConeGeometry(0.18, 1.45, 4);
+                        swordGeo.rotateX(Math.PI * 0.5);
+                        const swordMesh = new THREE.Mesh(swordGeo, new THREE.MeshBasicMaterial({ color: 0xfde047 }));
+                        swordMesh.position.set(px + bdx * 1.4, 1.35, pz + bdz * 1.4);
+                        swordMesh.rotation.y = sideAngle;
+                        addFx(swordMesh, bdx * 24, bdz * 24, 0.55, 0, 0);
+                    }
+                }
+            } else {
+                // =========================================================
+                // 【魔法使い系】役職レベルに応じて豪華になる正面魔法弾＆魔法陣
+                // =========================================================
+                const shotCount = t >= 9 ? 3 : (t >= 5 ? 2 : 1);
+                const orbRadius = 0.30 + Math.min(0.32, (t - 1) * 0.024);
+
+                for (let i = 0; i < shotCount; i++) {
+                    const spread = (i - (shotCount - 1) / 2) * 0.16;
+                    const a = rotY + spread;
+                    const vx = Math.sin(a) * 22;
+                    const vz = Math.cos(a) * 22;
+
+                    const grp = new THREE.Group();
+                    const core = new THREE.Mesh(
+                        new THREE.SphereGeometry(orbRadius * 0.65, 10, 10),
+                        new THREE.MeshBasicMaterial({ color: 0xffffff })
+                    );
+                    const aura = new THREE.Mesh(
+                        new THREE.SphereGeometry(orbRadius, 12, 12),
+                        new THREE.MeshBasicMaterial({ color: i === 0 ? colorHex : 0xfde047, transparent: true, opacity: 0.82 })
+                    );
+                    grp.add(core, aura);
+
+                    // STEP 4以上：魔法弾の周囲に回転リング
+                    if (t >= 4) {
+                        const halo = new THREE.Mesh(
+                            new THREE.TorusGeometry(orbRadius * 1.45, 0.04, 8, 18),
+                            new THREE.MeshBasicMaterial({ color: 0xfde047 })
+                        );
+                        halo.rotation.x = Math.PI * 0.5;
+                        grp.add(halo);
+                    }
+
+                    grp.position.set(px + Math.sin(a) * 1.2, 1.25, pz + Math.cos(a) * 1.2);
+                    addFx(grp, vx, vz, 0.78, 8.0, 0.25);
+                }
+
+                // STEP 3以上：足元＆正面に展開する回転魔法陣
+                if (t >= 3) {
+                    const circleCount = t >= 12 ? 2 : 1;
+                    for (let c = 0; c < circleCount; c++) {
+                        const r = (1.3 + t * 0.12) * (1 + c * 0.45);
+                        const ring = new THREE.Mesh(
+                            new THREE.RingGeometry(r * 0.82, r, 24),
+                            new THREE.MeshBasicMaterial({ color: c === 0 ? colorHex : 0xfde047, side: THREE.DoubleSide, transparent: true, opacity: 0.75 })
+                        );
+                        ring.rotation.x = -Math.PI * 0.5;
+                        ring.position.set(px + dirX * 0.6, 0.12 + c * 0.08, pz + dirZ * 0.6);
+                        addFx(ring, 0, 0, 0.45, c === 0 ? 5.5 : -5.5, 0.6);
+                    }
+                }
+            }
+        };
+
+        P.updateTieredAttackEffectsV44 = function (dt) {
+            if (!this._v44Effects || !this._v44Effects.length) return;
+            const step = Math.min(0.1, Math.max(0.008, Number(dt) || 0.016));
+            this._v44Effects = this._v44Effects.filter(fx => {
+                fx.life -= step;
+                if (fx.life <= 0) {
+                    this.scene?.remove(fx.mesh);
+                    fx.mesh.traverse?.(o => {
+                        o.geometry?.dispose?.();
+                        o.material?.dispose?.();
+                    });
+                    return false;
+                }
+                fx.mesh.position.x += fx.vx * step;
+                fx.mesh.position.z += fx.vz * step;
+                if (fx.rotSpeedY) fx.mesh.rotation.y += fx.rotSpeedY * step;
+                if (fx.scaleGrow) {
+                    const s = 1 + (1 - fx.life / fx.maxLife) * fx.scaleGrow;
+                    fx.mesh.scale.setScalar(s);
+                }
+                return true;
+            });
+        };
+
+        P.performBasicAttack = function () {
+            if (!this.player || this.isDead) return false;
+            if ((this.player.stunTimer || 0) > 0) return false;
+
+            if (this.player.pos) this.player.pos.y = 0;
+            if (this.player.group) this.player.group.position.y = 0;
+
+            const isMage = this.isMageEvolution();
+            const career = this.findCareerByIdOrNameV43(this.getCurrentCareerIdV43());
+            const st = this.calcDerivedStats();
+            const atkRange = isMage ? 16.5 : 5.5;
+
+            const target = (this.currentZoneId !== 'town' && this.getValidTarget)
+                ? this.getValidTarget(atkRange)
+                : null;
+
+            if (target) {
+                const dx = target.pos.x - this.player.pos.x;
+                const dz = target.pos.z - this.player.pos.z;
+                this.player.rotY = Math.atan2(dx, dz);
+            }
+
+            const rotY = this.player.rotY || 0;
+            const glowColor = st.wpnGlowColor || Number(String(career.color).replace('#', '0x'));
+
+            if (isMage) {
+                this.triggerPlayerAttackAnim?.('staff_cast', 0.24);
+                sfx?.playTone?.(680, 'sine', 0.11, 0.06, 980);
+            } else {
+                this.triggerPlayerAttackAnim?.('slash', 0.22);
+                sfx?.playHit?.(false);
+            }
+
+            // 必ずキャラの正面に出る＆役職レベルに応じた豪華エフェクトを再生
+            this.spawnTieredAttackEffectV44(isMage, rotY, career.tier || 1, glowColor);
+
+            if (target && this.currentZoneId !== 'town') {
+                const isCrit = Math.random() < (st.critChance || 0.05);
+                const basePower = isMage ? (st.magAtk || 10) : (st.physAtk || 10);
+                const variance = 0.92 + Math.random() * 0.16;
+                const dmg = Math.max(1, Math.round(basePower * variance * (isCrit ? (st.critDmg || 1.5) : 1.0)));
+                const col = isMage ? (isCrit ? '#f472b6' : '#c084fc') : (isCrit ? '#fde047' : '#ffffff');
+
+                this.damageMonster?.(target, dmg, isCrit, col);
+
+                if ((st.lifesteal || 0) > 0) {
+                    const heal = Math.max(1, Math.round(dmg * st.lifesteal));
+                    this.player.hp = Math.min(st.maxHp || this.player.hp, this.player.hp + heal);
+                }
+            }
+            return true;
+        };
+
+        // -----------------------------------------------------------------
+        // E. ステータス計算（役職 ＋ 所持実績すべての常時バフ ＋ ペット装備バフ）
+        // -----------------------------------------------------------------
+        P.evaluateAchievementsV44 = function (silent = false) {
+            if (!this.saveData) return;
+            if (!Array.isArray(this.saveData.unlockedAchievementsV44)) {
+                this.saveData.unlockedAchievementsV44 = [];
+            }
+            const unlocked = this.saveData.unlockedAchievementsV44;
+            let newlyUnlocked = 0;
+
+            // 複数回ループして「実績20個達成」のような連鎖実績も即反映
+            for (let pass = 0; pass < 2; pass++) {
+                ACHIEVEMENTS_V44.forEach(ach => {
+                    if (!unlocked.includes(ach.id) && ach.check(this.saveData, this)) {
+                        unlocked.push(ach.id);
+                        newlyUnlocked++;
+                    }
+                });
+            }
+            if (newlyUnlocked > 0 && !silent) {
+                this.showAlertBanner?.(`🏆 実績を ${newlyUnlocked}個 達成！常時バフが永続強化されました！`, 2400);
+            }
+        };
+
+        P.getTotalAchievementBuffV44 = function () {
+            const sum = { maxHp: 0, maxMp: 0, physAtk: 0, magAtk: 0, def: 0, critChance: 0, critDmg: 0, lifesteal: 0 };
+            const unlocked = this.saveData?.unlockedAchievementsV44 || [];
+            unlocked.forEach(id => {
+                const ach = ACHIEVEMENTS_V44.find(x => x.id === id);
+                if (!ach || !ach.buff) return;
+                Object.entries(ach.buff).forEach(([k, v]) => {
+                    sum[k] = (sum[k] || 0) + v;
+                });
+            });
+            return sum;
+        };
+
+        P.getTotalPetEquipBuffV44 = function () {
+            const sum = { maxHp: 0, maxMp: 0, physAtk: 0, magAtk: 0, def: 0, critChance: 0, critDmg: 0, lifesteal: 0 };
+            const eq = this.saveData?.equippedPetEquips || {};
+            Object.values(eq).forEach(peqId => {
+                const item = PET_EQUIPS_V44.find(x => x.id === peqId);
+                if (!item || !item.bonus) return;
+                Object.entries(item.bonus).forEach(([k, v]) => {
+                    sum[k] = (sum[k] || 0) + v;
+                });
+            });
+            return sum;
+        };
+
+        const _origCalcStats = P.calcDerivedStats;
+        P.calcDerivedStats = function () {
+            const st = _origCalcStats ? _origCalcStats.call(this) : {};
+            const isMage = this.isMageEvolution();
+            const c = this.findCareerByIdOrNameV43(this.getCurrentCareerIdV43());
+
+            // 1. 役職ボーナス
+            if (c && c.bonus) {
+                Object.entries(c.bonus).forEach(([k, v]) => {
+                    if (typeof v === 'number') st[k] = (st[k] || 0) + v;
+                });
+            }
+
+            // 2. 実績の常時バフ（所持分すべて加算）
+            this.evaluateAchievementsV44?.(true);
+            const achBuff = this.getTotalAchievementBuffV44();
+            Object.entries(achBuff).forEach(([k, v]) => {
+                st[k] = (st[k] || 0) + v;
+            });
+
+            // 3. ペット専用装備バフ
+            const petBuff = this.getTotalPetEquipBuffV44();
+            Object.entries(petBuff).forEach(([k, v]) => {
+                st[k] = (st[k] || 0) + v;
+            });
+
+            st.isStaffEquipped = isMage;
+            if (c?.color) st.wpnGlowColor = Number(String(c.color).replace('#', '0x'));
+            return st;
+        };
+
+        // -----------------------------------------------------------------
+        // F. 各専用タブのUI描画（転職Lv999・実績常時バフ・ペット装備・装備必要Lv・ステージ推奨Lv）
+        // -----------------------------------------------------------------
+        // 1) 転職タブ（左：剣士系 ／ 右：魔法使い系）
+        P.renderCareerTreeTabV43 = function (container) {
+            const sd = this.saveData || {};
+            const lv = sd.lv || 1;
+            const gold = sd.gold || 0;
+            const curId = this.getCurrentCareerIdV43();
+            const curCareer = this.findCareerByIdOrNameV43(curId) || SWORD_CAREER_PATH[0];
+            const isMageNow = this.isMageEvolution();
+
+            if (!sd.careerProgress) sd.careerProgress = { sword: 1, mage: 1 };
+            const curSwordObj = SWORD_CAREER_PATH.find(x => x.id === curId || x.name === curId);
+            const curMageObj = MAGE_CAREER_PATH.find(x => x.id === curId || x.name === curId);
+            if (curSwordObj && curSwordObj.tier > (sd.careerProgress.sword || 1)) sd.careerProgress.sword = curSwordObj.tier;
+            if (curMageObj && curMageObj.tier > (sd.careerProgress.mage || 1)) sd.careerProgress.mage = curMageObj.tier;
+
+            const renderColumn = (title, subtitle, list, branchKey, accentColor) => {
+                const unlockedTier = sd.careerProgress[branchKey] || 1;
+                return `
+                    <div style="display:flex;flex-direction:column;gap:7px;">
+                        <div class="card-box" style="border-color:${accentColor};background:rgba(15,23,42,0.95);text-align:center;">
+                            <div style="font-size:13px;font-weight:900;color:${accentColor};">${title}</div>
+                            <div style="font-size:10px;color:#cbd5e1;margin-top:2px;">${subtitle}</div>
+                            <div style="font-size:10px;color:#fde047;margin-top:2px;">到達段階: STEP ${unlockedTier} / ${list.length}</div>
+                        </div>
+                        ${list.map((c, idx) => {
+                            const isCurrent = (curId === c.id || curId === c.name);
+                            const isAlreadyUnlocked = c.tier <= unlockedTier;
+                            const isNextStep = c.tier === unlockedTier + 1;
+                            const isLockedOrder = !isAlreadyUnlocked && !isNextStep;
+                            const canLv = lv >= c.reqLv;
+                            const costToPay = isAlreadyUnlocked ? 0 : c.cost;
+                            const canGold = gold >= costToPay;
+                            const canPromote = !isCurrent && !isLockedOrder && canLv && canGold;
+
+                            const bonusStr = Object.entries(c.bonus).map(([k, v]) => {
+                                const map = { physAtk: '物攻', magAtk: '魔攻', maxHp: 'HP', maxMp: 'MP', def: '防御', critChance: '会心', critDmg: '会心ダメ', lifesteal: '吸収' };
+                                const val = (k === 'critChance' || k === 'critDmg' || k === 'lifesteal') ? `+${Math.round(v * 100)}%` : `+${v}`;
+                                return `${map[k] || k}${val}`;
+                            }).join(' ');
+
+                            let btnLabel = '';
+                            let btnClass = 'btn-sky';
+                            if (isCurrent) { btnLabel = '✅ 現在の役職'; btnClass = 'btn-emerald'; }
+                            else if (isLockedOrder) { btnLabel = '🔒 前段階の転職が必要'; btnClass = 'btn-slate'; }
+                            else if (!canLv) { btnLabel = `Lv.${c.reqLv} 必要`; btnClass = 'btn-slate'; }
+                            else if (!canGold) { btnLabel = `${costToPay.toLocaleString()}G 不足`; btnClass = 'btn-slate'; }
+                            else if (isAlreadyUnlocked) { btnLabel = '🔄 この役職へ切替 (0G)'; btnClass = 'btn-sky'; }
+                            else { btnLabel = `⬆️ 昇格転職 (${costToPay.toLocaleString()}G)`; btnClass = 'btn-amber'; }
+
+                            return `
+                                <div class="card-box" style="border-color:${isCurrent ? '#10b981' : (isLockedOrder ? '#334155' : c.color)};opacity:${isLockedOrder ? '0.62' : '1'};padding:8px;">
+                                    <div class="flex-between">
+                                        <span style="font-size:10px;font-weight:900;color:#94a3b8;">STEP ${c.tier} (Lv.${c.reqLv})</span>
+                                        <span class="font-kaomoji" style="font-size:11px;color:#fde047;">${c.kaomoji}</span>
+                                    </div>
+                                    <div style="font-size:12px;font-weight:900;color:${c.color};margin-top:2px;">${c.icon} ${c.name}</div>
+                                    <div style="font-size:10px;color:#cbd5e1;line-height:1.35;margin-top:2px;">${c.desc}</div>
+                                    <div style="font-size:10px;color:#34d399;font-weight:900;margin-top:3px;">${bonusStr}</div>
+                                    <button type="button" class="btn-ui ${btnClass}" style="width:100%;margin-top:6px;padding:6px 4px;font-size:10px;" data-career-select="${c.id}" ${canPromote ? '' : 'disabled'}>
+                                        ${btnLabel}
+                                    </button>
+                                </div>
+                                ${idx < list.length - 1 ? '<div style="text-align:center;color:#64748b;font-size:11px;line-height:1;">⬇️</div>' : ''}
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+            };
+
+            container.innerHTML = `
+                <div class="card-box" style="border-color:#38bdf8;margin-bottom:10px;">
+                    <div class="flex-between" style="flex-wrap:wrap;">
+                        <div>
+                            <div style="font-size:13px;font-weight:900;color:#fde047;">👑 役職・クラス昇格ツリー（Lv.1 〜 Lv.999）</div>
+                            <div style="font-size:11px;color:#e2e8f0;margin-top:2px;">
+                                現在: <b style="color:${curCareer.color};">${curCareer.icon} ${curCareer.name}</b>（Lv.${lv} / 所持金 ${gold.toLocaleString()}G）
+                            </div>
+                        </div>
+                        <span class="badge-pill" style="background:${isMageNow ? '#6b21a8' : '#0369a1'};color:#fff;">
+                            ${isMageNow ? '🔮 杖装備・魔法弾スタイル' : '⚔️ 剣装備・斬撃スタイル（魔法なし）'}
+                        </span>
+                    </div>
+                    <div style="font-size:10px;color:#94a3b8;margin-top:4px;">
+                        ※ 左が<b>剣士系</b>、右が<b>魔法使い系</b>です。STEP 1から順番に昇格し、上位ほど通常攻撃エフェクトが豪華になります！
+                    </div>
+                </div>
+                <div class="evo-split-cols">
+                    ${renderColumn('⚔️ 左：剣士系ルート', '武器：剣 ／ 通常攻撃：斬撃のみ', SWORD_CAREER_PATH, 'sword', '#38bdf8')}
+                    ${renderColumn('🔮 右：魔法使い系ルート', '武器：杖 ／ 通常攻撃：魔法弾', MAGE_CAREER_PATH, 'mage', '#c084fc')}
+                </div>
+            `;
+
+            container.querySelectorAll('[data-career-select]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const targetId = btn.getAttribute('data-career-select');
+                    const targetCareer = ALL_CAREERS.find(x => x.id === targetId);
+                    if (!targetCareer || !this.saveData) return;
+
+                    const branchKey = targetCareer.branch;
+                    if (!this.saveData.careerProgress) this.saveData.careerProgress = { sword: 1, mage: 1 };
+                    const unlockedTier = this.saveData.careerProgress[branchKey] || 1;
+                    const isAlreadyUnlocked = targetCareer.tier <= unlockedTier;
+                    const costToPay = isAlreadyUnlocked ? 0 : targetCareer.cost;
+
+                    if ((this.saveData.lv || 1) < targetCareer.reqLv || targetCareer.tier > unlockedTier + 1 || (this.saveData.gold || 0) < costToPay) return;
+
+                    this.saveData.gold -= costToPay;
+                    if (targetCareer.tier > unlockedTier) this.saveData.careerProgress[branchKey] = targetCareer.tier;
+
+                    this.setCurrentCareerIdV43(targetCareer.id);
+                    if (targetCareer.kaomoji) this.saveData.kaomoji = targetCareer.kaomoji;
+
+                    this.syncSingleWeaponVisualV42(true);
+                    this.evaluateAchievementsV44(true);
+                    const st = this.calcDerivedStats();
+                    if (this.player) {
+                        this.player.hp = st.maxHp || this.player.hp;
+                        this.player.mp = st.maxMp || this.player.mp;
+                    }
+                    this.saveGame?.();
+                    this.refreshAllHUD?.();
+                    this.showAlertBanner?.(`👑 「${targetCareer.name}」に転職！武器＆エフェクトが進化しました！`, 2600);
+                    this.renderGrowthTabContent();
+                });
+            });
+        };
+
+        // 2) 実績タブ（36種 ＋ 所持分すべて常時バフ表示）
+        P.appendAchievementsPanelV44 = function (container) {
+            this.evaluateAchievementsV44(true);
+            const unlocked = this.saveData?.unlockedAchievementsV44 || [];
+            const totalBuff = this.getTotalAchievementBuffV44();
+
+            const box = document.createElement('div');
+            box.style.marginTop = '12px';
+            box.innerHTML = `
+                <div class="card-box" style="border-color:#fde047;margin-bottom:8px;background:rgba(15,23,42,0.95);">
+                    <div class="flex-between">
+                        <span style="font-size:13px;font-weight:900;color:#fde047;">🏆 実績コレクション（所持分すべて常時バフ適用！）</span>
+                        <span class="badge-pill" style="background:#059669;color:#fff;">達成: ${unlocked.length} / ${ACHIEVEMENTS_V44.length}</span>
+                    </div>
+                    <div style="font-size:11px;color:#34d399;font-weight:900;margin-top:5px;">
+                        ✨ 現在の常時バフ合計：HP+${totalBuff.maxHp.toLocaleString()} / MP+${totalBuff.maxMp.toLocaleString()} / 物攻+${totalBuff.physAtk.toLocaleString()} / 魔攻+${totalBuff.magAtk.toLocaleString()} / 防御+${totalBuff.def} / 会心+${Math.round(totalBuff.critChance * 100)}% / 会心ダメ+${Math.round(totalBuff.critDmg * 100)}%
+                    </div>
+                </div>
+                <div class="grid-2">
+                    ${ACHIEVEMENTS_V44.map(ach => {
+                        const isDone = unlocked.includes(ach.id);
+                        const bStr = Object.entries(ach.buff).map(([k, v]) => {
+                            const map = { physAtk: '物攻', magAtk: '魔攻', maxHp: 'HP', maxMp: 'MP', def: '防御', critChance: '会心', critDmg: '会心ダメ', lifesteal: '吸収' };
+                            const val = (k === 'critChance' || k === 'critDmg' || k === 'lifesteal') ? `+${Math.round(v * 100)}%` : `+${v}`;
+                            return `${map[k] || k}${val}`;
+                        }).join(' / ');
+                        return `
+                            <div class="card-box" style="border-color:${isDone ? '#10b981' : '#334155'};opacity:${isDone ? '1' : '0.68'};">
+                                <div class="flex-between">
+                                    <span style="font-size:12px;font-weight:900;color:${isDone ? '#fde047' : '#cbd5e1'};">${isDone ? '🏆' : '🔒'} ${ach.name}</span>
+                                    <span class="badge-pill" style="background:${isDone ? '#059669' : '#334155'};color:#fff;">${isDone ? '常時発動中' : '未達成'}</span>
+                                </div>
+                                <div style="font-size:11px;color:#e2e8f0;margin-top:2px;">${ach.desc}</div>
+                                <div style="font-size:10px;color:#38bdf8;font-weight:900;margin-top:3px;">常時効果: ${bStr}</div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+            container.appendChild(box);
+        };
+
+        // 3) ペット装備パネル（🐾 ペットタブ内に表示）
+        P.appendPetEquipPanelV44 = function (container) {
+            if (!this.saveData) return;
+            if (!Array.isArray(this.saveData.ownedPetEquips)) this.saveData.ownedPetEquips = [];
+            if (!this.saveData.equippedPetEquips || typeof this.saveData.equippedPetEquips !== 'object') {
+                this.saveData.equippedPetEquips = {};
+            }
+
+            const lv = this.saveData.lv || 1;
+            const gold = this.saveData.gold || 0;
+            const owned = this.saveData.ownedPetEquips;
+            const equipped = this.saveData.equippedPetEquips;
+
+            const box = document.createElement('div');
+            box.style.marginTop = '12px';
+            box.innerHTML = `
+                <div class="card-box" style="border-color:#f472b6;margin-bottom:8px;background:rgba(15,23,42,0.95);">
+                    <div class="flex-between">
+                        <span style="font-size:13px;font-weight:900;color:#f472b6;">🎀 ペット専用装備（作成＆装着で主人公も大幅強化！）</span>
+                        <span style="font-size:11px;color:#fde047;font-weight:900;">所持G: ${gold.toLocaleString()}G</span>
+                    </div>
+                    <div style="font-size:10px;color:#cbd5e1;margin-top:3px;">
+                        装着中：首飾り[<b>${PET_EQUIPS_V44.find(x => x.id === equipped.collar)?.name || 'なし'}</b>] ／ 翼･オーラ[<b>${PET_EQUIPS_V44.find(x => x.id === equipped.wing)?.name || 'なし'}</b>]
+                    </div>
+                </div>
+                <div class="grid-2">
+                    ${PET_EQUIPS_V44.map(peq => {
+                        const isOwned = owned.includes(peq.id);
+                        const isEquipped = equipped[peq.slot] === peq.id;
+                        const canLv = lv >= peq.reqLv;
+                        const canGold = gold >= peq.cost;
+                        const bStr = Object.entries(peq.bonus).map(([k, v]) => {
+                            const map = { physAtk: '物攻', magAtk: '魔攻', maxHp: 'HP', maxMp: 'MP', def: '防御', critChance: '会心', critDmg: '会心ダメ', lifesteal: '吸収' };
+                            const val = (k === 'critChance' || k === 'critDmg' || k === 'lifesteal') ? `+${Math.round(v * 100)}%` : `+${v}`;
+                            return `${map[k] || k}${val}`;
+                        }).join(' ');
+
+                        return `
+                            <div class="card-box" style="border-color:${isEquipped ? '#10b981' : (isOwned ? '#f472b6' : '#334155')};">
+                                <div class="flex-between">
+                                    <span style="font-size:12px;font-weight:900;color:#fff;">${peq.name}</span>
+                                    <span class="badge-pill" style="background:${peq.slot === 'collar' ? '#be185d' : '#6d28d9'};color:#fff;">${peq.slot === 'collar' ? '首飾り枠' : '翼･オーラ枠'}</span>
+                                </div>
+                                <div style="font-size:10px;color:#cbd5e1;margin-top:2px;">${peq.desc}</div>
+                                <div style="font-size:10px;color:#34d399;font-weight:900;margin-top:3px;">効果: ${bStr}</div>
+                                <div class="flex-between" style="margin-top:6px;">
+                                    <span style="font-size:10px;color:#94a3b8;">必要Lv.${peq.reqLv} / ${peq.cost.toLocaleString()}G</span>
+                                    ${isEquipped
+                                        ? `<button type="button" class="btn-ui btn-emerald" disabled>✅ 装着中</button>`
+                                        : (isOwned
+                                            ? `<button type="button" class="btn-ui btn-sky" data-peq-equip="${peq.id}">🎀 装着する</button>`
+                                            : `<button type="button" class="btn-ui btn-amber" data-peq-craft="${peq.id}" ${canLv && canGold ? '' : 'disabled'}>${!canLv ? `🔒 Lv.${peq.reqLv}必要` : (!canGold ? 'G不足' : '🔨 作成する')}</button>`)
+                                    }
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+
+            box.querySelectorAll('[data-peq-craft]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const item = PET_EQUIPS_V44.find(x => x.id === btn.getAttribute('data-peq-craft'));
+                    if (!item || (this.saveData.lv || 1) < item.reqLv || (this.saveData.gold || 0) < item.cost) return;
+                    this.saveData.gold -= item.cost;
+                    if (!this.saveData.ownedPetEquips.includes(item.id)) this.saveData.ownedPetEquips.push(item.id);
+                    this.saveData.equippedPetEquips[item.slot] = item.id;
+                    this.evaluateAchievementsV44(true);
+                    this.saveGame?.();
+                    this.refreshAllHUD?.();
+                    this.showAlertBanner?.(`🎀 ペット装備「${item.name}」を作成＆装着しました！`, 2000);
+                    this.renderGrowthTabContent();
+                });
+            });
+
+            box.querySelectorAll('[data-peq-equip]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const item = PET_EQUIPS_V44.find(x => x.id === btn.getAttribute('data-peq-equip'));
+                    if (!item) return;
+                    this.saveData.equippedPetEquips[item.slot] = item.id;
+                    this.saveGame?.();
+                    this.refreshAllHUD?.();
+                    this.showAlertBanner?.(`🎀 「${item.name}」をペットに装着しました！`, 1800);
+                    this.renderGrowthTabContent();
+                });
+            });
+
+            container.appendChild(box);
+        };
+
+        // 4) 装備作る系に「必要レベル」制限を適用（既存クラフトボタン保護 ＋ 装備タブ表示）
+        P.enforceEquipCraftLevelRequirementV44 = function (container) {
+            const myLv = this.saveData?.lv || 1;
+            const craftButtons = Array.from(container.querySelectorAll('button')).filter(b => {
+                const t = (b.textContent || '').trim();
+                return /(作成|鍛造|クラフト|生成|錬成)/.test(t) && !t.includes('精錬');
+            });
+
+            craftButtons.forEach((btn, idx) => {
+                if (btn.dataset.v44CraftChecked) return;
+                btn.dataset.v44CraftChecked = '1';
+
+                const card = btn.closest('.card-box') || btn.parentElement;
+                const cardText = card ? card.textContent : '';
+                let reqLv = 1;
+                const lvMatch = cardText.match(/(?:必要|条件|req)?\s*Lv\.?\s*(\d+)/i);
+                if (lvMatch) {
+                    reqLv = Number(lvMatch[1]);
+                } else {
+                    // 順番に応じて必要レベルを段階設定（1, 5, 12, 22, 35, 50...）
+                    reqLv = idx === 0 ? 1 : Math.round(idx * 8 + Math.pow(idx, 1.45) * 3);
+                    const badge = document.createElement('span');
+                    badge.className = 'badge-pill';
+                    badge.style.cssText = `background:${myLv >= reqLv ? '#065f46' : '#7f1d1d'};color:#fff;margin-left:4px;`;
+                    badge.textContent = `必要Lv.${reqLv}`;
+                    btn.parentElement?.insertBefore(badge, btn);
+                }
+
+                if (myLv < reqLv) {
+                    btn.disabled = true;
+                    btn.textContent = `🔒 Lv.${reqLv}必要`;
+                    btn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopImmediatePropagation();
+                        this.showAlertBanner?.(`⚠️ この装備の作成には Lv.${reqLv} が必要です！`, 1800);
+                    }, true);
+                }
+            });
+        };
+
+        // 5) ステージ一覧タブ：驚異度に応じた推奨レベルと危険度の可視化
+        P.enhanceZonesRecommendedLevelV44 = function (container) {
+            const threat = getThreatVal(this.saveData, this);
+            const myLv = this.saveData?.lv || 1;
+
+            const banner = document.createElement('div');
+            banner.className = 'card-box';
+            banner.style.cssText = 'border-color:#f59e0b;margin-bottom:8px;background:rgba(15,23,42,0.95);';
+            banner.innerHTML = `
+                <div class="flex-between" style="flex-wrap:wrap;">
+                    <span style="font-size:12px;font-weight:900;color:#fde047;">🔥 現在の驚異度: ${threat} / 999（推奨Lv +${threat * 3} 上昇中）</span>
+                    <span style="font-size:11px;color:#38bdf8;font-weight:900;">あなたの現在Lv: ${myLv}</span>
+                </div>
+                <div style="font-size:10px;color:#cbd5e1;margin-top:2px;">※ 驚異度が上がるほど全フィールドの推奨レベルと敵の強さ・報酬が跳ね上がります。</div>
+            `;
+            container.prepend(banner);
+
+            container.querySelectorAll('.card-box').forEach((card, idx) => {
+                if (card === banner) return;
+                const txt = card.textContent || '';
+                if (txt.includes('安全街') || txt.includes('広場')) return;
+                const baseMatch = txt.match(/Lv\.?\s*(\d+)/i);
+                const baseLv = baseMatch ? Number(baseMatch[1]) : Math.max(1, idx * 12);
+                const scaledRecLv = baseLv + threat * 3;
+                const danger = scaledRecLv - myLv >= 30 ? '💀 危険' : (scaledRecLv > myLv ? '⚠️ 注意' : '✅ 適正');
+                const col = scaledRecLv - myLv >= 30 ? '#fb7185' : (scaledRecLv > myLv ? '#fde047' : '#34d399');
+
+                if (!card.querySelector('.v44-zone-reclv')) {
+                    const tag = document.createElement('div');
+                    tag.className = 'v44-zone-reclv';
+                    tag.style.cssText = `font-size:11px;font-weight:900;color:${col};margin-top:4px;`;
+                    tag.textContent = `📊 驚異度反映 推奨Lv.${scaledRecLv}（基本Lv.${baseLv} + ${threat * 3}） [${danger}]`;
+                    card.appendChild(tag);
+                }
+            });
+        };
+
+        // -----------------------------------------------------------------
+        // G. メニュー統合（描画のたびに武器・実績・ペット装備・装備Lv・推奨Lvを反映）
+        // -----------------------------------------------------------------
+        const MENU_TABS = [
+            { id: 'stats', label: '📊 ステータス' },
+            { id: 'skills', label: '📘 スキル' },
+            { id: 'tree', label: '🌳 ツリー' },
+            { id: 'equip', label: '⚔️ 装備･精錬' },
+            { id: 'evo', label: '👑 転職(Lv999)' },
+            { id: 'look', label: '🎨 見た目' },
+            { id: 'pets', label: '🐾 ペット･装備' },
+            { id: 'titles', label: '🎖️ 称号･実績' },
+            { id: 'zones', label: '🗺️ ステージ' },
+            { id: 'online', label: '🌐 通信･設定' }
+        ];
+
+        const normalizeTab = (t) => {
+            const s = String(t || 'stats').toLowerCase();
+            if (s === 'travel' || s === 'stage' || s === 'map') return 'zones';
+            if (s === 'system' || s === 'setting' || s === 'settings') return 'online';
+            return s;
+        };
+
+        const _baseRenderGrowth = P.renderGrowthTabContent;
+        const _baseRenderModal = P.renderModalContent;
+
+        P.openGrowthModal = function (tab = 'stats') {
+            this.activeTab = normalizeTab(tab);
+            this.isModalOpen = true;
+            document.getElementById('growth-modal')?.classList.remove('hidden');
+
+            const tabsEl = document.getElementById('modal-tabs');
+            if (tabsEl) {
+                tabsEl.innerHTML = MENU_TABS.map(t => `
+                    <button type="button" class="tab-chip-btn ${t.id === this.activeTab ? 'active' : ''}" data-menu-tab="${t.id}">
+                        ${t.label}
+                    </button>
+                `).join('');
+                tabsEl.querySelectorAll('[data-menu-tab]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.openGrowthModal(btn.getAttribute('data-menu-tab'));
+                    });
+                });
+            }
+            this.renderGrowthTabContent();
+        };
+
+        P.openModal = function (tab = 'stats') { this.openGrowthModal(tab); };
+        P.closeGrowthModal = function () {
+            this.isModalOpen = false;
+            document.getElementById('growth-modal')?.classList.add('hidden');
+            this.syncSingleWeaponVisualV42(true);
+            this.refreshAllHUD?.();
+        };
+        P.closeModal = function () { this.closeGrowthModal(); };
+
+        P.renderGrowthTabContent = function () {
+            this.activeTab = normalizeTab(this.activeTab);
+            const modalBody = document.getElementById('modal-body');
+            if (!modalBody) return;
+
+            let inner = document.getElementById('modal-body-content');
+            if (!inner) {
+                modalBody.innerHTML = '<div id="modal-body-content"></div>';
+                inner = document.getElementById('modal-body-content');
+            }
+
+            if (this.activeTab === 'evo') {
+                this.renderCareerTreeTabV43(inner);
+                fixLightBgTextContrast(modalBody);
+                return;
+            }
+
+            if (_baseRenderGrowth) _baseRenderGrowth.call(this);
+            if (_baseRenderModal && _baseRenderModal !== P.renderGrowthTabContent) {
+                try { _baseRenderModal.call(this); } catch (e) {}
+            }
+
+            if (this.activeTab === 'titles') {
+                this.appendAchievementsPanelV44(inner);
+            } else if (this.activeTab === 'pets') {
+                this.appendPetEquipPanelV44(inner);
+            } else if (this.activeTab === 'equip') {
+                this.enforceEquipCraftLevelRequirementV44(inner);
+                // 装備変更ボタン押下時に3D武器の見た目を即座に更新
+                inner.querySelectorAll('button').forEach(btn => {
+                    if (btn.dataset.v44EquipHook) return;
+                    btn.dataset.v44EquipHook = '1';
+                    btn.addEventListener('click', () => {
+                        setTimeout(() => {
+                            this.syncSingleWeaponVisualV42(true);
+                            this.refreshAllHUD?.();
+                        }, 60);
+                    });
+                });
+            } else if (this.activeTab === 'zones') {
+                this.enhanceZonesRecommendedLevelV44(inner);
+            }
+
+            fixLightBgTextContrast(modalBody);
+        };
+        P.renderModalContent = function () { this.renderGrowthTabContent(); };
+
+        // -----------------------------------------------------------------
+        // H. スキルボタン保護・復元 & ボタン配置・サイズ調整
+        // -----------------------------------------------------------------
+        P.ensureSkillButtonsRestored = function () {
+            const container = document.getElementById('skill-slots-container');
+            if (!container) return;
+            document.querySelectorAll('body > .skill-slot-btn').forEach(btn => container.appendChild(btn));
+
+            if (container.querySelectorAll('.skill-slot-btn').length === 0) {
+                const eq = this.saveData?.equippedSkills || [];
+                const cds = this.skillCooldowns || [0, 0, 0, 0, 0];
+                let html = '';
+                for (let i = 0; i < 5; i++) {
+                    const sid = eq[i];
+                    const sk = (sid && typeof SKILLS !== 'undefined' && SKILLS) ? SKILLS[sid] : null;
+                    const icon = sk?.icon || '✨';
+                    const name = sk ? String(sk._baseNameV21 || sk.name || '').slice(0, 4) : `枠${i + 1}`;
+                    const cd = cds[i] || 0;
+                    html += `
+                        <button type="button" id="skill-slot-${i}" class="skill-slot-btn skill-arc-${i}" data-slot="${i}">
+                            <span style="font-size:16px;line-height:1;pointer-events:none;">${icon}</span>
+                            <span style="font-size:8px;font-weight:900;line-height:1.05;pointer-events:none;">${name}</span>
+                            ${cd > 0 ? `<div class="skill-cd-overlay">${cd.toFixed(1)}</div>` : ''}
+                        </button>
+                    `;
+                }
+                container.innerHTML = html;
+                container.querySelectorAll('.skill-slot-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        if (this._uiEditModeV31) return;
+                        e.stopPropagation();
+                        sfx?.init?.();
+                        this.useSkillSlot?.(Number(btn.getAttribute('data-slot')));
+                    });
+                });
+            }
+            this.applySavedUILayoutV31?.();
+        };
+
+        const _origRefreshHUD = P.refreshAllHUD;
+        P.refreshAllHUD = function () {
+            _origRefreshHUD?.call(this);
+            this.ensureSkillButtonsRestored();
+            this.syncSingleWeaponVisualV42(false);
+            this.updateRecommendedLevelBadgeV44();
+        };
+
+        const LAYOUT_KEY = 'kmj_btn_layout_v41';
+        P.loadBtnLayoutV41 = function () {
+            try { return JSON.parse(localStorage.getItem(LAYOUT_KEY) || '{}'); } catch (e) { return {}; }
+        };
+        P.saveBtnLayoutV41 = function (data) {
+            try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(data || {})); } catch (e) {}
+        };
+        P.getEditableButtonsV41 = function () {
+            const list = [];
+            const add = (key, label, el) => { if (el) list.push({ key, label, el }); };
+            add('stick', '🕹️ 移動', document.getElementById('kmj-v33-movepad') || document.getElementById('joystick-zone'));
+            add('atk', '⚔️ 攻撃', document.getElementById('btn-basic-attack'));
+            add('tgt', '🎯 標的', document.getElementById('btn-cycle-target'));
+            for (let i = 0; i < 5; i++) add(`sk${i}`, `枠${i + 1}`, document.getElementById(`skill-slot-${i}`));
+            return list;
+        };
+
+        P.applySavedUILayoutV31 = function () {
+            const layout = this.loadBtnLayoutV41();
+            this.getEditableButtonsV41().forEach(({ key, el }) => {
+                const cfg = layout[key];
+                if (cfg && typeof cfg.dx === 'number' && typeof cfg.dy === 'number') {
+                    const dx = Math.max(-280, Math.min(280, cfg.dx));
+                    const dy = Math.max(-320, Math.min(180, cfg.dy));
+                    const sc = Math.max(0.6, Math.min(1.6, Number(cfg.scale) || 1));
+                    el.style.setProperty('transform', `translate(${dx}px, ${dy}px) scale(${sc})`, 'important');
+                } else if (cfg && typeof cfg.scale === 'number') {
+                    const sc = Math.max(0.6, Math.min(1.6, Number(cfg.scale) || 1));
+                    el.style.setProperty('transform', `scale(${sc})`, 'important');
+                } else {
+                    el.style.removeProperty('transform');
+                }
+                el.style.setProperty('visibility', 'visible', 'important');
+                el.style.setProperty('opacity', '1', 'important');
+                if (this._uiEditModeV31) {
+                    const sel = this._uiSelectedKeyV31 === key;
+                    el.style.setProperty('outline', sel ? '3px solid #fde047' : '2px dashed #38bdf8', 'important');
+                } else {
+                    el.style.removeProperty('outline');
+                }
+            });
+        };
+
+        P.toggleUIEditModeV31 = function (force = null) {
+            this._uiEditModeV31 = (force !== null) ? Boolean(force) : !this._uiEditModeV31;
+            this.ensureSkillButtonsRestored();
+            const items = this.getEditableButtonsV41();
+
+            if (!this._uiEditModeV31) {
+                document.getElementById('kmj-ui-custom-bar')?.remove();
+                this.applySavedUILayoutV31();
+                this.showAlertBanner?.('✅ ボタン配置とサイズを保存しました！', 1600);
+                return;
+            }
+            if (!this._uiSelectedKeyV31 && items[0]) this._uiSelectedKeyV31 = items[0].key;
+
+            items.forEach(({ key, el }) => {
+                if (el.dataset.v41Bound) return;
+                el.dataset.v41Bound = '1';
+                let dragging = false, sx = 0, sy = 0, baseDx = 0, baseDy = 0;
+
+                const startDrag = (cx, cy, e) => {
+                    if (!this._uiEditModeV31) return;
+                    e.preventDefault(); e.stopImmediatePropagation();
+                    this._uiSelectedKeyV31 = key;
+                    dragging = true; sx = cx; sy = cy;
+                    const cur = this.loadBtnLayoutV41()[key] || {};
+                    baseDx = Number(cur.dx) || 0;
+                    baseDy = Number(cur.dy) || 0;
+                    this.renderUICustomToolbarV31();
+                    this.applySavedUILayoutV31();
+                };
+                const moveDrag = (cx, cy) => {
+                    if (!dragging || !this._uiEditModeV31) return;
+                    const layout = this.loadBtnLayoutV41();
+                    const cur = layout[key] || {};
+                    layout[key] = {
+                        dx: Math.max(-280, Math.min(280, Math.round(baseDx + (cx - sx)))),
+                        dy: Math.max(-320, Math.min(180, Math.round(baseDy + (cy - sy)))),
+                        scale: Number(cur.scale) || 1
+                    };
+                    this.saveBtnLayoutV41(layout);
+                    this.applySavedUILayoutV31();
+                };
+                const endDrag = () => { dragging = false; };
+
+                el.addEventListener('touchstart', (e) => startDrag(e.touches[0].clientX, e.touches[0].clientY, e), { capture: true, passive: false });
+                window.addEventListener('touchmove', (e) => { if (dragging) moveDrag(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+                window.addEventListener('touchend', endDrag);
+                el.addEventListener('mousedown', (e) => startDrag(e.clientX, e.clientY, e), true);
+                window.addEventListener('mousemove', (e) => { if (dragging) moveDrag(e.clientX, e.clientY); });
+                window.addEventListener('mouseup', endDrag);
+            });
+
+            this.renderUICustomToolbarV31();
+            this.applySavedUILayoutV31();
+        };
+
+        P.renderUICustomToolbarV31 = function () {
+            if (!this._uiEditModeV31) return;
+            let bar = document.getElementById('kmj-ui-custom-bar');
+            if (!bar) {
+                bar = document.createElement('div');
+                bar.id = 'kmj-ui-custom-bar';
+                bar.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:98;background:rgba(15,23,42,0.96);border:2px solid #38bdf8;border-radius:12px;padding:8px 12px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 4px 20px rgba(0,0,0,0.85);color:#fff;font-size:11px;max-width:95vw;';
+                document.body.appendChild(bar);
+            }
+            const items = this.getEditableButtonsV41();
+            const sel = items.find(i => i.key === this._uiSelectedKeyV31) || items[0];
+            if (sel) this._uiSelectedKeyV31 = sel.key;
+            const layout = this.loadBtnLayoutV41();
+            const sc = sel ? (Number(layout[sel.key]?.scale) || 1) : 1;
+
+            bar.innerHTML = `
+                <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px;">
+                    <span style="font-weight:900;color:#fde047;">🎛️ ${sel ? sel.label : ''} (${Math.round(sc * 100)}%)</span>
+                    <button type="button" id="v41-btn-smaller" class="btn-ui btn-slate">－ 小さく</button>
+                    <button type="button" id="v41-btn-larger" class="btn-ui btn-slate">＋ 大きく</button>
+                    <button type="button" id="v41-btn-reset" class="btn-ui btn-rose">↺ リセット</button>
+                    <button type="button" id="v41-btn-done" class="btn-ui btn-emerald">✅ 完了</button>
+                </div>
+                <div style="font-size:10px;color:#cbd5e1;">※ 動かしたいボタンを指でドラッグして位置を調整できます</div>
+            `;
+            const changeScale = (delta) => {
+                if (!sel) return;
+                const l = this.loadBtnLayoutV41();
+                const cur = l[sel.key] || { dx: 0, dy: 0, scale: 1 };
+                cur.scale = Math.max(0.6, Math.min(1.6, Number(((Number(cur.scale) || 1) + delta).toFixed(2))));
+                l[sel.key] = cur;
+                this.saveBtnLayoutV41(l);
+                this.applySavedUILayoutV31();
+                this.renderUICustomToolbarV31();
+            };
+            document.getElementById('v41-btn-smaller')?.addEventListener('click', () => changeScale(-0.1));
+            document.getElementById('v41-btn-larger')?.addEventListener('click', () => changeScale(0.1));
+            document.getElementById('v41-btn-reset')?.addEventListener('click', () => {
+                localStorage.removeItem(LAYOUT_KEY);
+                this.applySavedUILayoutV31();
+                this.renderUICustomToolbarV31();
+            });
+            document.getElementById('v41-btn-done')?.addEventListener('click', () => this.toggleUIEditModeV31(false));
+        };
+
+        // -----------------------------------------------------------------
+        // I. 確認ダイアログ & 完全初期化 & 毎フレーム更新
+        // -----------------------------------------------------------------
+        P.openDialog = function (title, message, buttons) {
+            if (title && typeof title === 'object') {
+                const o = title;
+                title = o.title || '確認';
+                message = o.message || '';
+                buttons = [
+                    { text: o.cancelText || 'キャンセル', primary: false },
+                    { text: o.confirmText || 'OK', primary: true, onClick: o.onConfirm }
+                ];
+            }
+            const modal = document.getElementById('dialog-modal');
+            const titleEl = document.getElementById('dialog-title');
+            const msgEl = document.getElementById('dialog-message');
+            const btnWrap = document.getElementById('dialog-buttons');
+            if (!modal || !btnWrap) {
+                const okBtn = (buttons || []).find(b => b.primary);
+                if (confirm(`${title}\n${message}`)) okBtn?.onClick?.();
+                return;
+            }
+            if (titleEl) titleEl.textContent = title || '確認';
+            if (msgEl) msgEl.textContent = message || '';
+            btnWrap.innerHTML = '';
+            (buttons || [{ text: 'OK', primary: true }]).forEach(b => {
+                const el = document.createElement('button');
+                el.type = 'button';
+                el.className = 'btn-ui ' + (b.primary ? 'btn-rose' : 'btn-slate');
+                el.textContent = b.text || 'OK';
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    modal.classList.add('hidden');
+                    if (typeof b.onClick === 'function') b.onClick();
+                });
+                btnWrap.appendChild(el);
+            });
+            modal.classList.remove('hidden');
+        };
+
+        P.hardResetGame = function () {
+            this._hardResetting = true;
+            this.saveGame = function () {};
+            try { this.stopMqtt?.(false); } catch (e) {}
+            try { localStorage.clear(); } catch (e) {}
+            try { sessionStorage.clear(); } catch (e) {}
+            this.showAlertBanner?.('💥 データを完全初期化しました！再読み込みします…', 1500);
+            setTimeout(() => {
+                window.location.href = window.location.pathname + '?reset=' + Date.now();
+            }, 250);
+        };
+
+        const _origCombatUpdate = P.updateCombatAndEntities;
+        P.updateCombatAndEntities = function (dt, elapsed) {
+            _origCombatUpdate?.call(this, dt, elapsed);
+            this.updateTieredAttackEffectsV44(dt);
+
+            if (this.player && this.player.pos && this.player.group) {
+                const inSkillAir = this.player.skillMotionV25 && this.player.skillMotionV25.timer > 0;
+                if (!inSkillAir) {
+                    this.player.pos.y = 0;
+                    if (this.player.group.position.y > 0.35) {
+                        this.player.group.position.y = 0;
+                    }
+                }
+            }
+        };
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        installMasterPatch();
+        cleanChatPanelUI();
+
+        // 驚異度クイックボタン接続（上限999）
+        document.getElementById('btn-threat-plus10')?.addEventListener('click', (e) => { e.stopPropagation(); window.game?.changeThreatLevel?.(10); });
+        document.getElementById('btn-threat-plus100')?.addEventListener('click', (e) => { e.stopPropagation(); window.game?.changeThreatLevel?.(100); });
+        document.getElementById('btn-threat-max999')?.addEventListener('click', (e) => { e.stopPropagation(); window.game?.setThreatLevelV44?.(999); });
+        document.getElementById('btn-threat-zero')?.addEventListener('click', (e) => { e.stopPropagation(); window.game?.setThreatLevelV44?.(0); });
+
+        const layoutBtn = document.getElementById('btn-ui-layout-settings');
+        if (layoutBtn) {
+            layoutBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                document.getElementById('hud-drawer-menu')?.classList.add('hidden');
+                window.game?.toggleUIEditModeV31?.(true);
+            });
+        }
+
+        const chatPanel = document.getElementById('chat-panel');
+        if (chatPanel && typeof MutationObserver !== 'undefined') {
+            let obsLock = false;
+            const obs = new MutationObserver(() => {
+                if (obsLock) return;
+                obsLock = true;
+                cleanChatPanelUI();
+                setTimeout(() => { obsLock = false; }, 100);
+            });
+            obs.observe(chatPanel, { childList: true, subtree: true });
+        }
+
+        setTimeout(() => {
+            installMasterPatch();
+            cleanChatPanelUI();
+            window.game?.evaluateAchievementsV44?.(true);
+            window.game?.syncSingleWeaponVisualV42?.(true);
+            window.game?.ensureSkillButtonsRestored?.();
+            window.game?.updateRecommendedLevelBadgeV44?.();
+            fixLightBgTextContrast();
+        }, 450);
+
+        setTimeout(() => {
+            window.game?.syncSingleWeaponVisualV42?.(true);
+            window.game?.ensureSkillButtonsRestored?.();
+            window.game?.updateRecommendedLevelBadgeV44?.();
+        }, 1200);
+    });
+
+    installMasterPatch();
+})();
+</script>
 </body>
 </html>
