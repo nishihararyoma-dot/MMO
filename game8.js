@@ -1,8 +1,8 @@
 'use strict';
 
-const SECRET_DEBUG_CODE = 'debug777';
-const MAX_LEVEL_CAP_V27 = 999;
-const MAX_THREAT_CAP_V27 = 999;
+window.SECRET_DEBUG_CODE = 'debug777';
+window.MAX_LEVEL_CAP_V27 = 999;
+window.MAX_THREAT_CAP_V27 = 999;
 
 // 剣・武器名を魔道士用の「杖」名称へ変換する辞書
 function convertWeaponNameToStaff(rawName) {
