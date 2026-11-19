@@ -289,24 +289,3 @@ const PETS = createHybridRegistry([
     { id: 'pet_omega', name: '創世の星霊オメガ', cost: 250000, atk: 2400, def: 1500, hp: 9500, color: 0xa855f7, shape: 'fairy', kaomoji: '(🌌★‿★🌌)', desc: '銀河の輝きを纏う究極の守護星霊' }
 ]);
 
-const PET_EQUIPS = createHybridRegistry([
-    // 頭装備
-    { id: 'peq_ribbon', name: '赤いおめかしリボン', slot: 'head', cost: 400, atk: 10, def: 10, hp: 50, color: 0xf43f5e, icon: '🎀', desc: '可愛い赤いリボン' },
-    { id: 'peq_wizard_hat', name: '星屑のとんがり帽子', slot: 'head', cost: 2500, atk: 45, def: 25, hp: 140, mp: 60, color: 0x6366f1, icon: '🎩', desc: '魔力を高める魔法使いの帽子' },
-    { id: 'peq_crown', name: '黄金の王冠', slot: 'head', cost: 15000, atk: 160, def: 120, hp: 650, mp: 180, color: 0xfde047, icon: '👑', desc: '王者の風格を漂わせる黄金の冠' },
-
-    // 武器装備
-    { id: 'peq_stick', name: 'ちいさな魔法ステッキ', slot: 'weapon', cost: 600, atk: 25, def: 5, hp: 40, mp: 30, color: 0xf472b6, icon: '🪄', desc: 'キラキラ光る星型ステッキ' },
-    { id: 'peq_mini_sword', name: '銀のミニ聖剣', slot: 'weapon', cost: 3800, atk: 95, def: 30, hp: 200, color: 0x38bdf8, icon: '🗡️', desc: 'ペット専用の鋭い白銀の剣' },
-    { id: 'peq_dragon_fang', name: '紅蓮の竜牙ブレード', slot: 'weapon', cost: 22000, atk: 340, def: 90, hp: 750, color: 0xef4444, icon: '🔥', desc: '古竜の牙から削り出した灼熱の刃' },
-
-    // 翼装備
-    { id: 'peq_fairy_wing', name: '妖精の透き通る羽', slot: 'wing', cost: 1800, atk: 35, def: 35, hp: 180, mp: 50, color: 0x34d399, icon: '🦋', desc: '軽やかに舞う精霊の羽' },
-    { id: 'peq_angel_wing', name: '純白の天使翼', slot: 'wing', cost: 12000, atk: 140, def: 140, hp: 700, mp: 150, color: 0xffffff, icon: '🪽', desc: '神聖な光を放つ純白の翼' },
-    { id: 'peq_demon_wing', name: '深淵の黒竜翼', slot: 'wing', cost: 45000, atk: 480, def: 320, hp: 1800, mp: 350, color: 0xa855f7, icon: '🦇', desc: '圧倒的な魔力を放つ漆黒の竜翼' },
-
-    // オーラ装備
-    { id: 'peq_aura_star', name: '星屑のきらめきオーラ', slot: 'aura', cost: 3200, atk: 55, def: 55, hp: 280, mp: 80, color: 0xfacc15, icon: '✨', desc: '周囲に星の粒子が舞うオーラ' },
-    { id: 'peq_aura_aurora', name: '極光オーロラリング', slot: 'aura', cost: 18000, atk: 210, def: 210, hp: 980, mp: 240, color: 0x2dd4bf, icon: '🌈', desc: '虹色のオーロラが足元を彩る結界輪' },
-    { id: 'peq_aura_genesis', name: '創世神話の光の輪', slot: 'aura', cost: 75000, atk: 680, def: 650, hp: 3200, mp: 600, color: 0xf43f5e, icon: '🌌', desc: '神々の加護を授ける究極の光輪' }
-]);
