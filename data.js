@@ -288,4 +288,32 @@ const PETS = createHybridRegistry([
     { id: 'pet_phoenix', name: '不死鳥フェニックス', cost: 85000, atk: 920, def: 560, hp: 3600, color: 0xf97316, shape: 'phoenix', kaomoji: '(✨▽✨)', desc: '黄金の翼で主人に不死の加護を与える神鳥' },
     { id: 'pet_omega', name: '創世の星霊オメガ', cost: 250000, atk: 2400, def: 1500, hp: 9500, color: 0xa855f7, shape: 'fairy', kaomoji: '(🌌★‿★🌌)', desc: '銀河の輝きを纏う究極の守護星霊' }
 ]);
+// 職業・進化ごとの武器装備可否判定（game1.js 等から参照）
+function canEquipWeaponForJob(weaponOrId, jobOrEvoId) {
+    const wpn = (typeof weaponOrId === 'string' && typeof WEAPONS !== 'undefined')
+        ? WEAPONS[weaponOrId]
+        : weaponOrId;
+    if (!wpn) return true;
 
+    const jobId = String(typeof jobOrEvoId === 'object' ? (jobOrEvoId?.id || '') : (jobOrEvoId || 'novice'));
+    if (Array.isArray(wpn.jobs) && wpn.jobs.length > 0) {
+        return wpn.jobs.includes(jobId);
+    }
+    if (Array.isArray(wpn.allowedJobs) && wpn.allowedJobs.length > 0) {
+        return wpn.allowedJobs.includes(jobId);
+    }
+    return true;
+}
+
+function canEquipArmorForJob(armorOrId, jobOrEvoId) {
+    const arm = (typeof armorOrId === 'string' && typeof ARMORS !== 'undefined')
+        ? ARMORS[armorOrId]
+        : armorOrId;
+    if (!arm) return true;
+
+    const jobId = String(typeof jobOrEvoId === 'object' ? (jobOrEvoId?.id || '') : (jobOrEvoId || 'novice'));
+    if (Array.isArray(arm.jobs) && arm.jobs.length > 0) {
+        return arm.jobs.includes(jobId);
+    }
+    return true;
+}
