@@ -1,28 +1,57 @@
 'use strict';
 
 // =========================================================================
-// 顔文字ファンタジー3D バグ修正パッチ (game9.js)
+// 顔文字ファンタジー3D 修正＆レベル差補正パッチ (game9.js)
 // 1. ペット攻撃等による敵HPのNaN化（無敵バグ）の完全防止＆自動復旧
 // 2. 攻撃・スキルエフェクト（_slashEffects / effects）の確実な消去＆掃除
+// 3. 格上モンスターとのレベル差補正（1Lv差ごとに +1.5倍 加算で被ダメ増加・与ダメ減少）
 // =========================================================================
 
-(function applyBugFixPatchV9() {
+(function applyGame9Patch() {
     if (typeof KaomojiMMORPG === 'undefined') return;
     const P = KaomojiMMORPG.prototype;
 
+    const ADD_MULT_PER_LV = 1.5; // 1レベル差ごとに加算される倍率
+
+    P.getEnemyLevel = function (m) {
+        if (!m) return 1;
+        if (Number.isFinite(Number(m.lv)) && Number(m.lv) > 0) {
+            return Math.floor(Number(m.lv));
+        }
+        const threat = (this.saveData && Number(this.saveData.threatRank)) || 0;
+        if (this.towerState && this.towerState.active) {
+            const floor = Number(this.towerState.floor) || 1;
+            return Math.max(1, floor * 3 + threat);
+        }
+        const zone = (typeof ZONES !== 'undefined' && ZONES[this.currentZoneId]) || null;
+        const baseRecLv = zone ? (Number(zone.recLv) || 1) : 1;
+        return Math.max(1, baseRecLv + threat + (m.isBoss ? 2 : 0));
+    };
+
+    P.getLevelDiffPenaltyMult = function (m) {
+        const playerLv = (this.saveData && Number(this.saveData.lv)) || 1;
+        const enemyLv = this.getEnemyLevel(m);
+        const diff = enemyLv - playerLv;
+        if (diff <= 0) return 1.0;
+
+        // 1レベル差ごとに 1.5 ずつ加算（例: 1差=2.5倍, 2差=4.0倍, 100差=151倍）
+        const mult = 1.0 + ADD_MULT_PER_LV * diff;
+        return Number.isFinite(mult) && mult > 1 ? mult : 1.0;
+    };
+
     // ---------------------------------------------------------------------
-    // 1. ダメージ計算のNaNガード＆敵HPの自動復旧
+    // 1. 与ダメージ処理（格上ほど通りにくくなる ＋ NaN無敵バグ防止）
     // ---------------------------------------------------------------------
     if (P.damageMonster) {
         const _origDamageMonster = P.damageMonster;
         P.damageMonster = function (m, rawDmg, isCrit = false, colorOverride = null) {
             if (!m || m.dead) return;
 
-            // 万が一すでにNaNになっていた敵HPを正常値へ復旧
+            // 敵HPのNaN復旧ガード
             if (!Number.isFinite(m.maxHp) || m.maxHp <= 0) m.maxHp = 100;
             if (!Number.isFinite(m.hp)) m.hp = m.maxHp;
 
-            // rawDmgがNaNや不正値の場合は安全な正の整数に補正
+            // ダメージ値のNaN復旧ガード
             let safeDmg = Number(rawDmg);
             if (!Number.isFinite(safeDmg) || safeDmg <= 0) {
                 const st = this.calcDerivedStats ? this.calcDerivedStats() : null;
@@ -31,11 +60,60 @@
                 safeDmg = Math.max(1, Math.round(baseAtk * (0.35 + petLv * 0.05)));
             }
 
+            // 格上レベル差による与ダメージ減少（1 / 倍率）
+            const mult = this.getLevelDiffPenaltyMult(m);
+            if (mult > 1.0) {
+                safeDmg = Math.max(1, Math.round(safeDmg / mult));
+                if (!colorOverride) {
+                    colorOverride = '#94a3b8'; // 格上軽減時はグレー表示
+                }
+            }
+
             return _origDamageMonster.call(this, m, safeDmg, isCrit, colorOverride);
         };
     }
 
-    // ペット更新処理が直接 m.hp を書き換えて NaN にするケースも監視・復旧
+    // ---------------------------------------------------------------------
+    // 2. 被ダメージ処理（格上の敵から喰らうダメージが 1 + 1.5×レベル差 倍に増加）
+    // ---------------------------------------------------------------------
+    if (P.updateMonsters && P.damagePlayer) {
+        const _origUpdateMonsters = P.updateMonsters;
+        const _origDamagePlayer = P.damagePlayer;
+
+        P.updateMonsters = function (dt, elapsed) {
+            this._inMonsterAttackLoop = true;
+            try {
+                return _origUpdateMonsters.call(this, dt, elapsed);
+            } finally {
+                this._inMonsterAttackLoop = false;
+            }
+        };
+
+        P.damagePlayer = function (rawDmg, ignoreDef = false) {
+            let finalDmg = Number(rawDmg) || 1;
+
+            if (this._inMonsterAttackLoop && this.player && Array.isArray(this.monsters)) {
+                let maxMult = 1.0;
+                for (const m of this.monsters) {
+                    if (!m || m.dead || !m.pos) continue;
+                    const dist = Math.hypot(this.player.pos.x - m.pos.x, this.player.pos.z - m.pos.z);
+                    if (dist <= 10.5) {
+                        const mult = this.getLevelDiffPenaltyMult(m);
+                        if (mult > maxMult) maxMult = mult;
+                    }
+                }
+                if (maxMult > 1.0) {
+                    finalDmg = Math.max(1, Math.round(finalDmg * maxMult));
+                }
+            }
+
+            return _origDamagePlayer.call(this, finalDmg, ignoreDef);
+        };
+    }
+
+    // ---------------------------------------------------------------------
+    // 3. ペット更新時の敵HP NaN監視・自動復旧
+    // ---------------------------------------------------------------------
     if (P.updatePet) {
         const _origUpdatePet = P.updatePet;
         P.updatePet = function (dt, elapsed) {
@@ -54,19 +132,21 @@
                 const st = this.calcDerivedStats ? this.calcDerivedStats() : null;
                 const baseAtk = st ? Math.max(st.physAtk || 10, st.magAtk || 10) : 10;
                 const petLv = (this.saveData && this.saveData.petLevel) || 1;
-                const fallbackPetDmg = Math.max(1, Math.round(baseAtk * (0.35 + petLv * 0.05)));
+                const rawPetDmg = Math.max(1, Math.round(baseAtk * (0.35 + petLv * 0.05)));
 
                 for (const m of this.monsters) {
                     if (!m || m.dead) continue;
                     if (!Number.isFinite(m.hp)) {
                         const prevHp = hpSnap.has(m) ? hpSnap.get(m) : (m.maxHp || 100);
-                        m.hp = Math.max(0, prevHp - fallbackPetDmg);
+                        const mult = this.getLevelDiffPenaltyMult(m);
+                        const safePetDmg = Math.max(1, Math.round(rawPetDmg / mult));
+                        m.hp = Math.max(0, prevHp - safePetDmg);
                         m.aggro = true;
                         if (this.spawnFloatText && m.pos) {
                             this.spawnFloatText(
                                 m.pos.clone().add(new THREE.Vector3(0, 1.4, 0)),
-                                `🐾${formatBigNum(fallbackPetDmg)}`,
-                                '#6ee7b7',
+                                `🐾${formatBigNum(safePetDmg)}`,
+                                mult > 1.0 ? '#94a3b8' : '#6ee7b7',
                                 13
                             );
                         }
@@ -80,7 +160,7 @@
     }
 
     // ---------------------------------------------------------------------
-    // 2. 攻撃エフェクト残存の完全解消（_slashEffects 寿命進行＆強制掃除）
+    // 4. 攻撃エフェクト残存の完全解消（_slashEffects 寿命進行＆強制掃除）
     // ---------------------------------------------------------------------
     P.cleanupAllCombatEffects = function () {
         if (Array.isArray(this._slashEffects)) {
@@ -105,11 +185,9 @@
         }
     };
 
-    // _slashEffects のアニメーションと寿命消去を確実に毎フレーム実行する
     P.tickSlashEffectsV9 = function (dt) {
         if (!Array.isArray(this._slashEffects) || this._slashEffects.length === 0) return;
 
-        // 同一フレーム内での二重減算を防止
         const now = performance.now();
         if (this._lastSlashTickTs && (now - this._lastSlashTickTs) < 4) return;
         this._lastSlashTickTs = now;
@@ -128,7 +206,6 @@
             const lifeDec = (Number.isFinite(dt) && dt > 0) ? dt : 0.016;
             ef.life = (Number.isFinite(ef.life) ? ef.life : 0.5) - lifeDec;
 
-            // 寿命切れ、または生成から4秒以上経過したエフェクトは強制削除
             if (ef.life <= 0 || (now - ef._bornTs) > 4000) {
                 if (this.scene) this.scene.remove(ef.mesh);
                 ef.mesh.traverse?.(o => {
@@ -224,7 +301,6 @@
         });
     };
 
-    // メイン描画ループ（updateVisualEffects）から確実に毎フレーム実行させる
     if (P.updateVisualEffects) {
         const _origUpdateVisualEffects = P.updateVisualEffects;
         P.updateVisualEffects = function (dt, elapsed) {
@@ -234,7 +310,6 @@
         };
     }
 
-    // ゾーン移動・帰還時に残留エフェクトをすべて掃除
     if (P.loadZone) {
         const _origLoadZone = P.loadZone;
         P.loadZone = function (zoneId) {
