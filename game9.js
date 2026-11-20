@@ -1,7 +1,13 @@
 'use strict';
 
 // =========================================================================
-// 顔文字ファンタジー3D 総合修正・機能拡張パッチ (v9.1)
+// 顔文字ファンタジー3D 総合修正・機能拡張パッチ (v9.2)
+// ・スキル押す場所（スロット1〜5）の自動復元＆表示
+// ・ペット攻撃等による敵HPのNaN化（無敵バグ）防止＆自動復旧
+// ・攻撃・スキルエフェクト残存の完全解消
+// ・格上レベル差補正（1Lv差ごとに +1.5倍 加算で被ダメ増・与ダメ減）
+// ・プレイヤーレベル上限 999 拡張
+// ・白っぽい背景＋白文字のコントラスト自動補正
 // =========================================================================
 
 try { window.MAX_PLAYER_LEVEL = 999; } catch (e) {}
@@ -65,9 +71,7 @@ try { window.MAX_PLAYER_LEVEL = 999; } catch (e) {}
         while (cur && cur.nodeType === 1) {
             const cs = window.getComputedStyle(cur);
             const gradLum = getGradientAvgLuminance(cs.backgroundImage);
-            if (gradLum !== null) {
-                return gradLum;
-            }
+            if (gradLum !== null) return gradLum;
             const bg = parseRgba(cs.backgroundColor);
             if (bg.a > 0.02) {
                 layers.unshift(bg);
@@ -100,6 +104,38 @@ try { window.MAX_PLAYER_LEVEL = 999; } catch (e) {}
                 color: #0f172a !important;
                 text-shadow: none !important;
             }
+            #kmj-v9-skill-bar {
+                position: fixed;
+                right: 112px;
+                bottom: 22px;
+                z-index: 45;
+                display: flex;
+                gap: 7px;
+                align-items: center;
+                pointer-events: auto;
+            }
+            .kmj-v9-skill-slot {
+                position: relative;
+                width: 54px;
+                height: 58px;
+                border-radius: 10px;
+                background: rgba(15, 23, 42, 0.92);
+                border: 2px solid #38bdf8;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.65);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                padding: 2px;
+                cursor: pointer;
+                user-select: none;
+                touch-action: manipulation;
+                color: #ffffff;
+            }
+            .kmj-v9-skill-slot:active {
+                transform: scale(0.93);
+                border-color: #fde047;
+            }
         `;
         document.head.appendChild(style);
     }
@@ -107,7 +143,6 @@ try { window.MAX_PLAYER_LEVEL = 999; } catch (e) {}
     function fixElementContrast(el) {
         if (!el || el.nodeType !== 1) return;
         if (el.classList?.contains('world-plate')) return;
-
         const cs = window.getComputedStyle(el);
         const fg = parseRgba(cs.color);
         if (calcLuminance(fg.r, fg.g, fg.b) >= 0.58) {
@@ -130,12 +165,64 @@ try { window.MAX_PLAYER_LEVEL = 999; } catch (e) {}
         }
     }
 
+    // ---------------------------------------------------------------------
+    // 2. スキル押す場所（スロット1〜5）が消えている場合の自動復元
+    // ---------------------------------------------------------------------
+    function ensureSkillSlotsExist() {
+        if (!document.body) return;
+
+        // 既存のスキルスロットが隠れていないか確認
+        let existingSlot = document.getElementById('skill-slot-0') || document.getElementById('btn-skill-0');
+        if (existingSlot) {
+            let p = existingSlot;
+            while (p && p !== document.body) {
+                if (p.classList?.contains('hidden')) p.classList.remove('hidden');
+                const cs = window.getComputedStyle(p);
+                if (cs.display === 'none') p.style.display = 'flex';
+                if (cs.visibility === 'hidden') p.style.visibility = 'visible';
+                p = p.parentElement;
+            }
+            return;
+        }
+
+        // DOM上に存在しない場合は右下に5つのスキルボタンを自動生成
+        if (document.getElementById('kmj-v9-skill-bar')) return;
+
+        const bar = document.createElement('div');
+        bar.id = 'kmj-v9-skill-bar';
+
+        for (let i = 0; i < 5; i++) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.id = `skill-slot-${i}`;
+            btn.className = 'kmj-v9-skill-slot skill-slot-btn';
+            btn.innerHTML = `<span style="font-size:10px;color:#94a3b8;">枠${i + 1}</span>`;
+
+            let lastTap = 0;
+            const trigger = (e) => {
+                if (e) { e.preventDefault(); e.stopPropagation(); }
+                const now = performance.now();
+                if (now - lastTap < 150) return;
+                lastTap = now;
+                if (typeof sfx !== 'undefined' && sfx.init) sfx.init();
+                if (window.game && typeof window.game.useSkillSlot === 'function') {
+                    window.game.useSkillSlot(i);
+                }
+            };
+            btn.addEventListener('touchstart', trigger, { passive: false });
+            btn.addEventListener('click', trigger);
+            bar.appendChild(btn);
+        }
+
+        document.body.appendChild(bar);
+    }
+
     function showPatchAppliedBadge() {
         if (!document.body || document.getElementById('kmj-v9-badge')) return;
         const badge = document.createElement('div');
         badge.id = 'kmj-v9-badge';
-        badge.textContent = '✅ v9パッチ適用済 (Lv999 / 格上補正 / 視認性修正)';
-        badge.style.cssText = 'position:fixed;right:6px;bottom:6px;z-index:9999;background:rgba(15,23,42,0.88);color:#6ee7b7;border:1px solid #34d399;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:900;pointer-events:none;';
+        badge.textContent = '✅ v9.2適用済';
+        badge.style.cssText = 'position:fixed;right:6px;top:6px;z-index:9999;background:rgba(15,23,42,0.88);color:#6ee7b7;border:1px solid #34d399;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:900;pointer-events:none;';
         document.body.appendChild(badge);
         setTimeout(() => { badge.style.opacity = '0.45'; }, 4000);
     }
@@ -147,11 +234,13 @@ try { window.MAX_PLAYER_LEVEL = 999; } catch (e) {}
             scanQueued = true;
             requestAnimationFrame(() => {
                 scanQueued = false;
+                ensureSkillSlotsExist();
                 scanAllContrast(document.body);
             });
         });
         const startDomHooks = () => {
             if (!document.body) return;
+            ensureSkillSlotsExist();
             scanAllContrast(document.body);
             showPatchAppliedBadge();
             observer.observe(document.body, {
@@ -184,7 +273,7 @@ try { window.MAX_PLAYER_LEVEL = 999; } catch (e) {}
     }
 
     // ---------------------------------------------------------------------
-    // 2. KaomojiMMORPG への処理組み込み（読み込み順に左右されない自動待機付き）
+    // 3. KaomojiMMORPG への処理組み込み
     // ---------------------------------------------------------------------
     function hookKaomojiPrototype() {
         if (typeof KaomojiMMORPG === 'undefined') return false;
@@ -192,7 +281,6 @@ try { window.MAX_PLAYER_LEVEL = 999; } catch (e) {}
         if (P._v9PatchApplied) return true;
         P._v9PatchApplied = true;
 
-        // レベル上限 999
         P.getSafeExpNeeded = function (lv) {
             const curLv = Math.max(1, Math.floor(Number(lv) || 1));
             if (typeof this.getExpNeeded === 'function') {
@@ -256,7 +344,15 @@ try { window.MAX_PLAYER_LEVEL = 999; } catch (e) {}
         if (P.refreshAllHUD) {
             const _origRefreshAllHUD = P.refreshAllHUD;
             P.refreshAllHUD = function () {
+                ensureSkillSlotsExist();
                 _origRefreshAllHUD.call(this);
+
+                // タイトル画面中は自動生成スキルバーを隠し、ゲーム中のみ表示
+                const v9Bar = document.getElementById('kmj-v9-skill-bar');
+                if (v9Bar) {
+                    v9Bar.style.display = this.inTitleScreen ? 'none' : 'flex';
+                }
+
                 const d = this.saveData;
                 if (!d) return;
                 const curLv = Math.min(MAX_PLAYER_LV_V9, Math.max(1, Number(d.lv) || 1));
@@ -269,7 +365,6 @@ try { window.MAX_PLAYER_LEVEL = 999; } catch (e) {}
             };
         }
 
-        // 格上レベル差補正（1Lv差ごとに +1.5倍 加算）
         const ADD_MULT_PER_LV = 1.5;
 
         P.getEnemyLevel = function (m) {
@@ -296,7 +391,6 @@ try { window.MAX_PLAYER_LEVEL = 999; } catch (e) {}
             return Number.isFinite(mult) && mult > 1 ? mult : 1.0;
         };
 
-        // 与ダメージ補正 ＋ NaN無敵バグ防止
         if (P.damageMonster) {
             const _origDamageMonster = P.damageMonster;
             P.damageMonster = function (m, rawDmg, isCrit = false, colorOverride = null) {
@@ -322,7 +416,6 @@ try { window.MAX_PLAYER_LEVEL = 999; } catch (e) {}
             };
         }
 
-        // 被ダメージ補正（格上から喰らうダメージが 1 + 1.5×レベル差 倍）
         if (P.updateMonsters && P.damagePlayer) {
             const _origUpdateMonsters = P.updateMonsters;
             const _origDamagePlayer = P.damagePlayer;
@@ -356,7 +449,6 @@ try { window.MAX_PLAYER_LEVEL = 999; } catch (e) {}
             };
         }
 
-        // ペット攻撃による敵HP NaN監視・復旧
         if (P.updatePet) {
             const _origUpdatePet = P.updatePet;
             P.updatePet = function (dt, elapsed) {
@@ -396,7 +488,6 @@ try { window.MAX_PLAYER_LEVEL = 999; } catch (e) {}
             };
         }
 
-        // 攻撃エフェクト残存解消
         P.cleanupAllCombatEffects = function () {
             if (Array.isArray(this._slashEffects)) {
                 for (const ef of this._slashEffects) {
