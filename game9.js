@@ -1,102 +1,88 @@
 'use strict';
 
 // =========================================================================
-// 顔文字ファンタジー3D 改善・不具合修正パッチ (game9.js)
-// ・攻撃/スキルエフェクト残留の解消
-// ・ペット攻撃時の敵無敵バグ（NaN HP化）の解消
-// ・脅威度上限 999 対応（±10 / ±100 ボタン追加）
+// 顔文字ファンタジー3D バグ修正パッチ (game9.js)
+// 1. ペット攻撃等による敵HPのNaN化（無敵バグ）の完全防止＆自動復旧
+// 2. 攻撃・スキルエフェクト（_slashEffects / effects）の確実な消去＆掃除
 // =========================================================================
 
-window.MAX_THREAT_RANK = 999;
-
-(function applyGame9Fixes() {
+(function applyBugFixPatchV9() {
     if (typeof KaomojiMMORPG === 'undefined') return;
     const P = KaomojiMMORPG.prototype;
-    if (P._game9Patched) return;
-    P._game9Patched = true;
 
     // ---------------------------------------------------------------------
-    // 1. ステータス後方互換（ペット攻撃等の st.atk 参照による NaN 防止）
-    // ---------------------------------------------------------------------
-    if (P.calcDerivedStats) {
-        const _origCalcStats = P.calcDerivedStats;
-        P.calcDerivedStats = function () {
-            const st = _origCalcStats.call(this);
-            if (st && typeof st === 'object') {
-                const bestAtk = Math.max(Number(st.physAtk) || 0, Number(st.magAtk) || 0, 1);
-                if (!Number.isFinite(st.atk) || st.atk <= 0) {
-                    st.atk = bestAtk;
-                }
-            }
-            return st;
-        };
-    }
-
-    // ---------------------------------------------------------------------
-    // 2. ダメージ処理＆モンスターHPの NaN 修復（ペット攻撃で無敵になる問題の解消）
+    // 1. ダメージ計算のNaNガード＆敵HPの自動復旧
     // ---------------------------------------------------------------------
     if (P.damageMonster) {
         const _origDamageMonster = P.damageMonster;
         P.damageMonster = function (m, rawDmg, isCrit = false, colorOverride = null) {
             if (!m || m.dead) return;
 
-            // 万が一 HP が NaN 等になっていたら直前の正常値または maxHp で復元
-            if (!Number.isFinite(m.hp)) {
-                m.hp = Number.isFinite(m._lastValidHp) ? m._lastValidHp : (Number(m.maxHp) || 10);
-            }
-            // ダメージ値が NaN や不正値の場合も安全化
+            // 万が一すでにNaNになっていた敵HPを正常値へ復旧
+            if (!Number.isFinite(m.maxHp) || m.maxHp <= 0) m.maxHp = 100;
+            if (!Number.isFinite(m.hp)) m.hp = m.maxHp;
+
+            // rawDmgがNaNや不正値の場合は安全な正の整数に補正
             let safeDmg = Number(rawDmg);
             if (!Number.isFinite(safeDmg) || safeDmg <= 0) {
-                const st = this.calcDerivedStats ? this.calcDerivedStats() : { atk: 10 };
-                safeDmg = Math.max(1, Math.round((st.atk || 10) * 0.35));
+                const st = this.calcDerivedStats ? this.calcDerivedStats() : null;
+                const baseAtk = st ? Math.max(st.physAtk || 10, st.magAtk || 10) : 10;
+                const petLv = (this.saveData && this.saveData.petLevel) || 1;
+                safeDmg = Math.max(1, Math.round(baseAtk * (0.35 + petLv * 0.05)));
             }
 
-            _origDamageMonster.call(this, m, safeDmg, isCrit, colorOverride);
-
-            if (Number.isFinite(m.hp) && m.hp > 0) {
-                m._lastValidHp = m.hp;
-            }
+            return _origDamageMonster.call(this, m, safeDmg, isCrit, colorOverride);
         };
     }
 
-    if (P.updateMonsters) {
-        const _origUpdateMonsters = P.updateMonsters;
-        P.updateMonsters = function (dt, elapsed) {
+    // ペット更新処理が直接 m.hp を書き換えて NaN にするケースも監視・復旧
+    if (P.updatePet) {
+        const _origUpdatePet = P.updatePet;
+        P.updatePet = function (dt, elapsed) {
+            const hpSnap = new Map();
             if (Array.isArray(this.monsters)) {
                 for (const m of this.monsters) {
+                    if (m && !m.dead && Number.isFinite(m.hp)) {
+                        hpSnap.set(m, m.hp);
+                    }
+                }
+            }
+
+            _origUpdatePet.call(this, dt, elapsed);
+
+            if (Array.isArray(this.monsters)) {
+                const st = this.calcDerivedStats ? this.calcDerivedStats() : null;
+                const baseAtk = st ? Math.max(st.physAtk || 10, st.magAtk || 10) : 10;
+                const petLv = (this.saveData && this.saveData.petLevel) || 1;
+                const fallbackPetDmg = Math.max(1, Math.round(baseAtk * (0.35 + petLv * 0.05)));
+
+                for (const m of this.monsters) {
                     if (!m || m.dead) continue;
-                    // ペットが m.hp を直接減算して NaN にしてしまった場合を即座に検知・救済
                     if (!Number.isFinite(m.hp)) {
-                        const st = this.calcDerivedStats ? this.calcDerivedStats() : { atk: 10 };
-                        const fallbackDmg = Math.max(1, Math.round((st.atk || 10) * 0.35));
-                        const baseHp = Number.isFinite(m._lastValidHp) ? m._lastValidHp : (Number(m.maxHp) || 10);
-                        m.hp = Math.max(0, baseHp - fallbackDmg);
+                        const prevHp = hpSnap.has(m) ? hpSnap.get(m) : (m.maxHp || 100);
+                        m.hp = Math.max(0, prevHp - fallbackPetDmg);
+                        m.aggro = true;
                         if (this.spawnFloatText && m.pos) {
                             this.spawnFloatText(
-                                m.pos.clone().add(new THREE.Vector3(0, 1.4 * (m.scale || 1), 0)),
-                                `🐾${formatBigNum(fallbackDmg)}`,
+                                m.pos.clone().add(new THREE.Vector3(0, 1.4, 0)),
+                                `🐾${formatBigNum(fallbackPetDmg)}`,
                                 '#6ee7b7',
                                 13
                             );
                         }
                         if (m.hp <= 0 && this.onMonsterKilled) {
                             this.onMonsterKilled(m);
-                            continue;
                         }
-                    }
-                    if (Number.isFinite(m.hp) && m.hp > 0) {
-                        m._lastValidHp = m.hp;
                     }
                 }
             }
-            _origUpdateMonsters.call(this, dt, elapsed);
         };
     }
 
     // ---------------------------------------------------------------------
-    // 3. 攻撃・スキルエフェクト残留の解消
+    // 2. 攻撃エフェクト残存の完全解消（_slashEffects 寿命進行＆強制掃除）
     // ---------------------------------------------------------------------
-    P.cleanupAllEffects = function () {
+    P.cleanupAllCombatEffects = function () {
         if (Array.isArray(this._slashEffects)) {
             for (const ef of this._slashEffects) {
                 if (ef && ef.mesh && this.scene) {
@@ -119,147 +105,141 @@ window.MAX_THREAT_RANK = 999;
         }
     };
 
-    if (P.loadZone) {
-        const _origLoadZone = P.loadZone;
-        P.loadZone = function (zoneId) {
-            this.cleanupAllEffects?.();
-            _origLoadZone.call(this, zoneId);
-        };
-    }
+    // _slashEffects のアニメーションと寿命消去を確実に毎フレーム実行する
+    P.tickSlashEffectsV9 = function (dt) {
+        if (!Array.isArray(this._slashEffects) || this._slashEffects.length === 0) return;
 
-    if (P.loop) {
-        const _origLoop = P.loop;
-        P.loop = function (now) {
-            const dt = Math.min(0.05, Math.max(0.001, (now - (this.lastTime || now)) / 1000));
+        // 同一フレーム内での二重減算を防止
+        const now = performance.now();
+        if (this._lastSlashTickTs && (now - this._lastSlashTickTs) < 4) return;
+        this._lastSlashTickTs = now;
 
-            // game4 2.js の loop から抜けていた game6 のアニメーション・エフェクト更新を確実に実行
-            if (this.updateRemotePlayers) {
-                this.updateRemotePlayers(dt);
-            } else {
-                this.updateCharacterAnimations?.(dt);
-                this.updateSanctuaryFields?.(dt);
-                this.updateHeadBubbles?.(dt);
+        this._slashEffects = this._slashEffects.filter(ef => {
+            if (!ef || !ef.mesh) return false;
+            if (!ef._bornTs) ef._bornTs = now;
+
+            if (ef.delay && ef.delay > 0) {
+                ef.delay -= dt;
+                ef.mesh.visible = false;
+                return true;
             }
+            ef.mesh.visible = true;
 
-            // 念のためのフェイルセーフ：万が一寿命が減らないエフェクトがあっても強制消去
-            if (Array.isArray(this._slashEffects) && this._slashEffects.length > 0) {
-                this._slashEffects = this._slashEffects.filter(ef => {
-                    ef._guardAge = (ef._guardAge || 0) + dt;
-                    if (ef._guardAge > 5.0) {
-                        if (ef.mesh && this.scene) this.scene.remove(ef.mesh);
-                        return false;
-                    }
-                    return true;
+            const lifeDec = (Number.isFinite(dt) && dt > 0) ? dt : 0.016;
+            ef.life = (Number.isFinite(ef.life) ? ef.life : 0.5) - lifeDec;
+
+            // 寿命切れ、または生成から4秒以上経過したエフェクトは強制削除
+            if (ef.life <= 0 || (now - ef._bornTs) > 4000) {
+                if (this.scene) this.scene.remove(ef.mesh);
+                ef.mesh.traverse?.(o => {
+                    o.geometry?.dispose?.();
+                    o.material?.dispose?.();
                 });
+                return false;
             }
 
-            _origLoop.call(this, now);
-        };
-    }
+            const maxL = (Number.isFinite(ef.maxLife) && ef.maxLife > 0) ? ef.maxLife : 0.6;
+            const p = Math.max(0, Math.min(1, 1 - (ef.life / maxL)));
+            const fade = 1 - p;
 
-    // ---------------------------------------------------------------------
-    // 4. 脅威度の上限を 999 に変更（UI・ボタン拡張）
-    // ---------------------------------------------------------------------
-    const renderZonesWith999 = function () {
-        const d = this.saveData;
-        if (!d) return;
-        const body = document.getElementById('modal-body');
-        if (!body) return;
-
-        window.MAX_THREAT_RANK = 999;
-        const maxThreat = 999;
-        const curThreat = Math.max(0, Math.min(maxThreat, Number(d.threatRank) || 0));
-        d.threatRank = curThreat;
-        const isTowerActive = Boolean(this.towerState && this.towerState.active);
-
-        body.innerHTML = `
-            <div class="card-box" style="margin-bottom:10px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
-                    <div>
-                        <div style="font-weight:900; color:#f43f5e;">🔥 危険度ランク: +${curThreat} / ${maxThreat}</div>
-                        <div style="font-size:10px; color:#cbd5e1;">ランクを上げると敵が強くなり、経験値・ゴールド報酬も増加！</div>
-                    </div>
-                    <div style="display:flex; gap:4px; flex-wrap:wrap;">
-                        <button type="button" class="btn-ui btn-slate" data-threat-delta="-100" ${curThreat <= 0 ? 'disabled' : ''}>-100</button>
-                        <button type="button" class="btn-ui btn-slate" data-threat-delta="-10" ${curThreat <= 0 ? 'disabled' : ''}>-10</button>
-                        <button type="button" class="btn-ui btn-slate" data-threat-delta="-1" ${curThreat <= 0 ? 'disabled' : ''}>-1</button>
-                        <button type="button" class="btn-ui btn-rose" data-threat-delta="1" ${curThreat >= maxThreat ? 'disabled' : ''}>+1</button>
-                        <button type="button" class="btn-ui btn-rose" data-threat-delta="10" ${curThreat >= maxThreat ? 'disabled' : ''}>+10</button>
-                        <button type="button" class="btn-ui btn-amber" data-threat-delta="100" ${curThreat >= maxThreat ? 'disabled' : ''}>+100</button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card-box" style="margin-bottom:10px; border-color:#a855f7;">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <div>
-                        <div style="font-weight:900; color:#e879f9;">🗼 無限の試練の塔（最高到達: ${(d.statsTrack && d.statsTrack.bestTowerFloor) || 0}F）</div>
-                        <div style="font-size:11px; color:#cbd5e1;">全滅させるごとに階層が上がるエンドレス挑戦モード</div>
-                    </div>
-                    <button type="button" class="btn-ui btn-purple" id="btn-enter-tower">挑戦する</button>
-                </div>
-            </div>
-
-            <div style="display:grid; gap:8px;">
-                ${Object.values(ZONES).map(z => `
-                    <div class="card-box" style="display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <div style="font-weight:900; color:#fff;">${z.safe ? '🏰' : `⚔️ Stage ${z.stageNum}:`} ${z.name} <span style="color:#fde047; font-size:11px;">(推奨Lv.${z.recLv})</span></div>
-                            <div style="font-size:11px; color:#cbd5e1;">${z.desc}</div>
-                        </div>
-                        <button type="button" class="btn-ui ${this.currentZoneId === z.id && !isTowerActive ? 'btn-amber' : 'btn-sky'}" data-warp-zone="${z.id}">
-                            ${this.currentZoneId === z.id && !isTowerActive ? '現在地' : '転移'}
-                        </button>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-
-        body.querySelectorAll('[data-threat-delta]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                sfx?.init?.();
-                const delta = Number(btn.getAttribute('data-threat-delta')) || 0;
-                d.threatRank = Math.max(0, Math.min(maxThreat, (d.threatRank || 0) + delta));
-                this.saveGame?.(false);
-                if (!isTowerActive && this.currentZoneId && this.currentZoneId !== 'town') {
-                    this.loadZone?.(this.currentZoneId);
+            if (ef.lvEvo) {
+                ef.lvEvo.rings?.forEach(r => { r.mesh.rotation.z += dt * r.spd; r.mat.opacity = fade * 0.92; });
+                ef.lvEvo.gyroRings?.forEach(g => { g.mesh.rotation.x += dt * g.rx; g.mesh.rotation.y += dt * g.ry; g.mesh.rotation.z += dt * g.rz; g.mat.opacity = fade * 0.88; });
+                ef.lvEvo.orbs?.forEach(o => {
+                    o.ang += dt * o.spd;
+                    o.orb.position.x = Math.cos(o.ang) * o.radius;
+                    o.orb.position.z = Math.sin(o.ang) * o.radius;
+                    o.orb.position.y = o.baseY + Math.sin(p * Math.PI * 3 + o.ang) * 0.45;
+                    o.orb.rotation.y += dt * 6.0;
+                });
+                if (ef.lvEvo.pillar) {
+                    ef.lvEvo.pillar.rotation.y -= dt * 3.0;
+                    ef.lvEvo.pillar.scale.set(0.8 + p * 0.65, 1, 0.8 + p * 0.65);
+                    if (ef.lvEvo.pillarMat) ef.lvEvo.pillarMat.opacity = fade * (0.32 + ef.lvEvo.tier * 0.06);
                 }
-                renderZonesWith999.call(this);
-            });
-        });
+            }
 
-        body.querySelector('#btn-enter-tower')?.addEventListener('click', () => {
-            this.closeGrowthModal?.();
-            this.startTowerMode?.(1);
-        });
+            if (ef.kind === 'support_bless') {
+                if (ef.followEntity?.pos) ef.mesh.position.set(ef.followEntity.pos.x, 0, ef.followEntity.pos.z);
+                if (ef.innerRing) ef.innerRing.rotation.z += dt * 4.0;
+                if (ef.outerRing) ef.outerRing.rotation.z -= dt * 3.0;
+                if (ef.halo) { ef.halo.position.y = 2.55 + Math.sin(p * Math.PI) * 0.45; ef.halo.rotation.z += dt * 5.0; }
+                if (ef.veilCyl) ef.veilCyl.scale.set(0.85 + p * 0.45, 1, 0.85 + p * 0.45);
+                if (ef.innerMat) ef.innerMat.opacity = fade * 0.92;
+                if (ef.outerMat) ef.outerMat.opacity = fade * 0.88;
+                if (ef.haloMat) ef.haloMat.opacity = fade * 0.96;
+                if (ef.veilMat) ef.veilMat.opacity = fade * 0.34;
+                ef.crosses?.forEach(c => {
+                    c.ang += dt * 2.6;
+                    c.mesh.position.x = Math.cos(c.ang) * c.dist;
+                    c.mesh.position.z = Math.sin(c.ang) * c.dist;
+                    c.mesh.position.y += c.vy * dt;
+                    c.mesh.rotation.y += dt * 4.5;
+                    if (c.mat) c.mat.opacity = fade * 0.95;
+                });
+            } else if (ef.kind === 'bigbang') {
+                ef.coreSphere?.scale.setScalar(Math.max(0.1, fade * 2.2));
+                if (ef.auraSphere) { ef.auraSphere.scale.setScalar(0.4 + p * 2.4); ef.auraSphere.rotation.y += dt * 4.0; }
+                ef.waveRing?.scale.setScalar(0.5 + p * 2.6);
+                if (ef.coreMat) ef.coreMat.opacity = fade;
+                if (ef.auraMat) ef.auraMat.opacity = fade * 0.65;
+                if (ef.waveMat) ef.waveMat.opacity = fade * 0.92;
+                ef.meteors?.forEach(m => {
+                    m.mesh.position.x += m.vx * dt;
+                    m.mesh.position.y += m.vy * dt;
+                    m.mesh.position.z += m.vz * dt;
+                    m.mesh.rotation.y += dt * 8.0;
+                    m.mesh.scale.setScalar(Math.max(0.1, 1 - p * 0.8));
+                });
+            } else if (ef.kind === 'chabudai') {
+                ef.mesh.position.x += (ef.vx || 0) * dt;
+                ef.mesh.position.z += (ef.vz || 0) * dt;
+                ef.mesh.position.y = 1.0 + Math.sin(p * Math.PI) * 3.0;
+                ef.mesh.rotation.x = p * Math.PI * 4.5;
+                ef.mesh.rotation.z = p * Math.PI * 1.4;
+            } else if (ef.kind === 'beam') {
+                const pulse = Math.sin(p * Math.PI);
+                ef.outerCyl?.scale.set(0.6 + pulse * 0.8, 1, 0.6 + pulse * 0.8);
+                ef.coreCyl?.scale.set(0.5 + pulse * 0.7, 1, 0.5 + pulse * 0.7);
+                if (ef.outerMat) ef.outerMat.opacity = fade * 0.75;
+                if (ef.coreMat) ef.coreMat.opacity = fade * 0.98;
+                ef.rings?.forEach((r, idx) => { r.rotation.z += dt * (idx % 2 === 0 ? 8 : -8); r.scale.setScalar(0.8 + pulse * 0.6); });
+            } else if (ef.kind === 'nova_ice') {
+                const rise = Math.min(1, p * 3.2);
+                ef.spikes?.forEach((sp, idx) => { sp.position.y = -1.2 + rise * 2.55; sp.rotation.y += dt * (idx % 2 === 0 ? 2 : -2); });
+                if (ef.magicRing) ef.magicRing.rotation.z += dt * 2.5;
+                ef.dome?.scale.setScalar(0.5 + p * 0.95);
+                if (ef.ringMat) ef.ringMat.opacity = fade * 0.85;
+                if (ef.domeMat) ef.domeMat.opacity = fade * 0.4;
+                if (ef.spikeMat) ef.spikeMat.opacity = p > 0.7 ? fade * 3.0 : 0.92;
+            } else {
+                ef.mesh.position.x += (ef.vx || 0) * dt;
+                ef.mesh.position.y += (ef.vy || 0) * dt;
+                ef.mesh.position.z += (ef.vz || 0) * dt;
+                ef.mesh.scale.setScalar(1 + p * 0.45);
+                if (ef.mat) ef.mat.opacity = fade * 0.92;
+            }
 
-        body.querySelectorAll('[data-warp-zone]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const zid = btn.getAttribute('data-warp-zone');
-                this.closeGrowthModal?.();
-                this.loadZone?.(zid);
-            });
+            return true;
         });
     };
 
-    if (P.renderGrowthTabContent) {
-        const _origRenderTab = P.renderGrowthTabContent;
-        P.renderGrowthTabContent = function () {
-            if (this.activeTab === 'zones' || this.activeTab === 'travel') {
-                renderZonesWith999.call(this);
-                return;
-            }
-            _origRenderTab.call(this);
+    // メイン描画ループ（updateVisualEffects）から確実に毎フレーム実行させる
+    if (P.updateVisualEffects) {
+        const _origUpdateVisualEffects = P.updateVisualEffects;
+        P.updateVisualEffects = function (dt, elapsed) {
+            _origUpdateVisualEffects.call(this, dt, elapsed);
+            this.tickSlashEffectsV9(dt);
+            if (this.updateSanctuaryFields) this.updateSanctuaryFields(dt);
         };
     }
 
-    if (P.renderModalContent) {
-        const _origRenderModal = P.renderModalContent;
-        P.renderModalContent = function () {
-            _origRenderModal.call(this);
-            if (this.activeTab === 'zones' || this.activeTab === 'travel') {
-                renderZonesWith999.call(this);
-            }
+    // ゾーン移動・帰還時に残留エフェクトをすべて掃除
+    if (P.loadZone) {
+        const _origLoadZone = P.loadZone;
+        P.loadZone = function (zoneId) {
+            this.cleanupAllCombatEffects();
+            _origLoadZone.call(this, zoneId);
         };
     }
 })();
