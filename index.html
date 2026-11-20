@@ -1,925 +1,265 @@
-<!-- 総合修正・機能拡張パッチ (v9.4) -->
-    <script>
-    'use strict';
-    try { window.MAX_PLAYER_LEVEL = 999; } catch (e) {}
-
-    (function initGame9PatchV94() {
-        if (window.__v94PatchLoaded) return;
-        window.__v94PatchLoaded = true;
-
-        const MAX_PLAYER_LV_V9 = 999;
-        let trackedGame = null;
-
-        function getGameInstance() {
-            if (window.game && typeof window.game === 'object') return window.game;
-            return trackedGame;
-        }
-
-        // -----------------------------------------------------------------
-        // 1. 白っぽい背景（単色＆グラデーション）＋白文字のコントラスト自動補正
-        // -----------------------------------------------------------------
-        function parseRgba(str) {
-            if (!str || str === 'transparent') return { r: 0, g: 0, b: 0, a: 0 };
-            const m = String(str).match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)/i);
-            if (m) {
-                return { r: Number(m[1]), g: Number(m[2]), b: Number(m[3]), a: m[4] !== undefined ? Number(m[4]) : 1 };
-            }
-            const hex = String(str).trim();
-            if (hex.startsWith('#')) {
-                let h = hex.slice(1);
-                if (h.length === 3) h = h.split('').map(c => c + c).join('');
-                if (h.length >= 6) {
-                    return {
-                        r: parseInt(h.slice(0, 2), 16) || 0,
-                        g: parseInt(h.slice(2, 4), 16) || 0,
-                        b: parseInt(h.slice(4, 6), 16) || 0,
-                        a: 1
-                    };
-                }
-            }
-            return { r: 0, g: 0, b: 0, a: 0 };
-        }
-
-        function calcLuminance(r, g, b) {
-            return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-        }
-
-        function getGradientAvgLuminance(bgImg) {
-            if (!bgImg || bgImg === 'none' || !bgImg.includes('gradient')) return null;
-            const matches = bgImg.match(/rgba?\([^)]+\)|#[0-9a-fA-F]{3,8}/g);
-            if (!matches || matches.length === 0) return null;
-            let sum = 0, count = 0;
-            for (const token of matches) {
-                const c = parseRgba(token);
-                if (c.a > 0.1) { sum += calcLuminance(c.r, c.g, c.b); count++; }
-            }
-            return count > 0 ? (sum / count) : null;
-        }
-
-        function getEffectiveBgLuminance(el) {
-            const layers = [];
-            let cur = el;
-            while (cur && cur.nodeType === 1) {
-                const cs = window.getComputedStyle(cur);
-                const gradLum = getGradientAvgLuminance(cs.backgroundImage);
-                if (gradLum !== null) return gradLum;
-                const bg = parseRgba(cs.backgroundColor);
-                if (bg.a > 0.02) {
-                    layers.unshift(bg);
-                    if (bg.a >= 0.96) break;
-                }
-                cur = cur.parentElement;
-            }
-            let r = 15, g = 23, b = 42;
-            for (const ly of layers) {
-                r = ly.r * ly.a + r * (1 - ly.a);
-                g = ly.g * ly.a + g * (1 - ly.a);
-                b = ly.b * ly.a + b * (1 - ly.a);
-            }
-            return calcLuminance(r, g, b);
-        }
-
-        function fixElementContrast(el) {
-            if (!el || el.nodeType !== 1) return;
-            if (el.classList && el.classList.contains('world-plate')) return;
-            const cs = window.getComputedStyle(el);
-            const fg = parseRgba(cs.color);
-            if (calcLuminance(fg.r, fg.g, fg.b) >= 0.58) {
-                const bgLum = getEffectiveBgLuminance(el);
-                if (bgLum >= 0.52) {
-                    el.style.setProperty('color', '#0f172a', 'important');
-                    el.style.setProperty('text-shadow', 'none', 'important');
-                }
-            }
-        }
-
-        function scanAllContrast(root) {
-            const target = root || document.body;
-            if (!target) return;
-            if (target.nodeType === 1) fixElementContrast(target);
-            const nodes = target.querySelectorAll
-                ? target.querySelectorAll('button, span, div, p, a, b, strong, label, input, textarea, select, h1, h2, h3, h4')
-                : [];
-            for (let i = 0; i < nodes.length; i++) {
-                fixElementContrast(nodes[i]);
-            }
-        }
-
-        // -----------------------------------------------------------------
-        // 2. スキル情報取得・空スロットガード・3Dスキルエフェクト自動生成
-        // -----------------------------------------------------------------
-        function getEquippedSkillsArray(d) {
-            if (!d) return [];
-            if (Array.isArray(d.equippedSkills)) return d.equippedSkills;
-            if (Array.isArray(d.skillSlots)) return d.skillSlots;
-            if (Array.isArray(d.slots)) return d.slots;
-            if (Array.isArray(d.equipSkills)) return d.equipSkills;
-            return [];
-        }
-
-        function getSkillByIdV9(skillId) {
-            if (!skillId) return null;
-            if (typeof SKILLS !== 'undefined') {
-                if (Array.isArray(SKILLS)) return SKILLS.find(s => s && s.id === skillId) || null;
-                if (SKILLS[skillId]) return SKILLS[skillId];
-            }
-            if (typeof SKILL_DB !== 'undefined' && SKILL_DB[skillId]) return SKILL_DB[skillId];
-            if (typeof SKILL_LIST !== 'undefined' && Array.isArray(SKILL_LIST)) {
-                return SKILL_LIST.find(s => s && s.id === skillId) || null;
-            }
-            return null;
-        }
-
-        function getAimDirectionAndTarget(g) {
-            const pPos = (g.player && g.player.pos) ? g.player.pos.clone() : new THREE.Vector3();
-            let dir = new THREE.Vector3(0, 0, 1);
-            if (g.player) {
-                const rot = Number(g.player.rotY ?? g.player.rotationY ?? (g.player.mesh && g.player.mesh.rotation.y) ?? 0);
-                dir.set(Math.sin(rot), 0, Math.cos(rot)).normalize();
-            }
-
-            let targetPos = pPos.clone().addScaledVector(dir, 5.0);
-            const tgt = g.lockedTarget || g.targetMonster || g.currentTarget;
-            if (tgt && !tgt.dead && tgt.pos) {
-                targetPos = tgt.pos.clone();
-                const toTgt = targetPos.clone().sub(pPos);
-                toTgt.y = 0;
-                if (toTgt.lengthSq() > 0.01) dir = toTgt.normalize();
-            } else if (Array.isArray(g.monsters)) {
-                let bestDist = 18;
-                for (const m of g.monsters) {
-                    if (!m || m.dead || !m.pos) continue;
-                    const dist = Math.hypot(m.pos.x - pPos.x, m.pos.z - pPos.z);
-                    if (dist < bestDist) {
-                        bestDist = dist;
-                        targetPos = m.pos.clone();
-                        const toTgt = targetPos.clone().sub(pPos);
-                        toTgt.y = 0;
-                        if (toTgt.lengthSq() > 0.01) dir = toTgt.normalize();
-                    }
-                }
-            }
-            return { pPos, dir, targetPos };
-        }
-
-        function spawnFallbackSkill3DEffect(g, skillId) {
-            if (!g || !g.scene || typeof THREE === 'undefined') return;
-            if (!Array.isArray(g._slashEffects)) g._slashEffects = [];
-
-            const sk = getSkillByIdV9(skillId) || {};
-            const label = `${skillId || ''} ${sk.name || ''} ${sk.type || ''} ${sk.element || ''}`.toLowerCase();
-            const { pPos, dir, targetPos } = getAimDirectionAndTarget(g);
-
-            // 1) 回復・補助・バフ系
-            if (/heal|buff|bless|support|shield|guard|cure|聖|癒|護|祈|加護|祝福|再生/.test(label)) {
-                const grp = new THREE.Group();
-                grp.position.set(pPos.x, 0.08, pPos.z);
-
-                const innerMat = new THREE.MeshBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.9, side: THREE.DoubleSide });
-                const innerRing = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.35, 32), innerMat);
-                innerRing.rotation.x = -Math.PI / 2;
-                grp.add(innerRing);
-
-                const outerMat = new THREE.MeshBasicMaterial({ color: 0xfde047, transparent: true, opacity: 0.85, side: THREE.DoubleSide });
-                const outerRing = new THREE.Mesh(new THREE.RingGeometry(1.7, 2.05, 32), outerMat);
-                outerRing.rotation.x = -Math.PI / 2;
-                grp.add(outerRing);
-
-                const veilMat = new THREE.MeshBasicMaterial({ color: 0x6ee7b7, transparent: true, opacity: 0.34, side: THREE.DoubleSide });
-                const veilCyl = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 3.2, 24, 1, true), veilMat);
-                veilCyl.position.y = 1.6;
-                grp.add(veilCyl);
-
-                g.scene.add(grp);
-                g._slashEffects.push({
-                    kind: 'support_bless',
-                    mesh: grp,
-                    followEntity: g.player,
-                    innerRing, outerRing, veilCyl,
-                    innerMat, outerMat, veilMat,
-                    life: 0.95,
-                    maxLife: 0.95
-                });
-                return;
-            }
-
-            // 2) 氷・水・凍結系
-            if (/ice|aqua|frost|blizzard|freeze|nova|氷|凍|吹雪|冷|水/.test(label)) {
-                const grp = new THREE.Group();
-                grp.position.set(targetPos.x, 0.1, targetPos.z);
-
-                const ringMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.85, side: THREE.DoubleSide });
-                const magicRing = new THREE.Mesh(new THREE.RingGeometry(1.4, 2.8, 28), ringMat);
-                magicRing.rotation.x = -Math.PI / 2;
-                grp.add(magicRing);
-
-                const spikeMat = new THREE.MeshBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.92 });
-                const spikes = [];
-                for (let i = 0; i < 8; i++) {
-                    const ang = (i / 8) * Math.PI * 2;
-                    const sp = new THREE.Mesh(new THREE.ConeGeometry(0.32, 2.6, 6), spikeMat);
-                    sp.position.set(Math.cos(ang) * 1.6, -1.0, Math.sin(ang) * 1.6);
-                    grp.add(sp);
-                    spikes.push(sp);
-                }
-
-                g.scene.add(grp);
-                g._slashEffects.push({
-                    kind: 'nova_ice',
-                    mesh: grp,
-                    magicRing, ringMat, spikes, spikeMat,
-                    life: 0.85,
-                    maxLife: 0.85
-                });
-                return;
-            }
-
-            // 3) ビーム・雷・レーザー系
-            if (/beam|laser|thunder|bolt|lightning|ray|cannon|雷|電|光線|砲|ビーム/.test(label)) {
-                const grp = new THREE.Group();
-                const beamLen = 14;
-                grp.position.set(pPos.x + dir.x * (beamLen * 0.5 + 0.8), 1.2, pPos.z + dir.z * (beamLen * 0.5 + 0.8));
-                grp.lookAt(pPos.x + dir.x * 20, 1.2, pPos.z + dir.z * 20);
-
-                const outerMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.75 });
-                const outerCyl = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, beamLen, 16, 1, true), outerMat);
-                outerCyl.rotation.x = Math.PI / 2;
-                grp.add(outerCyl);
-
-                const coreMat = new THREE.MeshBasicMaterial({ color: 0xfef08a, transparent: true, opacity: 0.95 });
-                const coreCyl = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, beamLen, 12), coreMat);
-                coreCyl.rotation.x = Math.PI / 2;
-                grp.add(coreCyl);
-
-                g.scene.add(grp);
-                g._slashEffects.push({
-                    kind: 'beam',
-                    mesh: grp,
-                    outerCyl, coreCyl, outerMat, coreMat,
-                    life: 0.6,
-                    maxLife: 0.6
-                });
-                return;
-            }
-
-            // 4) 究極・爆発・隕石・ビッグバン系
-            if (/bigbang|meteor|explode|explosion|omega|ultima|終焉|隕石|爆発|ビッグバン|滅/.test(label)) {
-                const grp = new THREE.Group();
-                grp.position.set(targetPos.x, 1.2, targetPos.z);
-
-                const coreMat = new THREE.MeshBasicMaterial({ color: 0xfde047, transparent: true, opacity: 0.95 });
-                const coreSphere = new THREE.Mesh(new THREE.SphereGeometry(1.3, 18, 18), coreMat);
-                grp.add(coreSphere);
-
-                const auraMat = new THREE.MeshBasicMaterial({ color: 0xf43f5e, transparent: true, opacity: 0.65, wireframe: true });
-                const auraSphere = new THREE.Mesh(new THREE.SphereGeometry(2.1, 16, 16), auraMat);
-                grp.add(auraSphere);
-
-                const waveMat = new THREE.MeshBasicMaterial({ color: 0xfb923c, transparent: true, opacity: 0.9, side: THREE.DoubleSide });
-                const waveRing = new THREE.Mesh(new THREE.RingGeometry(1.5, 2.4, 32), waveMat);
-                waveRing.rotation.x = -Math.PI / 2;
-                waveRing.position.y = -1.0;
-                grp.add(waveRing);
-
-                g.scene.add(grp);
-                g._slashEffects.push({
-                    kind: 'bigbang',
-                    mesh: grp,
-                    coreSphere, auraSphere, waveRing,
-                    coreMat, auraMat, waveMat,
-                    life: 0.85,
-                    maxLife: 0.85
-                });
-                return;
-            }
-
-            // 5) 標準攻撃スキル（斬撃・炎・闇・打撃などの飛翔エネルギー波）
-            let mainColor = 0x38bdf8;
-            if (/fire|flame|burn|炎|火|紅蓮/.test(label)) mainColor = 0xf97316;
-            else if (/dark|shadow|abyss|闇|黒|影/.test(label)) mainColor = 0xa855f7;
-            else if (/wind|gale|storm|風|嵐|疾/.test(label)) mainColor = 0x34d399;
-            else if (/holy|light|star|光|星|閃/.test(label)) mainColor = 0xfde047;
-
-            const grp = new THREE.Group();
-            grp.position.set(pPos.x + dir.x * 1.4, 1.15, pPos.z + dir.z * 1.4);
-            grp.lookAt(pPos.x + dir.x * 15, 1.15, pPos.z + dir.z * 15);
-
-            const mat = new THREE.MeshBasicMaterial({ color: mainColor, transparent: true, opacity: 0.92, side: THREE.DoubleSide });
-            const arcMesh = new THREE.Mesh(new THREE.TorusGeometry(1.35, 0.18, 8, 24, Math.PI * 1.15), mat);
-            arcMesh.rotation.z = -Math.PI * 0.575;
-            grp.add(arcMesh);
-
-            const subMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 });
-            const subArc = new THREE.Mesh(new THREE.TorusGeometry(1.05, 0.09, 6, 20, Math.PI), subMat);
-            subArc.rotation.z = -Math.PI * 0.5;
-            grp.add(subArc);
-
-            g.scene.add(grp);
-            g._slashEffects.push({
-                mesh: grp,
-                mat,
-                vx: dir.x * 22,
-                vy: 0,
-                vz: dir.z * 22,
-                life: 0.45,
-                maxLife: 0.45
-            });
-        }
-
-        function triggerSkillSlotV9(slotIdx) {
-            const g = getGameInstance();
-            if (!g || !g.saveData) return;
-
-            const equipped = getEquippedSkillsArray(g.saveData);
-            const skillId = equipped[slotIdx];
-            // 空のスキルスロットなら何もせず終了（ちゃぶ台誤発動防止）
-            if (!skillId) return;
-
-            if (typeof sfx !== 'undefined' && sfx.init) {
-                try { sfx.init(); } catch (e) {}
-            }
-
-            const beforeCount = Array.isArray(g._slashEffects) ? g._slashEffects.length : 0;
-
-            if (typeof g.useSkillSlot === 'function') g.useSkillSlot(slotIdx);
-            else if (typeof g.useSkill === 'function') g.useSkill(slotIdx);
-            else if (typeof g.useEquippedSkill === 'function') g.useEquippedSkill(slotIdx);
-            else if (typeof g.castSkill === 'function') g.castSkill(skillId);
-
-            const afterCount = Array.isArray(g._slashEffects) ? g._slashEffects.length : 0;
-            // 本体側でスキルエフェクトが生成されなかった場合のみ、スキル対応3Dエフェクトを補完生成
-            if (afterCount <= beforeCount) {
-                spawnFallbackSkill3DEffect(g, skillId);
-            }
-        }
-
-        function syncSkillSlotsDOM() {
-            const container = document.getElementById('skill-slots-container');
-            if (!container) return;
-
-            if (container.children.length < 5) {
-                container.innerHTML = '';
-                for (let i = 0; i < 5; i++) {
-                    const btn = document.createElement('button');
-                    btn.type = 'button';
-                    btn.id = `skill-slot-${i}`;
-                    btn.className = `skill-slot-btn skill-arc-${i}`;
-                    btn.innerHTML = `
-                        <span class="sk-icon" style="font-size:15px;line-height:1;">・</span>
-                        <span class="sk-name" style="font-size:8px;font-weight:900;max-width:42px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">空枠</span>
-                        <div class="skill-cd-overlay hidden"></div>
-                    `;
-                    let lastTap = 0;
-                    const onTap = (e) => {
-                        if (e) { e.preventDefault(); e.stopPropagation(); }
-                        const now = performance.now();
-                        if (now - lastTap < 140) return;
-                        lastTap = now;
-                        triggerSkillSlotV9(i);
-                    };
-                    btn.addEventListener('touchstart', onTap, { passive: false });
-                    btn.addEventListener('click', onTap);
-                    container.appendChild(btn);
-                }
-            }
-
-            const g = getGameInstance();
-            if (!g || !g.saveData) return;
-            const equipped = getEquippedSkillsArray(g.saveData);
-
-            for (let i = 0; i < 5; i++) {
-                const btn = container.children[i];
-                if (!btn) continue;
-                const skId = equipped[i];
-                const sk = getSkillByIdV9(skId);
-                const iconEl = btn.querySelector('.sk-icon');
-                const nameEl = btn.querySelector('.sk-name');
-                const cdEl = btn.querySelector('.skill-cd-overlay');
-
-                if (skId && sk) {
-                    if (iconEl) iconEl.textContent = sk.icon || '⚡';
-                    if (nameEl) nameEl.textContent = (sk.name || skId).slice(0, 4);
-                    btn.style.opacity = '1';
-                    btn.style.borderColor = '#38bdf8';
-                    btn.disabled = false;
-                } else {
-                    if (iconEl) iconEl.textContent = '－';
-                    if (nameEl) nameEl.textContent = '空枠';
-                    btn.style.opacity = '0.35';
-                    btn.style.borderColor = '#334155';
-                    btn.disabled = true;
-                }
-
-                if (cdEl) {
-                    const cds = g.skillCooldowns || g.cooldowns || {};
-                    const rem = skId ? Number(cds[skId] || 0) : 0;
-                    if (skId && rem > 0.05) {
-                        cdEl.classList.remove('hidden');
-                        cdEl.textContent = rem >= 10 ? `${Math.ceil(rem)}s` : `${rem.toFixed(1)}s`;
-                    } else {
-                        cdEl.classList.add('hidden');
-                    }
-                }
-            }
-        }
-
-        // -----------------------------------------------------------------
-        // 3. 独立アニメーションループ（_slashEffects / effects が絶対止まらない）
-        // -----------------------------------------------------------------
-        function tickCombatEffectsFrame(g, dt) {
-            if (!g) return;
-
-            if (Array.isArray(g._slashEffects) && g._slashEffects.length > 0) {
-                const now = performance.now();
-                g._slashEffects = g._slashEffects.filter(ef => {
-                    if (!ef || !ef.mesh) return false;
-                    if (!ef._bornTs) ef._bornTs = now;
-
-                    if (ef.delay && ef.delay > 0) {
-                        ef.delay -= dt;
-                        ef.mesh.visible = false;
-                        return true;
-                    }
-                    ef.mesh.visible = true;
-
-                    ef.life = (Number.isFinite(ef.life) ? ef.life : 0.45) - dt;
-
-                    // 寿命切れ、または3.5秒以上経過したエフェクトは強制削除
-                    if (ef.life <= 0 || (now - ef._bornTs) > 3500) {
-                        if (g.scene) g.scene.remove(ef.mesh);
-                        ef.mesh.traverse?.(o => {
-                            o.geometry?.dispose?.();
-                            o.material?.dispose?.();
-                        });
-                        return false;
-                    }
-
-                    const maxL = (Number.isFinite(ef.maxLife) && ef.maxLife > 0) ? ef.maxLife : 0.55;
-                    const p = Math.max(0, Math.min(1, 1 - (ef.life / maxL)));
-                    const fade = 1 - p;
-
-                    if (ef.lvEvo) {
-                        ef.lvEvo.rings?.forEach(r => { r.mesh.rotation.z += dt * r.spd; r.mat.opacity = fade * 0.92; });
-                        ef.lvEvo.gyroRings?.forEach(gR => { gR.mesh.rotation.x += dt * gR.rx; gR.mesh.rotation.y += dt * gR.ry; gR.mesh.rotation.z += dt * gR.rz; gR.mat.opacity = fade * 0.88; });
-                        ef.lvEvo.orbs?.forEach(o => {
-                            o.ang += dt * o.spd;
-                            o.orb.position.x = Math.cos(o.ang) * o.radius;
-                            o.orb.position.z = Math.sin(o.ang) * o.radius;
-                            o.orb.position.y = o.baseY + Math.sin(p * Math.PI * 3 + o.ang) * 0.45;
-                            o.orb.rotation.y += dt * 6.0;
-                        });
-                        if (ef.lvEvo.pillar) {
-                            ef.lvEvo.pillar.rotation.y -= dt * 3.0;
-                            ef.lvEvo.pillar.scale.set(0.8 + p * 0.65, 1, 0.8 + p * 0.65);
-                            if (ef.lvEvo.pillarMat) ef.lvEvo.pillarMat.opacity = fade * (0.32 + ef.lvEvo.tier * 0.06);
-                        }
-                    }
-
-                    if (ef.kind === 'support_bless') {
-                        if (ef.followEntity?.pos) ef.mesh.position.set(ef.followEntity.pos.x, 0.08, ef.followEntity.pos.z);
-                        if (ef.innerRing) ef.innerRing.rotation.z += dt * 4.0;
-                        if (ef.outerRing) ef.outerRing.rotation.z -= dt * 3.0;
-                        if (ef.halo) { ef.halo.position.y = 2.55 + Math.sin(p * Math.PI) * 0.45; ef.halo.rotation.z += dt * 5.0; }
-                        if (ef.veilCyl) ef.veilCyl.scale.set(0.85 + p * 0.45, 1, 0.85 + p * 0.45);
-                        if (ef.innerMat) ef.innerMat.opacity = fade * 0.92;
-                        if (ef.outerMat) ef.outerMat.opacity = fade * 0.88;
-                        if (ef.haloMat) ef.haloMat.opacity = fade * 0.96;
-                        if (ef.veilMat) ef.veilMat.opacity = fade * 0.34;
-                        ef.crosses?.forEach(c => {
-                            c.ang += dt * 2.6;
-                            c.mesh.position.x = Math.cos(c.ang) * c.dist;
-                            c.mesh.position.z = Math.sin(c.ang) * c.dist;
-                            c.mesh.position.y += c.vy * dt;
-                            c.mesh.rotation.y += dt * 4.5;
-                            if (c.mat) c.mat.opacity = fade * 0.95;
-                        });
-                    } else if (ef.kind === 'bigbang') {
-                        ef.coreSphere?.scale.setScalar(Math.max(0.1, fade * 2.2));
-                        if (ef.auraSphere) { ef.auraSphere.scale.setScalar(0.4 + p * 2.4); ef.auraSphere.rotation.y += dt * 4.0; }
-                        ef.waveRing?.scale.setScalar(0.5 + p * 2.6);
-                        if (ef.coreMat) ef.coreMat.opacity = fade;
-                        if (ef.auraMat) ef.auraMat.opacity = fade * 0.65;
-                        if (ef.waveMat) ef.waveMat.opacity = fade * 0.92;
-                        ef.meteors?.forEach(m => {
-                            m.mesh.position.x += m.vx * dt;
-                            m.mesh.position.y += m.vy * dt;
-                            m.mesh.position.z += m.vz * dt;
-                            m.mesh.rotation.y += dt * 8.0;
-                            m.mesh.scale.setScalar(Math.max(0.1, 1 - p * 0.8));
-                        });
-                    } else if (ef.kind === 'chabudai') {
-                        ef.mesh.position.x += (ef.vx || 0) * dt;
-                        ef.mesh.position.z += (ef.vz || 0) * dt;
-                        ef.mesh.position.y = 1.0 + Math.sin(p * Math.PI) * 3.0;
-                        ef.mesh.rotation.x = p * Math.PI * 4.5;
-                        ef.mesh.rotation.z = p * Math.PI * 1.4;
-                    } else if (ef.kind === 'beam') {
-                        const pulse = Math.sin(p * Math.PI);
-                        ef.outerCyl?.scale.set(0.6 + pulse * 0.8, 1, 0.6 + pulse * 0.8);
-                        ef.coreCyl?.scale.set(0.5 + pulse * 0.7, 1, 0.5 + pulse * 0.7);
-                        if (ef.outerMat) ef.outerMat.opacity = fade * 0.75;
-                        if (ef.coreMat) ef.coreMat.opacity = fade * 0.98;
-                        ef.rings?.forEach((r, idx) => { r.rotation.z += dt * (idx % 2 === 0 ? 8 : -8); r.scale.setScalar(0.8 + pulse * 0.6); });
-                    } else if (ef.kind === 'nova_ice') {
-                        const rise = Math.min(1, p * 3.2);
-                        ef.spikes?.forEach((sp, idx) => { sp.position.y = -1.2 + rise * 2.55; sp.rotation.y += dt * (idx % 2 === 0 ? 2 : -2); });
-                        if (ef.magicRing) ef.magicRing.rotation.z += dt * 2.5;
-                        ef.dome?.scale.setScalar(0.5 + p * 0.95);
-                        if (ef.ringMat) ef.ringMat.opacity = fade * 0.85;
-                        if (ef.domeMat) ef.domeMat.opacity = fade * 0.4;
-                        if (ef.spikeMat) ef.spikeMat.opacity = p > 0.7 ? fade * 3.0 : 0.92;
-                    } else {
-                        ef.mesh.position.x += (ef.vx || 0) * dt;
-                        ef.mesh.position.y += (ef.vy || 0) * dt;
-                        ef.mesh.position.z += (ef.vz || 0) * dt;
-                        ef.mesh.scale.setScalar(1 + p * 0.45);
-                        if (ef.mat) ef.mat.opacity = fade * 0.92;
-                    }
-
-                    return true;
-                });
-            }
-
-            if (Array.isArray(g.effects) && g.effects.length > 0) {
-                const now = performance.now();
-                g.effects = g.effects.filter(ef => {
-                    if (!ef || !ef.mesh) return false;
-                    if (!ef._bornTs) ef._bornTs = now;
-                    if ((now - ef._bornTs) > 3500) {
-                        if (g.scene) g.scene.remove(ef.mesh);
-                        return false;
-                    }
-                    return true;
-                });
-            }
-        }
-
-        let lastRafTs = performance.now();
-        function independentEffectLoop(now) {
-            const dt = Math.min(0.1, Math.max(0.001, (now - lastRafTs) / 1000));
-            lastRafTs = now;
-
-            const g = getGameInstance();
-            if (g) {
-                tickCombatEffectsFrame(g, dt);
-                syncSkillSlotsDOM();
-            }
-            requestAnimationFrame(independentEffectLoop);
-        }
-        requestAnimationFrame(independentEffectLoop);
-
-        function showPatchAppliedBadge() {
-            if (!document.body || document.getElementById('kmj-v9-badge')) return;
-            const badge = document.createElement('div');
-            badge.id = 'kmj-v9-badge';
-            badge.textContent = '✅ v9.4適用済';
-            badge.style.cssText = 'position:fixed;left:8px;bottom:4px;z-index:9999;background:rgba(15,23,42,0.88);color:#6ee7b7;border:1px solid #34d399;border-radius:6px;padding:1px 6px;font-size:9px;font-weight:900;pointer-events:none;';
-            document.body.appendChild(badge);
-        }
-
-        if (typeof MutationObserver !== 'undefined') {
-            let scanQueued = false;
-            const observer = new MutationObserver(() => {
-                if (scanQueued) return;
-                scanQueued = true;
-                requestAnimationFrame(() => {
-                    scanQueued = false;
-                    syncSkillSlotsDOM();
-                    scanAllContrast(document.body);
-                });
-            });
-            const startDomHooks = () => {
-                if (!document.body) return;
-                syncSkillSlotsDOM();
-                scanAllContrast(document.body);
-                showPatchAppliedBadge();
-                observer.observe(document.body, {
-                    childList: true,
-                    subtree: true,
-                    attributes: true,
-                    attributeFilter: ['style', 'class']
-                });
-            };
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', startDomHooks);
-            } else {
-                startDomHooks();
-            }
-        }
-
-        if (typeof window.getKaomojiFaceTexture === 'function' && !window.getKaomojiFaceTexture._v9Wrapped) {
-            const _origFaceTex = window.getKaomojiFaceTexture;
-            const wrappedFaceTex = function (kaomoji, bgHex, textHex, borderHex) {
-                const bg = parseRgba(bgHex || '#073b66');
-                const fg = parseRgba(textHex || '#ffffff');
-                let safeTextHex = textHex || '#ffffff';
-                if (calcLuminance(bg.r, bg.g, bg.b) >= 0.52 && calcLuminance(fg.r, fg.g, fg.b) >= 0.52) {
-                    safeTextHex = '#0f172a';
-                }
-                return _origFaceTex.call(this, kaomoji, bgHex, safeTextHex, borderHex);
-            };
-            wrappedFaceTex._v9Wrapped = true;
-            window.getKaomojiFaceTexture = wrappedFaceTex;
-        }
-
-        // -----------------------------------------------------------------
-        // 4. KaomojiMMORPG への処理組み込み
-        // -----------------------------------------------------------------
-        function hookKaomojiPrototype() {
-            if (typeof KaomojiMMORPG === 'undefined') return false;
-            const P = KaomojiMMORPG.prototype;
-            if (P._v9PatchApplied) return true;
-            P._v9PatchApplied = true;
-
-            // どのメソッドが呼ばれてもゲームインスタンスを捕捉
-            const captureInstance = function () { trackedGame = this; };
-
-            // スキル発動メソッドの空スロットガード＆エフェクト補完
-            ['useSkillSlot', 'useSkill', 'useEquippedSkill'].forEach(methodName => {
-                if (typeof P[methodName] === 'function') {
-                    const _orig = P[methodName];
-                    P[methodName] = function (slotIdx, ...args) {
-                        captureInstance.call(this);
-                        const equipped = getEquippedSkillsArray(this.saveData);
-                        const skillId = equipped[slotIdx];
-                        if (!skillId) return; // 空スロットなら即終了
-
-                        const beforeCount = Array.isArray(this._slashEffects) ? this._slashEffects.length : 0;
-                        const res = _orig.call(this, slotIdx, ...args);
-                        const afterCount = Array.isArray(this._slashEffects) ? this._slashEffects.length : 0;
-                        if (afterCount <= beforeCount) {
-                            spawnFallbackSkill3DEffect(this, skillId);
-                        }
-                        return res;
-                    };
-                }
-            });
-
-            if (typeof P.castSkill === 'function') {
-                const _origCastSkill = P.castSkill;
-                P.castSkill = function (skillId, ...args) {
-                    captureInstance.call(this);
-                    if (!skillId) return;
-                    const beforeCount = Array.isArray(this._slashEffects) ? this._slashEffects.length : 0;
-                    const res = _origCastSkill.call(this, skillId, ...args);
-                    const afterCount = Array.isArray(this._slashEffects) ? this._slashEffects.length : 0;
-                    if (afterCount <= beforeCount) {
-                        spawnFallbackSkill3DEffect(this, skillId);
-                    }
-                    return res;
-                };
-            }
-
-            // レベル上限 999
-            P.getSafeExpNeeded = function (lv) {
-                const curLv = Math.max(1, Math.floor(Number(lv) || 1));
-                if (typeof this.getExpNeeded === 'function') {
-                    const val = Number(this.getExpNeeded(curLv));
-                    if (Number.isFinite(val) && val > 0) return val;
-                }
-                return Math.max(50, Math.floor(100 * Math.pow(curLv, 1.85)));
-            };
-
-            P.gainExp = function (amount) {
-                captureInstance.call(this);
-                const d = this.saveData;
-                if (!d) return;
-                if ((d.lv || 1) >= MAX_PLAYER_LV_V9) {
-                    d.lv = MAX_PLAYER_LV_V9;
-                    return;
-                }
-                const addExp = Number(amount);
-                if (!Number.isFinite(addExp) || addExp <= 0) return;
-
-                d.exp = (Number(d.exp) || 0) + addExp;
-                let leveled = false;
-
-                while ((d.lv || 1) < MAX_PLAYER_LV_V9) {
-                    const need = this.getSafeExpNeeded(d.lv || 1);
-                    if (d.exp < need) break;
-                    d.exp -= need;
-                    d.lv = (d.lv || 1) + 1;
-                    d.ap = (d.ap || 0) + 3;
-                    d.sp = (d.sp || 0) + 1;
-                    leveled = true;
-                }
-
-                if (d.lv >= MAX_PLAYER_LV_V9) {
-                    d.lv = MAX_PLAYER_LV_V9;
-                    d.exp = 0;
-                }
-
-                if (leveled) {
-                    const st = this.calcDerivedStats ? this.calcDerivedStats() : null;
-                    if (this.player && st) {
-                        this.player.hp = st.maxHp;
-                        this.player.mp = st.maxMp;
-                        if (this.spawnRingWave) this.spawnRingWave(this.player.pos, 0xfde047, 5.0);
-                        if (this.spawnFloatText) {
-                            this.spawnFloatText(
-                                this.player.pos.clone().add(new THREE.Vector3(0, 2.8, 0)),
-                                `🎉 LEVEL UP! Lv.${d.lv}`,
-                                '#fde047',
-                                18
-                            );
-                        }
-                    }
-                    if (typeof sfx !== 'undefined' && sfx.playLevelUp) sfx.playLevelUp();
-                    if (this.showAlertBanner) {
-                        const maxMsg = d.lv >= MAX_PLAYER_LV_V9 ? '（上限MAX達成！）' : '';
-                        this.showAlertBanner(`🎉 レベルアップ！ Lv.${d.lv} になりました！${maxMsg}`, 2200);
-                    }
-                }
-            };
-
-            if (P.refreshAllHUD) {
-                const _origRefreshAllHUD = P.refreshAllHUD;
-                P.refreshAllHUD = function () {
-                    captureInstance.call(this);
-                    _origRefreshAllHUD.call(this);
-                    syncSkillSlotsDOM();
-                    const d = this.saveData;
-                    if (!d) return;
-                    const curLv = Math.min(MAX_PLAYER_LV_V9, Math.max(1, Number(d.lv) || 1));
-                    const needExp = this.getSafeExpNeeded(curLv);
-                    const expPct = curLv >= MAX_PLAYER_LV_V9 ? 100 : Math.max(0, Math.min(100, ((Number(d.exp) || 0) / needExp) * 100));
-                    const expBar = document.getElementById('hud-exp-bar');
-                    const pExp = document.getElementById('p-head-exp');
-                    if (expBar) expBar.style.width = `${expPct}%`;
-                    if (pExp) pExp.style.width = `${expPct}%`;
-                };
-            }
-
-            // 格上レベル差補正（1Lv差ごとに +1.5倍 加算）
-            const ADD_MULT_PER_LV = 1.5;
-
-            P.getEnemyLevel = function (m) {
-                if (!m) return 1;
-                if (Number.isFinite(Number(m.lv)) && Number(m.lv) > 0) {
-                    return Math.floor(Number(m.lv));
-                }
-                const threat = (this.saveData && Number(this.saveData.threatRank)) || 0;
-                if (this.towerState && this.towerState.active) {
-                    const floor = Number(this.towerState.floor) || 1;
-                    return Math.max(1, floor * 3 + threat);
-                }
-                const zone = (typeof ZONES !== 'undefined' && ZONES[this.currentZoneId]) || null;
-                const baseRecLv = zone ? (Number(zone.recLv) || 1) : 1;
-                return Math.max(1, baseRecLv + threat + (m.isBoss ? 2 : 0));
-            };
-
-            P.getLevelDiffPenaltyMult = function (m) {
-                const playerLv = (this.saveData && Number(this.saveData.lv)) || 1;
-                const enemyLv = this.getEnemyLevel(m);
-                const diff = enemyLv - playerLv;
-                if (diff <= 0) return 1.0;
-                const mult = 1.0 + ADD_MULT_PER_LV * diff;
-                return Number.isFinite(mult) && mult > 1 ? mult : 1.0;
-            };
-
-            // 与ダメージ補正 ＋ NaN無敵バグ防止
-            if (P.damageMonster) {
-                const _origDamageMonster = P.damageMonster;
-                P.damageMonster = function (m, rawDmg, isCrit = false, colorOverride = null) {
-                    captureInstance.call(this);
-                    if (!m || m.dead) return;
-                    if (!Number.isFinite(m.maxHp) || m.maxHp <= 0) m.maxHp = 100;
-                    if (!Number.isFinite(m.hp)) m.hp = m.maxHp;
-
-                    let safeDmg = Number(rawDmg);
-                    if (!Number.isFinite(safeDmg) || safeDmg <= 0) {
-                        const st = this.calcDerivedStats ? this.calcDerivedStats() : null;
-                        const baseAtk = st ? Math.max(st.physAtk || 10, st.magAtk || 10) : 10;
-                        const petLv = (this.saveData && this.saveData.petLevel) || 1;
-                        safeDmg = Math.max(1, Math.round(baseAtk * (0.35 + petLv * 0.05)));
-                    }
-
-                    const mult = this.getLevelDiffPenaltyMult(m);
-                    if (mult > 1.0) {
-                        safeDmg = Math.max(1, Math.round(safeDmg / mult));
-                        if (!colorOverride) colorOverride = '#cbd5e1';
-                    }
-
-                    return _origDamageMonster.call(this, m, safeDmg, isCrit, colorOverride);
-                };
-            }
-
-            // 被ダメージ補正（格上から喰らうダメージが 1 + 1.5×レベル差 倍）
-            if (P.updateMonsters && P.damagePlayer) {
-                const _origUpdateMonsters = P.updateMonsters;
-                const _origDamagePlayer = P.damagePlayer;
-
-                P.updateMonsters = function (dt, elapsed) {
-                    captureInstance.call(this);
-                    this._inMonsterAttackLoop = true;
-                    try {
-                        return _origUpdateMonsters.call(this, dt, elapsed);
-                    } finally {
-                        this._inMonsterAttackLoop = false;
-                    }
-                };
-
-                P.damagePlayer = function (rawDmg, ignoreDef = false) {
-                    let finalDmg = Number(rawDmg) || 1;
-                    if (this._inMonsterAttackLoop && this.player && Array.isArray(this.monsters)) {
-                        let maxMult = 1.0;
-                        for (const m of this.monsters) {
-                            if (!m || m.dead || !m.pos) continue;
-                            const dist = Math.hypot(this.player.pos.x - m.pos.x, this.player.pos.z - m.pos.z);
-                            if (dist <= 10.5) {
-                                const mult = this.getLevelDiffPenaltyMult(m);
-                                if (mult > maxMult) maxMult = mult;
-                            }
-                        }
-                        if (maxMult > 1.0) {
-                            finalDmg = Math.max(1, Math.round(finalDmg * maxMult));
-                        }
-                    }
-                    return _origDamagePlayer.call(this, finalDmg, ignoreDef);
-                };
-            }
-
-            // ペット攻撃による敵HP NaN監視・復旧
-            if (P.updatePet) {
-                const _origUpdatePet = P.updatePet;
-                P.updatePet = function (dt, elapsed) {
-                    captureInstance.call(this);
-                    const hpSnap = new Map();
-                    if (Array.isArray(this.monsters)) {
-                        for (const m of this.monsters) {
-                            if (m && !m.dead && Number.isFinite(m.hp)) hpSnap.set(m, m.hp);
-                        }
-                    }
-                    _origUpdatePet.call(this, dt, elapsed);
-                    if (Array.isArray(this.monsters)) {
-                        const st = this.calcDerivedStats ? this.calcDerivedStats() : null;
-                        const baseAtk = st ? Math.max(st.physAtk || 10, st.magAtk || 10) : 10;
-                        const petLv = (this.saveData && this.saveData.petLevel) || 1;
-                        const rawPetDmg = Math.max(1, Math.round(baseAtk * (0.35 + petLv * 0.05)));
-
-                        for (const m of this.monsters) {
-                            if (!m || m.dead) continue;
-                            if (!Number.isFinite(m.hp)) {
-                                const prevHp = hpSnap.has(m) ? hpSnap.get(m) : (m.maxHp || 100);
-                                const mult = this.getLevelDiffPenaltyMult(m);
-                                const safePetDmg = Math.max(1, Math.round(rawPetDmg / mult));
-                                m.hp = Math.max(0, prevHp - safePetDmg);
-                                m.aggro = true;
-                                if (this.spawnFloatText && m.pos) {
-                                    this.spawnFloatText(
-                                        m.pos.clone().add(new THREE.Vector3(0, 1.4, 0)),
-                                        `🐾${formatBigNum(safePetDmg)}`,
-                                        mult > 1.0 ? '#cbd5e1' : '#6ee7b7',
-                                        13
-                                    );
-                                }
-                                if (m.hp <= 0 && this.onMonsterKilled) this.onMonsterKilled(m);
-                            }
-                        }
-                    }
-                };
-            }
-
-            // ゾーン移動時のエフェクト一括掃除
-            P.cleanupAllCombatEffects = function () {
-                if (Array.isArray(this._slashEffects)) {
-                    for (const ef of this._slashEffects) {
-                        if (ef && ef.mesh && this.scene) {
-                            this.scene.remove(ef.mesh);
-                            ef.mesh.traverse?.(o => { o.geometry?.dispose?.(); o.material?.dispose?.(); });
-                        }
-                    }
-                    this._slashEffects = [];
-                }
-                if (Array.isArray(this.effects)) {
-                    for (const ef of this.effects) {
-                        if (ef && ef.mesh && this.scene) this.scene.remove(ef.mesh);
-                    }
-                    this.effects = [];
-                }
-            };
-
-            if (P.loadZone) {
-                const _origLoadZone = P.loadZone;
-                P.loadZone = function (zoneId) {
-                    captureInstance.call(this);
-                    this.cleanupAllCombatEffects();
-                    _origLoadZone.call(this, zoneId);
-                };
-            }
-
-            return true;
-        }
-
-        if (!hookKaomojiPrototype()) {
-            let tries = 0;
-            const timer = setInterval(() => {
-                tries++;
-                if (hookKaomojiPrototype() || tries > 50) clearInterval(timer);
-            }, 100);
-            window.addEventListener('DOMContentLoaded', hookKaomojiPrototype);
-        }
-    })();
-    </script>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>顔文字ファンタジー3D - オンライン共闘RPG</title>
+<script>
+window.__bootErrors = [];
+window.addEventListener('error', function(e) {
+  var src = (e.filename || '').split('/').pop().split('?')[0] || 'script';
+  window.__bootErrors.push(src + ':' + (e.lineno || 0) + ' ' + (e.message || 'Error'));
+  var el = document.getElementById('title-save-info');
+  if (el) el.innerHTML = '<div style="color:#fb7185;font-weight:900;font-size:11px;">⚠️ エラー:<br>' + window.__bootErrors.join('<br>') + '</div>';
+});
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none}
+html,body{width:100%;height:100%;overflow:hidden;background:#090d16;color:#f8fafc;font-family:"Hiragino Kaku Gothic ProN","Meiryo",sans-serif}
+.font-kaomoji{font-family:"MS PGothic","Hiragino Kaku Gothic ProN",sans-serif}
+.hidden{display:none!important}
+#game-canvas{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1;touch-action:none}
+#overlay-layer{position:fixed;inset:0;pointer-events:none!important;z-index:5;overflow:hidden}
+.world-plate{position:absolute;transform:translate(-50%,-100%);background:rgba(9,13,22,.90);border:1px solid rgba(56,189,248,.65);border-radius:6px;padding:2px 6px;text-align:center;white-space:nowrap;pointer-events:none!important;text-shadow:0 1px 2px rgba(0,0,0,.95)}
+.m-hp-bg{width:64px;height:5px;background:#1e293b;border-radius:3px;overflow:hidden;margin:2px auto 0}
+.m-hp-fill{height:100%;background:linear-gradient(90deg,#ef4444,#f97316);width:100%}
+.world-float-text{position:absolute;transform:translate(-50%,-50%);font-weight:900;text-shadow:0 2px 4px rgba(0,0,0,.98),0 0 3px #000;pointer-events:none!important;white-space:nowrap}
+.world-emote-bubble{position:absolute;transform:translate(-50%,-100%);background:rgba(9,13,22,.95);border:1.5px solid #f472b6;border-radius:12px;padding:4px 10px;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.75);pointer-events:none!important;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.9)}
+button,.btn-ui{touch-action:manipulation;cursor:pointer;pointer-events:auto}
+.btn-ui{display:inline-flex;align-items:center;justify-content:center;gap:4px;border:none;border-radius:8px;padding:7px 11px;font-size:11px;font-weight:900;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.85);transition:transform .08s ease;box-shadow:0 2px 6px rgba(0,0,0,.45)}
+.btn-ui:active:not(:disabled){transform:scale(.95)}
+.btn-ui:disabled{opacity:.42;cursor:not-allowed}
+.btn-sky{background:linear-gradient(135deg,#0284c7,#2563eb)}
+.btn-emerald{background:linear-gradient(135deg,#059669,#10b981)}
+.btn-amber{background:linear-gradient(135deg,#b45309,#d97706)}
+.btn-rose{background:linear-gradient(135deg,#e11d48,#f43f5e)}
+.btn-fuchsia{background:linear-gradient(135deg,#9333ea,#c026d3)}
+.btn-slate{background:#1e293b;border:1px solid #475569;color:#f8fafc}
+.input-ui{width:100%;background:#0f172a;border:1px solid #38bdf8;border-radius:8px;padding:7px 10px;font-size:12px;color:#f8fafc;outline:none;pointer-events:auto;touch-action:manipulation;user-select:text;-webkit-user-select:text}
+/* 白・明色背景のUIで白文字が重なって見えなくなるのを防ぐコントラスト保護 */
+[style*="background:#fff"],[style*="background: #fff"],[style*="background:#f8fafc"],[style*="background: #f8fafc"],[style*="background:#fef08a"],[style*="background:#fde047"],[style*="background:white"],[style*="background: white"]{color:#0f172a!important;text-shadow:none!important}
+#title-screen{position:fixed;inset:0;z-index:90;background:radial-gradient(circle at center,rgba(15,23,42,.68) 0%,rgba(2,6,23,.92) 100%);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:auto}
+.title-card{width:100%;max-width:440px;background:rgba(15,23,42,.96);border:2px solid rgba(56,189,248,.65);border-radius:20px;padding:20px 18px;box-shadow:0 20px 50px rgba(0,0,0,.8);text-align:center;display:flex;flex-direction:column;gap:12px;pointer-events:auto}
+.title-logo-kaomoji{font-size:28px;font-weight:900;color:#38bdf8;text-shadow:0 0 14px rgba(56,189,248,.7)}
+.title-main-heading{font-size:22px;font-weight:900;background:linear-gradient(90deg,#fde047,#38bdf8,#f472b6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1.25}
+.title-save-preview{background:rgba(30,41,59,.92);border:1px solid #334155;border-radius:12px;padding:10px;font-size:12px}
+.title-room-box{background:rgba(30,41,59,.88);border:1px solid rgba(56,189,248,.35);border-radius:12px;padding:10px;text-align:left;display:flex;flex-direction:column;gap:7px}
+#hud-layer{position:fixed;inset:0;z-index:20;pointer-events:none}
+.hud-top-bar{position:fixed;top:8px;left:8px;right:8px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;pointer-events:none;z-index:25}
+.hud-status-card{background:rgba(9,13,22,.92);border:1px solid rgba(56,189,248,.55);border-radius:12px;padding:6px 10px;min-width:195px;max-width:260px;pointer-events:auto;text-shadow:0 1px 2px rgba(0,0,0,.9)}
+.bar-row{display:flex;align-items:center;gap:5px;margin-top:3px;font-size:10px;font-weight:900}
+.bar-track{flex:1;height:6px;background:#1e293b;border-radius:4px;overflow:hidden}
+.bar-fill-hp{height:100%;background:linear-gradient(90deg,#10b981,#34d399);width:100%}
+.bar-fill-mp{height:100%;background:linear-gradient(90deg,#0284c7,#38bdf8);width:100%}
+.bar-fill-exp{height:100%;background:linear-gradient(90deg,#d97706,#fde047);width:0%}
+.hud-top-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;pointer-events:none}
+.hud-zone-pill{background:rgba(9,13,22,.92);border:1px solid rgba(148,163,184,.5);border-radius:10px;padding:4px 9px;display:flex;align-items:center;gap:6px;font-size:11px;font-weight:900;color:#f8fafc;pointer-events:auto;text-shadow:0 1px 2px rgba(0,0,0,.9)}
+.hud-action-row{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:5px;pointer-events:none}
+.hud-action-row>button{pointer-events:auto;position:relative}
+.alert-dot{position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:#ef4444;border:1.5px solid #fff}
+#hud-drawer-menu{position:fixed;top:84px;right:8px;width:210px;background:rgba(9,13,22,.96);border:1.5px solid #38bdf8;border-radius:14px;padding:8px;display:flex;flex-direction:column;gap:6px;z-index:45;pointer-events:auto;box-shadow:0 12px 30px rgba(0,0,0,.75)}
+#emote-palette{position:fixed;top:84px;right:8px;width:240px;background:rgba(9,13,22,.96);border:1.5px solid #f472b6;border-radius:14px;padding:8px;display:grid;grid-template-columns:repeat(4,1fr);gap:5px;z-index:45;pointer-events:auto;box-shadow:0 12px 30px rgba(0,0,0,.75)}
+.emote-quick-btn{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:6px 2px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;pointer-events:auto}
+#alert-banner{position:fixed;top:96px;left:50%;transform:translateX(-50%);background:rgba(9,13,22,.96);border:1.5px solid #fde047;border-radius:999px;padding:6px 16px;font-size:12px;font-weight:900;color:#fde047;z-index:40;pointer-events:none;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis;box-shadow:0 4px 16px rgba(0,0,0,.7)}
+#boss-cast-box{position:fixed;top:132px;left:50%;transform:translateX(-50%);width:min(340px,88vw);background:rgba(69,10,10,.95);border:1.5px solid #f43f5e;border-radius:10px;padding:6px 10px;z-index:38;pointer-events:none}
+#warp-prompt-box{position:fixed;bottom:135px;left:50%;transform:translateX(-50%);z-index:32;pointer-events:auto}
+#chat-wrapper{position:fixed;left:10px;bottom:146px;width:min(290px,66vw);z-index:30;pointer-events:none;display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+#chat-panel{width:100%;background:rgba(9,13,22,.93);border:1px solid rgba(56,189,248,.55);border-radius:12px;padding:6px;pointer-events:auto;display:flex;flex-direction:column;gap:5px}
+.chat-tabs{display:flex;gap:4px}
+.chat-tab-btn{flex:1;border:none;border-radius:6px;padding:4px 6px;font-size:10px;font-weight:900;color:#cbd5e1;background:#1e293b;cursor:pointer;pointer-events:auto}
+.chat-tab-btn.active{background:#0284c7;color:#fff}
+#chat-messages{height:82px;overflow-y:auto;-webkit-overflow-scrolling:touch;font-size:11px;line-height:1.35;padding:3px 4px;background:rgba(2,6,23,.85);border-radius:6px;display:flex;flex-direction:column;gap:3px;user-select:text}
+.chat-quick-row{display:flex;gap:3px;overflow-x:auto}
+.chat-quick-chip{background:#1e293b;border:1px solid #334155;border-radius:5px;padding:2px 6px;font-size:10px;font-weight:800;color:#f8fafc;white-space:nowrap;cursor:pointer;pointer-events:auto}
+.chat-input-row{display:flex;gap:4px}
+#joystick-zone{position:fixed;left:18px;bottom:18px;width:114px;height:114px;border-radius:50%;background:rgba(9,13,22,.72);border:2px solid rgba(56,189,248,.55);display:flex;align-items:center;justify-content:center;z-index:28;pointer-events:auto;touch-action:none}
+#joystick-knob{width:46px;height:46px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#7dd3fc,#0284c7);border:2px solid #fff;box-shadow:0 4px 12px rgba(0,0,0,.55);pointer-events:none}
+#battle-pad{position:fixed;right:12px;bottom:12px;width:215px;height:215px;z-index:28;pointer-events:none!important}
+#skill-slots-container{position:absolute;inset:0;pointer-events:none!important}
+#btn-basic-attack{position:absolute;right:6px;bottom:6px;width:76px;height:76px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#fb7185,#e11d48);border:3px solid #fde047;color:#fff;font-size:13px;font-weight:900;text-shadow:0 1px 2px rgba(0,0,0,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(225,29,72,.65);cursor:pointer;pointer-events:auto!important;touch-action:manipulation;z-index:30}
+#btn-basic-attack:active{transform:scale(.92)}
+#btn-cycle-target{position:absolute;right:12px;bottom:168px;border-radius:999px;padding:6px 11px;font-size:11px;pointer-events:auto!important;z-index:30}
+.skill-slot-btn{position:absolute;width:48px;height:48px;border-radius:50%;background:rgba(9,13,22,.94);border:2px solid #38bdf8;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.7);cursor:pointer;pointer-events:auto!important;touch-action:manipulation;overflow:hidden;z-index:29}
+.skill-slot-btn:active:not(:disabled){transform:scale(.92)}
+.skill-slot-btn:disabled{opacity:.38;cursor:not-allowed}
+.skill-arc-0{right:94px;bottom:8px}.skill-arc-1{right:86px;bottom:62px}.skill-arc-2{right:62px;bottom:108px}.skill-arc-3{right:16px;bottom:114px}.skill-arc-4{right:146px;bottom:10px}
+.skill-cd-overlay{position:absolute;inset:0;background:rgba(2,6,23,.86);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fde047;pointer-events:none}
+#growth-modal{position:fixed;inset:0;z-index:70;background:rgba(2,6,23,.82);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:10px;pointer-events:auto}
+.modal-window{width:100%;max-width:780px;max-height:88vh;background:#0f172a;border:2px solid #38bdf8;border-radius:16px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.88);pointer-events:auto}
+.modal-header{padding:10px 14px;background:#1e293b;border-bottom:1px solid #334155;display:flex;justify-content:space-between;align-items:center}
+#modal-tabs{display:flex;gap:5px;padding:8px 10px;background:#0b1120;border-bottom:1px solid #1e293b;overflow-x:auto;-webkit-overflow-scrolling:touch;flex-shrink:0}
+.tab-chip-btn{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:900;color:#e2e8f0;white-space:nowrap;cursor:pointer;pointer-events:auto}
+.tab-chip-btn.active{background:#0284c7;border-color:#7dd3fc;color:#fff}
+#modal-body{padding:12px;overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1;color:#f8fafc}
+.card-box{background:rgba(30,41,59,.88);border:1px solid #334155;border-radius:10px;padding:9px 10px;color:#f8fafc}
+.flex-between{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.flex-wrap-gap{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px}
+.badge-pill{display:inline-block;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900;text-shadow:0 1px 2px rgba(0,0,0,.75)}
+#dialog-modal{position:fixed;inset:0;z-index:100;background:rgba(2,6,23,.85);display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:auto}
+.dialog-box{width:100%;max-width:360px;background:#0f172a;border:2px solid #f59e0b;border-radius:14px;padding:16px;text-align:center;display:flex;flex-direction:column;gap:12px}
+#death-overlay{position:fixed;inset:0;z-index:85;background:rgba(127,29,29,.78);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;pointer-events:none;text-shadow:0 2px 4px rgba(0,0,0,.9)}
+</style>
+</head>
+<body>
+<canvas id="game-canvas"></canvas>
+<div id="overlay-layer"></div>
+
+<div id="title-screen">
+  <div class="title-card">
+    <div class="title-logo-kaomoji font-kaomoji">(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧ ⚔️ (=^・ω・^=)</div>
+    <h1 class="title-main-heading">顔文字ファンタジー3D<br><span style="font-size:13px;-webkit-text-fill-color:#94a3b8;">KAOMOJI FANTASY 3D ONLINE v3.0 MQTT</span></h1>
+    <div class="title-save-preview" id="title-save-info">データ準備中...</div>
+    <div class="title-room-box">
+      <div class="flex-between">
+        <span style="font-size:12px;font-weight:900;color:#38bdf8;">🌐 プレイモード設定</span>
+        <button type="button" id="title-btn-toggle-online" class="btn-ui btn-slate">📴 オフライン</button>
+      </div>
+      <div class="flex-between">
+        <span style="font-size:11px;font-weight:900;color:#fde047;">🔒 パスワード部屋（合言葉制限）</span>
+        <button type="button" id="title-btn-toggle-pass" class="btn-ui btn-slate">🔓 パスワード: OFF</button>
+      </div>
+      <div id="title-pass-input-wrap" class="hidden" style="display:flex;gap:6px;align-items:center;">
+        <input id="title-input-room-pass" class="input-ui" type="text" maxlength="16" placeholder="部屋のパスワードを入力（例: 7777）">
+      </div>
+      <div style="font-size:10px;color:#cbd5e1;line-height:1.35;">※ パスワードOFFならオンラインのみんなと合流！ONにすると同じパスワードを知っている人だけ入れます。</div>
+    </div>
+    <button type="button" id="btn-title-start" class="btn-ui btn-emerald" style="padding:12px;font-size:15px;border-radius:12px;">▶ 冒険を始める（続きから）</button>
+    <div style="display:flex;gap:8px;">
+      <button type="button" id="btn-title-cloud" class="btn-ui btn-sky" style="flex:1;padding:9px;">☁️ 通信･部屋設定</button>
+      <button type="button" id="btn-title-hard-reset" class="btn-ui btn-rose" style="flex:1;padding:9px;">💥 完全初期化して新規開始</button>
+    </div>
+  </div>
+</div>
+
+<div id="hud-layer">
+  <div class="hud-top-bar">
+    <div class="hud-status-card">
+      <div class="flex-between">
+        <div style="display:flex;align-items:center;gap:5px;overflow:hidden;">
+          <span id="hud-kaomoji" class="font-kaomoji" style="font-size:13px;font-weight:900;color:#38bdf8;">(´・ω・`)</span>
+          <span id="hud-name" style="font-size:11px;font-weight:900;color:#fff;white-space:nowrap;">見習い顔文字</span>
+        </div>
+        <span id="hud-lv" style="font-size:11px;font-weight:900;color:#fde047;">Lv.1</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:5px;margin-top:2px;">
+        <span id="hud-title-badge" class="badge-pill hidden" style="background:#7e22ce;color:#f3e8ff;font-size:9px;">称号</span>
+        <span id="hud-gold" style="font-size:11px;font-weight:900;color:#fbbf24;">250G</span>
+      </div>
+      <div class="bar-row"><span style="color:#34d399;width:20px;">HP</span><div class="bar-track"><div id="hud-hp-bar" class="bar-fill-hp"></div></div><span id="hud-hp-text" style="min-width:58px;text-align:right;">100/100</span></div>
+      <div class="bar-row"><span style="color:#38bdf8;width:20px;">MP</span><div class="bar-track"><div id="hud-mp-bar" class="bar-fill-mp"></div></div><span id="hud-mp-text" style="min-width:58px;text-align:right;">50/50</span></div>
+      <div class="bar-row"><span style="color:#fde047;width:20px;">EXP</span><div class="bar-track"><div id="hud-exp-bar" class="bar-fill-exp"></div></div><span id="hud-exp-text" style="min-width:58px;text-align:right;">0/100</span></div>
+    </div>
+
+    <div class="hud-top-right">
+      <div class="hud-zone-pill">
+        <span id="hud-stage-badge" class="badge-pill" style="background:#0284c7;color:#fff;">STAGE 0</span>
+        <span id="hud-zone-name">始まりの顔文字広場</span>
+        <span id="hud-safe-badge" class="badge-pill" style="background:#059669;color:#fff;">🛡️安全街</span>
+        <span id="hud-threat-badge" class="badge-pill hidden" style="background:#be123c;color:#fff;">脅威+1</span>
+      </div>
+      <div class="hud-action-row">
+        <button type="button" id="btn-hud-online-toggle" class="btn-ui btn-slate">📴 オフライン</button>
+        <button type="button" id="btn-hud-room-lock" class="btn-ui btn-slate hidden">🔓 公開</button>
+        <button type="button" id="btn-open-travel" class="btn-ui btn-emerald">🗺️ ステージ</button>
+        <button type="button" id="btn-open-growth" class="btn-ui btn-sky">⚔️ 育成･見た目<span id="badge-growth-alert" class="alert-dot hidden"></span></button>
+        <button type="button" id="btn-toggle-emote" class="btn-ui btn-fuchsia">😊</button>
+        <button type="button" id="btn-toggle-drawer" class="btn-ui btn-slate">⚙️</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="hud-drawer-menu" class="hidden">
+    <button type="button" id="btn-toggle-autohunt" class="btn-ui btn-slate" style="width:100%;">🤖 AUTO:OFF</button>
+    <div style="display:flex;gap:5px;">
+      <button type="button" id="btn-threat-down" class="btn-ui btn-slate" style="flex:1;">🔥脅威 -1</button>
+      <button type="button" id="btn-threat-up" class="btn-ui btn-rose" style="flex:1;">🔥脅威 +1</button>
+    </div>
+    <button type="button" id="btn-open-cloud" class="btn-ui btn-sky" style="width:100%;">🌐 通信･部屋･引継ぎ</button>
+    <button type="button" id="btn-manual-save" class="btn-ui btn-emerald" style="width:100%;">💾 手動セーブ</button>
+    <button type="button" id="btn-toggle-bgm" class="btn-ui btn-slate" style="width:100%;">🔊 BGM:ON</button>
+    <button type="button" id="btn-back-title" class="btn-ui btn-amber" style="width:100%;">🏠 タイトル画面へ戻る</button>
+    <button type="button" id="btn-reset-save" class="btn-ui btn-rose" style="width:100%;">💥 完全データ初期化</button>
+  </div>
+
+  <div id="emote-palette" class="hidden"></div>
+  <div id="alert-banner" class="hidden"></div>
+
+  <div id="boss-cast-box" class="hidden">
+    <div id="boss-cast-title" style="font-size:10px;font-weight:900;color:#fecdd3;margin-bottom:3px;">⚠️ ボス大技詠唱中！</div>
+    <div style="width:100%;height:7px;background:#450a0a;border-radius:4px;overflow:hidden;"><div id="boss-cast-bar" style="height:100%;background:#fde047;width:0%;"></div></div>
+  </div>
+
+  <div id="warp-prompt-box" class="hidden">
+    <button type="button" id="btn-exec-warp" class="btn-ui btn-emerald" style="padding:10px 18px;font-size:13px;border:2px solid #fde047;">🌀 ステージ選択</button>
+  </div>
+
+  <div id="chat-wrapper">
+    <button type="button" id="btn-toggle-chat" class="btn-ui btn-slate" style="padding:5px 10px;font-size:11px;">💬 チャット開閉</button>
+    <div id="chat-panel">
+      <div class="chat-tabs">
+        <button type="button" id="btn-chat-tab-global" class="chat-tab-btn active">🌍 全体チャット</button>
+        <button type="button" id="btn-chat-tab-room" class="chat-tab-btn">🏠 部屋/オフライン</button>
+      </div>
+      <div id="chat-messages"></div>
+      <div class="chat-quick-row">
+        <button type="button" class="chat-quick-chip" data-msg="よろしくー！(=^・ω・^=)">よろしく！</button>
+        <button type="button" class="chat-quick-chip" data-msg="一緒にボス倒そう！⚔️">ボス行こう！</button>
+        <button type="button" class="chat-quick-chip" data-msg="ありがとう！✧*｡٩(ˊᗜˋ*)و✧*｡">ありがとう！</button>
+        <button type="button" class="chat-quick-chip" data-msg="おつかれさま！(≧▽≦)ﾉ">おつかれ！</button>
+      </div>
+      <div class="chat-input-row">
+        <input id="input-chat-msg" class="input-ui" style="padding:5px 8px;font-size:11px;" type="text" maxlength="60" placeholder="メッセージを入力...">
+        <button type="button" id="btn-send-chat" class="btn-ui btn-sky" style="padding:5px 10px;white-space:nowrap;">送信</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="joystick-zone"><div id="joystick-knob"></div></div>
+
+  <div id="battle-pad">
+    <button type="button" id="btn-cycle-target" class="btn-ui btn-slate">🎯 標的切替</button>
+    <div id="skill-slots-container"></div>
+    <button type="button" id="btn-basic-attack"><span style="font-size:22px;line-height:1;">⚔️</span><span style="font-size:11px;margin-top:2px;">攻撃</span></button>
+  </div>
+</div>
+
+<div id="growth-modal" class="hidden">
+  <div class="modal-window">
+    <div class="modal-header">
+      <span style="font-size:14px;font-weight:900;color:#38bdf8;">⚔️ 冒険者メニュー（ステージ･育成･見た目･通信）</span>
+      <button type="button" id="btn-close-modal" class="btn-ui btn-rose">✕ 閉じる</button>
+    </div>
+    <div id="modal-tabs"></div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<div id="dialog-modal" class="hidden">
+  <div class="dialog-box">
+    <div id="dialog-title" style="font-size:15px;font-weight:900;color:#fde047;">確認</div>
+    <div id="dialog-message" style="font-size:12px;color:#e2e8f0;white-space:pre-line;line-height:1.5;"></div>
+    <div id="dialog-buttons" style="display:flex;justify-content:center;gap:8px;"></div>
+  </div>
+</div>
+
+<div id="death-overlay" class="hidden">
+  <div class="font-kaomoji" style="font-size:32px;font-weight:900;color:#fecdd3;">(×_×) チーン…</div>
+  <div style="font-size:14px;font-weight:900;color:#fff;">力尽きた！始まりの顔文字広場へ帰還します…</div>
+</div>
+
+<script src="data.js?v=20261120fix"></script>
+<script src="game1.js?v=20261120fix"></script>
+<script src="game2.js?v=20261120fix"></script>
+<script src="game3.js?v=20261120fix"></script>
+<script src="game4.js?v=20261120fix"></script>
+<script src="game5.js?v=20261120fix"></script>
+<script src="game6.js?v=20261120fix"></script>
+<script src="game7.js?v=20261120fix"></script>
+<script src="game8.js?v=20261120fix"></script>
 </body>
 </html>
