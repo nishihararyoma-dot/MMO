@@ -12,7 +12,6 @@ Object.assign(KaomojiMMORPG.prototype, {
         const modal = document.getElementById('growth-modal');
         if (modal) modal.classList.remove('hidden');
 
-        // index.html側にタブボタンが未配置の場合のみ自動補完
         const tabsContainer = document.getElementById('modal-tabs');
         if (tabsContainer && tabsContainer.querySelectorAll('[data-menu-tab]').length === 0) {
             const defaultTabs = [
@@ -461,7 +460,6 @@ Object.assign(KaomojiMMORPG.prototype, {
                         this.consumeMats(targetEv.reqMat);
                         d.evolutionId = jid;
 
-                        // 魔道士系なら杖へ自動変更
                         const swapped = this.enforceJobWeaponRule();
                         this.buildPlayerEntity();
                         const newSt = this.calcDerivedStats();
@@ -700,16 +698,18 @@ Object.assign(KaomojiMMORPG.prototype, {
                 });
 
             } else if (this.activeTab === 'zones' || this.activeTab === 'travel') {
+                const maxThreat = typeof MAX_THREAT_RANK !== 'undefined' ? MAX_THREAT_RANK : 10;
+                const isTowerActive = Boolean(this.towerState && this.towerState.active);
                 body.innerHTML = `
                     <div class="card-box" style="margin-bottom:10px;">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                             <div>
-                                <div style="font-weight:900; color:#f43f5e;">🔥 危険度ランク: +${d.threatRank || 0} / ${MAX_THREAT_RANK}</div>
+                                <div style="font-weight:900; color:#f43f5e;">🔥 危険度ランク: +${d.threatRank || 0} / ${maxThreat}</div>
                                 <div style="font-size:10px; color:#cbd5e1;">ランクを上げると敵が強くなり、経験値・ゴールド報酬も増加！</div>
                             </div>
                             <div style="display:flex; gap:5px;">
                                 <button type="button" class="btn-ui btn-slate" id="btn-threat-down" ${(d.threatRank || 0) <= 0 ? 'disabled' : ''}>-1</button>
-                                <button type="button" class="btn-ui btn-rose" id="btn-threat-up" ${(d.threatRank || 0) >= MAX_THREAT_RANK ? 'disabled' : ''}>+1</button>
+                                <button type="button" class="btn-ui btn-rose" id="btn-threat-up" ${(d.threatRank || 0) >= maxThreat ? 'disabled' : ''}>+1</button>
                             </div>
                         </div>
                     </div>
@@ -731,8 +731,8 @@ Object.assign(KaomojiMMORPG.prototype, {
                                     <div style="font-weight:900; color:#fff;">${z.safe ? '🏰' : `⚔️ Stage ${z.stageNum}:`} ${z.name} <span style="color:#fde047; font-size:11px;">(推奨Lv.${z.recLv})</span></div>
                                     <div style="font-size:11px; color:#cbd5e1;">${z.desc}</div>
                                 </div>
-                                <button type="button" class="btn-ui ${this.currentZoneId === z.id && !this.towerState.active ? 'btn-amber' : 'btn-sky'}" data-warp-zone="${z.id}">
-                                    ${this.currentZoneId === z.id && !this.towerState.active ? '現在地' : '転移'}
+                                <button type="button" class="btn-ui ${this.currentZoneId === z.id && !isTowerActive ? 'btn-amber' : 'btn-sky'}" data-warp-zone="${z.id}">
+                                    ${this.currentZoneId === z.id && !isTowerActive ? '現在地' : '転移'}
                                 </button>
                             </div>
                         `).join('')}
@@ -745,7 +745,7 @@ Object.assign(KaomojiMMORPG.prototype, {
                     this.renderGrowthTabContent();
                 });
                 body.querySelector('#btn-threat-up')?.addEventListener('click', () => {
-                    d.threatRank = Math.min(MAX_THREAT_RANK, (d.threatRank || 0) + 1);
+                    d.threatRank = Math.min(maxThreat, (d.threatRank || 0) + 1);
                     this.saveGame(false);
                     this.renderGrowthTabContent();
                 });
