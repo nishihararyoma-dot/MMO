@@ -1,546 +1,472 @@
 'use strict';
 
 // =========================================================================
-// 顔文字ファンタジー3D エフェクト・HUD更新・入力操作・メインループ (game4.js)
+// 顔文字ファンタジー3D メインループ・AI更新・操作UI・HUD描画 (game4.js)
 // =========================================================================
 
 Object.assign(KaomojiMMORPG.prototype, {
+    loop(now) {
+        const rawDt = (now - this.lastTime) / 1000;
+        this.lastTime = now;
+        const dt = Math.min(0.05, Math.max(0.001, rawDt));
+        const elapsed = now / 1000;
 
-    bindEvents() {
-        // タイトル画面ボタン
-        document.getElementById('title-btn-start')?.addEventListener('click', () => {
-            this.enterGameFromTitle();
-        });
+        try {
+            this.update(dt, elapsed);
+        } catch (e) {
+            console.error('Update error:', e);
+        }
 
-        document.getElementById('title-btn-toggle-online')?.addEventListener('click', () => {
-            this.saveData.onlineEnabled = !this.saveData.onlineEnabled;
-            this.saveGame(false);
-            this.refreshTitleScreen();
-        });
+        if (this.useWebGL && this.renderer && this.scene && this.camera) {
+            try {
+                this.renderer.render(this.scene, this.camera);
+            } catch (e) {}
+        }
 
-        document.getElementById('title-btn-toggle-pass')?.addEventListener('click', () => {
-            this.saveData.roomPassEnabled = !this.saveData.roomPassEnabled;
-            this.saveGame(false);
-            this.refreshTitleScreen();
-        });
+        requestAnimationFrame((t) => this.loop(t));
+    },
 
-        document.getElementById('title-input-room-pass')?.addEventListener('input', (e) => {
-            this.saveData.roomPassword = e.target.value;
-            this.saveGame(false);
-        });
+    update(dt, elapsed) {
+        if (!this.player) return;
 
-        document.getElementById('title-btn-reset')?.addEventListener('click', () => {
-            if (confirm('本当にすべてのセーブデータを初期化しますか？')) {
-                this.hardResetGame();
-            }
-        });
+        // タイトル画面中はカメラをゆっくり旋回させるのみ
+        if (this.inTitleScreen) {
+            this.camYaw += dt * 0.25;
+            this.updateCamera(dt);
+            if (this.warpCrystal) this.warpCrystal.rotation.y += dt * 1.5;
+            return;
+        }
 
-        // チャットUI
-        document.getElementById('btn-chat-tab-global')?.addEventListener('click', () => {
-            this.chatTab = 'global';
-            this.renderChatMessages();
-        });
+        const st = this.calcDerivedStats();
 
-        document.getElementById('btn-chat-tab-room')?.addEventListener('click', () => {
-            this.chatTab = 'room';
-            this.renderChatMessages();
-        });
-
-        document.getElementById('btn-chat-toggle')?.addEventListener('click', () => {
-            this.chatCollapsed = !this.chatCollapsed;
-            const body = document.getElementById('chat-body');
-            if (body) body.classList.toggle('hidden', this.chatCollapsed);
-        });
-
-        const chatInput = document.getElementById('chat-input');
-        document.getElementById('btn-chat-send')?.addEventListener('click', () => {
-            if (!chatInput) return;
-            this.sendChatMessage(chatInput.value);
-            chatInput.value = '';
-        });
-        chatInput?.addEventListener('keydown', (e) => {
-            e.stopPropagation();
-            if (e.key === 'Enter') {
-                this.sendChatMessage(chatInput.value);
-                chatInput.value = '';
-            }
-        });
-
-        // HUDアクションボタン
-        document.getElementById('btn-toggle-autohunt')?.addEventListener('click', () => {
-            sfx.init();
-            this.autoHunt = !this.autoHunt;
-            const btn = document.getElementById('btn-toggle-autohunt');
-            if (btn) {
-                btn.textContent = this.autoHunt ? '🤖 AUTO:ON' : '🤖 AUTO:OFF';
-                btn.style.background = this.autoHunt ? '#059669' : '';
-            }
-            this.showAlertBanner(this.autoHunt ? '🤖 オート狩りモード ON' : '⏹️ オート狩りモード OFF', 1100);
-        });
-
-        document.getElementById('btn-basic-attack')?.addEventListener('click', () => {
-            sfx.init();
-            this.performBasicAttack();
-        });
-
-        document.getElementById('btn-open-menu')?.addEventListener('click', () => {
-            sfx.init();
-            if (this.openGrowthModal) this.openGrowthModal(this.activeTab || 'stats');
-        });
-
-        document.getElementById('btn-close-modal')?.addEventListener('click', () => {
-            if (this.closeGrowthModal) this.closeGrowthModal();
-        });
-
-        document.getElementById('btn-toggle-emote')?.addEventListener('click', () => {
-            const pal = document.getElementById('emote-palette');
-            if (pal) pal.classList.toggle('hidden');
-        });
-
-        document.getElementById('btn-return-town')?.addEventListener('click', () => {
-            this.autoHunt = false;
-            const btn = document.getElementById('btn-toggle-autohunt');
-            if (btn) {
-                btn.textContent = '🤖 AUTO:OFF';
-                btn.style.background = '';
-            }
-            this.loadZone('town');
-            this.showAlertBanner('🏰 始まりの顔文字広場へ帰還しました', 1400);
-        });
-
-        document.getElementById('btn-save-now')?.addEventListener('click', () => {
-            this.saveGame(true);
-        });
-
-        // メニュータブ切り替え
-        document.querySelectorAll('[data-menu-tab]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const tab = btn.getAttribute('data-menu-tab');
-                if (this.openGrowthModal) this.openGrowthModal(tab);
-            });
-        });
-
-        // スキルスロットクリック（0〜4）
+        // クールダウン・状態異常・バフタイマー更新
+        this.player.skillCds = this.player.skillCds || {};
+        this.player.skillCooldowns = this.player.skillCooldowns || {};
         for (let i = 0; i < 5; i++) {
-            const slotEl = document.getElementById(`skill-slot-${i}`);
-            if (slotEl) {
-                slotEl.addEventListener('click', () => {
-                    sfx.init();
-                    this.useSkillSlot(i);
-                });
+            const cur = Math.max(this.player.skillCds[i] || 0, this.player.skillCooldowns[i] || 0);
+            const next = Math.max(0, cur - dt);
+            this.player.skillCds[i] = next;
+            this.player.skillCooldowns[i] = next;
+        }
+
+        if (this.player.invulnTimer > 0) this.player.invulnTimer = Math.max(0, this.player.invulnTimer - dt);
+        if (this.player.stunTimer > 0) this.player.stunTimer = Math.max(0, this.player.stunTimer - dt);
+        if (this.player.defBuffTimer > 0) this.player.defBuffTimer = Math.max(0, this.player.defBuffTimer - dt);
+        if (this.player.warcryTimer > 0) this.player.warcryTimer = Math.max(0, this.player.warcryTimer - dt);
+        if (this.player.skillAnimTimer > 0) this.player.skillAnimTimer = Math.max(0, this.player.skillAnimTimer - dt);
+
+        // エモート表情リセット
+        if (this.emoteTimer > 0) {
+            this.emoteTimer -= dt;
+            if (this.emoteTimer <= 0) {
+                this.emoteMotion = 'none';
+                if (this.useWebGL && this.player.faceMesh && this.player.faceMesh.material) {
+                    this.player.faceMesh.material.map = getKaomojiFaceTexture(
+                        this.getBasePlayerKaomoji(),
+                        this.getPlayerFaceBgHex(),
+                        '#ffffff',
+                        '#38bdf8'
+                    );
+                    this.player.faceMesh.material.needsUpdate = true;
+                }
             }
         }
 
-        // キーボード操作
-        window.addEventListener('keydown', (e) => {
-            if (this.inTitleScreen) return;
-            const tag = document.activeElement?.tagName;
-            if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-
-            this.keys[e.code] = true;
-            if (e.code === 'Space') {
-                e.preventDefault();
-                this.performBasicAttack();
-            } else if (e.code === 'Digit1') this.useSkillSlot(0);
-            else if (e.code === 'Digit2') this.useSkillSlot(1);
-            else if (e.code === 'Digit3') this.useSkillSlot(2);
-            else if (e.code === 'Digit4') this.useSkillSlot(3);
-            else if (e.code === 'Digit5') this.useSkillSlot(4);
-            else if (e.code === 'Escape' && this.isModalOpen && this.closeGrowthModal) {
-                this.closeGrowthModal();
+        // HP/MP自然回復（街では高速回復）
+        if (!this.isDead) {
+            if (this.currentZoneId === 'town') {
+                this.player.hp = Math.min(st.maxHp, this.player.hp + st.maxHp * 0.25 * dt);
+                this.player.mp = Math.min(st.maxMp, this.player.mp + st.maxMp * 0.30 * dt);
+            } else {
+                const hpRate = 0.015 + (st.treeHpRegenBonus || 0);
+                const mpRate = 0.045 * (st.treeMpRegenMult || 1.0);
+                this.player.hp = Math.min(st.maxHp, this.player.hp + st.maxHp * hpRate * dt);
+                this.player.mp = Math.min(st.maxMp, this.player.mp + st.maxMp * mpRate * dt);
             }
-        });
+        }
 
-        window.addEventListener('keyup', (e) => {
-            this.keys[e.code] = false;
-        });
+        // プレイヤー移動 & オート戦闘
+        this.updatePlayerMovementAndAuto(dt, elapsed, st);
 
-        // 仮想ジョイスティック
-        const joyZone = document.getElementById('joy-zone');
-        const joyStick = document.getElementById('joy-stick');
-        if (joyZone && joyStick) {
-            let joyTouchId = null;
-            const maxR = 38;
-            const updateJoy = (clientX, clientY) => {
-                const rect = joyZone.getBoundingClientRect();
-                const cx = rect.left + rect.width / 2;
-                const cy = rect.top + rect.height / 2;
-                let dx = clientX - cx;
-                let dy = clientY - cy;
-                const dist = Math.hypot(dx, dy);
-                if (dist > maxR) {
-                    dx = (dx / dist) * maxR;
-                    dy = (dy / dist) * maxR;
+        // ペット更新
+        if (this.updatePet) {
+            this.updatePet(dt, elapsed);
+        }
+
+        // モンスターAI更新
+        this.updateMonstersAI(dt, elapsed);
+
+        // 街のNPC歩行
+        this.updateTownAllies(dt, elapsed);
+
+        // エフェクト・浮遊テキスト更新
+        this.updateEffectsAndOverlays(dt);
+
+        // カメラ更新
+        this.updateCamera(dt);
+
+        // ワープ陣アニメーション & プロンプト表示
+        if (this.warpCrystal) {
+            this.warpCrystal.rotation.y += dt * 1.8;
+            this.warpCrystal.position.y = 2.0 + Math.sin(elapsed * 3.0) * 0.18;
+        }
+        const distWarp = Math.hypot(this.player.pos.x, this.player.pos.z + 14);
+        const warpBox = document.getElementById('warp-prompt-box');
+        if (warpBox) {
+            if (distWarp < 3.0 && !this.isModalOpen) {
+                warpBox.classList.remove('hidden');
+                if (!this.wasOnWarp) {
+                    this.wasOnWarp = true;
+                    if (this.openGrowthModal) this.openGrowthModal('zones');
                 }
-                joyStick.style.transform = `translate(${dx}px, ${dy}px)`;
-                this.joyVec.x = dx / maxR;
-                this.joyVec.y = dy / maxR;
-            };
-            const resetJoy = () => {
-                joyTouchId = null;
-                joyStick.style.transform = 'translate(0px, 0px)';
-                this.joyVec.x = 0;
-                this.joyVec.y = 0;
-            };
+            } else {
+                warpBox.classList.add('hidden');
+                if (distWarp >= 3.5) this.wasOnWarp = false;
+            }
+        }
 
-            joyZone.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                sfx.init();
-                const t = e.changedTouches[0];
-                joyTouchId = t.identifier;
-                updateJoy(t.clientX, t.clientY);
-            }, { passive: false });
+        // オンライン通信同期
+        if (this.fbConnected && this.syncFirebaseTick) {
+            this.syncFirebaseTick(dt);
+        }
 
-            joyZone.addEventListener('touchmove', (e) => {
-                e.preventDefault();
-                for (const t of e.changedTouches) {
-                    if (t.identifier === joyTouchId) {
-                        updateJoy(t.clientX, t.clientY);
-                        break;
-                    }
+        // HUD定期更新
+        this._hudTick = (this._hudTick || 0) + dt;
+        if (this._hudTick >= 0.1) {
+            this._hudTick = 0;
+            this.refreshAllHUD();
+        }
+    },
+
+    updatePlayerMovementAndAuto(dt, elapsed, st) {
+        if (this.isDead) return;
+
+        let mx = 0;
+        let mz = 0;
+        if (this.keys['KeyW'] || this.keys['ArrowUp']) mz -= 1;
+        if (this.keys['KeyS'] || this.keys['ArrowDown']) mz += 1;
+        if (this.keys['KeyA'] || this.keys['ArrowLeft']) mx -= 1;
+        if (this.keys['KeyD'] || this.keys['ArrowRight']) mx += 1;
+
+        if (Math.hypot(this.joyVec.x, this.joyVec.y) > 0.08) {
+            mx = this.joyVec.x;
+            mz = this.joyVec.y;
+        }
+
+        const hasInput = Math.hypot(mx, mz) > 0.05;
+        let isMoving = false;
+
+        if (hasInput && (this.player.stunTimer || 0) <= 0) {
+            const len = Math.hypot(mx, mz);
+            const nx = mx / len;
+            const nz = mz / len;
+            const sin = Math.sin(this.camYaw);
+            const cos = Math.cos(this.camYaw);
+            const wx = nx * cos + nz * sin;
+            const wz = -nx * sin + nz * cos;
+
+            this.player.pos.x += wx * st.moveSpeed * dt;
+            this.player.pos.z += wz * st.moveSpeed * dt;
+            this.player.rotY = Math.atan2(wx, wz);
+            isMoving = true;
+        } else if (this.autoHunt && this.currentZoneId !== 'town' && (this.player.stunTimer || 0) <= 0) {
+            const target = this.getNearestMonster(60);
+            if (target && !target.dead) {
+                const dx = target.pos.x - this.player.pos.x;
+                const dz = target.pos.z - this.player.pos.z;
+                const dist = Math.hypot(dx, dz);
+                if (dist > 3.6) {
+                    this.player.pos.x += (dx / dist) * st.moveSpeed * dt;
+                    this.player.pos.z += (dz / dist) * st.moveSpeed * dt;
+                    this.player.rotY = Math.atan2(dx, dz);
+                    isMoving = true;
                 }
-            }, { passive: false });
-
-            joyZone.addEventListener('touchend', (e) => {
-                for (const t of e.changedTouches) {
-                    if (t.identifier === joyTouchId) resetJoy();
-                }
-            });
-            joyZone.addEventListener('touchcancel', resetJoy);
+            }
         }
 
-        // キャンバスドラッグでカメラ回転・ターゲット選択
-        if (this.canvas) {
-            let dragging = false;
-            let lastX = 0;
-            let lastY = 0;
-            this.canvas.addEventListener('pointerdown', (e) => {
-                dragging = true;
-                lastX = e.clientX;
-                lastY = e.clientY;
-            });
-            window.addEventListener('pointermove', (e) => {
-                if (!dragging) return;
-                const dx = e.clientX - lastX;
-                const dy = e.clientY - lastY;
-                lastX = e.clientX;
-                lastY = e.clientY;
-                this.camYaw -= dx * 0.0075;
-                this.camPitch = Math.max(0.22, Math.min(1.15, this.camPitch + dy * 0.006));
-            });
-            window.addEventListener('pointerup', () => {
-                dragging = false;
-            });
-            this.canvas.addEventListener('wheel', (e) => {
-                this.camDist = Math.max(7.5, Math.min(26, this.camDist + e.deltaY * 0.008));
-            }, { passive: true });
-        }
-    },
+        // フィールド境界クランプ
+        this.player.pos.x = Math.max(-22, Math.min(22, this.player.pos.x));
+        this.player.pos.z = Math.max(-22, Math.min(22, this.player.pos.z));
 
-    buildEmotePalette() {
-        const pal = document.getElementById('emote-palette');
-        if (!pal || typeof EMOTES === 'undefined') return;
-        pal.innerHTML = EMOTES.map(em => `
-            <button type="button" class="btn-ui btn-slate" data-emote-id="${em.id}" style="padding:5px 7px; font-size:11px;">
-                ${em.icon} ${em.label}
-            </button>
-        `).join('');
-
-        pal.querySelectorAll('[data-emote-id]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const id = btn.getAttribute('data-emote-id');
-                this.triggerEmote(id);
-                pal.classList.add('hidden');
-            });
-        });
-    },
-
-    triggerEmote(emoteId) {
-        const em = (EMOTES || []).find(x => x.id === emoteId);
-        if (!em || !this.player) return;
-        sfx.init();
-        sfx.playTone(720, 'sine', 0.1, 0.05);
-
-        this.emoteMotion = em.motion || 'jump';
-        this.emoteTimer = 1.2;
-
-        // 顔テクスチャを一時的にエモート顔へ変更
-        if (this.player.frontMat) {
-            const hexStr = '#' + this.getPlayerBodyHexColor().toString(16).padStart(6, '0');
-            this.player.frontMat.map = getKaomojiFaceTexture(em.kaomoji, this.getPlayerFaceBgHex(), '#fde047', hexStr);
-            this.player.frontMat.needsUpdate = true;
-        }
-
-        this.spawnEmoteBubble(this.player.pos.clone().add(new THREE.Vector3(0, 2.7, 0)), em.kaomoji, em.msg);
-        this.addChatMessage('room', em.kaomoji, `Lv.${this.saveData.lv}あなた`, em.msg, false);
-
-        if (this.fbConnected && this.broadcastFirebaseEvent) {
-            this.broadcastFirebaseEvent('emote', {
-                kaomoji: em.kaomoji,
-                name: `Lv.${this.saveData.lv}冒険者`,
-                msg: em.msg,
-                roomKey: this.getCurrentRoomKey()
-            });
-        }
-    },
-
-    spawnEmoteBubble(worldPos, kaomoji, msg) {
-        if (!this.overlayLayer) return;
-        const el = document.createElement('div');
-        el.className = 'world-plate';
-        el.style.background = 'rgba(15, 23, 42, 0.92)';
-        el.style.border = '1px solid #38bdf8';
-        el.style.borderRadius = '10px';
-        el.style.padding = '3px 8px';
-        el.style.zIndex = '25';
-        el.innerHTML = `<div class="font-kaomoji" style="font-size:11px; color:#fde047; font-weight:900;">${kaomoji}</div><div style="font-size:10px; color:#fff;">${msg}</div>`;
-        this.overlayLayer.appendChild(el);
-        this.emoteBubbles.push({
-            pos: worldPos.clone(),
-            el,
-            life: 2.6
-        });
-    },
-
-    // 杖の通常攻撃用：遠距離魔法弾エフェクト
-    spawnMagicBolt(startPos, targetPos, colorHex = 0xc084fc) {
-        if (!this.useWebGL || !this.scene) return;
-        const group = new THREE.Group();
-        const core = new THREE.Mesh(
-            new THREE.SphereGeometry(0.24, 12, 12),
-            new THREE.MeshBasicMaterial({ color: 0xffffff })
-        );
-        const aura = new THREE.Mesh(
-            new THREE.SphereGeometry(0.42, 12, 12),
-            new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.65 })
-        );
-        group.add(core, aura);
-        group.position.copy(startPos);
-        this.scene.add(group);
-
-        this.effects.push({
-            type: 'bolt',
-            mesh: group,
-            start: startPos.clone(),
-            end: targetPos.clone(),
-            color: colorHex,
-            age: 0,
-            dur: 0.16
-        });
-    },
-
-    spawnSlashArc(pos, rotY, colorHex = 0x38bdf8, radius = 2.6) {
-        if (!this.useWebGL || !this.scene) return;
-        const mesh = new THREE.Mesh(
-            new THREE.RingGeometry(radius * 0.45, radius, 20, 1, -Math.PI * 0.4, Math.PI * 0.8),
-            new THREE.MeshBasicMaterial({ color: colorHex, side: THREE.DoubleSide, transparent: true, opacity: 0.85 })
-        );
-        mesh.rotation.x = -Math.PI / 2;
-        mesh.rotation.z = -rotY + Math.PI / 2;
-        mesh.position.set(pos.x, 1.0, pos.z);
-        this.scene.add(mesh);
-        this.effects.push({ type: 'fade', mesh, age: 0, dur: 0.24 });
-    },
-
-    spawnRingWave(pos, colorHex = 0x38bdf8, maxRadius = 4.5) {
-        if (!this.useWebGL || !this.scene) return;
-        const mesh = new THREE.Mesh(
-            new THREE.RingGeometry(0.3, 0.7, 28),
-            new THREE.MeshBasicMaterial({ color: colorHex, side: THREE.DoubleSide, transparent: true, opacity: 0.85 })
-        );
-        mesh.rotation.x = -Math.PI / 2;
-        mesh.position.set(pos.x, 0.18, pos.z);
-        this.scene.add(mesh);
-        this.effects.push({ type: 'ring', mesh, maxRadius, age: 0, dur: 0.42 });
-    },
-
-    spawnSparkleBurst(pos, colorHex = 0xfde047, count = 8) {
-        if (!this.useWebGL || !this.scene) return;
-        for (let i = 0; i < count; i++) {
-            const mesh = new THREE.Mesh(
-                new THREE.OctahedronGeometry(0.16, 0),
-                new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.95 })
-            );
-            mesh.position.set(pos.x, 1.0, pos.z);
-            const ang = (i / count) * Math.PI * 2 + Math.random() * 0.4;
-            const spd = 3.0 + Math.random() * 4.5;
-            this.scene.add(mesh);
-            this.effects.push({
-                type: 'particle',
-                mesh,
-                vx: Math.cos(ang) * spd,
-                vy: 3.5 + Math.random() * 3.5,
-                vz: Math.sin(ang) * spd,
-                age: 0,
-                dur: 0.45
-            });
-        }
-    },
-
-    spawnLightningStrike(pos) {
-        if (!this.useWebGL || !this.scene) return;
-        const bolt = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.18, 0.35, 14, 8),
-            new THREE.MeshBasicMaterial({ color: 0xfef08a, transparent: true, opacity: 0.92 })
-        );
-        bolt.position.set(pos.x, 7, pos.z);
-        this.scene.add(bolt);
-        this.effects.push({ type: 'fade', mesh: bolt, age: 0, dur: 0.28 });
-        this.spawnRingWave(pos, 0xa855f7, 4.0);
-    },
-
-    spawnMeteorImpact(pos, radius = 6.5) {
-        this.spawnRingWave(pos, 0xf97316, radius);
-        this.spawnSparkleBurst(pos, 0xef4444, 14);
-    },
-
-    spawnFloatText(worldPos, text, color = '#ffffff', fontSize = 14) {
-        if (!this.overlayLayer) return;
-        const el = document.createElement('div');
-        el.className = 'world-plate';
-        el.style.color = color;
-        el.style.fontSize = `${fontSize}px`;
-        el.style.fontWeight = '900';
-        el.style.textShadow = '0 2px 4px rgba(0,0,0,0.95)';
-        el.style.pointerEvents = 'none';
-        el.style.zIndex = '30';
-        el.textContent = text;
-        this.overlayLayer.appendChild(el);
-
-        this.floatTexts.push({
-            pos: worldPos.clone(),
-            el,
-            age: 0,
-            dur: 0.95
-        });
-    },
-
-    showAlertBanner(msg, durationMs = 1800) {
-        const el = document.getElementById('alert-banner');
-        if (!el) return;
-        el.textContent = msg;
-        el.classList.remove('hidden');
-        clearTimeout(this._alertTimer);
-        this._alertTimer = setTimeout(() => {
-            el.classList.add('hidden');
-        }, durationMs);
-    },
-
-    projectToScreen(worldPos) {
-        if (!this.camera) return null;
-        const v = worldPos.clone().project(this.camera);
-        if (v.z > 1) return null;
-        return {
-            x: (v.x * 0.5 + 0.5) * window.innerWidth,
-            y: (-v.y * 0.5 + 0.5) * window.innerHeight
-        };
-    },
-
-    updateVisualEffects(dt, elapsed) {
-        // プレイヤーモデル位置＆モーション反映
-        if (this.player && this.player.group) {
-            let yOffset = 0;
+        // 3Dメッシュ姿勢・モーション更新
+        if (this.player.group) {
+            let yOffset = isMoving ? Math.abs(Math.sin(elapsed * 12)) * 0.16 : Math.abs(Math.sin(elapsed * 3)) * 0.04;
             let extraRotY = 0;
             let extraRotX = 0;
 
             if (this.emoteTimer > 0) {
-                this.emoteTimer = Math.max(0, this.emoteTimer - dt);
-                if (this.emoteMotion === 'jump') yOffset = Math.abs(Math.sin(elapsed * 14)) * 0.65;
-                else if (this.emoteMotion === 'spin') extraRotY = elapsed * 14;
-                else if (this.emoteMotion === 'bow') extraRotX = 0.75;
+                if (this.emoteMotion === 'jump') yOffset += Math.abs(Math.sin(elapsed * 10)) * 0.55;
+                else if (this.emoteMotion === 'spin') extraRotY = elapsed * 8;
+                else if (this.emoteMotion === 'bow') extraRotX = 0.45;
+            }
 
-                if (this.emoteTimer === 0 && this.player.frontMat) {
-                    const hexStr = '#' + this.getPlayerBodyHexColor().toString(16).padStart(6, '0');
-                    this.player.frontMat.map = getKaomojiFaceTexture(this.getBasePlayerKaomoji(), this.getPlayerFaceBgHex(), '#ffffff', hexStr);
-                    this.player.frontMat.needsUpdate = true;
+            if ((this.player.skillAnimTimer || 0) > 0) {
+                const dur = this.player.skillAnimDur || 0.25;
+                const prog = 1 - (this.player.skillAnimTimer / dur);
+                if (this.player.skillAnimType === 'spin_whirl') {
+                    extraRotY += prog * Math.PI * 2;
+                } else if (this.player.skillAnimType === 'jump_slash') {
+                    yOffset += Math.sin(prog * Math.PI) * 0.65;
                 }
+                if (this.player.weaponPivot) {
+                    this.player.weaponPivot.rotation.x = 0.45 + Math.sin(prog * Math.PI) * 1.45;
+                }
+            } else if (this.player.weaponPivot) {
+                this.player.weaponPivot.rotation.x = 0.45 + Math.sin(elapsed * 4) * 0.06;
             }
 
             this.player.group.position.set(this.player.pos.x, yOffset, this.player.pos.z);
             this.player.group.rotation.set(extraRotX, this.player.rotY + extraRotY, 0);
+        }
 
-            // 武器振り・杖魔法詠唱モーション
-            if (this.player.wpnGroup) {
-                if (this.player.skillAnimTimer > 0) {
-                    const p = 1 - (this.player.skillAnimTimer / (this.player.skillAnimDur || 0.25));
-                    if (this.player.skillAnimType === 'staff_cast' || this.player.skillAnimType === 'cast') {
-                        // 杖を前に突き出して宝珠を輝かせるモーション
-                        this.player.wpnGroup.rotation.x = -Math.sin(p * Math.PI) * 0.85;
-                        this.player.wpnGroup.position.z = 0.18 + Math.sin(p * Math.PI) * 0.35;
-                    } else {
-                        // 剣の斬り下ろしモーション
-                        this.player.wpnGroup.rotation.x = Math.sin(p * Math.PI) * 1.45;
-                        this.player.wpnGroup.position.z = 0.18;
-                    }
+        // オート通常攻撃 & AUTO狩りスキル発動
+        if (this.currentZoneId !== 'town' && (this.player.stunTimer || 0) <= 0) {
+            this.autoAtkTimer -= dt;
+            if ((this.autoAttack || this.autoHunt) && this.autoAtkTimer <= 0) {
+                const near = this.getNearestMonster(5.8);
+                if (near && !near.dead) {
+                    this.performBasicAttack();
                 } else {
-                    this.player.wpnGroup.rotation.x = 0;
-                    this.player.wpnGroup.position.z = 0.18;
+                    this.autoAtkTimer = 0.25;
                 }
             }
 
-            if (this.player.orbitPart) {
-                this.player.orbitPart.rotation.y = elapsed * 3.5;
-                this.player.orbitPart.position.set(Math.cos(elapsed * 3) * 0.85, 1.3 + Math.sin(elapsed * 4) * 0.15, Math.sin(elapsed * 3) * 0.85);
+            if (this.autoHunt) {
+                this.autoSkillTimer -= dt;
+                if (this.autoSkillTimer <= 0) {
+                    this.autoSkillTimer = 0.65;
+                    const near = this.getNearestMonster(8.5);
+                    if (near && !near.dead) {
+                        const eq = this.saveData.equippedSkills || [];
+                        for (let i = 0; i < eq.length; i++) {
+                            const sid = eq[i];
+                            if (!sid || !SKILLS[sid]) continue;
+                            const sk = SKILLS[sid];
+                            if (sk.type === 'HEAL' && this.player.hp > st.maxHp * 0.65) continue;
+                            if (sk.type === 'HEAL_MP' && this.player.hp > st.maxHp * 0.7 && this.player.mp > st.maxMp * 0.5) continue;
+                            const cds = this.player.skillCds || {};
+                            if ((cds[i] || 0) <= 0 && this.player.mp >= getSkillMpCost(sk, this.saveData.skills[sid] || 1)) {
+                                this.useSkillSlot(i);
+                                break;
+                            }
+                        }
+                    }
+                }
             }
-            if (this.player.backHalo) {
-                this.player.backHalo.rotation.z = elapsed * 1.6;
+        }
+    },
+
+    updateMonstersAI(dt, elapsed) {
+        let activeBossCast = null;
+
+        for (const m of this.monsters) {
+            if (m.dead) {
+                if (!m.noRespawn) {
+                    m.respawnTimer -= dt;
+                    if (m.respawnTimer <= 0) {
+                        m.dead = false;
+                        m.hp = m.maxHp;
+                        m.aggro = false;
+                        m.casting = null;
+                        m.stunTimer = 0;
+                        m.slowTimer = 0;
+                        m.burnTimer = 0;
+                        m.pos.copy(m.spawnPos);
+                        if (m.group) {
+                            m.group.visible = true;
+                            m.group.position.copy(m.pos);
+                        }
+                        if (m.plateEl) m.plateEl.style.display = 'block';
+                    }
+                }
+                continue;
+            }
+
+            // 炎上スリップダメージ
+            if (m.burnTimer > 0) {
+                m.burnTimer -= dt;
+                m.burnTickTimer = (m.burnTickTimer || 1.0) - dt;
+                if (m.burnTickTimer <= 0) {
+                    m.burnTickTimer = 1.0;
+                    this.damageMonster(m, Math.max(1, Math.round(m.burnDps || 5)), false);
+                    if (m.dead) continue;
+                }
+            }
+
+            if (m.stunTimer > 0) {
+                m.stunTimer = Math.max(0, m.stunTimer - dt);
+                continue;
+            }
+
+            const slowMult = m.slowTimer > 0 ? (m.slowFactor || 0.5) : 1.0;
+            if (m.slowTimer > 0) m.slowTimer = Math.max(0, m.slowTimer - dt);
+
+            const dx = this.player.pos.x - m.pos.x;
+            const dz = this.player.pos.z - m.pos.z;
+            const dist = Math.hypot(dx, dz);
+
+            if (dist < (m.isBoss ? 22 : 14) || this.towerState.active) {
+                m.aggro = true;
+            }
+
+            // ボス大技詠唱
+            if (m.casting) {
+                m.casting.elapsed += dt;
+                if (m === this.selectedTarget || dist < 24) {
+                    activeBossCast = m;
+                }
+                if (m.casting.elapsed >= m.casting.duration) {
+                    const castRadius = m.casting.radius || 8.0;
+                    if (this.spawnRingEffect) this.spawnRingEffect(m.pos, 0xef4444, castRadius);
+                    if (dist <= castRadius) {
+                        this.damagePlayer(Math.round(m.atk * 2.1), m);
+                    }
+                    m.casting = null;
+                }
+                continue;
+            }
+
+            if (m.aggro && !this.isDead) {
+                const reach = 2.3 + (m.scale || 1) * 0.7;
+                if (dist > reach) {
+                    const spd = (m.isBoss ? 4.3 : 4.7) * slowMult;
+                    m.pos.x += (dx / dist) * spd * dt;
+                    m.pos.z += (dz / dist) * spd * dt;
+                    m.rotY = Math.atan2(dx, dz);
+                    if (m.group) m.group.rotation.y = m.rotY;
+                } else {
+                    m.autoTimer -= dt;
+                    if (m.autoTimer <= 0) {
+                        m.autoTimer = m.isBoss ? 1.5 : 1.35;
+                        this.spawnEnemyAttackEffect(m.pos, this.player.pos, m.color || 0xef4444, m.isBoss);
+                        this.damagePlayer(m.atk, m);
+                    }
+                }
+
+                if (m.isBoss && dist < 18) {
+                    m.castCooldown = (m.castCooldown || 8.0) - dt;
+                    if (m.castCooldown <= 0) {
+                        m.castCooldown = 9.5;
+                        m.casting = {
+                            name: m.isRaidBoss ? '終焉のカタストロフィ' : '覇王の衝撃波',
+                            elapsed: 0,
+                            duration: 2.6,
+                            radius: 8.2
+                        };
+                    }
+                }
+            }
+
+            if (m.group) {
+                const hop = Math.abs(Math.sin(elapsed * 5 + m.pos.x)) * 0.14;
+                m.group.position.set(m.pos.x, hop, m.pos.z);
             }
         }
 
-        if (this.warpCrystal) {
-            this.warpCrystal.rotation.y = elapsed * 1.8;
-            this.warpCrystal.position.y = 2.35 + Math.sin(elapsed * 3) * 0.2;
+        // ボス詠唱ゲージUI更新
+        const castBox = document.getElementById('boss-cast-box');
+        if (castBox) {
+            if (!activeBossCast || !activeBossCast.casting) {
+                castBox.classList.add('hidden');
+            } else {
+                castBox.classList.remove('hidden');
+                const titleEl = document.getElementById('boss-cast-title');
+                const barEl = document.getElementById('boss-cast-bar');
+                if (titleEl) titleEl.textContent = `⚠️ ${activeBossCast.name}：【${activeBossCast.casting.name}】`;
+                if (barEl) {
+                    const pct = Math.min(100, (activeBossCast.casting.elapsed / activeBossCast.casting.duration) * 100);
+                    barEl.style.width = `${pct}%`;
+                }
+            }
         }
+    },
 
-        // 3Dエフェクト更新（魔法弾・リング・パーティクル）
+    updateTownAllies(dt, elapsed) {
+        if (this.currentZoneId !== 'town') return;
+        for (const a of this.aiAllies) {
+            if (a.group) {
+                a.group.position.y = Math.abs(Math.sin(elapsed * 3.5 + a.pos.x)) * 0.08;
+                if (this.player) {
+                    const dx = this.player.pos.x - a.pos.x;
+                    const dz = this.player.pos.z - a.pos.z;
+                    a.group.rotation.y = Math.atan2(dx, dz);
+                }
+            }
+        }
+    },
+
+    updateEffectsAndOverlays(dt) {
+        // 3Dエフェクト更新
         for (let i = this.effects.length - 1; i >= 0; i--) {
             const ef = this.effects[i];
-            ef.age += dt;
-            const t = Math.min(1, ef.age / ef.dur);
-
-            if (ef.type === 'bolt') {
-                ef.mesh.position.lerpVectors(ef.start, ef.end, t);
-                ef.mesh.rotation.y += dt * 18;
-                if (t >= 1) {
-                    this.spawnSparkleBurst(ef.end, ef.color, 5);
-                }
-            } else if (ef.type === 'ring') {
-                const sc = 1 + t * (ef.maxRadius || 4);
-                ef.mesh.scale.set(sc, sc, 1);
-                ef.mesh.material.opacity = (1 - t) * 0.85;
-            } else if (ef.type === 'fade') {
-                ef.mesh.material.opacity = (1 - t) * 0.9;
-            } else if (ef.type === 'particle') {
-                ef.mesh.position.x += ef.vx * dt;
-                ef.mesh.position.y += ef.vy * dt;
-                ef.mesh.position.z += ef.vz * dt;
-                ef.vy -= 12 * dt;
-                ef.mesh.material.opacity = 1 - t;
-            }
-
-            if (ef.age >= ef.dur) {
-                if (this.scene) this.scene.remove(ef.mesh);
+            ef.life -= dt;
+            if (ef.life <= 0) {
+                if (this.scene && ef.mesh) this.scene.remove(ef.mesh);
                 this.effects.splice(i, 1);
+                continue;
+            }
+            const ratio = ef.life / ef.maxLife;
+            if (ef.mesh) {
+                if (ef.kind === 'expand') {
+                    const sc = 1 + (1 - ratio) * 0.65;
+                    ef.mesh.scale.set(sc, sc, sc);
+                } else if (ef.kind === 'rise') {
+                    ef.mesh.position.y += dt * 2.2;
+                }
+                if (ef.mesh.material) ef.mesh.material.opacity = ratio;
             }
         }
 
-        // フローティングダメージテキスト更新
+        // モンスターHPプレート投影
+        for (const m of this.monsters) {
+            if (!m.plateEl || m.dead) continue;
+            const worldTop = m.pos.clone().add(new THREE.Vector3(0, (m.scale || 1) * 1.85 + 0.4, 0));
+            const scr = this.projectToScreen(worldTop);
+            if (!scr.visible) {
+                m.plateEl.style.display = 'none';
+            } else {
+                m.plateEl.style.display = 'block';
+                m.plateEl.style.left = `${scr.x}px`;
+                m.plateEl.style.top = `${scr.y}px`;
+                const fill = m.plateEl.querySelector('.m-hp-fill');
+                if (fill) {
+                    const pct = Math.max(0, Math.min(100, (m.hp / Math.max(1, m.maxHp)) * 100));
+                    fill.style.width = `${pct}%`;
+                }
+            }
+        }
+
+        // 街NPCネームプレート投影
+        for (const a of this.aiAllies) {
+            if (!a.plateEl) continue;
+            const scr = this.projectToScreen(a.pos.clone().add(new THREE.Vector3(0, 1.9, 0)));
+            if (!scr.visible) {
+                a.plateEl.style.display = 'none';
+            } else {
+                a.plateEl.style.display = 'block';
+                a.plateEl.style.left = `${scr.x}px`;
+                a.plateEl.style.top = `${scr.y}px`;
+            }
+        }
+
+        // 浮遊ダメージテキスト更新
         for (let i = this.floatTexts.length - 1; i >= 0; i--) {
             const ft = this.floatTexts[i];
-            ft.age += dt;
-            ft.pos.y += 1.35 * dt;
-            const scr = this.projectToScreen(ft.pos);
-            if (scr) {
+            ft.life -= dt;
+            ft.worldPos.y += dt * 1.4;
+            if (ft.life <= 0) {
+                ft.el.remove();
+                this.floatTexts.splice(i, 1);
+                continue;
+            }
+            const scr = this.projectToScreen(ft.worldPos);
+            if (!scr.visible) {
+                ft.el.style.display = 'none';
+            } else {
                 ft.el.style.display = 'block';
                 ft.el.style.left = `${scr.x}px`;
                 ft.el.style.top = `${scr.y}px`;
-                ft.el.style.opacity = String(Math.max(0, 1 - ft.age / ft.dur));
-            } else {
-                ft.el.style.display = 'none';
-            }
-            if (ft.age >= ft.dur) {
-                ft.el.remove();
-                this.floatTexts.splice(i, 1);
+                ft.el.style.opacity = String(Math.min(1, ft.life * 1.6));
             }
         }
 
@@ -548,20 +474,92 @@ Object.assign(KaomojiMMORPG.prototype, {
         for (let i = this.emoteBubbles.length - 1; i >= 0; i--) {
             const eb = this.emoteBubbles[i];
             eb.life -= dt;
-            if (this.player) {
-                eb.pos.set(this.player.pos.x, 2.75, this.player.pos.z);
-            }
-            const scr = this.projectToScreen(eb.pos);
-            if (scr) {
-                eb.el.style.display = 'block';
-                eb.el.style.left = `${scr.x}px`;
-                eb.el.style.top = `${scr.y}px`;
-            } else {
-                eb.el.style.display = 'none';
-            }
             if (eb.life <= 0) {
                 eb.el.remove();
                 this.emoteBubbles.splice(i, 1);
+                continue;
+            }
+            const scr = this.projectToScreen(eb.worldPos);
+            if (!scr.visible) {
+                eb.el.style.display = 'none';
+            } else {
+                eb.el.style.display = 'block';
+                eb.el.style.left = `${scr.x}px`;
+                eb.el.style.top = `${scr.y}px`;
+            }
+        }
+    },
+
+    projectToScreen(vec3) {
+        if (!this.useWebGL || !this.camera) {
+            return { x: window.innerWidth * 0.5, y: window.innerHeight * 0.5, visible: false };
+        }
+        const v = vec3.clone().project(this.camera);
+        if (v.z > 1) return { x: 0, y: 0, visible: false };
+        return {
+            x: (v.x * 0.5 + 0.5) * window.innerWidth,
+            y: (-v.y * 0.5 + 0.5) * window.innerHeight,
+            visible: true
+        };
+    },
+
+    updateCamera(dt) {
+        if (!this.useWebGL || !this.camera || !this.player) return;
+        const target = this.player.pos.clone().add(new THREE.Vector3(0, 1.3, 0));
+        const hDist = Math.cos(this.camPitch) * this.camDist;
+        const vDist = Math.sin(this.camPitch) * this.camDist;
+
+        let shakeX = 0;
+        let shakeY = 0;
+        if (this.camShake > 0) {
+            this.camShake = Math.max(0, this.camShake - dt);
+            shakeX = (Math.random() - 0.5) * this.camShake * 1.4;
+            shakeY = (Math.random() - 0.5) * this.camShake * 1.4;
+        }
+
+        this.camera.position.set(
+            target.x + Math.sin(this.camYaw) * hDist + shakeX,
+            target.y + vDist + shakeY,
+            target.z + Math.cos(this.camYaw) * hDist
+        );
+        this.camera.lookAt(target);
+    },
+
+    spawnTowerFloorMonsters(floor) {
+        this.clearZoneEntities();
+        const scale = Math.pow(1.22, floor - 1);
+        const isBossFloor = (floor % 5 === 0);
+        if (isBossFloor) {
+            this.spawnMonster({
+                name: `試練の塔・守護神 ${floor}F`,
+                kaomoji: '👑꧁(╬◣д◢)꧂👑',
+                lv: 15 + floor * 4,
+                hp: Math.round(1400 * scale),
+                atk: Math.round(65 * scale),
+                exp: Math.round(600 * scale),
+                gold: Math.round(520 * scale),
+                color: 0xf43f5e,
+                scale: 2.2,
+                isBoss: true,
+                isRaidBoss: true,
+                noRespawn: true,
+                drop: floor >= 15 ? 'void_star' : (floor >= 10 ? 'abyss_shard' : 'fire_core')
+            }, 0, 1.0);
+        } else {
+            for (let i = 0; i < 4; i++) {
+                this.spawnMonster({
+                    name: `試練の魔兵 ${floor}F`,
+                    kaomoji: '(▼皿▼#)',
+                    lv: 10 + floor * 3,
+                    hp: Math.round(320 * scale),
+                    atk: Math.round(28 * scale),
+                    exp: Math.round(140 * scale),
+                    gold: Math.round(120 * scale),
+                    color: 0xa855f7,
+                    scale: 1.25,
+                    noRespawn: true,
+                    drop: floor >= 10 ? 'ice_crystal' : 'goblin_fang'
+                }, i, 1.0);
             }
         }
     },
@@ -570,159 +568,438 @@ Object.assign(KaomojiMMORPG.prototype, {
         const d = this.saveData;
         const st = this.calcDerivedStats();
         const evo = EVOLUTIONS[d.evolutionId] || EVOLUTIONS.novice;
-        const wpn = WEAPONS[d.weaponId] || WEAPONS.wpn_wood;
 
-        const nameEl = document.getElementById('hud-player-name');
-        if (nameEl) {
-            nameEl.textContent = `${this.getBasePlayerKaomoji()} ${evo.name}`;
-        }
-
+        const kEl = document.getElementById('hud-kaomoji');
+        const nEl = document.getElementById('hud-name');
         const lvEl = document.getElementById('hud-lv');
+        const gEl = document.getElementById('hud-gold');
+        const tBadge = document.getElementById('hud-title-badge');
+
+        if (kEl) kEl.textContent = this.getBasePlayerKaomoji();
+        if (nEl) nEl.textContent = evo.name;
         if (lvEl) lvEl.textContent = `Lv.${d.lv}`;
+        if (gEl) gEl.textContent = `${formatBigNum(d.gold)}G`;
 
-        const goldEl = document.getElementById('hud-gold');
-        if (goldEl) goldEl.textContent = `${formatBigNum(d.gold)}G`;
-
-        const zoneEl = document.getElementById('hud-zone-name');
-        if (zoneEl) {
-            if (this.towerState && this.towerState.active) {
-                zoneEl.textContent = `🗼 試練の塔 第${this.towerState.floor}階層`;
+        if (tBadge) {
+            const ttl = TITLES[d.equippedTitleId];
+            if (ttl && ttl.id !== 'title_none') {
+                tBadge.textContent = ttl.name;
+                tBadge.classList.remove('hidden');
             } else {
-                const z = ZONES[this.currentZoneId] || ZONES.town;
-                zoneEl.textContent = z.name;
+                tBadge.classList.add('hidden');
             }
         }
 
-        // 左上攻撃力表示（杖装備時は魔法攻撃力を強調）
-        const atkEl = document.getElementById('hud-atk');
-        if (atkEl) {
-            atkEl.textContent = st.isStaffEquipped
-                ? `🪄魔法攻 ${formatBigNum(st.magAtk)}`
-                : `⚔️物理攻 ${formatBigNum(st.physAtk)}`;
-        }
-
-        // 通常攻撃ボタンのアイコン切り替え
-        const basicBtn = document.getElementById('btn-basic-attack');
-        if (basicBtn) {
-            basicBtn.textContent = st.isStaffEquipped ? '🪄 魔法弾' : '⚔️ 攻撃';
-        }
-
-        // HP / MP / EXP バー更新
-        const needExp = this.getExpNeeded(d.lv);
-        const expPct = d.lv >= MAX_PLAYER_LEVEL ? 100 : Math.min(100, (d.exp / needExp) * 100);
         if (this.player) {
-            const hpPct = Math.max(0, Math.min(100, (this.player.hp / st.maxHp) * 100));
-            const mpPct = Math.max(0, Math.min(100, (this.player.mp / st.maxMp) * 100));
+            const hpPct = Math.max(0, Math.min(100, (this.player.hp / Math.max(1, st.maxHp)) * 100));
+            const mpPct = Math.max(0, Math.min(100, (this.player.mp / Math.max(1, st.maxMp)) * 100));
+            const needExp = this.getExpNeeded(d.lv);
+            const expPct = d.lv >= MAX_PLAYER_LEVEL ? 100 : Math.max(0, Math.min(100, (d.exp / Math.max(1, needExp)) * 100));
 
             const hpBar = document.getElementById('hud-hp-bar');
             const mpBar = document.getElementById('hud-mp-bar');
             const expBar = document.getElementById('hud-exp-bar');
-            const hpTxt = document.getElementById('hud-hp-text');
-            const mpTxt = document.getElementById('hud-mp-text');
-
             if (hpBar) hpBar.style.width = `${hpPct}%`;
             if (mpBar) mpBar.style.width = `${mpPct}%`;
             if (expBar) expBar.style.width = `${expPct}%`;
-            if (hpTxt) hpTxt.textContent = `${formatBigNum(this.player.hp)}/${formatBigNum(st.maxHp)}`;
-            if (mpTxt) mpTxt.textContent = `${formatBigNum(this.player.mp)}/${formatBigNum(st.maxMp)}`;
 
-            // プレイヤー頭上プレート更新
-            const pLv = document.getElementById('p-head-lv');
-            const pHp = document.getElementById('p-head-hp');
-            const pMp = document.getElementById('p-head-mp');
-            const pExp = document.getElementById('p-head-exp');
-            if (pLv) pLv.textContent = `Lv.${d.lv}`;
-            if (pHp) pHp.style.width = `${hpPct}%`;
-            if (pMp) pMp.style.width = `${mpPct}%`;
-            if (pExp) pExp.style.width = `${expPct}%`;
+            const hpTxt = document.getElementById('hud-hp-text');
+            const mpTxt = document.getElementById('hud-mp-text');
+            const expTxt = document.getElementById('hud-exp-text');
+            if (hpTxt) hpTxt.textContent = `${formatBigNum(Math.ceil(this.player.hp))}/${formatBigNum(st.maxHp)}`;
+            if (mpTxt) mpTxt.textContent = `${formatBigNum(Math.ceil(this.player.mp))}/${formatBigNum(st.maxMp)}`;
+            if (expTxt) expTxt.textContent = d.lv >= MAX_PLAYER_LEVEL ? 'MAX' : `${formatBigNum(d.exp)}/${formatBigNum(needExp)}`;
+        }
 
-            const pScr = this.projectToScreen(this.player.pos.clone().add(new THREE.Vector3(0, 2.35 * this.getPlayerBodyScale(), 0)));
-            if (this.player.headPlateEl && pScr) {
-                this.player.headPlateEl.style.left = `${pScr.x}px`;
-                this.player.headPlateEl.style.top = `${pScr.y}px`;
+        // ゾーン情報表示
+        const stgBadge = document.getElementById('hud-stage-badge');
+        const zName = document.getElementById('hud-zone-name');
+        const safeBadge = document.getElementById('hud-safe-badge');
+        const threatBadge = document.getElementById('hud-threat-badge');
+
+        if (this.towerState.active) {
+            if (stgBadge) stgBadge.textContent = 'TOWER';
+            if (zName) zName.textContent = `無限の試練の塔 ${this.towerState.floor}F`;
+            safeBadge?.classList.add('hidden');
+        } else {
+            const z = ZONES[this.currentZoneId] || ZONES.town;
+            if (stgBadge) stgBadge.textContent = `STAGE ${z.stageNum}`;
+            if (zName) zName.textContent = z.name;
+            if (safeBadge) {
+                if (z.safe) safeBadge.classList.remove('hidden');
+                else safeBadge.classList.add('hidden');
             }
         }
 
-        // スキルスロット1〜5の表示更新（5倍＋Lvごと+10の消費MP反映）
-        const eqSkills = d.equippedSkills || [];
-        const cds = this.skillCooldowns || [0, 0, 0, 0, 0];
+        if (threatBadge) {
+            if ((d.threatRank || 0) > 0 && this.currentZoneId !== 'town' && !this.towerState.active) {
+                threatBadge.textContent = `脅威+${d.threatRank}`;
+                threatBadge.classList.remove('hidden');
+            } else {
+                threatBadge.classList.add('hidden');
+            }
+        }
+
+        // AP/SP通知ドット
+        const alertDot = document.getElementById('badge-growth-alert');
+        if (alertDot) {
+            if ((d.ap || 0) > 0 || (d.sp || 0) > 0) alertDot.classList.remove('hidden');
+            else alertDot.classList.add('hidden');
+        }
+
+        // スキルボタン描画更新
+        this.renderSkillSlots();
+    },
+
+    renderSkillSlots() {
+        const container = document.getElementById('skill-slots-container');
+        if (!container) return;
+        const d = this.saveData;
+        const eq = d.equippedSkills || [];
+        const cds = (this.player && (this.player.skillCds || this.player.skillCooldowns)) || {};
+
+        if (container.children.length !== 5) {
+            container.innerHTML = '';
+            for (let i = 0; i < 5; i++) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `skill-slot-btn skill-arc-${i}`;
+                btn.dataset.slot = String(i);
+                const trigger = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.useSkillSlot(i);
+                };
+                btn.addEventListener('pointerdown', trigger);
+                container.appendChild(btn);
+            }
+        }
+
         for (let i = 0; i < 5; i++) {
-            const slotEl = document.getElementById(`skill-slot-${i}`);
-            if (!slotEl) continue;
-            const sid = eqSkills[i];
-            const sk = sid ? SKILLS[sid] : null;
+            const btn = container.children[i];
+            if (!btn) continue;
+            const skId = eq[i];
+            const sk = skId ? SKILLS[skId] : null;
             if (!sk) {
-                slotEl.innerHTML = `<span style="font-size:10px; color:#64748b;">空</span>`;
-                slotEl.style.opacity = '0.5';
+                btn.disabled = true;
+                btn.innerHTML = `<span style="font-size:10px;color:#64748b;">空</span>`;
                 continue;
             }
-            const skLv = Math.max(1, (d.skills && d.skills[sid]) || 1);
-            const mpCost = getSkillMpCost(sk, skLv);
             const cd = cds[i] || 0;
-            const lackMp = this.player && this.player.mp < mpCost;
+            const skLv = d.skills[skId] || 1;
+            const mpCost = getSkillMpCost(sk, skLv);
+            const noMp = this.player && this.player.mp < mpCost;
+            btn.disabled = cd > 0 || noMp;
 
-            slotEl.style.opacity = (cd > 0 || lackMp) ? '0.6' : '1';
-            slotEl.innerHTML = `
-                <div style="font-size:16px; line-height:1;">${sk.icon}</div>
-                <div style="font-size:9px; font-weight:900; color:#fff; white-space:nowrap;">${sk.name.slice(0, 4)}</div>
-                <div style="font-size:8px; color:${lackMp ? '#f87171' : '#38bdf8'}; font-weight:900;">MP${mpCost}</div>
-                ${cd > 0 ? `<div style="position:absolute; inset:0; background:rgba(0,0,0,0.68); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:900; color:#fde047; border-radius:8px;">${cd.toFixed(1)}</div>` : ''}
+            const newHtml = `
+                <span style="font-size:17px;line-height:1;">${sk.icon}</span>
+                <span style="font-size:9px;color:#7dd3fc;font-weight:900;">${mpCost}</span>
+                ${cd > 0 ? `<div class="skill-cd-overlay">${cd.toFixed(1)}</div>` : ''}
             `;
-        }
-
-        // モンスター頭上HPプレート投影
-        for (const m of this.monsters) {
-            if (m.dead || !m.plateEl) continue;
-            const scr = this.projectToScreen(m.pos.clone().add(new THREE.Vector3(0, 1.65 * (m.scale || 1), 0)));
-            if (!scr) {
-                m.plateEl.style.display = 'none';
-                continue;
-            }
-            m.plateEl.style.display = 'block';
-            m.plateEl.style.left = `${scr.x}px`;
-            m.plateEl.style.top = `${scr.y}px`;
-            const fill = m.plateEl.querySelector('.m-hp-fill');
-            if (fill) {
-                fill.style.width = `${Math.max(0, Math.min(100, (m.hp / m.maxHp) * 100))}%`;
+            if (btn._lastHtml !== newHtml) {
+                btn._lastHtml = newHtml;
+                btn.innerHTML = newHtml;
             }
         }
     },
 
-    loop(now) {
-        const dt = Math.min(0.05, Math.max(0.001, (now - this.lastTime) / 1000));
-        this.lastTime = now;
-        const elapsed = now / 1000;
+    buildEmotePalette() {
+        const pal = document.getElementById('emote-palette');
+        if (!pal) return;
+        pal.innerHTML = EMOTES.map(em => `
+            <button type="button" class="emote-quick-btn" data-emote="${em.id}">
+                <span style="font-size:16px;">${em.icon}</span>
+                <span style="font-size:9px;font-weight:900;color:#f8fafc;">${em.label}</span>
+            </button>
+        `).join('');
 
-        if (!this.inTitleScreen) {
-            this.updateCombatAndEntities(dt, elapsed);
-        }
-        this.updateVisualEffects(dt, elapsed);
-        this.refreshAllHUD();
+        pal.querySelectorAll('.emote-quick-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.triggerEmote(btn.dataset.emote);
+                pal.classList.add('hidden');
+            });
+        });
+    },
 
-        // カメラ追従
-        if (this.camera && this.player) {
-            const shakeX = this.camShake > 0 ? (Math.random() - 0.5) * this.camShake : 0;
-            const shakeY = this.camShake > 0 ? (Math.random() - 0.5) * this.camShake : 0;
-            if (this.camShake > 0) this.camShake = Math.max(0, this.camShake - dt * 1.4);
+    showConfirmDialog(title, message, onConfirm) {
+        const modal = document.getElementById('dialog-modal');
+        const tEl = document.getElementById('dialog-title');
+        const mEl = document.getElementById('dialog-message');
+        const bEl = document.getElementById('dialog-buttons');
+        if (!modal || !bEl) return;
 
-            const hDist = Math.cos(this.camPitch) * this.camDist;
-            const vDist = Math.sin(this.camPitch) * this.camDist;
-            this.camera.position.set(
-                this.player.pos.x + Math.sin(this.camYaw) * hDist + shakeX,
-                vDist + 1.2 + shakeY,
-                this.player.pos.z + Math.cos(this.camYaw) * hDist
+        if (tEl) tEl.textContent = title;
+        if (mEl) mEl.textContent = message;
+        bEl.innerHTML = '';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'btn-ui btn-slate';
+        cancelBtn.textContent = 'キャンセル';
+        cancelBtn.onclick = () => modal.classList.add('hidden');
+
+        const okBtn = document.createElement('button');
+        okBtn.type = 'button';
+        okBtn.className = 'btn-ui btn-rose';
+        okBtn.textContent = '実行する';
+        okBtn.onclick = () => {
+            modal.classList.add('hidden');
+            if (onConfirm) onConfirm();
+        };
+
+        bEl.appendChild(cancelBtn);
+        bEl.appendChild(okBtn);
+        modal.classList.remove('hidden');
+    },
+
+    bindEvents() {
+        window.addEventListener('resize', () => {
+            if (this.useWebGL && this.renderer && this.camera) {
+                this.camera.aspect = window.innerWidth / window.innerHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+            this.keys[e.code] = true;
+            if (e.code === 'Space') {
+                e.preventDefault();
+                this.performBasicAttack();
+            } else if (e.code >= 'Digit1' && e.code <= 'Digit5') {
+                this.useSkillSlot(Number(e.code.replace('Digit', '')) - 1);
+            }
+        });
+        window.addEventListener('keyup', (e) => {
+            this.keys[e.code] = false;
+        });
+
+        // タイトル画面ボタン
+        document.getElementById('btn-title-start')?.addEventListener('click', () => this.enterGameFromTitle());
+        document.getElementById('title-btn-toggle-online')?.addEventListener('click', () => {
+            this.saveData.onlineEnabled = !this.saveData.onlineEnabled;
+            this.saveGame(false);
+            this.refreshTitleScreen();
+        });
+        document.getElementById('title-btn-toggle-pass')?.addEventListener('click', () => {
+            this.saveData.roomPassEnabled = !this.saveData.roomPassEnabled;
+            this.saveGame(false);
+            this.refreshTitleScreen();
+        });
+        document.getElementById('title-input-room-pass')?.addEventListener('input', (e) => {
+            this.saveData.roomPassword = e.target.value;
+            this.saveGame(false);
+        });
+        document.getElementById('btn-title-cloud')?.addEventListener('click', () => {
+            this.enterGameFromTitle();
+            if (this.openGrowthModal) this.openGrowthModal('online');
+        });
+        document.getElementById('btn-title-hard-reset')?.addEventListener('click', () => {
+            this.showConfirmDialog(
+                '💥 完全データ初期化',
+                'レベル・装備・素材・ゴールドをすべて消去して最初からやり直しますか？',
+                () => this.hardResetGame()
             );
-            this.camera.lookAt(this.player.pos.x, 1.2, this.player.pos.z);
+        });
+
+        // HUD右上ボタン群
+        document.getElementById('btn-open-travel')?.addEventListener('click', () => this.openGrowthModal && this.openGrowthModal('zones'));
+        document.getElementById('btn-exec-warp')?.addEventListener('click', () => this.openGrowthModal && this.openGrowthModal('zones'));
+        document.getElementById('btn-open-growth')?.addEventListener('click', () => this.openGrowthModal && this.openGrowthModal('stats'));
+        document.getElementById('btn-close-modal')?.addEventListener('click', () => this.closeGrowthModal && this.closeGrowthModal());
+
+        document.getElementById('btn-toggle-emote')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            document.getElementById('hud-drawer-menu')?.classList.add('hidden');
+            document.getElementById('emote-palette')?.classList.toggle('hidden');
+        });
+        document.getElementById('btn-toggle-drawer')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            document.getElementById('emote-palette')?.classList.add('hidden');
+            document.getElementById('hud-drawer-menu')?.classList.toggle('hidden');
+        });
+
+        document.getElementById('btn-hud-online-toggle')?.addEventListener('click', () => {
+            if (this.toggleOnlineFromHud) {
+                this.toggleOnlineFromHud();
+            } else if (this.openGrowthModal) {
+                this.openGrowthModal('online');
+            }
+        });
+        document.getElementById('btn-open-cloud')?.addEventListener('click', () => {
+            document.getElementById('hud-drawer-menu')?.classList.add('hidden');
+            if (this.openGrowthModal) this.openGrowthModal('online');
+        });
+
+        // 設定ドロワー内ボタン
+        document.getElementById('btn-toggle-autohunt')?.addEventListener('click', () => {
+            this.autoHunt = !this.autoHunt;
+            const btn = document.getElementById('btn-toggle-autohunt');
+            if (btn) {
+                btn.textContent = this.autoHunt ? '🤖 AUTO:ON' : '🤖 AUTO:OFF';
+                btn.style.background = this.autoHunt ? '#059669' : '';
+            }
+            this.showAlertBanner(this.autoHunt ? '🤖 AUTO自動狩り・スキル発動 ON' : '🤖 AUTOモード OFF', 1300);
+        });
+
+        document.getElementById('btn-threat-up')?.addEventListener('click', () => {
+            const cur = this.saveData.threatRank || 0;
+            if (cur >= MAX_THREAT_RANK) return;
+            this.saveData.threatRank = cur + 1;
+            this.saveGame(false);
+            if (this.currentZoneId !== 'town' && !this.towerState.active) this.loadZone(this.currentZoneId);
+            this.refreshAllHUD();
+            this.showAlertBanner(`🔥 脅威ランク +${this.saveData.threatRank} に上昇！`, 1400);
+        });
+        document.getElementById('btn-threat-down')?.addEventListener('click', () => {
+            const cur = this.saveData.threatRank || 0;
+            if (cur <= 0) return;
+            this.saveData.threatRank = cur - 1;
+            this.saveGame(false);
+            if (this.currentZoneId !== 'town' && !this.towerState.active) this.loadZone(this.currentZoneId);
+            this.refreshAllHUD();
+            this.showAlertBanner(`❄️ 脅威ランク +${this.saveData.threatRank} に低下`, 1400);
+        });
+
+        document.getElementById('btn-manual-save')?.addEventListener('click', () => this.saveGame(true));
+        document.getElementById('btn-toggle-bgm')?.addEventListener('click', () => {
+            sfx.bgmMuted = !sfx.bgmMuted;
+            const btn = document.getElementById('btn-toggle-bgm');
+            if (btn) btn.textContent = sfx.bgmMuted ? '🔇 BGM:OFF' : '🔊 BGM:ON';
+        });
+        document.getElementById('btn-back-title')?.addEventListener('click', () => {
+            document.getElementById('hud-drawer-menu')?.classList.add('hidden');
+            this.saveGame(false);
+            this.showTitleScreen();
+        });
+        document.getElementById('btn-reset-save')?.addEventListener('click', () => {
+            document.getElementById('hud-drawer-menu')?.classList.add('hidden');
+            this.showConfirmDialog(
+                '💥 完全データ初期化',
+                '現在のセーブデータをすべて消去して初期化しますか？',
+                () => this.hardResetGame()
+            );
+        });
+
+        // 戦闘パッド（通常攻撃 & 標的切替）
+        const atkBtn = document.getElementById('btn-basic-attack');
+        if (atkBtn) {
+            atkBtn.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.performBasicAttack();
+            });
+        }
+        const cycBtn = document.getElementById('btn-cycle-target');
+        if (cycBtn) {
+            cycBtn.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.cycleTarget();
+            });
         }
 
-        if (this.useWebGL && this.renderer && this.scene && this.camera) {
-            this.renderer.render(this.scene, this.camera);
+        // チャットUI
+        document.getElementById('btn-toggle-chat')?.addEventListener('click', () => {
+            this.chatCollapsed = !this.chatCollapsed;
+            document.getElementById('chat-panel')?.classList.toggle('hidden', this.chatCollapsed);
+        });
+        document.getElementById('btn-chat-tab-global')?.addEventListener('click', () => {
+            this.chatTab = 'global';
+            this.renderChatMessages();
+        });
+        document.getElementById('btn-chat-tab-room')?.addEventListener('click', () => {
+            this.chatTab = 'room';
+            this.renderChatMessages();
+        });
+        document.querySelectorAll('.chat-quick-chip').forEach(chip => {
+            chip.addEventListener('click', () => this.sendChatMessage(chip.dataset.msg));
+        });
+        const sendChatAction = () => {
+            const inp = document.getElementById('input-chat-msg');
+            if (!inp) return;
+            this.sendChatMessage(inp.value);
+            inp.value = '';
+        };
+        document.getElementById('btn-send-chat')?.addEventListener('click', sendChatAction);
+        document.getElementById('input-chat-msg')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                sendChatAction();
+            }
+        });
+
+        // バーチャルジョイスティック
+        const joyZone = document.getElementById('joystick-zone');
+        const joyKnob = document.getElementById('joystick-knob');
+        if (joyZone && joyKnob) {
+            let joyPointerId = null;
+            const maxR = 36;
+            const updateJoy = (clientX, clientY) => {
+                const rect = joyZone.getBoundingClientRect();
+                const cx = rect.left + rect.width / 2;
+                const cy = rect.top + rect.height / 2;
+                let dx = clientX - cx;
+                let dy = clientY - cy;
+                const d = Math.hypot(dx, dy);
+                if (d > maxR) {
+                    dx = (dx / d) * maxR;
+                    dy = (dy / d) * maxR;
+                }
+                joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+                this.joyVec.x = dx / maxR;
+                this.joyVec.y = dy / maxR;
+            };
+            const resetJoy = () => {
+                joyPointerId = null;
+                joyKnob.style.transform = 'translate(0px, 0px)';
+                this.joyVec.x = 0;
+                this.joyVec.y = 0;
+            };
+
+            joyZone.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                joyPointerId = e.pointerId;
+                joyZone.setPointerCapture(e.pointerId);
+                updateJoy(e.clientX, e.clientY);
+            });
+            joyZone.addEventListener('pointermove', (e) => {
+                if (e.pointerId === joyPointerId) updateJoy(e.clientX, e.clientY);
+            });
+            joyZone.addEventListener('pointerup', (e) => {
+                if (e.pointerId === joyPointerId) resetJoy();
+            });
+            joyZone.addEventListener('pointercancel', (e) => {
+                if (e.pointerId === joyPointerId) resetJoy();
+            });
         }
 
-        if (this.fbConnected && this.updateFirebaseSync) {
-            this.updateFirebaseSync(dt);
+        // キャンバスドラッグでカメラ回転
+        if (this.canvas) {
+            let camPointerId = null;
+            let lastX = 0;
+            let lastY = 0;
+            this.canvas.addEventListener('pointerdown', (e) => {
+                camPointerId = e.pointerId;
+                lastX = e.clientX;
+                lastY = e.clientY;
+            });
+            this.canvas.addEventListener('pointermove', (e) => {
+                if (e.pointerId !== camPointerId) return;
+                const dx = e.clientX - lastX;
+                const dy = e.clientY - lastY;
+                lastX = e.clientX;
+                lastY = e.clientY;
+                this.camYaw -= dx * 0.008;
+                this.camPitch = Math.max(0.22, Math.min(1.15, this.camPitch + dy * 0.006));
+            });
+            const endCam = (e) => {
+                if (e.pointerId === camPointerId) camPointerId = null;
+            };
+            this.canvas.addEventListener('pointerup', endCam);
+            this.canvas.addEventListener('pointercancel', endCam);
         }
-
-        requestAnimationFrame((t) => this.loop(t));
     }
 });
