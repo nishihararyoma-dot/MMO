@@ -18,7 +18,6 @@ function isLightHexColor(hex) {
 window.__faceTexCache = window.__faceTexCache || new Map();
 function getKaomojiFaceTexture(kaomoji, bgHex = '#073b66', textHex = '#ffffff', borderHex = '#38bdf8') {
     const safeBg = bgHex || '#073b66';
-    // 顔モニター背景が白・クリーム白などの明色の場合は白文字が消えないよう自動反転
     const resolvedText = (isLightHexColor(safeBg) && (!textHex || isLightHexColor(textHex)))
         ? '#0f172a'
         : (textHex || '#ffffff');
