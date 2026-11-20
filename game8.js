@@ -1,13 +1,14 @@
+
 'use strict';
 
-window.SECRET_DEBUG_CODE = 'debug777';
-window.MAX_LEVEL_CAP_V27 = 999;
-window.MAX_THREAT_CAP_V27 = 999;
+const SECRET_DEBUG_CODE = 'debug777';
+const MAX_LEVEL_CAP_V27 = 999;
+const MAX_THREAT_CAP_V27 = 999;
 
 // 剣・武器名を魔道士用の「杖」名称へ変換する辞書
 function convertWeaponNameToStaff(rawName) {
     if (!rawName) return '魔導の杖';
-    const s = String(rawName);
+    let s = String(rawName);
     if (/杖|ロッド|スタッフ|ステッキ|ワンド|staff|rod|wand/i.test(s)) return s;
     const map = [
         [/木の剣|ひのきのぼう|初期の剣|木刀/g, '見習いの木の杖'],
@@ -24,7 +25,9 @@ function convertWeaponNameToStaff(rawName) {
         [/Sword|Blade|Axe|Spear|Lance/gi, 'Staff']
     ];
     for (const [re, rep] of map) {
-        if (re.test(s)) return s.replace(re, rep);
+        if (re.test(s)) {
+            return s.replace(re, rep);
+        }
     }
     return s + '（魔導杖）';
 }
@@ -32,9 +35,7 @@ function convertWeaponNameToStaff(rawName) {
 if (typeof KaomojiMMORPG !== 'undefined') {
     const P = KaomojiMMORPG.prototype;
 
-    // ---------------------------------------------------------------------
-    // 1. 魔道士判定 ＆ 杖3Dモデル（5段階差分）
-    // ---------------------------------------------------------------------
+    // 1. 現在の職業が「魔道士系」かどうかを判定
     P.isMageEvolution = function (evoIdOverride = null) {
         const d = this.saveData || {};
         const candidates = [
@@ -58,6 +59,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         return /mage|wizard|sorcerer|witch|sage|warlock|archmage|spell|magic|caster|priest|cleric|bishop|魔道|魔導|魔法|賢者|術師|メイジ|ウィザード|ソーサラー|ウィッチ|司祭/.test(combined);
     };
 
+    // 2. 魔道士進化時の「杖（スタッフ）」3Dモデル（5段階差分）
     P.buildMageStaff3D = function (weaponId = 'wpn_wood', enhance = 0) {
         const grp = new THREE.Group();
         grp.name = 'mage_staff_weapon';
@@ -140,6 +142,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         return grp;
     };
 
+    // 魔道士時の武器表示を「杖のみ」に同期
     P.enforceStrictWeaponVisualV27 = function (entity, evoIdOverride = null) {
         if (!entity || !entity.group || typeof THREE === 'undefined') return;
         const grp = entity.group;
@@ -215,9 +218,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         };
     }
 
-    // ---------------------------------------------------------------------
-    // 2. 魔道士進化時の通常攻撃3D魔法弾
-    // ---------------------------------------------------------------------
+    // 3. 魔道士進化時の通常攻撃3D魔法弾
     P.spawnMageBasicMagicShot = function (entity) {
         if (!this.useWebGL || !this.scene || !entity?.pos || typeof THREE === 'undefined') return;
         if (!this._v22MagicShots) this._v22MagicShots = [];
@@ -274,9 +275,24 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         });
     };
 
-    // ---------------------------------------------------------------------
-    // 3. 敵モンスターの状態異常3Dエフェクト
-    // ---------------------------------------------------------------------
+    const _prevTriggerAttack = P.triggerAttackVisual;
+    P.triggerAttackVisual = function (entity, isSkill = false, skillInfo = null) {
+        const isMage = (entity === this.player)
+            ? this.isMageEvolution()
+            : Boolean(skillInfo?.isMage || (entity?.evolutionId && this.isMageEvolution(entity.evolutionId)));
+
+        if (!isSkill && isMage) {
+            if (entity) {
+                entity.attackAnimTimer = 0.34;
+                entity.attackIsSkill = false;
+            }
+            this.spawnMageBasicMagicShot(entity);
+            return;
+        }
+        _prevTriggerAttack?.call(this, entity, isSkill, skillInfo);
+    };
+
+    // 4. 敵モンスターの状態異常3Dエフェクト
     P.detectMonsterStatus = function (m) {
         if (!m) return null;
         if (m._visualStatus && Number(m._visualStatus.timer) > 0) return m._visualStatus.type;
@@ -428,9 +444,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         });
     };
 
-    // ---------------------------------------------------------------------
-    // 4. スキルLv・MP計算・スロットバッジ・杖名称同期
-    // ---------------------------------------------------------------------
+    // 5. スキル現在Lv・消費MP計算・スロット表示同期
     P.getExactSkillLevelV26 = function (sId, slotIdx = -1, skObj = null) {
         const d = this.saveData || {};
         const candidates = [
@@ -470,7 +484,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
     };
 
     P.syncSkillSlotButtonsUI = function () {
-        const slotBtns = document.querySelectorAll('[id^="skill-slot-"], [id^="skill-btn-"], .skill-slot-btn, .skill-btn, [data-skill-slot]');
+        const slotBtns = document.querySelectorAll('[id^="skill-btn-"], .skill-slot-btn, .skill-btn, [data-skill-slot]');
         slotBtns.forEach((btn, i) => {
             const slotAttr = btn.getAttribute('data-skill-slot') ?? btn.id?.replace(/\D+/g, '');
             const slotIdx = slotAttr !== '' && !isNaN(Number(slotAttr)) ? Number(slotAttr) : i;
@@ -500,6 +514,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         });
     };
 
+    // 6. 鍛冶・装備データの武器名を魔道士進化時のみ「杖」へ自動同期
     P.syncMageWeaponNamesV22 = function () {
         const isMage = this.isMageEvolution();
         if (typeof WEAPONS !== 'undefined' && WEAPONS) {
@@ -516,9 +531,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         }
     };
 
-    // ---------------------------------------------------------------------
-    // 5. 転生実行ボタン非表示 ＆ Lv・驚異度999上限適用
-    // ---------------------------------------------------------------------
+    // 7. 転生実行ボタンのみ非表示（進化・役職タブは必ず残す）
     ['doRebirth', 'rebirth', 'reincarnate', 'performRebirth', 'confirmRebirth', 'openRebirthModal'].forEach(fn => {
         if (typeof P[fn] === 'function') P[fn] = function () { return false; };
     });
@@ -529,10 +542,13 @@ if (typeof KaomojiMMORPG !== 'undefined') {
             if (el.hasAttribute('data-tab') || el.classList.contains('tab-btn')) return;
             const txt = (el.textContent || '').trim();
             if (/進化|役職|職業|転職/.test(txt)) return;
-            if (/^(転生する|転生実行|転生を行う)$/.test(txt)) el.style.display = 'none';
+            if (/^(転生する|転生実行|転生を行う)$/.test(txt)) {
+                el.style.display = 'none';
+            }
         });
     };
 
+    // 8. Lv上限 999 ＆ 驚異度上限 999 の常時適用
     P.enforce999CapsV27 = function () {
         try {
             ['MAX_LV', 'MAX_LEVEL', 'LEVEL_CAP', 'MAX_PLAYER_LV', 'MAX_SKILL_LV'].forEach(gKey => {
@@ -563,9 +579,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         });
     };
 
-    // ---------------------------------------------------------------------
-    // 6. チャットコンパクト化 ＆ 縦リサイズ
-    // ---------------------------------------------------------------------
+    // 9. チャット定型文スリム維持 ＋ チャットログ縦リサイズ
     P.getSavedChatLogHeightV34 = function () {
         try {
             const v = Number(localStorage.getItem('kmj_chat_log_height_v34'));
@@ -584,7 +598,8 @@ if (typeof KaomojiMMORPG !== 'undefined') {
     };
 
     P.fixChatCompactLayoutV31 = function () {
-        const isSmallMobile = window.innerWidth <= 920;
+        const vw = window.innerWidth;
+        const isSmallMobile = vw <= 920;
 
         document.querySelectorAll('button').forEach(btn => {
             if (btn.closest?.('#kmj-secret-debug-modal') || btn.closest?.('#kmj-ui-custom-bar')) return;
@@ -694,10 +709,21 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         });
     };
 
-    // ---------------------------------------------------------------------
-    // 7. 移動スティックを常に1個だけ維持
-    // ---------------------------------------------------------------------
+    // 9.5 移動スティックを常に1個だけ維持（古いスティック封印＋画面外座標自動修復）
     P.ensureStandardMoveStickV33 = function () {
+        try {
+            const raw = localStorage.getItem('kmj_custom_ui_layout_v31');
+            if (raw) {
+                const layout = JSON.parse(raw);
+                const m = layout?.move_stick;
+                if (m && (m.leftPct < 0 || m.leftPct > 85 || m.topPct < 0 || m.topPct > 85 || isNaN(m.leftPct) || isNaN(m.topPct))) {
+                    delete layout.move_stick;
+                    localStorage.setItem('kmj_custom_ui_layout_v31', JSON.stringify(layout));
+                }
+            }
+        } catch (e) {}
+
+        // 古いゲーム側スティック要素を非表示に封印
         document.querySelectorAll('#joystick, #joy-base, #joystick-zone, #move-pad, .joystick, .joy-base').forEach(el => {
             if (el.id !== 'kmj-v33-movepad') {
                 el.style.setProperty('display', 'none', 'important');
@@ -788,89 +814,11 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         pad.style.setProperty('visibility', 'visible', 'important');
         pad.style.setProperty('opacity', '1', 'important');
     };
-
-    // ---------------------------------------------------------------------
-    // 8. 右上メニューの重なり解消 ＆ 確認ダイアログ・完全初期化
-    // ---------------------------------------------------------------------
-    P.fixTopRightMenuOverlapV36 = function () {
-        const topRightBar = document.getElementById('hud-top-right')
-            || document.getElementById('btn-open-menu')?.parentElement;
-        if (!topRightBar) return;
-
-        topRightBar.style.setProperty('display', 'flex', 'important');
-        topRightBar.style.setProperty('flex-wrap', 'wrap', 'important');
-        topRightBar.style.setProperty('justify-content', 'flex-end', 'important');
-        topRightBar.style.setProperty('align-items', 'center', 'important');
-        topRightBar.style.setProperty('gap', '4px', 'important');
-        topRightBar.style.setProperty('max-width', '58vw', 'important');
-        topRightBar.style.setProperty('z-index', '60', 'important');
-
-        topRightBar.querySelectorAll('button').forEach(b => {
-            if (b.id === 'kmj-btn-ui-edit-settings') return;
-            b.style.setProperty('position', 'static', 'important');
-            b.style.setProperty('margin', '0', 'important');
-            b.style.setProperty('padding', '4px 7px', 'important');
-            b.style.setProperty('font-size', '11px', 'important');
-            b.style.setProperty('line-height', '1.1', 'important');
-            b.style.setProperty('white-space', 'nowrap', 'important');
-        });
-    };
-
-    P.openDialog = function (opts = {}) {
-        document.getElementById('kmj-custom-dialog')?.remove();
-        const overlay = document.createElement('div');
-        overlay.id = 'kmj-custom-dialog';
-        overlay.style.cssText = 'position:fixed;inset:0;z-index:200;background:rgba(2,6,23,0.85);display:flex;align-items:center;justify-content:center;padding:16px;';
-
-        const title = opts.title || '確認';
-        const message = String(opts.message || '').replace(/\n/g, '<br>');
-        const confirmText = opts.confirmText || 'OK';
-        const cancelText = opts.cancelText || 'キャンセル';
-
-        overlay.innerHTML = `
-            <div style="width:min(360px,92vw);background:#0f172a;border:2px solid #f43f5e;border-radius:14px;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,0.85);color:#fff;">
-                <div style="font-size:15px;font-weight:900;color:#fda4af;margin-bottom:8px;">${title}</div>
-                <div style="font-size:12px;color:#e2e8f0;line-height:1.55;margin-bottom:14px;">${message}</div>
-                <div style="display:flex;gap:8px;justify-content:flex-end;">
-                    <button type="button" id="kmj-dlg-cancel" style="background:#334155;color:#fff;border:1px solid #64748b;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:900;cursor:pointer;">${cancelText}</button>
-                    <button type="button" id="kmj-dlg-ok" style="background:#e11d48;color:#fff;border:1px solid #fda4af;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:900;cursor:pointer;">${confirmText}</button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(overlay);
-
-        overlay.querySelector('#kmj-dlg-cancel')?.addEventListener('click', () => overlay.remove());
-        overlay.querySelector('#kmj-dlg-ok')?.addEventListener('click', () => {
-            overlay.remove();
-            if (typeof opts.onConfirm === 'function') opts.onConfirm();
-        });
-    };
-
-    const _origHardReset = P.hardResetGame;
-    P.hardResetGame = function () {
-        try {
-            const keysToRemove = [];
-            for (let i = 0; i < localStorage.length; i++) {
-                const k = localStorage.key(i);
-                if (k && /kaomoji|kmj|mmo|save/i.test(k)) keysToRemove.push(k);
-            }
-            keysToRemove.forEach(k => localStorage.removeItem(k));
-            if (typeof SAVE_KEY !== 'undefined') localStorage.removeItem(SAVE_KEY);
-        } catch (e) {}
-        if (_origHardReset) {
-            try { _origHardReset.call(this); return; } catch (e) {}
-        }
-        window.location.reload();
-    };
 }
 if (typeof KaomojiMMORPG !== 'undefined') {
     const P = KaomojiMMORPG.prototype;
 
-    // ---------------------------------------------------------------------
-    // 9. ボタンの大きさ・配置カスタムシステム（完了後に消えない統合版）
-    // ---------------------------------------------------------------------
-    P._controlPlaceholdersV36 = new Map();
-
+    // 10. ボタンの大きさ・配置カスタムシステム（挑発ボタン含む全操作対応）
     P.loadCustomUILayoutV31 = function () {
         try {
             const raw = localStorage.getItem('kmj_custom_ui_layout_v31');
@@ -884,31 +832,6 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         try {
             localStorage.setItem('kmj_custom_ui_layout_v31', JSON.stringify(data || {}));
         } catch (e) {}
-    };
-
-    P.portalControlToBodyV36 = function (key, el) {
-        if (!el || el.parentElement === document.body) return;
-        if (!this._controlPlaceholdersV36.has(key) && el.parentElement) {
-            const ph = document.createElement('span');
-            ph.style.display = 'none';
-            ph.dataset.v36PlaceholderFor = key;
-            el.parentElement.insertBefore(ph, el);
-            this._controlPlaceholdersV36.set(key, ph);
-        }
-        document.body.appendChild(el);
-    };
-
-    P.restoreControlFromBodyV36 = function (key, el) {
-        if (!el) return;
-        const ph = this._controlPlaceholdersV36.get(key);
-        if (ph && ph.parentElement) {
-            ph.parentElement.insertBefore(el, ph);
-            ph.remove();
-        }
-        this._controlPlaceholdersV36.delete(key);
-        ['position', 'left', 'top', 'right', 'bottom', 'margin', 'transform', 'transform-origin', 'z-index'].forEach(prop => {
-            el.style.removeProperty(prop);
-        });
     };
 
     P.bindControlEditListenersV35 = function (key, el) {
@@ -939,11 +862,11 @@ if (typeof KaomojiMMORPG !== 'undefined') {
             if (!this._uiEditModeV31 || !dragging) return;
             e.preventDefault();
             e.stopImmediatePropagation();
-            const nx = Math.max(8, Math.min(window.innerWidth - 44, origLeft + (e.clientX - startX)));
-            const ny = Math.max(24, Math.min(window.innerHeight - 44, origTop + (e.clientY - startY)));
+            const nx = Math.max(4, Math.min(window.innerWidth - 36, origLeft + (e.clientX - startX)));
+            const ny = Math.max(4, Math.min(window.innerHeight - 36, origTop + (e.clientY - startY)));
 
             const layout = this.loadCustomUILayoutV31();
-            const curScale = layout[key]?.scale ?? (window.innerWidth <= 920 ? 0.88 : 1.0);
+            const curScale = layout[key]?.scale ?? (window.innerWidth <= 920 ? 0.86 : 1.0);
             layout[key] = {
                 leftPct: Number(((nx / window.innerWidth) * 100).toFixed(2)),
                 topPct: Number(((ny / window.innerHeight) * 100).toFixed(2)),
@@ -963,55 +886,75 @@ if (typeof KaomojiMMORPG !== 'undefined') {
     };
 
     P.discoverCustomizableControlsV31 = function () {
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
         const items = [];
-        const used = new Set();
-        const add = (key, label, el) => {
-            if (!el || used.has(el)) return;
+        const usedEls = new Set();
+
+        const register = (key, label, el) => {
+            if (!el || usedEls.has(el)) return;
             const cs = window.getComputedStyle(el);
             if (cs.display === 'none' || cs.visibility === 'hidden') return;
-            used.add(el);
+            const r = el.getBoundingClientRect();
+            if (r.width <= 12 || r.height <= 12) return;
+            usedEls.add(el);
             el.dataset.v31ControlKey = key;
             el.dataset.v31ControlLabel = label;
             items.push({ key, label, el });
         };
 
-        add('move_stick', '🕹️ 移動', document.getElementById('kmj-v33-movepad'));
-        add('btn_attack', '⚔️ 攻撃', document.getElementById('btn-basic-attack') || document.querySelector('.attack-btn'));
-        add('btn_taunt', '💢 挑発', document.getElementById('kmj-btn-taunt-v26'));
-        const targetBtn = document.getElementById('btn-target-switch') || Array.from(document.querySelectorAll('button')).find(b => /標的/.test(b.textContent || ''));
-        if (targetBtn) add('btn_target', '🎯 標的', targetBtn);
+        // ① 移動スティック
+        const stickEl = document.getElementById('kmj-v33-movepad');
+        if (stickEl) register('move_stick', '移動', stickEl);
 
-        for (let i = 0; i < 5; i++) {
-            const slotEl = document.getElementById(`skill-slot-${i}`) || document.getElementById(`skill-btn-${i}`);
-            add(`skill_${i}`, `枠${i + 1}`, slotEl);
-        }
+        // ② 挑発ボタン
+        const tauntEl = document.getElementById('kmj-btn-taunt-v26')
+            || Array.from(document.querySelectorAll('button, [role="button"]')).find(b => /挑発/.test(b.textContent || ''));
+        if (tauntEl) register('btn_taunt', '💢 挑発', tauntEl);
+
+        // ③ 攻撃・スキル枠1〜5・標的切替
+        document.querySelectorAll('button, [role="button"], .skill-btn, .skill-slot-btn, .attack-btn').forEach(btn => {
+            if (usedEls.has(btn)) return;
+            if (btn.id === 'kmj-debug-quick-exit' || btn.id === 'kmj-btn-ui-edit-settings') return;
+            if (btn.closest?.('#kmj-secret-debug-modal') || btn.closest?.('#kmj-ui-custom-bar')) return;
+            const cs = window.getComputedStyle(btn);
+            if (cs.display === 'none' || cs.visibility === 'hidden') return;
+            const r = btn.getBoundingClientRect();
+            const txt = (btn.textContent || '').trim();
+            if (/送信|戻す|縦拡大|標準幅|自動|AUTO|脅威|通信|手動|BGM|タイトル|初期化|ボタン配置|チャット開閉/.test(txt)) return;
+
+            let key = null;
+            let label = txt.slice(0, 6) || btn.id || 'ボタン';
+            if (/攻撃/.test(txt) || /attack/i.test(btn.id)) { key = 'btn_attack'; label = '⚔️ 攻撃'; }
+            else if (/挑発/.test(txt) || btn.id === 'kmj-btn-taunt-v26') { key = 'btn_taunt'; label = '💢 挑発'; }
+            else if (/標的/.test(txt) || /target/i.test(btn.id)) { key = 'btn_target'; label = '🎯 標的'; }
+            else if (/枠\s*1/.test(txt) || btn.id === 'skill-btn-0') { key = 'skill_0'; label = '枠1'; }
+            else if (/枠\s*2/.test(txt) || btn.id === 'skill-btn-1') { key = 'skill_1'; label = '枠2'; }
+            else if (/枠\s*3/.test(txt) || btn.id === 'skill-btn-2') { key = 'skill_2'; label = '枠3'; }
+            else if (/枠\s*4/.test(txt) || btn.id === 'skill-btn-3') { key = 'skill_3'; label = '枠4'; }
+            else if (/枠\s*5/.test(txt) || btn.id === 'skill-btn-4') { key = 'skill_4'; label = '枠5'; }
+            else if (r.left >= vw * 0.45 && r.top >= vh * 0.35 && r.width >= 36 && r.height >= 36 && Math.abs(r.width - r.height) <= 14) {
+                key = `custom_${btn.id || items.length}`;
+            }
+
+            if (key) register(key, label, btn);
+        });
+
         return items;
     };
 
     P.applySavedUILayoutV31 = function () {
         const layout = this.loadCustomUILayoutV31();
         const items = this.discoverCustomizableControlsV31();
-        const defaultScale = window.innerWidth <= 920 ? 0.88 : 1.0;
-        let sanitized = false;
+        const defaultScale = window.innerWidth <= 920 ? 0.86 : 1.0;
 
         items.forEach(({ key, label, el }) => {
             const cfg = layout[key];
-            const scale = cfg?.scale ? Math.max(0.55, Math.min(1.65, Number(cfg.scale))) : defaultScale;
-            const hasCustomPos = cfg && typeof cfg.leftPct === 'number' && typeof cfg.topPct === 'number' && !isNaN(cfg.leftPct) && !isNaN(cfg.topPct);
+            const scale = cfg?.scale ? Number(cfg.scale) : defaultScale;
 
-            if (hasCustomPos) {
-                const safeLeftPct = Math.max(2, Math.min(88, cfg.leftPct));
-                const safeTopPct = Math.max(5, Math.min(88, cfg.topPct));
-                if (safeLeftPct !== cfg.leftPct || safeTopPct !== cfg.topPct) {
-                    layout[key].leftPct = safeLeftPct;
-                    layout[key].topPct = safeTopPct;
-                    sanitized = true;
-                }
-
-                this.portalControlToBodyV36(key, el);
-
-                const px = Math.round((safeLeftPct / 100) * window.innerWidth);
-                const py = Math.round((safeTopPct / 100) * window.innerHeight);
+            if (cfg && typeof cfg.leftPct === 'number' && typeof cfg.topPct === 'number') {
+                const px = Math.round((cfg.leftPct / 100) * window.innerWidth);
+                const py = Math.round((cfg.topPct / 100) * window.innerHeight);
                 el.style.setProperty('position', 'fixed', 'important');
                 el.style.setProperty('left', `${px}px`, 'important');
                 el.style.setProperty('top', `${py}px`, 'important');
@@ -1020,14 +963,9 @@ if (typeof KaomojiMMORPG !== 'undefined') {
                 el.style.setProperty('margin', '0px', 'important');
             }
 
-            if (key === 'move_stick' || key === 'btn_taunt') {
-                el.style.setProperty('display', 'flex', 'important');
-            }
-            el.style.setProperty('visibility', 'visible', 'important');
-            el.style.setProperty('opacity', '1', 'important');
             el.style.setProperty('transform', `scale(${scale.toFixed(2)})`, 'important');
             el.style.setProperty('transform-origin', 'center center', 'important');
-            el.style.setProperty('z-index', (this._uiEditModeV31 && this._uiSelectedKeyV31 === key) ? '94' : '86', 'important');
+            el.style.setProperty('z-index', (this._uiEditModeV31 && this._uiSelectedKeyV31 === key) ? '92' : '86', 'important');
 
             let tag = el.querySelector('.v35-edit-tag');
             if (this._uiEditModeV31) {
@@ -1040,7 +978,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
                 if (!tag) {
                     tag = document.createElement('span');
                     tag.className = 'v35-edit-tag';
-                    tag.style.cssText = 'position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fde047;border:1px solid #fde047;border-radius:4px;padding:0 4px;font-size:9px;font-weight:900;white-space:nowrap;pointer-events:none;z-index:96;';
+                    tag.style.cssText = 'position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fde047;border:1px solid #fde047;border-radius:4px;padding:0 4px;font-size:9px;font-weight:900;white-space:nowrap;pointer-events:none;z-index:95;';
                     el.appendChild(tag);
                 }
                 tag.textContent = label;
@@ -1050,14 +988,12 @@ if (typeof KaomojiMMORPG !== 'undefined') {
                 if (tag) tag.remove();
             }
         });
-
-        if (sanitized) this.saveCustomUILayoutV31(layout);
     };
 
     P.toggleUIEditModeV31 = function (forceState = null) {
         this._uiEditModeV31 = (forceState !== null) ? Boolean(forceState) : !this._uiEditModeV31;
-        this.ensureStandardMoveStickV33?.();
-        this.injectTauntButtonUI?.();
+        this.ensureStandardMoveStickV33();
+        this.injectTauntButtonUI();
         const items = this.discoverCustomizableControlsV31();
 
         if (!this._uiEditModeV31) {
@@ -1088,7 +1024,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         if (selItem) this._uiSelectedKeyV31 = selItem.key;
 
         const layout = this.loadCustomUILayoutV31();
-        const defScale = window.innerWidth <= 920 ? 0.88 : 1.0;
+        const defScale = window.innerWidth <= 920 ? 0.86 : 1.0;
         const curScale = selItem ? (layout[selItem.key]?.scale ?? defScale) : defScale;
         const pct = Math.round(curScale * 100);
 
@@ -1151,7 +1087,9 @@ if (typeof KaomojiMMORPG !== 'undefined') {
 
         document.getElementById('v31-layout-reset')?.addEventListener('click', () => {
             localStorage.removeItem('kmj_custom_ui_layout_v31');
-            items.forEach(({ key, el }) => this.restoreControlFromBodyV36(key, el));
+            items.forEach(({ el }) => {
+                ['left', 'top', 'right', 'bottom', 'margin'].forEach(p => el.style.removeProperty(p));
+            });
             this.applySavedUILayoutV31();
             this.renderUICustomToolbarV31();
             this.showAlertBanner?.('↺ ボタン位置とサイズを初期値に戻しました', 1400);
@@ -1160,9 +1098,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         document.getElementById('v31-layout-done')?.addEventListener('click', () => this.toggleUIEditModeV31(false));
     };
 
-    // ---------------------------------------------------------------------
-    // 10. 歯車（⚙）設定ドロップダウン内に「🎛️ ボタン配置・サイズ」を挿入
-    // ---------------------------------------------------------------------
+    // 10.5 歯車（⚙）設定ドロップダウン内に「🎛️ ボタン配置・サイズ」を挿入
     P.injectSettingsDropdownItemV33 = function () {
         const existingBtn = document.getElementById('kmj-btn-ui-edit-settings');
         if (existingBtn && document.body.contains(existingBtn)) return;
@@ -1205,9 +1141,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         else menuContainer.appendChild(itemBtn);
     };
 
-    // ---------------------------------------------------------------------
-    // 11. スキル設定画面で「枠1〜枠5 使用状況」を可視化
-    // ---------------------------------------------------------------------
+    // 10.8 スキル設定画面で「枠1〜枠5 使用状況」を可視化
     P.getEquippedSkillSlotsInfoV35 = function () {
         const d = this.saveData || {};
         const skillList = typeof SKILLS !== 'undefined' && SKILLS ? (Array.isArray(SKILLS) ? SKILLS : Object.values(SKILLS)) : [];
@@ -1231,7 +1165,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
     };
 
     P.enhanceSkillSlotVisibilityV35 = function () {
-        const body = document.getElementById('modal-body-content') || document.getElementById('modal-body');
+        const body = document.getElementById('modal-body');
         if (!body) return;
         const isSkillScreen = /skill|スキル/i.test(`${this.activeTab || ''} ${document.getElementById('modal-title')?.textContent || ''}`);
         if (!isSkillScreen) return;
@@ -1248,12 +1182,9 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         }
 
         overview.innerHTML = `
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
                 <span style="font-size:11px;font-weight:900;color:#7dd3fc;">🎮 現在のスキル枠 使用状況</span>
                 <span style="font-size:10px;font-weight:900;color:#fde047;">使用中: ${usedCount} / 5枠（空き ${5 - usedCount}枠）</span>
-            </div>
-            <div style="font-size:9.5px;color:#cbd5e1;margin-bottom:6px;">
-                ⚡ Lv.10【真】x3.25倍 → Lv.50【極】x13.25倍 → Lv.100【👑奥義】x25.75倍
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:5px;">
                 ${slots.map(s => s.isUsed ? `
@@ -1354,9 +1285,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         }
     };
 
-    // ---------------------------------------------------------------------
-    // 12. 💢 挑発機能
-    // ---------------------------------------------------------------------
+    // 11. 💢 挑発機能
     P.triggerTauntAllEnemies = function () {
         if (!this.player || !this.player.pos) return;
         const now = performance.now();
@@ -1445,9 +1374,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         this.applySavedUILayoutV31();
     };
 
-    // ---------------------------------------------------------------------
-    // 13. 隠しデバッグコンソール
-    // ---------------------------------------------------------------------
+    // 12. 隠しデバッグコンソール＆フック
     P.collectAllMaterialIdsV24 = function () {
         const ids = new Set();
         const d = this.saveData || {};
@@ -1530,7 +1457,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         document.getElementById('kmj-secret-debug-modal')?.remove();
         this.saveGame?.(false);
         this.refreshAllHUD?.();
-        if (this.isModalOpen) this.renderGrowthTabContent?.();
+        if (this.isModalOpen) this.renderModalContent?.();
         this.showAlertBanner?.('📴 デバッグモードを解除し、通常の状態に戻しました', 1800);
     };
 
@@ -1592,7 +1519,10 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         this.syncSkillMpCostsV22?.();
         this.syncSkillSlotButtonsUI?.();
         this.refreshAllHUD?.();
-        if (this.isModalOpen) this.renderGrowthTabContent?.();
+        if (this.isModalOpen) {
+            this.renderModalContent?.();
+            this.enhanceSkillSlotVisibilityV35?.();
+        }
         this.syncFirebaseNow?.(false);
     };
 
@@ -1876,107 +1806,7 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         });
     };
 
-    // ---------------------------------------------------------------------
-    // 14. メニュー・モーダル描画の統合（空欄解消＆ID一致）
-    // ---------------------------------------------------------------------
-    const _baseOpenGrowth = P.openGrowthModal;
-    const _baseCloseGrowth = P.closeGrowthModal;
-    const _baseRenderGrowth = P.renderGrowthTabContent;
-
-    const normalizeTabName = (tab) => {
-        const t = String(tab || 'stats').toLowerCase();
-        if (t === 'travel' || t === 'stage' || t === 'map') return 'zones';
-        if (t === 'system' || t === 'setting' || t === 'settings') return 'online';
-        return t;
-    };
-
-    P.openGrowthModal = function (tab = 'stats') {
-        const mapped = normalizeTabName(tab);
-        if (_baseOpenGrowth) {
-            _baseOpenGrowth.call(this, mapped);
-        } else {
-            this.activeTab = mapped;
-            this.isModalOpen = true;
-            document.getElementById('growth-modal')?.classList.remove('hidden');
-            this.renderGrowthTabContent?.();
-        }
-    };
-
-    P.closeGrowthModal = function () {
-        if (_baseCloseGrowth) _baseCloseGrowth.call(this);
-        else {
-            this.isModalOpen = false;
-            document.getElementById('growth-modal')?.classList.add('hidden');
-        }
-    };
-
-    P.openModal = function (tab = 'stats') { this.openGrowthModal(tab); };
-    P.closeModal = function () { this.closeGrowthModal(); };
-
-    P.renderGrowthTabContent = function () {
-        this.activeTab = normalizeTabName(this.activeTab);
-        this.enforce999CapsV27?.();
-        this.maintainInfiniteResources?.();
-        this.syncSkillDescriptionsAndEffects?.();
-        this.syncSkillMpCostsV22?.();
-        this.syncMageWeaponNamesV22?.();
-
-        if (_baseRenderGrowth) _baseRenderGrowth.call(this);
-
-        const body = document.getElementById('modal-body-content') || document.getElementById('modal-body');
-        if (!body) return;
-
-        this.purgeRebirthUIV27();
-        this.enhanceSkillSlotVisibilityV35();
-
-        if (this.isMageEvolution() && /smith|forge|craft|equip|weapon|gear|item|鍛冶|装備|武器/i.test(String(this.activeTab || ''))) {
-            const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT, null);
-            let node;
-            while ((node = walker.nextNode())) {
-                if (node.nodeValue && /剣|刀|ソード|ブレード/.test(node.nodeValue)) {
-                    node.nodeValue = convertWeaponNameToStaff(node.nodeValue);
-                }
-            }
-        }
-
-        if (/evo|class|job|進化|転職/i.test(String(this.activeTab || ''))) {
-            body.querySelectorAll('button, [data-change-job]').forEach(btn => {
-                if (btn.dataset.v36EvoHook) return;
-                btn.dataset.v36EvoHook = '1';
-                btn.addEventListener('click', () => {
-                    setTimeout(() => {
-                        this.syncMageWeaponNamesV22();
-                        this.buildPlayerEntity?.();
-                        if (this.player) this.enforceStrictWeaponVisualV27(this.player);
-                        this.syncFirebaseNow?.(false);
-                    }, 80);
-                });
-            });
-        }
-    };
-
-    P.renderModalContent = function () { this.renderGrowthTabContent(); };
-
-    // ---------------------------------------------------------------------
-    // 15. 既存メソッドへの軽量フック＆アニメーションループ統合
-    // ---------------------------------------------------------------------
-    const _prevTriggerAttack = P.triggerAttackVisual;
-    P.triggerAttackVisual = function (entity, isSkill = false, skillInfo = null) {
-        const isMage = (entity === this.player)
-            ? this.isMageEvolution()
-            : Boolean(skillInfo?.isMage || (entity?.evolutionId && this.isMageEvolution(entity.evolutionId)));
-
-        if (!isSkill && isMage) {
-            if (entity) {
-                entity.attackAnimTimer = 0.34;
-                entity.attackIsSkill = false;
-            }
-            this.spawnMageBasicMagicShot(entity);
-            return;
-        }
-        _prevTriggerAttack?.call(this, entity, isSkill, skillInfo);
-    };
-
+    // 既存メソッドへのフック
     if (P.useSkillSlot) {
         const _prevUseSkill = P.useSkillSlot;
         P.useSkillSlot = function (slotIdx) {
@@ -2013,23 +1843,56 @@ if (typeof KaomojiMMORPG !== 'undefined') {
         };
     }
 
+    if (P.renderModalContent) {
+        const _prevRenderModal = P.renderModalContent;
+        P.renderModalContent = function () {
+            this.enforce999CapsV27();
+            this.maintainInfiniteResources();
+            this.syncSkillDescriptionsAndEffects?.();
+            this.syncSkillMpCostsV22();
+            this.syncMageWeaponNamesV22();
+            _prevRenderModal.call(this);
+            this.purgeRebirthUIV27();
+            this.enhanceSkillSlotVisibilityV35();
+
+            const body = document.getElementById('modal-body');
+            if (!body) return;
+
+            if (this.isMageEvolution() && /smith|forge|craft|equip|weapon|gear|item|鍛冶|装備|武器/i.test(String(this.activeTab || ''))) {
+                const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT, null);
+                let node;
+                while ((node = walker.nextNode())) {
+                    if (node.nodeValue && /剣|刀|ソード|ブレード/.test(node.nodeValue)) {
+                        node.nodeValue = convertWeaponNameToStaff(node.nodeValue);
+                    }
+                }
+            }
+
+            if (/evo|class|job|進化|転職/i.test(String(this.activeTab || ''))) {
+                body.querySelectorAll('button').forEach(btn => {
+                    if (btn.dataset.v22EvoHook) return;
+                    btn.dataset.v22EvoHook = '1';
+                    btn.addEventListener('click', () => {
+                        setTimeout(() => {
+                            this.syncMageWeaponNamesV22();
+                            this.buildPlayerEntity?.();
+                            this.syncFirebaseNow?.(false);
+                        }, 80);
+                    });
+                });
+            }
+        };
+    }
+
     const _prevUpdateAnim = P.updateCharacterAnimations;
     P.updateCharacterAnimations = function (dt) {
         _prevUpdateAnim?.call(this, dt);
         this.enforce999CapsV27();
         this.maintainInfiniteResources();
-
-        // DOM探索系は負荷軽減のため0.4秒ごとに実行（60fps毎フレーム実行を防止）
-        this._domSyncAccumV37 = (this._domSyncAccumV37 || 0) + dt;
-        if (this._domSyncAccumV37 >= 0.4) {
-            this._domSyncAccumV37 = 0;
-            this.fixTopRightMenuOverlapV36();
-            this.fixChatCompactLayoutV31();
-            this.ensureStandardMoveStickV33();
-            this.injectSettingsDropdownItemV33();
-            this.applySavedUILayoutV31();
-        }
-
+        this.fixChatCompactLayoutV31();
+        this.ensureStandardMoveStickV33();
+        this.injectSettingsDropdownItemV33();
+        this.applySavedUILayoutV31();
         if (this.player) this.enforceStrictWeaponVisualV27(this.player);
         this.updateTauntAggroLoop(dt);
         this.updateMageBasicMagicShots(dt);
@@ -2046,7 +1909,6 @@ if (typeof KaomojiMMORPG !== 'undefined') {
 }
 
 const syncUIOnViewportChange = () => {
-    window.game?.fixTopRightMenuOverlapV36?.();
     window.game?.fixChatCompactLayoutV31?.();
     window.game?.ensureStandardMoveStickV33?.();
     window.game?.injectSettingsDropdownItemV33?.();
@@ -2073,3 +1935,5 @@ window.addEventListener('DOMContentLoaded', () => {
 window.addEventListener('resize', syncUIOnViewportChange);
 window.visualViewport?.addEventListener('resize', syncUIOnViewportChange);
 // === GAME8_CLEAN_OK ===
+【1/2】の下にこの【2/2】を貼って保存したあと、新しいタブで game8.js を開いて再読み込み（末尾に GAME8_CLEAN_OK が出ていれば完了）すると、役職（進化）タブ・移動スティック1個固定・チャット縦幅調整がすべて綺麗に戻ります。
+
