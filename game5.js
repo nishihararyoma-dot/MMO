@@ -697,19 +697,23 @@ Object.assign(KaomojiMMORPG.prototype, {
                     });
                 });
 
-            } else if (this.activeTab === 'zones' || this.activeTab === 'travel') {
-                const maxThreat = typeof MAX_THREAT_RANK !== 'undefined' ? MAX_THREAT_RANK : 10;
+} else if (this.activeTab === 'zones' || this.activeTab === 'travel') {
+                window.MAX_THREAT_RANK = 999;
+                const maxThreat = 999;
                 const isTowerActive = Boolean(this.towerState && this.towerState.active);
                 body.innerHTML = `
                     <div class="card-box" style="margin-bottom:10px;">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
                             <div>
                                 <div style="font-weight:900; color:#f43f5e;">🔥 危険度ランク: +${d.threatRank || 0} / ${maxThreat}</div>
                                 <div style="font-size:10px; color:#cbd5e1;">ランクを上げると敵が強くなり、経験値・ゴールド報酬も増加！</div>
                             </div>
-                            <div style="display:flex; gap:5px;">
-                                <button type="button" class="btn-ui btn-slate" id="btn-threat-down" ${(d.threatRank || 0) <= 0 ? 'disabled' : ''}>-1</button>
-                                <button type="button" class="btn-ui btn-rose" id="btn-threat-up" ${(d.threatRank || 0) >= maxThreat ? 'disabled' : ''}>+1</button>
+                            <div style="display:flex; gap:4px; flex-wrap:wrap;">
+                                <button type="button" class="btn-ui btn-slate" data-threat-delta="-10" ${(d.threatRank || 0) <= 0 ? 'disabled' : ''}>-10</button>
+                                <button type="button" class="btn-ui btn-slate" data-threat-delta="-1" ${(d.threatRank || 0) <= 0 ? 'disabled' : ''}>-1</button>
+                                <button type="button" class="btn-ui btn-rose" data-threat-delta="1" ${(d.threatRank || 0) >= maxThreat ? 'disabled' : ''}>+1</button>
+                                <button type="button" class="btn-ui btn-rose" data-threat-delta="10" ${(d.threatRank || 0) >= maxThreat ? 'disabled' : ''}>+10</button>
+                                <button type="button" class="btn-ui btn-amber" data-threat-delta="100" ${(d.threatRank || 0) >= maxThreat ? 'disabled' : ''}>+100</button>
                             </div>
                         </div>
                     </div>
@@ -739,15 +743,13 @@ Object.assign(KaomojiMMORPG.prototype, {
                     </div>
                 `;
 
-                body.querySelector('#btn-threat-down')?.addEventListener('click', () => {
-                    d.threatRank = Math.max(0, (d.threatRank || 0) - 1);
-                    this.saveGame(false);
-                    this.renderGrowthTabContent();
-                });
-                body.querySelector('#btn-threat-up')?.addEventListener('click', () => {
-                    d.threatRank = Math.min(maxThreat, (d.threatRank || 0) + 1);
-                    this.saveGame(false);
-                    this.renderGrowthTabContent();
+                body.querySelectorAll('[data-threat-delta]').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const delta = Number(btn.getAttribute('data-threat-delta')) || 0;
+                        d.threatRank = Math.max(0, Math.min(maxThreat, (d.threatRank || 0) + delta));
+                        this.saveGame(false);
+                        this.renderGrowthTabContent();
+                    });
                 });
                 body.querySelector('#btn-enter-tower')?.addEventListener('click', () => {
                     this.closeGrowthModal();
