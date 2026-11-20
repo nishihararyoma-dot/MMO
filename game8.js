@@ -1934,6 +1934,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
 window.addEventListener('resize', syncUIOnViewportChange);
 window.visualViewport?.addEventListener('resize', syncUIOnViewportChange);
+window.MAX_PLAYER_LEVEL = 999;
 // === GAME8_CLEAN_OK ===
 【1/2】の下にこの【2/2】を貼って保存したあと、新しいタブで game8.js を開いて再読み込み（末尾に GAME8_CLEAN_OK が出ていれば完了）すると、役職（進化）タブ・移動スティック1個固定・チャット縦幅調整がすべて綺麗に戻ります。
 
