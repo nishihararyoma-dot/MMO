@@ -4,9 +4,26 @@
 // 顔文字ファンタジー3D コアシステム・セーブ・タイトル・チャット基盤 (game1.js)
 // =========================================================================
 
+function isLightHexColor(hex) {
+    if (!hex || typeof hex !== 'string') return false;
+    const clean = hex.trim().replace('#', '');
+    if (!/^[0-9a-fA-F]{6}$/.test(clean)) return false;
+    const r = parseInt(clean.slice(0, 2), 16);
+    const g = parseInt(clean.slice(2, 4), 16);
+    const b = parseInt(clean.slice(4, 6), 16);
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance > 0.65;
+}
+
 window.__faceTexCache = window.__faceTexCache || new Map();
 function getKaomojiFaceTexture(kaomoji, bgHex = '#073b66', textHex = '#ffffff', borderHex = '#38bdf8') {
-    const key = `${kaomoji}|${bgHex}|${textHex}|${borderHex}`;
+    const safeBg = bgHex || '#073b66';
+    // 顔モニター背景が白・クリーム白などの明色の場合は白文字が消えないよう自動反転
+    const resolvedText = (isLightHexColor(safeBg) && (!textHex || isLightHexColor(textHex)))
+        ? '#0f172a'
+        : (textHex || '#ffffff');
+
+    const key = `${kaomoji}|${safeBg}|${resolvedText}|${borderHex}`;
     if (window.__faceTexCache.has(key)) return window.__faceTexCache.get(key);
 
     const canvas = document.createElement('canvas');
@@ -14,7 +31,7 @@ function getKaomojiFaceTexture(kaomoji, bgHex = '#073b66', textHex = '#ffffff', 
     canvas.height = 192;
     const ctx = canvas.getContext('2d');
 
-    ctx.fillStyle = bgHex || '#073b66';
+    ctx.fillStyle = safeBg;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     ctx.strokeStyle = borderHex || '#38bdf8';
@@ -28,7 +45,7 @@ function getKaomojiFaceTexture(kaomoji, bgHex = '#073b66', textHex = '#ffffff', 
     else if (txt.length >= 7) fontSize = 34;
 
     ctx.font = `900 ${fontSize}px "MS PGothic", "Hiragino Kaku Gothic ProN", sans-serif`;
-    ctx.fillStyle = textHex || '#ffffff';
+    ctx.fillStyle = resolvedText;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(txt, canvas.width / 2, canvas.height / 2 + 2);
@@ -240,6 +257,7 @@ class KaomojiMMORPG {
 
     loadSaveData() {
         const def = this.createDefaultSave();
+        const maxLv = (typeof MAX_PLAYER_LEVEL !== 'undefined') ? MAX_PLAYER_LEVEL : 999;
         try {
             const raw = localStorage.getItem(this.saveKey) || localStorage.getItem('kaomoji_mmorpg_3d_save_v1');
             if (!raw) return def;
@@ -266,9 +284,12 @@ class KaomojiMMORPG {
             delete mergedMats.void_shard;
             delete mergedMats.star_fragment;
 
+            const clampedLv = Math.max(1, Math.min(maxLv, Math.floor(parsed.lv || 1)));
+
             return {
                 ...def,
                 ...parsed,
+                lv: clampedLv,
                 isNewSave: false,
                 stats: { ...def.stats, ...(parsed.stats || {}) },
                 skills: mergedSkills,
@@ -441,7 +462,7 @@ class KaomojiMMORPG {
         const list = this.chatTab === 'room' ? this.roomChatMessages : this.globalChatMessages;
         box.innerHTML = list.map(m => {
             if (m.isSystem) {
-                return `<div style="color:#94a3b8; font-size:10px;">${m.text}</div>`;
+                return `<div style="color:#cbd5e1; font-size:10px;">${m.text}</div>`;
             }
             return `<div><span class="font-kaomoji" style="color:#38bdf8; font-weight:900;">${m.sender}</span> <span style="color:#fde047; font-weight:900;">${m.name}:</span> <span style="color:#f8fafc;">${m.text}</span></div>`;
         }).join('');
