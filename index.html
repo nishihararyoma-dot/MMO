@@ -1,506 +1,263 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>顔文字ファンタジー3D - KAOMOJI FANTASY ONLINE</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <title>顔文字ファンタジー3D - オンライン共闘RPG</title>
+    <script>
+        window.__bootErrors = [];
+        window.addEventListener('error', function(e) {
+            var src = (e.filename || '').split('/').pop().split('?')[0] || 'script';
+            window.__bootErrors.push(src + ':' + (e.lineno || 0) + ' ' + (e.message || 'Error'));
+            var el = document.getElementById('title-save-info');
+            if (el) {
+                el.innerHTML = '<div style="color:#fb7185;font-weight:900;font-size:11px;">⚠️ エラー:<br>' + window.__bootErrors.join('<br>') + '</div>';
+            }
+        });
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
     <style>
-        * {
-            box-sizing: border-box;
-            user-select: none;
-            -webkit-user-select: none;
-            -webkit-touch-callout: none;
-        }
-        html, body {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background: #050b14;
-            color: #f8fafc;
-            font-family: 'M PLUS Rounded 1c', 'Hiragino Kaku Gothic ProN', sans-serif;
-        }
-        canvas {
-            display: block;
-        }
-        #game-container {
-            position: fixed;
-            inset: 0;
-            z-index: 1;
-        }
-        .hidden {
-            display: none !important;
-        }
-
-        /* グラスモーフィズムパネル */
-        .glass-panel {
-            background: rgba(10, 18, 34, 0.78);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(56, 189, 248, 0.32);
-            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
-        }
-
-        /* スクロールバー装飾 */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); }
-        ::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.45); border-radius: 999px; }
-
-        /* 右下アーク状（扇形）アクションボタン配置 */
-        #action-pad {
-            position: fixed;
-            right: 16px;
-            bottom: 16px;
-            width: 220px;
-            height: 220px;
-            z-index: 25;
-            pointer-events: none;
-        }
-        #action-pad button {
-            pointer-events: auto;
-            transition: transform 0.08s ease, box-shadow 0.15s ease;
-        }
-        #action-pad button:active {
-            transform: scale(0.91);
-        }
-        #btn-attack {
-            position: absolute;
-            right: 6px;
-            bottom: 6px;
-            width: 82px;
-            height: 82px;
-            border-radius: 999px;
-            background: radial-gradient(circle at 30% 30%, #fb7185, #e11d48 70%, #881337);
-            border: 3px solid #fecdd3;
-            box-shadow: 0 0 22px rgba(244, 63, 94, 0.65);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            font-weight: 900;
-            color: #fff;
-        }
-        .skill-slot-btn {
-            position: absolute;
-            width: 52px;
-            height: 52px;
-            border-radius: 999px;
-            background: rgba(15, 23, 42, 0.9);
-            border: 2px solid #38bdf8;
-            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: #f8fafc;
-            overflow: hidden;
-        }
-        .skill-slot-btn.on-cd {
-            border-color: #475569;
-            opacity: 0.72;
-        }
-        /* 5つのスキルスロットを攻撃ボタンの周囲に扇形配置 */
-        .skill-arc-0 { right: 102px; bottom: 8px; }
-        .skill-arc-1 { right: 96px;  bottom: 66px; }
-        .skill-arc-2 { right: 64px;  bottom: 112px; }
-        .skill-arc-3 { right: 12px;  bottom: 132px; }
-        .skill-arc-4 { right: 156px; bottom: 14px; }
-
-        #btn-dodge {
-            position: absolute;
-            right: 152px;
-            bottom: 76px;
-            width: 46px;
-            height: 46px;
-            border-radius: 999px;
-            background: rgba(14, 116, 144, 0.9);
-            border: 2px solid #67e8f9;
-            font-size: 11px;
-            font-weight: 900;
-        }
-        #btn-target {
-            position: absolute;
-            right: 122px;
-            bottom: 130px;
-            width: 44px;
-            height: 44px;
-            border-radius: 999px;
-            background: rgba(79, 70, 229, 0.9);
-            border: 2px solid #a5b4fc;
-            font-size: 11px;
-            font-weight: 900;
-        }
-
-        /* メニュータブボタン */
-        .tab-chip-btn {
-            padding: 6px 12px;
-            border-radius: 999px;
-            font-size: 12px;
-            font-weight: 800;
-            white-space: nowrap;
-            background: rgba(30, 41, 59, 0.85);
-            border: 1px solid rgba(148, 163, 184, 0.3);
-            color: #cbd5e1;
-            transition: all 0.15s;
-        }
-        .tab-chip-btn.active {
-            background: linear-gradient(135deg, #0284c7, #6366f1);
-            border-color: #7dd3fc;
-            color: #ffffff;
-            box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
-        }
-
-        /* エモートクイックボタン */
-        .emote-quick-btn {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 5px 4px;
-            border-radius: 10px;
-            background: rgba(30, 41, 59, 0.92);
-            border: 1px solid rgba(56, 189, 248, 0.35);
-            color: #f8fafc;
-        }
-        .emote-quick-btn:hover {
-            background: rgba(56, 189, 248, 0.25);
-        }
-
-        /* バーチャルジョイスティック */
-        #joystick-zone {
-            position: fixed;
-            left: 18px;
-            bottom: 18px;
-            width: 116px;
-            height: 116px;
-            border-radius: 999px;
-            background: rgba(15, 23, 42, 0.45);
-            border: 2px solid rgba(56, 189, 248, 0.35);
-            z-index: 24;
-            touch-action: none;
-        }
-        #joystick-stick {
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            width: 46px;
-            height: 46px;
-            margin-left: -23px;
-            margin-top: -23px;
-            border-radius: 999px;
-            background: radial-gradient(circle, #38bdf8, #0284c7);
-            border: 2px solid #e0f2fe;
-            box-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
-            pointer-events: none;
-        }
-
-        @keyframes bannerPop {
-            0%   { opacity: 0; transform: translate(-50%, -40%) scale(0.8); }
-            15%  { opacity: 1; transform: translate(-50%, -50%) scale(1.04); }
-            85%  { opacity: 1; transform: translate(-50%, -50%) scale(1.0); }
-            100% { opacity: 0; transform: translate(-50%, -60%) scale(0.95); }
-        }
-        .banner-anim {
-            animation: bannerPop 2.6s ease forwards;
-        }
+        *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none}
+        html,body{width:100%;height:100%;overflow:hidden;background:#090d16;color:#f8fafc;font-family:"Hiragino Kaku Gothic ProN","Meiryo",sans-serif}
+        .font-kaomoji{font-family:"MS PGothic","Hiragino Kaku Gothic ProN",sans-serif}
+        .hidden{display:none!important}
+        #game-canvas{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1;touch-action:none}
+        #overlay-layer{position:fixed;inset:0;pointer-events:none!important;z-index:5;overflow:hidden}
+        .world-plate{position:absolute;transform:translate(-50%,-100%);background:rgba(15,23,42,.82);border:1px solid rgba(56,189,248,.55);border-radius:6px;padding:2px 6px;text-align:center;white-space:nowrap;pointer-events:none!important}
+        .m-hp-bg{width:64px;height:5px;background:#1e293b;border-radius:3px;overflow:hidden;margin:2px auto 0}
+        .m-hp-fill{height:100%;background:linear-gradient(90deg,#ef4444,#f97316);width:100%}
+        .world-float-text{position:absolute;transform:translate(-50%,-50%);font-weight:900;text-shadow:0 2px 4px rgba(0,0,0,.95),0 0 2px #000;pointer-events:none!important;white-space:nowrap}
+        .world-emote-bubble{position:absolute;transform:translate(-50%,-100%);background:rgba(15,23,42,.92);border:1.5px solid #f472b6;border-radius:12px;padding:4px 10px;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.6);pointer-events:none!important;white-space:nowrap}
+        button,.btn-ui{touch-action:manipulation;cursor:pointer;pointer-events:auto}
+        .btn-ui{display:inline-flex;align-items:center;justify-content:center;gap:4px;border:none;border-radius:8px;padding:7px 11px;font-size:11px;font-weight:900;color:#fff;transition:transform .08s ease;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+        .btn-ui:active:not(:disabled){transform:scale(.95)}
+        .btn-ui:disabled{opacity:.4;cursor:not-allowed}
+        .btn-sky{background:linear-gradient(135deg,#0284c7,#2563eb)}
+        .btn-emerald{background:linear-gradient(135deg,#059669,#10b981)}
+        .btn-amber{background:linear-gradient(135deg,#d97706,#f59e0b)}
+        .btn-rose{background:linear-gradient(135deg,#e11d48,#f43f5e)}
+        .btn-fuchsia{background:linear-gradient(135deg,#9333ea,#c026d3)}
+        .btn-slate{background:#334155;border:1px solid #475569}
+        .input-ui{width:100%;background:#0f172a;border:1px solid #38bdf8;border-radius:8px;padding:7px 10px;font-size:12px;color:#fff;outline:none;pointer-events:auto;touch-action:manipulation;user-select:text;-webkit-user-select:text}
+        #title-screen{position:fixed;inset:0;z-index:90;background:radial-gradient(circle at center,rgba(15,23,42,.55) 0%,rgba(2,6,23,.88) 100%);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:auto}
+        .title-card{width:100%;max-width:440px;background:rgba(15,23,42,.94);border:2px solid rgba(56,189,248,.65);border-radius:20px;padding:20px 18px;box-shadow:0 20px 50px rgba(0,0,0,.75);text-align:center;display:flex;flex-direction:column;gap:12px;pointer-events:auto}
+        .title-logo-kaomoji{font-size:28px;font-weight:900;color:#38bdf8;text-shadow:0 0 14px rgba(56,189,248,.7)}
+        .title-main-heading{font-size:22px;font-weight:900;background:linear-gradient(90deg,#fde047,#38bdf8,#f472b6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1.25}
+        .title-save-preview{background:rgba(30,41,59,.85);border:1px solid #334155;border-radius:12px;padding:10px;font-size:12px}
+        .title-room-box{background:rgba(30,41,59,.75);border:1px solid rgba(56,189,248,.35);border-radius:12px;padding:10px;text-align:left;display:flex;flex-direction:column;gap:7px}
+        #hud-layer{position:fixed;inset:0;z-index:20;pointer-events:none}
+        .hud-top-bar{position:fixed;top:8px;left:8px;right:8px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;pointer-events:none;z-index:25}
+        .hud-status-card{background:rgba(15,23,42,.86);border:1px solid rgba(56,189,248,.45);border-radius:12px;padding:6px 10px;min-width:195px;max-width:260px;pointer-events:auto}
+        .bar-row{display:flex;align-items:center;gap:5px;margin-top:3px;font-size:10px;font-weight:900}
+        .bar-track{flex:1;height:6px;background:#1e293b;border-radius:4px;overflow:hidden}
+        .bar-fill-hp{height:100%;background:linear-gradient(90deg,#10b981,#34d399);width:100%}
+        .bar-fill-mp{height:100%;background:linear-gradient(90deg,#0284c7,#38bdf8);width:100%}
+        .bar-fill-exp{height:100%;background:linear-gradient(90deg,#d97706,#fde047);width:0%}
+        .hud-top-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;pointer-events:none}
+        .hud-zone-pill{background:rgba(15,23,42,.88);border:1px solid rgba(148,163,184,.4);border-radius:10px;padding:4px 9px;display:flex;align-items:center;gap:6px;font-size:11px;font-weight:900;pointer-events:auto}
+        .hud-action-row{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:5px;pointer-events:none}
+        .hud-action-row>button{pointer-events:auto;position:relative}
+        .alert-dot{position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:#ef4444;border:1.5px solid #fff}
+        #hud-drawer-menu{position:fixed;top:84px;right:8px;width:210px;background:rgba(15,23,42,.96);border:1.5px solid #38bdf8;border-radius:14px;padding:8px;display:flex;flex-direction:column;gap:6px;z-index:45;pointer-events:auto;box-shadow:0 12px 30px rgba(0,0,0,.7)}
+        #emote-palette{position:fixed;top:84px;right:8px;width:240px;background:rgba(15,23,42,.96);border:1.5px solid #f472b6;border-radius:14px;padding:8px;display:grid;grid-template-columns:repeat(4,1fr);gap:5px;z-index:45;pointer-events:auto;box-shadow:0 12px 30px rgba(0,0,0,.7)}
+        .emote-quick-btn{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:6px 2px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;pointer-events:auto}
+        #alert-banner{position:fixed;top:96px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,.94);border:1.5px solid #fde047;border-radius:999px;padding:6px 16px;font-size:12px;font-weight:900;color:#fde047;z-index:40;pointer-events:none;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis;box-shadow:0 4px 16px rgba(0,0,0,.6)}
+        #boss-cast-box{position:fixed;top:132px;left:50%;transform:translateX(-50%);width:min(340px,88vw);background:rgba(69,10,10,.92);border:1.5px solid #f43f5e;border-radius:10px;padding:6px 10px;z-index:38;pointer-events:none}
+        #warp-prompt-box{position:fixed;bottom:135px;left:50%;transform:translateX(-50%);z-index:32;pointer-events:auto}
+        #chat-wrapper{position:fixed;left:10px;bottom:146px;width:min(290px,66vw);z-index:30;pointer-events:none;display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+        #chat-panel{width:100%;background:rgba(15,23,42,.88);border:1px solid rgba(56,189,248,.45);border-radius:12px;padding:6px;pointer-events:auto;display:flex;flex-direction:column;gap:5px}
+        .chat-tabs{display:flex;gap:4px}
+        .chat-tab-btn{flex:1;border:none;border-radius:6px;padding:4px 6px;font-size:10px;font-weight:900;color:#cbd5e1;background:#1e293b;cursor:pointer;pointer-events:auto}
+        .chat-tab-btn.active{background:#0284c7;color:#fff}
+        #chat-messages{height:82px;overflow-y:auto;-webkit-overflow-scrolling:touch;font-size:11px;line-height:1.35;padding:3px 4px;background:rgba(2,6,23,.55);border-radius:6px;display:flex;flex-direction:column;gap:3px;user-select:text}
+        .chat-quick-row{display:flex;gap:3px;overflow-x:auto}
+        .chat-quick-chip{background:#334155;border:none;border-radius:5px;padding:2px 6px;font-size:10px;font-weight:800;color:#f8fafc;white-space:nowrap;cursor:pointer;pointer-events:auto}
+        .chat-input-row{display:flex;gap:4px}
+        #joystick-zone{position:fixed;left:18px;bottom:18px;width:114px;height:114px;border-radius:50%;background:rgba(15,23,42,.55);border:2px solid rgba(56,189,248,.45);display:flex;align-items:center;justify-content:center;z-index:28;pointer-events:auto;touch-action:none}
+        #joystick-knob{width:46px;height:46px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#7dd3fc,#0284c7);border:2px solid #fff;box-shadow:0 4px 12px rgba(0,0,0,.5);pointer-events:none}
+        #battle-pad{position:fixed;right:12px;bottom:12px;width:215px;height:215px;z-index:28;pointer-events:none!important}
+        #btn-basic-attack{position:absolute;right:6px;bottom:6px;width:76px;height:76px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#fb7185,#e11d48);border:3px solid #fde047;color:#fff;font-size:13px;font-weight:900;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(225,29,72,.65);cursor:pointer;pointer-events:auto!important;touch-action:none;z-index:30}
+        #btn-basic-attack:active{transform:scale(.92)}
+        #btn-cycle-target{position:absolute;right:12px;bottom:168px;border-radius:999px;padding:6px 11px;font-size:11px;pointer-events:auto!important;z-index:30}
+        .skill-slot-btn{position:absolute;width:48px;height:48px;border-radius:50%;background:rgba(15,23,42,.92);border:2px solid #38bdf8;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.6);cursor:pointer;pointer-events:auto!important;touch-action:none;overflow:hidden;z-index:29}
+        .skill-slot-btn:active{transform:scale(.92)}
+        .skill-arc-0{right:94px;bottom:8px}.skill-arc-1{right:86px;bottom:62px}.skill-arc-2{right:62px;bottom:108px}.skill-arc-3{right:16px;bottom:114px}.skill-arc-4{right:146px;bottom:10px}
+        .skill-cd-overlay{position:absolute;inset:0;background:rgba(2,6,23,.82);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fde047;pointer-events:none}
+        #growth-modal{position:fixed;inset:0;z-index:70;background:rgba(2,6,23,.78);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:10px;pointer-events:auto}
+        .modal-window{width:100%;max-width:780px;max-height:88vh;background:#0f172a;border:2px solid #38bdf8;border-radius:16px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.85);pointer-events:auto}
+        .modal-header{padding:10px 14px;background:#1e293b;border-bottom:1px solid #334155;display:flex;justify-content:space-between;align-items:center}
+        #modal-tabs{display:flex;gap:5px;padding:8px 10px;background:#0b1120;border-bottom:1px solid #1e293b;overflow-x:auto;-webkit-overflow-scrolling:touch;flex-shrink:0}
+        .tab-chip-btn{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:900;color:#cbd5e1;white-space:nowrap;cursor:pointer;pointer-events:auto}
+        .tab-chip-btn.active{background:#0284c7;border-color:#7dd3fc;color:#fff}
+        #modal-body{padding:12px;overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1}
+        .card-box{background:rgba(30,41,59,.72);border:1px solid #334155;border-radius:10px;padding:9px 10px}
+        .flex-between{display:flex;justify-content:space-between;align-items:center;gap:8px}
+        .flex-wrap-gap{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+        .grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px}
+        .grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px}
+        .badge-pill{display:inline-block;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900}
+        #dialog-modal{position:fixed;inset:0;z-index:100;background:rgba(2,6,23,.82);display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:auto}
+        .dialog-box{width:100%;max-width:360px;background:#0f172a;border:2px solid #f59e0b;border-radius:14px;padding:16px;text-align:center;display:flex;flex-direction:column;gap:12px}
+        #death-overlay{position:fixed;inset:0;z-index:85;background:rgba(127,29,29,.72);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;pointer-events:none}
     </style>
 </head>
 <body>
-    <!-- 3Dキャンバス描画領域 -->
-    <div id="game-container"></div>
+    <canvas id="game-canvas"></canvas>
+    <div id="overlay-layer"></div>
 
-    <!-- タイトル・スタート画面オーバーレイ -->
-    <div id="title-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-4">
-        <div class="glass-panel max-w-md w-full rounded-3xl p-6 text-center space-y-5 border-2 border-sky-400/50">
-            <div class="space-y-1">
-                <div class="inline-block px-3 py-0.5 rounded-full bg-sky-500/20 border border-sky-400/40 text-sky-300 text-xs font-bold">
-                    3D ACTION MMORPG
+    <div id="title-screen">
+        <div class="title-card">
+            <div class="title-logo-kaomoji font-kaomoji">(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧ ⚔️ (=^・ω・^=)</div>
+            <h1 class="title-main-heading">顔文字ファンタジー3D<br><span style="font-size:13px;-webkit-text-fill-color:#94a3b8;">KAOMOJI FANTASY 3D ONLINE v3.0 MQTT</span></h1>
+            <div class="title-save-preview" id="title-save-info">データ準備中...</div>
+            <div class="title-room-box">
+                <div class="flex-between">
+                    <span style="font-size:12px;font-weight:900;color:#38bdf8;">🌐 プレイモード設定</span>
+                    <button type="button" id="title-btn-toggle-online" class="btn-ui btn-slate">📴 オフライン</button>
                 </div>
-                <h1 class="text-3xl font-black tracking-wider bg-gradient-to-r from-sky-300 via-indigo-300 to-pink-300 bg-clip-text text-transparent">
-                    顔文字ファンタジー3D
-                </h1>
-                <p class="text-xs text-slate-300">(´・ω・`) 仲間と冒険・転職・ペット育成・無限の塔へ！</p>
+                <div class="flex-between">
+                    <span style="font-size:11px;font-weight:900;color:#fde047;">🔒 パスワード部屋（合言葉制限）</span>
+                    <button type="button" id="title-btn-toggle-pass" class="btn-ui btn-slate">🔓 パスワード: OFF</button>
+                </div>
+                <div id="title-pass-input-wrap" class="hidden" style="display:flex;gap:6px;align-items:center;">
+                    <input id="title-input-room-pass" class="input-ui" type="text" maxlength="16" placeholder="部屋のパスワードを入力（例: 7777）">
+                </div>
+                <div style="font-size:10px;color:#94a3b8;line-height:1.35;">※ パスワードOFFならオンラインのみんなと合流！ONにすると同じパスワードを知っている人だけ入れます。</div>
             </div>
-
-            <div class="bg-slate-900/70 rounded-2xl p-4 space-y-3 text-left border border-slate-700/70">
-                <label class="block text-xs font-bold text-sky-300">冒険者ネーム</label>
-                <input id="input-player-name" type="text" maxlength="12" placeholder="ななしの顔文字"
-                    class="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-600 text-white text-sm font-bold focus:outline-none focus:border-sky-400" />
-                <div class="text-[11px] text-slate-400 leading-relaxed">
-                    ・PC操作：WASD / 矢印キー移動、Space攻撃、1〜5スキル、Shift回避<br>
-                    ・スマホ操作：左下スティック移動、右下ボタンで攻撃＆スキル発動
-                </div>
-            </div>
-
-            <div class="space-y-2.5">
-                <button id="btn-start-game" type="button"
-                    class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:brightness-110 text-white font-black text-base shadow-lg shadow-sky-500/30 transition">
-                    ▶ 冒険をはじめる
-                </button>
-                <div class="flex gap-2 justify-center pt-1">
-                    <button id="btn-export-save" type="button" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-[11px] text-slate-300 font-bold border border-slate-600">
-                        📤 セーブ書き出し
-                    </button>
-                    <button id="btn-import-save" type="button" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-[11px] text-slate-300 font-bold border border-slate-600">
-                        📥 セーブ復元
-                    </button>
-                </div>
+            <button type="button" id="btn-title-start" class="btn-ui btn-emerald" style="padding:12px;font-size:15px;border-radius:12px;">▶ 冒険を始める（続きから）</button>
+            <div style="display:flex;gap:8px;">
+                <button type="button" id="btn-title-cloud" class="btn-ui btn-sky" style="flex:1;padding:9px;">☁️ 通信･部屋設定</button>
+                <button type="button" id="btn-title-hard-reset" class="btn-ui btn-rose" style="flex:1;padding:9px;">💥 完全初期化して新規開始</button>
             </div>
         </div>
     </div>
 
-    <!-- メインHUD層 -->
-    <div id="hud-layer" class="fixed inset-0 z-20 pointer-events-none">
-        <!-- 左上：プレイヤー状態カード -->
-        <div class="absolute top-3 left-3 pointer-events-auto flex flex-col gap-2 max-w-[265px] w-[62vw]">
-            <div class="glass-panel rounded-2xl p-2.5 space-y-1.5">
-                <div class="flex items-center gap-2">
-                    <div id="hud-kaomoji" class="px-2 py-1 rounded-xl bg-sky-950 border border-sky-400/60 text-xs font-black text-white whitespace-nowrap">
-                        (´・ω・`)
+    <div id="hud-layer">
+        <div class="hud-top-bar">
+            <div class="hud-status-card">
+                <div class="flex-between">
+                    <div style="display:flex;align-items:center;gap:5px;overflow:hidden;">
+                        <span id="hud-kaomoji" class="font-kaomoji" style="font-size:13px;font-weight:900;color:#38bdf8;">(´・ω・`)</span>
+                        <span id="hud-name" style="font-size:11px;font-weight:900;color:#fff;white-space:nowrap;">見習い顔文字</span>
                     </div>
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-center gap-1.5">
-                            <span class="text-[11px] font-black text-amber-300">Lv.<span id="hud-lv">1</span></span>
-                            <span id="hud-name" class="text-xs font-black text-white truncate">見習い顔文字</span>
-                        </div>
-                        <div class="flex items-center gap-2 text-[11px] font-bold text-yellow-300">
-                            <span>💰 <span id="hud-gold">0</span>G</span>
-                            <span id="hud-ap-badge" class="hidden px-1.5 py-0.2 rounded bg-rose-500/80 text-white text-[10px]">AP有</span>
-                            <span id="hud-sp-badge" class="hidden px-1.5 py-0.2 rounded bg-indigo-500/80 text-white text-[10px]">SP有</span>
-                        </div>
-                    </div>
+                    <span id="hud-lv" style="font-size:11px;font-weight:900;color:#fde047;">Lv.1</span>
                 </div>
-
-                <!-- HPバー -->
-                <div class="space-y-0.5">
-                    <div class="flex justify-between text-[10px] font-bold">
-                        <span class="text-emerald-300">HP</span>
-                        <span id="hud-hp-text" class="text-slate-200">100 / 100</span>
-                    </div>
-                    <div class="w-full h-2 rounded-full bg-slate-900 overflow-hidden border border-slate-700">
-                        <div id="hud-hp-bar" class="h-full bg-gradient-to-r from-emerald-500 to-lime-400 transition-all duration-150" style="width:100%"></div>
-                    </div>
+                <div style="display:flex;align-items:center;gap:5px;margin-top:2px;">
+                    <span id="hud-title-badge" class="badge-pill hidden" style="background:#7e22ce;color:#f3e8ff;font-size:9px;">称号</span>
+                    <span id="hud-gold" style="font-size:11px;font-weight:900;color:#fbbf24;">250G</span>
                 </div>
+                <div class="bar-row"><span style="color:#34d399;width:20px;">HP</span><div class="bar-track"><div id="hud-hp-bar" class="bar-fill-hp"></div></div><span id="hud-hp-text" style="min-width:58px;text-align:right;">100/100</span></div>
+                <div class="bar-row"><span style="color:#38bdf8;width:20px;">MP</span><div class="bar-track"><div id="hud-mp-bar" class="bar-fill-mp"></div></div><span id="hud-mp-text" style="min-width:58px;text-align:right;">50/50</span></div>
+                <div class="bar-row"><span style="color:#fde047;width:20px;">EXP</span><div class="bar-track"><div id="hud-exp-bar" class="bar-fill-exp"></div></div><span id="hud-exp-text" style="min-width:58px;text-align:right;">0/100</span></div>
+            </div>
 
-                <!-- MPバー -->
-                <div class="space-y-0.5">
-                    <div class="flex justify-between text-[10px] font-bold">
-                        <span class="text-sky-300">MP</span>
-                        <span id="hud-mp-text" class="text-slate-200">50 / 50</span>
-                    </div>
-                    <div class="w-full h-2 rounded-full bg-slate-900 overflow-hidden border border-slate-700">
-                        <div id="hud-mp-bar" class="h-full bg-gradient-to-r from-sky-500 to-indigo-400 transition-all duration-150" style="width:100%"></div>
-                    </div>
+            <div class="hud-top-right">
+                <div class="hud-zone-pill">
+                    <span id="hud-stage-badge" class="badge-pill" style="background:#0284c7;color:#fff;">STAGE 0</span>
+                    <span id="hud-zone-name">始まりの顔文字広場</span>
+                    <span id="hud-safe-badge" class="badge-pill" style="background:#059669;color:#fff;">🛡️安全街</span>
+                    <span id="hud-threat-badge" class="badge-pill hidden" style="background:#be123c;color:#fff;">脅威+1</span>
                 </div>
-
-                <!-- EXPバー -->
-                <div class="space-y-0.5">
-                    <div class="flex justify-between text-[10px] font-bold">
-                        <span class="text-amber-300">EXP</span>
-                        <span id="hud-exp-text" class="text-slate-300">0 / 100</span>
-                    </div>
-                    <div class="w-full h-1.5 rounded-full bg-slate-900 overflow-hidden">
-                        <div id="hud-exp-bar" class="h-full bg-gradient-to-r from-amber-400 to-yellow-300 transition-all duration-150" style="width:0%"></div>
-                    </div>
+                <div class="hud-action-row">
+                    <button type="button" id="btn-hud-online-toggle" class="btn-ui btn-slate">📴 オフライン</button>
+                    <button type="button" id="btn-hud-room-lock" class="btn-ui btn-slate hidden">🔓 公開</button>
+                    <button type="button" id="btn-open-travel" class="btn-ui btn-emerald">🗺️ ステージ</button>
+                    <button type="button" id="btn-open-growth" class="btn-ui btn-sky">⚔️ 育成･見た目<span id="badge-growth-alert" class="alert-dot hidden"></span></button>
+                    <button type="button" id="btn-toggle-emote" class="btn-ui btn-fuchsia">😊</button>
+                    <button type="button" id="btn-toggle-drawer" class="btn-ui btn-slate">⚙️</button>
                 </div>
             </div>
         </div>
 
-        <!-- 上部中央：エリア情報＆大型ボスHPバー -->
-        <div class="absolute top-3 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 w-[92vw] max-w-md pointer-events-none">
-            <div class="glass-panel px-3.5 py-1.5 rounded-full flex items-center gap-2 text-xs font-black">
-                <span id="hud-stage-badge" class="px-2 py-0.5 rounded-full bg-sky-500/30 border border-sky-400/50 text-sky-200 text-[10px]">STAGE 0</span>
-                <span id="hud-zone-name" class="text-white">始まりの顔文字広場</span>
-                <span id="hud-safe-badge" class="px-2 py-0.5 rounded-full bg-emerald-500/30 border border-emerald-400/50 text-emerald-200 text-[10px]">SAFE</span>
-                <span id="hud-threat-badge" class="hidden px-2 py-0.5 rounded-full bg-rose-500/30 border border-rose-400/50 text-rose-200 text-[10px]">脅威+0</span>
+        <div id="hud-drawer-menu" class="hidden">
+            <button type="button" id="btn-toggle-autohunt" class="btn-ui btn-slate" style="width:100%;">🤖 AUTO:OFF</button>
+            <div style="display:flex;gap:5px;">
+                <button type="button" id="btn-threat-down" class="btn-ui btn-slate" style="flex:1;">🔥脅威 -1</button>
+                <button type="button" id="btn-threat-up" class="btn-ui btn-rose" style="flex:1;">🔥脅威 +1</button>
             </div>
+            <button type="button" id="btn-open-cloud" class="btn-ui btn-sky" style="width:100%;">🌐 通信･部屋･引継ぎ</button>
+            <button type="button" id="btn-manual-save" class="btn-ui btn-emerald" style="width:100%;">💾 手動セーブ</button>
+            <button type="button" id="btn-toggle-bgm" class="btn-ui btn-slate" style="width:100%;">🔊 BGM:ON</button>
+            <button type="button" id="btn-back-title" class="btn-ui btn-amber" style="width:100%;">🏠 タイトル画面へ戻る</button>
+            <button type="button" id="btn-reset-save" class="btn-ui btn-rose" style="width:100%;">💥 完全データ初期化</button>
+        </div>
 
-            <!-- ボス戦用HP＆大技詠唱ゲージ -->
-            <div id="boss-hud" class="hidden w-full glass-panel rounded-2xl p-2.5 border-rose-500/60 space-y-1">
-                <div class="flex items-center justify-between text-xs font-black">
-                    <span id="boss-name" class="text-rose-300">👑 BOSS</span>
-                    <span id="boss-hp-text" class="text-slate-200">1000 / 1000</span>
+        <div id="emote-palette" class="hidden"></div>
+        <div id="alert-banner" class="hidden"></div>
+
+        <div id="boss-cast-box" class="hidden">
+            <div id="boss-cast-title" style="font-size:10px;font-weight:900;color:#fecdd3;margin-bottom:3px;">⚠️ ボス大技詠唱中！</div>
+            <div style="width:100%;height:7px;background:#450a0a;border-radius:4px;overflow:hidden;"><div id="boss-cast-bar" style="height:100%;background:#fde047;width:0%;"></div></div>
+        </div>
+
+        <div id="warp-prompt-box" class="hidden">
+            <button type="button" id="btn-exec-warp" class="btn-ui btn-emerald" style="padding:10px 18px;font-size:13px;border:2px solid #fde047;">🌀 ステージ選択</button>
+        </div>
+
+        <div id="chat-wrapper">
+            <button type="button" id="btn-toggle-chat" class="btn-ui btn-slate" style="padding:5px 10px;font-size:11px;">💬 チャット開閉</button>
+            <div id="chat-panel">
+                <div class="chat-tabs">
+                    <button type="button" id="btn-chat-tab-global" class="chat-tab-btn active">🌍 全体チャット</button>
+                    <button type="button" id="btn-chat-tab-room" class="chat-tab-btn">🏠 部屋/オフライン</button>
                 </div>
-                <div class="w-full h-2.5 rounded-full bg-slate-950 overflow-hidden border border-rose-500/50">
-                    <div id="boss-hp-bar" class="h-full bg-gradient-to-r from-rose-600 via-red-500 to-amber-500 transition-all duration-100" style="width:100%"></div>
+                <div id="chat-messages"></div>
+                <div class="chat-quick-row">
+                    <button type="button" class="chat-quick-chip" data-msg="よろしくー！(=^・ω・^=)">よろしく！</button>
+                    <button type="button" class="chat-quick-chip" data-msg="一緒にボス倒そう！⚔️">ボス行こう！</button>
+                    <button type="button" class="chat-quick-chip" data-msg="ありがとう！✧*｡٩(ˊᗜˋ*)و✧*｡">ありがとう！</button>
+                    <button type="button" class="chat-quick-chip" data-msg="おつかれさま！(≧▽≦)ﾉ">おつかれ！</button>
                 </div>
-                <div id="boss-cast-wrap" class="hidden pt-0.5">
-                    <div class="flex justify-between text-[10px] font-black text-amber-300">
-                        <span id="boss-cast-text">⚠️ 大技詠唱中！衝撃撃で中断！</span>
-                    </div>
-                    <div class="w-full h-1.5 rounded-full bg-slate-950 overflow-hidden">
-                        <div id="boss-cast-bar" class="h-full bg-amber-400" style="width:0%"></div>
-                    </div>
+                <div class="chat-input-row">
+                    <input id="input-chat-msg" class="input-ui" style="padding:5px 8px;font-size:11px;" type="text" maxlength="60" placeholder="メッセージを入力...">
+                    <button type="button" id="btn-send-chat" class="btn-ui btn-sky" style="padding:5px 10px;white-space:nowrap;">送信</button>
                 </div>
             </div>
         </div>
 
-        <!-- 右上：ミニマップ＆機能ショートカット群 -->
-        <div class="absolute top-3 right-3 pointer-events-auto flex flex-col items-end gap-2">
-            <div class="flex items-center gap-1.5">
-                <button id="btn-auto-battle" type="button" class="glass-panel px-2.5 py-1.5 rounded-xl text-[11px] font-black text-slate-200 hover:border-sky-400">
-                    🤖 オート:OFF
-                </button>
-                <button id="btn-return-town" type="button" class="glass-panel px-2.5 py-1.5 rounded-xl text-[11px] font-black text-emerald-300 hover:border-emerald-400">
-                    🏠 広場へ
-                </button>
-                <button id="btn-open-menu" type="button" class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 border border-sky-300 text-xs font-black text-white shadow-lg">
-                    📖 メニュー
-                </button>
-            </div>
+        <div id="joystick-zone"><div id="joystick-knob"></div></div>
 
-            <div class="flex items-start gap-2">
-                <div class="flex flex-col gap-1">
-                    <button id="btn-bgm-toggle" type="button" class="glass-panel w-8 h-8 rounded-xl flex items-center justify-center text-xs" title="サウンド切替">🔊</button>
-                    <button id="btn-camera-reset" type="button" class="glass-panel w-8 h-8 rounded-xl flex items-center justify-center text-xs" title="カメラリセット">🎥</button>
-                    <button id="btn-photo-mode" type="button" class="glass-panel w-8 h-8 rounded-xl flex items-center justify-center text-xs" title="UI表示切替">📷</button>
-                </div>
-                <div class="glass-panel p-1 rounded-2xl">
-                    <canvas id="minimap-canvas" width="96" height="96" class="rounded-xl bg-slate-950/90"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- 左下：チャットログ＆12種エモートパレット -->
-        <div id="chat-box" class="fixed left-3 bottom-[144px] pointer-events-auto w-[250px] max-w-[56vw] flex flex-col gap-1.5">
-            <div id="emote-palette" class="hidden glass-panel p-2 rounded-2xl grid grid-cols-4 gap-1.5"></div>
-            <div class="glass-panel rounded-2xl p-2 space-y-1.5">
-                <div id="chat-log" class="h-16 overflow-y-auto text-[11px] space-y-0.5 text-slate-200 pr-1"></div>
-                <div class="flex items-center gap-1">
-                    <button id="btn-toggle-emote" type="button" class="px-2 py-1 rounded-lg bg-slate-800 border border-slate-600 text-xs" title="エモート">😊</button>
-                    <input id="input-chat-msg" type="text" maxlength="40" placeholder="チャット..."
-                        class="min-w-0 flex-1 px-2 py-1 rounded-lg bg-slate-900/90 border border-slate-700 text-[11px] text-white focus:outline-none focus:border-sky-400" />
-                    <button id="btn-send-chat" type="button" class="px-2 py-1 rounded-lg bg-sky-600 text-[11px] font-black text-white">送信</button>
-                </div>
-            </div>
+        <div id="battle-pad">
+            <button type="button" id="btn-cycle-target" class="btn-ui btn-slate">🎯 標的切替</button>
+            <div id="skill-slots-container"></div>
+            <button type="button" id="btn-basic-attack"><span style="font-size:22px;line-height:1;">⚔️</span><span style="font-size:11px;margin-top:2px;">攻撃</span></button>
         </div>
     </div>
 
-    <!-- 撮影モード復帰ボタン（UI非表示時のみ出現） -->
-    <button id="btn-exit-photo" type="button" class="hidden fixed top-3 right-3 z-50 glass-panel px-3 py-1.5 rounded-full text-xs font-black text-sky-300">
-        👁️ UIを表示
-    </button>
-
-    <!-- 左下：バーチャルジョイスティック -->
-    <div id="joystick-zone">
-        <div id="joystick-stick"></div>
-    </div>
-
-    <!-- 右下：扇形アクションパッド（通常攻撃＋5スキルスロット＋回避＋タゲ切替） -->
-    <div id="action-pad">
-        <div id="skill-slots-container"></div>
-        <button id="btn-dodge" type="button">💨回避</button>
-        <button id="btn-target" type="button">🎯切替</button>
-        <button id="btn-attack" type="button">
-            <span class="text-2xl leading-none">⚔️</span>
-            <span class="text-[11px] mt-0.5">攻撃</span>
-        </button>
-    </div>
-
-    <!-- NPC会話・施設ショートカットダイアログ -->
-    <div id="npc-dialog" class="hidden fixed inset-x-0 bottom-28 z-30 flex justify-center px-4 pointer-events-none">
-        <div class="glass-panel pointer-events-auto max-w-md w-full rounded-3xl p-4 border-2 border-amber-400/60 space-y-3">
-            <div class="flex items-center justify-between">
-                <span id="npc-dialog-title" class="text-sm font-black text-amber-300">NPC</span>
-                <button id="btn-close-npc" type="button" class="w-7 h-7 rounded-full bg-slate-800 text-xs font-black text-slate-300">✕</button>
+    <div id="growth-modal" class="hidden">
+        <div class="modal-window">
+            <div class="modal-header">
+                <span style="font-size:14px;font-weight:900;color:#38bdf8;">⚔️ 冒険者メニュー（ステージ･育成･見た目･通信）</span>
+                <button type="button" id="btn-close-modal" class="btn-ui btn-rose">✕ 閉じる</button>
             </div>
-            <p id="npc-dialog-text" class="text-xs text-slate-200 leading-relaxed"></p>
-            <div id="npc-dialog-actions" class="flex flex-wrap gap-2"></div>
+            <div id="modal-tabs"></div>
+            <div id="modal-body"></div>
         </div>
     </div>
 
-    <!-- 総合メニューモーダル（全10タブ対応） -->
-    <div id="growth-modal" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-slate-950/75 backdrop-blur-sm p-2 sm:p-4">
-        <div class="glass-panel w-full max-w-4xl h-[88vh] rounded-3xl flex flex-col overflow-hidden border-2 border-sky-400/50">
-            <!-- モーダル上部バー -->
-            <div class="px-4 py-3 bg-slate-900/90 border-b border-slate-700/80 flex items-center justify-between gap-2">
-                <div class="flex items-center gap-3 flex-wrap">
-                    <span class="text-sm sm:text-base font-black text-sky-300">📖 冒険者メニュー</span>
-                    <span class="text-xs font-bold text-yellow-300">💰 <span id="modal-gold">0</span>G</span>
-                    <span class="text-xs font-bold text-rose-300">AP: <span id="modal-ap">0</span></span>
-                    <span class="text-xs font-bold text-indigo-300">SP: <span id="modal-sp">0</span></span>
-                </div>
-                <button id="btn-close-modal" type="button" class="px-3 py-1 rounded-xl bg-rose-600 hover:bg-rose-500 text-xs font-black text-white">
-                    ✕ 閉じる
-                </button>
-            </div>
-
-            <!-- 全10タブバー -->
-            <div id="modal-tabs" class="px-3 py-2 bg-slate-950/70 border-b border-slate-800 flex items-center gap-1.5 overflow-x-auto"></div>
-
-            <!-- タブ中身描画エリア -->
-            <div id="modal-body" class="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3"></div>
+    <div id="dialog-modal" class="hidden">
+        <div class="dialog-box">
+            <div id="dialog-title" style="font-size:15px;font-weight:900;color:#fde047;">確認</div>
+            <div id="dialog-message" style="font-size:12px;color:#e2e8f0;white-space:pre-line;line-height:1.5;"></div>
+            <div id="dialog-buttons" style="display:flex;justify-content:center;gap:8px;"></div>
         </div>
     </div>
 
-    <!-- 中央演出バナー（レベルアップ・転職・ボス出現） -->
-    <div id="banner-overlay" class="hidden fixed top-1/3 left-1/2 z-40 pointer-events-none text-center">
-        <div class="glass-panel px-6 py-3 rounded-3xl border-2 border-amber-400/70">
-            <div id="banner-title" class="text-xl sm:text-2xl font-black text-amber-300">LEVEL UP!</div>
-            <div id="banner-sub" class="text-xs font-bold text-white mt-0.5"></div>
-        </div>
+    <div id="death-overlay" class="hidden">
+        <div class="font-kaomoji" style="font-size:32px;font-weight:900;color:#fecdd3;">(×_×) チーン…</div>
+        <div style="font-size:14px;font-weight:900;color:#fff;">力尽きた！始まりの顔文字広場へ帰還します…</div>
     </div>
 
-    <!-- 右下通知トースト -->
-    <div id="toast-container" class="fixed top-28 left-3 z-30 flex flex-col gap-1.5 pointer-events-none max-w-[260px]"></div>
-
-    <!-- UI補助バインド（撮影モード・エモート開閉・モーダル閉じる・スタート画面） -->
-    <script>
-        window.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('btn-toggle-emote')?.addEventListener('click', () => {
-                document.getElementById('emote-palette')?.classList.toggle('hidden');
-            });
-            document.getElementById('btn-close-modal')?.addEventListener('click', () => {
-                document.getElementById('growth-modal')?.classList.add('hidden');
-                if (window.game) window.game.isModalOpen = false;
-            });
-            document.getElementById('btn-close-npc')?.addEventListener('click', () => {
-                document.getElementById('npc-dialog')?.classList.add('hidden');
-            });
-            document.getElementById('btn-open-menu')?.addEventListener('click', () => {
-                window.game?.openGrowthModal?.(window.game.activeTab || 'stats');
-            });
-            document.getElementById('btn-photo-mode')?.addEventListener('click', () => {
-                document.getElementById('hud-layer')?.classList.add('hidden');
-                document.getElementById('action-pad')?.classList.add('hidden');
-                document.getElementById('joystick-zone')?.classList.add('hidden');
-                document.getElementById('btn-exit-photo')?.classList.remove('hidden');
-            });
-            document.getElementById('btn-exit-photo')?.addEventListener('click', () => {
-                document.getElementById('hud-layer')?.classList.remove('hidden');
-                document.getElementById('action-pad')?.classList.remove('hidden');
-                document.getElementById('joystick-zone')?.classList.remove('hidden');
-                document.getElementById('btn-exit-photo')?.classList.add('hidden');
-            });
-            document.getElementById('btn-start-game')?.addEventListener('click', () => {
-                const nameInput = document.getElementById('input-player-name')?.value?.trim();
-                if (window.game && window.game.saveData && nameInput) {
-                    window.game.saveData.playerName = nameInput;
-                    window.game.saveGame?.();
-                }
-                document.getElementById('title-screen')?.classList.add('hidden');
-                window.sfx?.init?.();
-                window.game?.refreshAllHUD?.();
-            });
-        });
-    </script>
-
-    <!-- ゲーム本体スクリプト群（存在しない番号がある場合はその行だけ削除してください） -->
-    <script src="data.js?v=20261119full"></script>
-    <script src="game1.js?v=20261119full"></script>
-    <script src="game2.js?v=20261119full"></script>
-    <script src="game3.js?v=20261119full"></script>
-    <script src="game4.js?v=20261119full"></script>
-    <script src="game5.js?v=20261119full"></script>
-    <script src="game6.js?v=20261119full"></script>
-    <script src="game7.js?v=20261119full"></script>
-    <script src="game8.js?v=20261119full"></script>
-    <script src="game9.js?v=20261119full"></script>
+    <script src="data.js?v=20261118mqtt"></script>
+    <script src="game1.js?v=20261118mqtt"></script>
+    <script src="game2.js?v=20261118mqtt"></script>
+    <script src="game3.js?v=20261118mqtt"></script>
+    <script src="game4.js?v=20261118mqtt"></script>
+    <script src="game5.js?v=20261118mqtt"></script>
+    <script src="game6.js?v=20261118mqtt"></script>
+    <script src="game7.js?v1"></script>
+    <script src="game8.js?v1"></script>
 </body>
 </html>
