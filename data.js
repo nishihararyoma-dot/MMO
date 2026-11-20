@@ -1,443 +1,385 @@
 'use strict';
 
 // =========================================================================
-// 顔文字ファンタジー3D マスターデータ (data.js)
+// 顔文字ファンタジー3D マスターデータ定義 (data.js)
 // =========================================================================
-window.MAX_PLAYER_LEVEL = 999;
-window.MATERIALS = {
-    slime_gel:     { id: 'slime_gel',     name: 'ぷるぷるゼリー', icon: '💧' },
-    goblin_fang:   { id: 'goblin_fang',   name: 'ゴブリンの鋭牙', icon: '🦷' },
-    ancient_sap:   { id: 'ancient_sap',   name: '古代樹の霊液',   icon: '🌿' },
-    fire_core:     { id: 'fire_core',     name: '紅蓮の炎核',     icon: '🔥' },
-    ice_crystal:   { id: 'ice_crystal',   name: '永久氷晶',       icon: '❄️' },
-    void_shard:    { id: 'void_shard',    name: '虚無の欠片',     icon: '🔮' },
-    star_fragment: { id: 'star_fragment', name: '星屑の霊珠',     icon: '🌟' }
+
+const MAX_PLAYER_LEVEL = 999;
+const REBIRTH_REQ_LEVEL = 80;
+const MAX_THREAT_RANK = 50;
+
+function formatBigNum(n) {
+    const num = Math.floor(Number(n) || 0);
+    if (num < 10000) return String(num);
+    const units = ['', '万', '億', '兆', '京', '垓'];
+    let val = num;
+    let u = 0;
+    while (val >= 10000 && u < units.length - 1) {
+        val /= 10000;
+        u++;
+    }
+    return (val >= 100 ? Math.floor(val) : val.toFixed(1).replace(/\.0$/, '')) + units[u];
+}
+
+const MATERIALS = {
+    slime_gel: { id: 'slime_gel', name: 'ぷるぷる雫', icon: '💧', tier: 1 },
+    ancient_sap: { id: 'ancient_sap', name: '古樹の琥珀', icon: '🌿', tier: 2 },
+    goblin_fang: { id: 'goblin_fang', name: '鬼神の鋭牙', icon: '🦴', tier: 3 },
+    fire_core: { id: 'fire_core', name: '紅蓮の炉心', icon: '🔥', tier: 4 },
+    ice_crystal: { id: 'ice_crystal', name: '永久凍晶', icon: '❄️', tier: 5 },
+    abyss_shard: { id: 'abyss_shard', name: '深淵の魔欠片', icon: '🔮', tier: 6 },
+    void_star: { id: 'void_star', name: '創世の星屑', icon: '🌟', tier: 7 }
 };
 
-window.MATERIAL_ALCHEMY = [
-    { from: 'slime_gel',   to: 'goblin_fang',   count: 5, gold: 120 },
-    { from: 'goblin_fang', to: 'ancient_sap',   count: 5, gold: 320 },
-    { from: 'ancient_sap', to: 'fire_core',     count: 5, gold: 800 },
-    { from: 'fire_core',   to: 'ice_crystal',   count: 5, gold: 2000 },
-    { from: 'ice_crystal', to: 'void_shard',    count: 5, gold: 5000 },
-    { from: 'void_shard',  to: 'star_fragment', count: 5, gold: 15000 }
+// 下位素材5個＋G → 上位素材1個への錬金レシピ
+const MATERIAL_ALCHEMY = [
+    { from: 'slime_gel', to: 'ancient_sap', count: 5, gold: 120 },
+    { from: 'ancient_sap', to: 'goblin_fang', count: 5, gold: 300 },
+    { from: 'goblin_fang', to: 'fire_core', count: 5, gold: 750 },
+    { from: 'fire_core', to: 'ice_crystal', count: 5, gold: 1800 },
+    { from: 'ice_crystal', to: 'abyss_shard', count: 5, gold: 4500 },
+    { from: 'abyss_shard', to: 'void_star', count: 5, gold: 12000 }
 ];
 
-window.WEAPONS = {
-    wpn_wood: {
-        id: 'wpn_wood', name: '冒険者の木の剣', icon: '🗡️', category: 'sword', shape: 'sword',
-        atk: 12, mag: 1.0, costGold: 0, costMat: {}, bladeColor: 0xd97706, glowColor: 0x38bdf8
-    },
-    wpn_iron: {
-        id: 'wpn_iron', name: '鋼鉄の騎士剣', icon: '⚔️', category: 'sword', shape: 'sword',
-        atk: 38, mag: 1.05, costGold: 220, costMat: { slime_gel: 3 }, bladeColor: 0xe2e8f0, glowColor: 0x38bdf8
-    },
-    wpn_knight: {
-        id: 'wpn_knight', name: '蒼穹の聖銀剣', icon: '🗡️', category: 'sword', shape: 'sword',
-        atk: 98, mag: 1.15, costGold: 950, costMat: { goblin_fang: 4, ancient_sap: 2 }, bladeColor: 0x7dd3fc, glowColor: 0x0284c7
-    },
-    wpn_flame: {
-        id: 'wpn_flame', name: '紅蓮の業火大剣', icon: '🔥', category: 'sword', shape: 'sword',
-        atk: 260, mag: 1.25, costGold: 3600, costMat: { fire_core: 4, goblin_fang: 5 }, bladeColor: 0xf97316, glowColor: 0xef4444
-    },
-    wpn_scythe: {
-        id: 'wpn_scythe', name: '冥界の死神大鎌', icon: '🌙', category: 'sword', shape: 'scythe',
-        atk: 680, mag: 1.45, costGold: 12000, costMat: { ice_crystal: 5, void_shard: 2 }, bladeColor: 0xa855f7, glowColor: 0xf43f5e
-    },
-    wpn_omega: {
-        id: 'wpn_omega', name: 'オメガ星砕きブレイド', icon: '⚡', category: 'sword', shape: 'omega',
-        atk: 1850, mag: 1.7, costGold: 38000, costMat: { void_shard: 6, star_fragment: 3 }, bladeColor: 0xfde047, glowColor: 0xf59e0b
-    },
-    wpn_god: {
-        id: 'wpn_god', name: '創世神剣アルテマ', icon: '👑', category: 'sword', shape: 'god',
-        atk: 5200, mag: 2.2, costGold: 120000, costMat: { star_fragment: 8 }, bladeColor: 0xffffff, glowColor: 0xf472b6
-    },
-    staff_apprentice: {
-        id: 'staff_apprentice', name: '見習いの星木杖', icon: '🪄', category: 'staff', shape: 'staff',
-        atk: 18, mag: 1.35, costGold: 150, costMat: { slime_gel: 2 }, bladeColor: 0x92400e, glowColor: 0xc084fc
-    },
-    staff_crystal: {
-        id: 'staff_crystal', name: '蒼水晶の魔導杖', icon: '🔮', category: 'staff', shape: 'staff',
-        atk: 80, mag: 1.65, costGold: 900, costMat: { ancient_sap: 4, goblin_fang: 3 }, bladeColor: 0x0284c7, glowColor: 0x38bdf8
-    },
-    staff_archmage: {
-        id: 'staff_archmage', name: '大賢者の賢者杖', icon: '✨', category: 'staff', shape: 'staff',
-        atk: 280, mag: 2.05, costGold: 4000, costMat: { fire_core: 3, ice_crystal: 3 }, bladeColor: 0x7e22ce, glowColor: 0xf472b6
-    },
-    staff_astral: {
-        id: 'staff_astral', name: '星辰の天球儀ロッド', icon: '🌌', category: 'staff', shape: 'staff',
-        atk: 1050, mag: 2.55, costGold: 30000, costMat: { void_shard: 5, star_fragment: 4 }, bladeColor: 0x1e1b4b, glowColor: 0xfde047
-    },
-    staff_genesis: {
-        id: 'staff_genesis', name: '創世神杖コスモス', icon: '🌟', category: 'staff', shape: 'staff',
-        atk: 3900, mag: 3.3, costGold: 115000, costMat: { star_fragment: 8 }, bladeColor: 0xfde047, glowColor: 0x38bdf8
+// 武器精錬（+1ごと）に必要なゴールドと素材
+function getWeaponEnhanceRequirement(enh) {
+    const gold = Math.round(160 * Math.pow(1.34, enh));
+    const mats = {};
+    if (enh < 3) {
+        mats.slime_gel = 2 + enh;
+    } else if (enh < 6) {
+        mats.slime_gel = 3;
+        mats.ancient_sap = 2 + (enh - 3);
+    } else if (enh < 10) {
+        mats.ancient_sap = 3;
+        mats.goblin_fang = 2 + (enh - 6);
+    } else if (enh < 15) {
+        mats.fire_core = 2 + Math.floor((enh - 10) / 2);
+        mats.ice_crystal = 1 + Math.floor((enh - 10) / 2);
+    } else {
+        mats.abyss_shard = 2 + Math.floor((enh - 15) / 2);
+        mats.void_star = 1 + Math.floor((enh - 15) / 3);
     }
-};
+    return { gold, mats };
+}
 
-window.ARMORS = {
-    arm_cloth: {
-        id: 'arm_cloth', name: '旅人の布マント', icon: '👕', hp: 20, mp: 10, def: 0.04,
-        costGold: 0, costMat: {}, plateColor: 0x38bdf8, trimColor: 0x94a3b8, capeColor: 0x0284c7, tierLook: 0
-    },
-    arm_leather: {
-        id: 'arm_leather', name: '冒険者の革鎧', icon: '🦺', hp: 90, mp: 30, def: 0.10,
-        costGold: 240, costMat: { slime_gel: 4 }, plateColor: 0xb45309, trimColor: 0xfbbf24, capeColor: 0x78350f, tierLook: 1
-    },
-    arm_iron: {
-        id: 'arm_iron', name: '重装騎士プレート', icon: '🛡️', hp: 280, mp: 75, def: 0.18,
-        costGold: 1100, costMat: { goblin_fang: 5 }, plateColor: 0xcbd5e1, trimColor: 0x38bdf8, capeColor: 0x1d4ed8, tierLook: 2
-    },
-    arm_mythril: {
-        id: 'arm_mythril', name: 'ミスリル聖光鎧', icon: '✨', hp: 780, mp: 190, def: 0.28,
-        costGold: 4600, costMat: { ancient_sap: 5, ice_crystal: 3 }, plateColor: 0x7dd3fc, trimColor: 0xfde047, capeColor: 0x4f46e5, tierLook: 3
-    },
-    arm_dragon: {
-        id: 'arm_dragon', name: '虚無竜鱗の覇王鎧', icon: '🐉', hp: 2300, mp: 480, def: 0.38,
-        costGold: 20000, costMat: { void_shard: 5, fire_core: 4 }, plateColor: 0x991b1b, trimColor: 0xfacc15, capeColor: 0x450a0a, tierLook: 4
-    },
-    arm_celestial: {
-        id: 'arm_celestial', name: '創世神装セラフィム', icon: '👑', hp: 7000, mp: 1500, def: 0.50,
-        costGold: 95000, costMat: { star_fragment: 7 }, plateColor: 0xfef08a, trimColor: 0xf472b6, capeColor: 0xffffff, tierLook: 5
+// 防具精錬（+1ごと）に必要なゴールドと素材
+function getArmorEnhanceRequirement(enh) {
+    const gold = Math.round(150 * Math.pow(1.33, enh));
+    const mats = {};
+    if (enh < 3) {
+        mats.slime_gel = 2 + enh;
+    } else if (enh < 6) {
+        mats.slime_gel = 2;
+        mats.ancient_sap = 2 + (enh - 3);
+    } else if (enh < 10) {
+        mats.goblin_fang = 2 + (enh - 6);
+        mats.fire_core = 1;
+    } else if (enh < 15) {
+        mats.ice_crystal = 2 + Math.floor((enh - 10) / 2);
+        mats.abyss_shard = 1;
+    } else {
+        mats.abyss_shard = 2 + Math.floor((enh - 15) / 2);
+        mats.void_star = 1 + Math.floor((enh - 15) / 3);
     }
-};
+    return { gold, mats };
+}
 
-window.ACCESSORIES = {
-    acc_none: { id: 'acc_none', name: 'なし', icon: '➖', desc: '装備なし', atkPct: 0, hpPct: 0, crit: 0, cdRed: 0, rewardMult: 1.0, costGold: 0, costMat: {} },
-    acc_power_ring: {
-        id: 'acc_power_ring', name: '剛力のルビー指輪', icon: '💍', desc: '攻撃力 +18% / 会心 +4%',
-        atkPct: 0.18, hpPct: 0, crit: 0.04, cdRed: 0, rewardMult: 1.0, costGold: 600, costMat: { goblin_fang: 3 }
-    },
-    acc_life_charm: {
-        id: 'acc_life_charm', name: '生命の翡翠護符', icon: '📿', desc: '最大HP +28% / 攻撃 +8%',
-        atkPct: 0.08, hpPct: 0.28, crit: 0, cdRed: 0, rewardMult: 1.0, costGold: 1800, costMat: { ancient_sap: 4 }
-    },
-    acc_haste_pendant: {
-        id: 'acc_haste_pendant', name: '疾風の星屑ペンダント', icon: '⚡', desc: 'スキルCT短縮 +14% / 会心 +8%',
-        atkPct: 0.08, hpPct: 0.10, crit: 0.08, cdRed: 0.14, rewardMult: 1.0, costGold: 5500, costMat: { ice_crystal: 4 }
-    },
-    acc_greed_crown: {
-        id: 'acc_greed_crown', name: '黄金の幸運ブローチ', icon: '💰', desc: '獲得EXP・G +35% / 攻撃 +15%',
-        atkPct: 0.15, hpPct: 0.15, crit: 0.05, cdRed: 0.05, rewardMult: 1.35, costGold: 16000, costMat: { void_shard: 4 }
-    },
-    acc_god_crest: {
-        id: 'acc_god_crest', name: '創世神の無限聖印', icon: '🌟', desc: '攻撃+35% / HP+35% / 会心+12% / 報酬+50%',
-        atkPct: 0.35, hpPct: 0.35, crit: 0.12, cdRed: 0.15, rewardMult: 1.50, costGold: 110000, costMat: { star_fragment: 5 }
-    }
-};
-
-window.ENCHANT_POOL = [
-    { id: 'ench_atk',   label: '⚔️ 猛攻の輝き (攻撃+15%)',       atkPct: 0.15 },
-    { id: 'ench_crit',  label: '💥 会心の極意 (会心+10%/ダメ+0.3)', crit: 0.10, critDmg: 0.30 },
-    { id: 'ench_hp',    label: '❤️ 生命の祝福 (最大HP+22%)',      hpPct: 0.22 },
-    { id: 'ench_def',   label: '🛡️ 鉄壁の守護 (軽減+8%/HP+12%)',  def: 0.08, hpPct: 0.12 },
-    { id: 'ench_haste', label: '⚡ 神速の加護 (CT短縮+12%)',       cdRed: 0.12 },
-    { id: 'ench_vamp',  label: '🦇 吸血の魔印 (HP吸収+5%)',       lifesteal: 0.05 },
-    { id: 'ench_boss',  label: '🐉 覇王殺し (ボス特効+25%)',       bossDmg: 0.25 }
+// 装備エンチャント抽選プール
+const ENCHANT_POOL = [
+    { id: 'atk_pct', label: '攻撃力 +15%', stat: 'atkBonus', val: 0.15 },
+    { id: 'hp_pct', label: '最大HP +20%', stat: 'hpBonus', val: 0.20 },
+    { id: 'crit_rate', label: '会心率 +12%', stat: 'critBonus', val: 0.12 },
+    { id: 'crit_dmg', label: '会心ダメ +35%', stat: 'critDmg', val: 0.35 },
+    { id: 'cd_red', label: 'スキルCT短縮 +10%', stat: 'cdBonus', val: 0.10 },
+    { id: 'lifesteal', label: '攻撃時HP吸収 +4%', stat: 'lifesteal', val: 0.04 },
+    { id: 'boss_dmg', label: 'ボス特攻 +22%', stat: 'bossDmg', val: 0.22 },
+    { id: 'reward_up', label: '獲得EXP/G +20%', stat: 'rewardBonus', val: 0.20 }
 ];
 
-window.EVOLUTIONS = {
-    novice: {
-        id: 'novice', name: '見習い顔文字', kaomoji: '(´・ω・`)', color: '#38bdf8', hexColor: 0x38bdf8,
-        isMageJob: false, bonusText: '剣・杖どちらも装備可能（バランス型）',
-        reqLv: 1, costGold: 0, reqMat: {}, atkBonus: 0, magBonus: 0, hpBonus: 0
-    },
-    warrior: {
-        id: 'warrior', name: '剛腕ブレイブ剣士', kaomoji: '(｀・ω・´)', color: '#f97316', hexColor: 0xf97316,
-        isMageJob: false, bonusText: '物理攻撃+30% / 最大HP+20%（剣専用）',
-        reqLv: 5, costGold: 400, reqMat: { slime_gel: 3 }, atkBonus: 0.30, magBonus: 0, hpBonus: 0.20
-    },
-    mage: {
-        id: 'mage', name: '星詠み魔道士', kaomoji: '(☆ω☆)', color: '#c084fc', hexColor: 0xc084fc,
-        isMageJob: true, bonusText: '魔法倍率+40% / 遠距離魔法弾（杖専用）',
-        reqLv: 5, costGold: 400, reqMat: { ancient_sap: 2 }, atkBonus: 0, magBonus: 0.40, hpBonus: 0.10
-    },
-    paladin: {
-        id: 'paladin', name: '聖銀の守護騎士', kaomoji: '( •̀ᄇ• ́)ﻭ✧', color: '#34d399', hexColor: 0x34d399,
-        isMageJob: false, bonusText: '最大HP+55% / 物理攻撃+35%（剣専用）',
-        reqLv: 15, costGold: 2200, reqMat: { goblin_fang: 5, ancient_sap: 4 }, atkBonus: 0.35, magBonus: 0.15, hpBonus: 0.55
-    },
-    archmage: {
-        id: 'archmage', name: '真理の大賢者', kaomoji: '✧*｡٩(ˊᗜˋ*)و✧*｡', color: '#818cf8', hexColor: 0x818cf8,
-        isMageJob: true, bonusText: '魔法倍率+85% / 最大HP+25%（杖専用）',
-        reqLv: 15, costGold: 2200, reqMat: { ancient_sap: 5, ice_crystal: 2 }, atkBonus: 0.10, magBonus: 0.85, hpBonus: 0.25
-    },
-    berserker: {
-        id: 'berserker', name: '紅蓮の修羅王', kaomoji: '꧁(╬◣д◢)꧂', color: '#f43f5e', hexColor: 0xf43f5e,
-        isMageJob: false, bonusText: '物理攻撃+110% / 最大HP+45%（剣専用）',
-        reqLv: 30, costGold: 9500, reqMat: { fire_core: 5, void_shard: 2 }, atkBonus: 1.10, magBonus: 0.10, hpBonus: 0.45
-    },
-    void_witch: {
-        id: 'void_witch', name: '深淵の星屑魔女', kaomoji: '(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧', color: '#e879f9', hexColor: 0xe879f9,
-        isMageJob: true, bonusText: '魔法倍率+140% / 最大HP+35%（杖専用）',
-        reqLv: 30, costGold: 9500, reqMat: { ice_crystal: 5, star_fragment: 2 }, atkBonus: 0.15, magBonus: 1.40, hpBonus: 0.35
-    },
-    myth_god: {
-        id: 'myth_god', name: '創世神カオモジ', kaomoji: '👑(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧', color: '#fde047', hexColor: 0xfde047,
-        isMageJob: false, bonusText: '全攻撃・魔法・HP +180% / 剣・杖どちらも装備可能！',
-        reqLv: 60, costGold: 45000, reqMat: { void_shard: 5, star_fragment: 4 }, atkBonus: 1.80, magBonus: 1.80, hpBonus: 1.80
-    }
+// 頭パーツ（9種）
+const COSMETICS = {
+    none: { id: 'none', name: '頭パーツなし', icon: '✨', desc: 'スッキリ標準スタイル', costGold: 0, costMat: {} },
+    sprout: { id: 'sprout', name: '元気なふたば', icon: '🌱', desc: '頭の上に可愛い双葉が揺れる', costGold: 150, costMat: { slime_gel: 3 } },
+    cat_ears: { id: 'cat_ears', name: 'ネコミミ', icon: '🐱', desc: 'ぴょこんと可愛い猫耳', costGold: 450, costMat: { slime_gel: 5, ancient_sap: 2 } },
+    bunny_ears: { id: 'bunny_ears', name: 'ウサミミ', icon: '🐰', desc: '長いぴょんぴょんウサギ耳', costGold: 750, costMat: { ancient_sap: 5, goblin_fang: 2 } },
+    fox_ears: { id: 'fox_ears', name: 'お稲荷キツネ耳', icon: '🦊', desc: '黄金色の大きなキツネ耳', costGold: 1500, costMat: { goblin_fang: 5, fire_core: 2 } },
+    cat_headphone: { id: 'cat_headphone', name: '猫耳ヘッドホン', icon: '🎧', desc: 'ネオン発光するサイバー猫耳', costGold: 2800, costMat: { fire_core: 4, ice_crystal: 3 } },
+    witch_hat: { id: 'witch_hat', name: '星導の三角魔法帽', icon: '🧙', desc: '星の飾りがついたとんがり帽子', costGold: 4200, costMat: { ice_crystal: 5, abyss_shard: 2 } },
+    demon_horns: { id: 'demon_horns', name: '紅蓮の悪魔角', icon: '😈', desc: '迫力ある双子の悪魔角', costGold: 7500, costMat: { fire_core: 5, abyss_shard: 5 } },
+    angel_halo: { id: 'angel_halo', name: '熾天使の聖輪', icon: '😇', desc: '頭上に浮かぶ黄金の光の輪', costGold: 11000, costMat: { ice_crystal: 6, void_star: 2 } },
+    royal_crown: { id: 'royal_crown', name: '覇王の黄金クラウン', icon: '👑', desc: 'ルビーが輝く王者の冠', costGold: 18000, costMat: { abyss_shard: 7, void_star: 4 } }
 };
 
-window.canEquipWeaponForJob = function(wpn, evo) {
-    if (!wpn || !evo) return true;
-    if (evo.id === 'novice' || evo.id === 'myth_god') return true;
-    if (evo.isMageJob) return wpn.category === 'staff';
-    return wpn.category === 'sword';
+// 背中パーツ（6種：頭パーツと同時装着OK！）
+const BACK_COSMETICS = {
+    back_none: { id: 'back_none', name: '背中パーツなし', icon: '➖', desc: '装備の標準マント表示', costGold: 0, costMat: {} },
+    cat_tail: { id: 'cat_tail', name: 'ゆらゆら猫しっぽ', icon: '🐈', desc: '体色とお揃いのしなやかな猫尾', costGold: 400, costMat: { slime_gel: 4, ancient_sap: 2 } },
+    fox_tails: { id: 'fox_tails', name: 'もふもふ九尾の尾', icon: '🦊', desc: '白銀の穂先が輝く豪華な狐尾', costGold: 2200, costMat: { goblin_fang: 5, fire_core: 3 } },
+    hero_cape: { id: 'hero_cape', name: '紅蓮の英雄マント', icon: '🦸', desc: '金縁が輝く勇者のロングマント', costGold: 3800, costMat: { fire_core: 5, ice_crystal: 3 } },
+    demon_wings: { id: 'demon_wings', name: '漆黒の堕天使翼', icon: '🦇', desc: '闇の魔力を纏う悪魔の翼', costGold: 8500, costMat: { ice_crystal: 6, abyss_shard: 5 } },
+    angel_wings: { id: 'angel_wings', name: '純白のセラフィム翼', icon: '🕊️', desc: '神々しく広がる純白の天使翼', costGold: 13000, costMat: { abyss_shard: 6, void_star: 3 } },
+    flame_aura: { id: 'flame_aura', name: '創世の輪光オーラ', icon: '🌟', desc: '背後に回転する神聖な光輪リング', costGold: 22000, costMat: { abyss_shard: 8, void_star: 5 } }
 };
 
-window.SKILLS = {
-    slash_arc: {
-        id: 'slash_arc', name: '一閃スラッシュ', icon: '⚔️', type: 'SINGLE_DMG',
-        mp: 8, cd: 2.8, mult: 1.8, desc: '鋭い三日月斬撃波を放つ基本剣技'
-    },
-    whirlwind: {
-        id: 'whirlwind', name: '疾風トルネード斬', icon: '🌪️', type: 'AOE_DMG',
-        mp: 14, cd: 4.8, mult: 1.65, radius: 6.5, desc: '周囲の敵を竜巻の刃で薙ぎ払う範囲技'
-    },
-    chabudai_flip: {
-        id: 'chabudai_flip', name: '激怒のちゃぶ台返し', icon: '┻', type: 'INTERRUPT',
-        mp: 16, cd: 6.5, mult: 1.9, desc: 'ちゃぶ台をひっくり返しボスの大技詠唱を強制中断＆気絶！'
-    },
-    fire_meteor: {
-        id: 'fire_meteor', name: '紅蓮ファイアメテオ', icon: '🔥', type: 'AOE_BURN',
-        mp: 20, cd: 6.0, mult: 2.0, radius: 7.0, desc: '業火の衝撃で広範囲を焼き尽くし炎上ダメージを与える'
-    },
-    ice_nova: {
-        id: 'ice_nova', name: '絶対零度ノヴァ', icon: '❄️', type: 'AOE_SLOW',
-        mp: 22, cd: 7.0, mult: 2.05, radius: 7.5, desc: '極寒の氷結波動で範囲ダメージ＆移動速度低下'
-    },
-    thunder_bolt: {
-        id: 'thunder_bolt', name: '紫電サンダーボルト', icon: '⚡', type: 'SINGLE_DMG',
-        mp: 18, cd: 5.0, mult: 2.6, desc: '標的の頭上から神罰の落雷を落とす高火力単体技'
-    },
-    laser_beam: {
-        id: 'laser_beam', name: '極光レーザービーム', icon: '🔦', type: 'AOE_DMG',
-        mp: 24, cd: 6.2, mult: 2.3, radius: 8.0, desc: '前方に高出力エネルギー光線を放つ貫通技'
-    },
-    void_drain: {
-        id: 'void_drain', name: '深淵ダークグラビティ', icon: '🌑', type: 'DRAIN',
-        mp: 20, cd: 6.0, mult: 2.1, desc: '闇の重力球で敵の生命力を奪いHPを吸収する'
-    },
-    heal_light: {
-        id: 'heal_light', name: '癒しのホーリーヒール', icon: '💚', type: 'HEAL',
-        mp: 18, cd: 7.5, baseRatio: 0.35, desc: '聖なる祝福の光で自分のHPを回復する'
-    },
-    aegis_guard: {
-        id: 'aegis_guard', name: '神聖イージスシールド', icon: '🛡️', type: 'DEF_BUFF',
-        mp: 22, cd: 11.0, desc: '短時間無敵バリアを張り被ダメージを大幅軽減'
-    },
-    war_cry: {
-        id: 'war_cry', name: '覇王のウォークライ', icon: '📢', type: 'ATK_BUFF',
-        mp: 22, cd: 12.0, desc: '闘気を解放し一定時間すべての攻撃力を大幅アップ！'
-    },
-    aurora_sanctuary: {
-        id: 'aurora_sanctuary', name: '極光のオーロラ聖域', icon: '🌈', type: 'HEAL_MP',
-        mp: 30, cd: 14.0, baseRatio: 0.32, desc: '極光の聖域を展開しHP＆MP回復＋味方全体強化！'
-    },
-    genesis_bigbang: {
-        id: 'genesis_bigbang', name: '創世ビッグバン', icon: '☄️', type: 'AOE_DMG',
-        mp: 42, cd: 10.5, mult: 3.6, radius: 9.5, desc: '宇宙規模の超新星爆発を起こす究極奥義！'
-    }
-};
-
-window.SKILL_TREE_NODES = [
-    { id: 'atk_boost',    icon: '⚔️', name: '剛力の極意',     maxLv: 20, desc: '1Lvごとに攻撃力 +6%' },
-    { id: 'hp_boost',     icon: '❤️', name: '不屈の生命力',   maxLv: 20, desc: '1Lvごとに最大HP +7%' },
-    { id: 'crit_boost',   icon: '💥', name: '致命の一撃',     maxLv: 15, desc: '1Lvごとに会心率 +3%' },
-    { id: 'cd_boost',     icon: '⚡', name: '高速詠唱',       maxLv: 15, desc: '1LvごとにスキルCT短縮 +3%' },
-    { id: 'boss_slayer',  icon: '🐉', name: '覇王討伐の心得', maxLv: 15, desc: '1Lvごとにボス特効 +8%' },
-    { id: 'lifesteal',    icon: '🦇', name: '生命吸収の魔導', maxLv: 15, desc: '1Lvごとに与ダメHP吸収 +1.5%' },
-    { id: 'greed_wisdom', icon: '💰', name: '黄金の冒険者',   maxLv: 15, desc: '1Lvごとに獲得EXP・G +8%' },
-    { id: 'twin_star',    icon: '♊', name: '双子星の連撃',   maxLv: 9,  desc: '1Lvごとにスキル2連発動率 +5%' },
-    { id: 'vital_flow',   icon: '🌿', name: '自然治癒の泉',   maxLv: 15, desc: '1LvごとにHP自然回復速度アップ' },
-    { id: 'mana_flow',    icon: '💧', name: '無限の魔力循環', maxLv: 15, desc: '1LvごとにMP自然回復速度 +15%' }
-];
-
-window.COSMETICS = {
-    none:          { id: 'none',          name: 'なし',               icon: '➖', desc: '標準スタイル',           costGold: 0,     costMat: {} },
-    sprout:        { id: 'sprout',        name: 'ふたばの芽',         icon: '🌱', desc: 'ぴょこんと可愛い双葉',   costGold: 150,   costMat: { slime_gel: 2 } },
-    cat_ears:      { id: 'cat_ears',      name: 'ネコミミ',           icon: '🐱', desc: 'キュートな猫耳',         costGold: 450,   costMat: { slime_gel: 4 } },
-    bunny_ears:    { id: 'bunny_ears',    name: 'うさみみ',           icon: '🐰', desc: 'ぴょこぴょこ長い耳',     costGold: 650,   costMat: { goblin_fang: 3 } },
-    fox_ears:      { id: 'fox_ears',      name: 'きつねみみ',         icon: '🦊', desc: 'お稲荷様の黄金耳',       costGold: 1200,  costMat: { ancient_sap: 3 } },
-    cat_headphone: { id: 'cat_headphone', name: '猫耳ヘッドホン',     icon: '🎧', desc: 'サイバー猫耳ヘッドホン', costGold: 2600,  costMat: { goblin_fang: 5 } },
-    witch_hat:     { id: 'witch_hat',     name: '星詠みの魔女帽',     icon: '🧙', desc: '星飾り付きとんがり帽子', costGold: 4200,  costMat: { ancient_sap: 5 } },
-    demon_horns:   { id: 'demon_horns',   name: '魔王の紅蓮角',       icon: '😈', desc: '威厳ある真紅の双角',     costGold: 8500,  costMat: { fire_core: 5 } },
-    angel_halo:    { id: 'angel_halo',    name: '天使の光輪',         icon: '😇', desc: '頭上に輝く聖なるリング', costGold: 15000, costMat: { ice_crystal: 4 } },
-    royal_crown:   { id: 'royal_crown',   name: '創世の黄金王冠',     icon: '👑', desc: '宝石が輝く黄金王冠',     costGold: 35000, costMat: { star_fragment: 2 } }
-};
-
-window.BACK_COSMETICS = {
-    back_none:   { id: 'back_none',   name: 'なし',             icon: '➖', desc: '背中装備なし',         costGold: 0,     costMat: {} },
-    cat_tail:    { id: 'cat_tail',    name: 'ゆらゆら猫しっぽ', icon: '🐈', desc: 'ご機嫌に揺れるしっぽ', costGold: 400,   costMat: { slime_gel: 3 } },
-    fox_tails:   { id: 'fox_tails',   name: '三尾の妖狐しっぽ', icon: '🦊', desc: 'もふもふの3本しっぽ', costGold: 2800,  costMat: { fire_core: 3 } },
-    hero_cape:   { id: 'hero_cape',   name: '真紅の勇者マント', icon: '🧣', desc: '金縁付きの英雄マント', costGold: 4500,  costMat: { goblin_fang: 5 } },
-    demon_wings: { id: 'demon_wings', name: '漆黒の堕天使翼',   icon: '🦇', desc: '闇の魔力を纏う翼',     costGold: 12000, costMat: { void_shard: 4 } },
-    angel_wings: { id: 'angel_wings', name: '純白のセラフ翼',   icon: '🕊️', desc: '神々しい純白の翼',     costGold: 18000, costMat: { ice_crystal: 5 } },
-    flame_aura:  { id: 'flame_aura',  name: '創世の黄金光背輪', icon: '🔆', desc: '背中で回転する神の光輪', costGold: 42000, costMat: { star_fragment: 3 } }
-};
-
-window.KAOMOJI_PRESETS = [
-    '(´・ω・`)', '(≧▽≦)', '(｀・ω・´)', '(=^・ω・^=)', '(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧',
-    '(☆ω☆)', '( •̀ᄇ• ́)ﻭ✧', '꧁(╬◣д◢)꧂', '(๑•̀ㅂ•́)و✧', '(´；ω；`)',
-    '✧*｡٩(ˊᗜˋ*)و✧*｡', '(╯°□°）╯︵ ┻━┻'
-];
-
-window.BODY_COLOR_PRESETS = [
-    { name: '職業色',     hex: '' },
-    { name: 'スカイ',     hex: '#38bdf8' },
-    { name: 'サクラ',     hex: '#f472b6' },
+// キャラクター体色プリセット
+const BODY_COLOR_PRESETS = [
+    { name: '職業デフォルト', hex: '' },
+    { name: 'スカイブルー', hex: '#38bdf8' },
+    { name: 'サクラピンク', hex: '#f472b6' },
     { name: 'エメラルド', hex: '#10b981' },
-    { name: 'サンセット', hex: '#f97316' },
-    { name: 'アメジスト', hex: '#a855f7' },
-    { name: 'ゴールド',   hex: '#facc15' },
-    { name: 'スノー',     hex: '#f8fafc' },
-    { name: 'ナイト',     hex: '#334155' }
+    { name: 'サンシャイン', hex: '#facc15' },
+    { name: 'クリムゾン', hex: '#f43f5e' },
+    { name: 'バイオレット', hex: '#a855f7' },
+    { name: 'ピュアホワイト', hex: '#f8fafc' },
+    { name: 'シャドウダーク', hex: '#334155' },
+    { name: 'ミントシアン', hex: '#2dd4bf' },
+    { name: 'サンセット橙', hex: '#fb923c' },
+    { name: 'ロイヤル紺', hex: '#3b82f6' }
 ];
 
-window.FACE_BG_PRESETS = [
+// 顔モニター背景色プリセット
+const FACE_BG_PRESETS = [
     { name: 'ディープブルー', hex: '#073b66' },
-    { name: 'サイバー黒',     hex: '#090d16' },
-    { name: 'ロイヤル紫',     hex: '#3b0764' },
-    { name: 'クリムゾン',     hex: '#450a0a' },
-    { name: 'フォレスト',     hex: '#064e3b' }
+    { name: '漆黒ナイト', hex: '#090d16' },
+    { name: 'ローズピンク', hex: '#831843' },
+    { name: 'フォレスト緑', hex: '#064e3b' },
+    { name: 'ロイヤル紫', hex: '#4c1d95' },
+    { name: 'クリムゾン赤', hex: '#7f1d1d' },
+    { name: 'クリーム白', hex: '#f8fafc' }
 ];
 
-window.BODY_SCALE_PRESETS = [
-    { name: 'ちび (0.85x)', scale: 0.85 },
-    { name: '標準 (1.0x)',  scale: 1.0 },
-    { name: '大きめ (1.2x)', scale: 1.2 }
+// 体型サイズ設定
+const BODY_SCALE_PRESETS = [
+    { id: 'chibi', name: '🐣 ちびサイズ', scale: 0.84 },
+    { id: 'normal', name: '🧍 標準サイズ', scale: 1.0 },
+    { id: 'tall', name: '巨人 ビッグ', scale: 1.18 }
 ];
 
-window.PETS = {
-    pet_slime: {
-        id: 'pet_slime', name: 'ぷるぷるスライム', kaomoji: '(・ω・)', color: 0x34d399,
-        desc: '定期攻撃＋プレイヤーHPを少しずつ癒やす', atkRatio: 0.45, healRatio: 0.04, mpRestore: 0.02,
-        costGold: 300, costMat: { slime_gel: 4 }
-    },
-    pet_cat: {
-        id: 'pet_cat', name: 'にゃんこ剣士', kaomoji: '(=^・ω・^=)', color: 0xf472b6,
-        desc: '素早い連撃で敵を引っ掻くアタッカー相棒', atkRatio: 0.85, healRatio: 0.02, mpRestore: 0.02,
-        costGold: 1200, costMat: { goblin_fang: 4 }
-    },
-    pet_fox: {
-        id: 'pet_fox', name: '妖狐コンコン', kaomoji: '🦊(・ω・)', color: 0xf59e0b,
-        desc: '鬼火攻撃＋MPをこまめに回復してくれる', atkRatio: 0.95, healRatio: 0.03, mpRestore: 0.08,
-        costGold: 3600, costMat: { fire_core: 3 }
-    },
-    pet_fairy: {
-        id: 'pet_fairy', name: '星屑の精霊姫', kaomoji: '(ﾉ◕ヮ◕)ﾉ✧', color: 0x38bdf8,
-        desc: 'HPとMPの両方を大きく回復する万能ヒーラー', atkRatio: 0.80, healRatio: 0.09, mpRestore: 0.12,
-        costGold: 9500, costMat: { ancient_sap: 6, ice_crystal: 3 }
-    },
-    pet_dragon: {
-        id: 'pet_dragon', name: 'ちび古竜イグニス', kaomoji: '🐉(｀・ω・´)', color: 0xef4444,
-        desc: '灼熱ブレスで大ダメージを与える最強クラスの相棒', atkRatio: 1.75, healRatio: 0.04, mpRestore: 0.05,
-        costGold: 28000, costMat: { void_shard: 5 }
-    },
-    pet_angel: {
-        id: 'pet_angel', name: '創世のミニ天使', kaomoji: '😇✧*｡', color: 0xfde047,
-        desc: '超火力光線＋HP/MP大回復の神話級パートナー', atkRatio: 2.40, healRatio: 0.12, mpRestore: 0.15,
-        costGold: 85000, costMat: { star_fragment: 5 }
+const WEAPONS = {
+    wpn_wood: { id: 'wpn_wood', name: '初心者の木の剣', icon: '🗡️', atk: 12, mag: 1.0, shape: 'wood', bladeColor: 0xb45309, glowColor: 0x38bdf8, costGold: 0, costMat: {} },
+    wpn_iron: { id: 'wpn_iron', name: '鋼鉄のブロード', icon: '⚔️', atk: 34, mag: 1.15, shape: 'broad', bladeColor: 0xe2e8f0, glowColor: 0x60a5fa, costGold: 280, costMat: { slime_gel: 4 } },
+    wpn_forest: { id: 'wpn_forest', name: '翡翠の精霊大剣', icon: '🌿', atk: 78, mag: 1.35, shape: 'broad', bladeColor: 0x34d399, glowColor: 0x10b981, costGold: 950, costMat: { ancient_sap: 5 } },
+    wpn_flame: { id: 'wpn_flame', name: '紅蓮の業火魔剣', icon: '🔥', atk: 175, mag: 1.65, shape: 'flame', bladeColor: 0xf97316, glowColor: 0xef4444, costGold: 3200, costMat: { goblin_fang: 6, fire_core: 3 } },
+    wpn_scythe: { id: 'wpn_scythe', name: '氷獄の死神大鎌', icon: '❄️', atk: 380, mag: 2.05, shape: 'scythe', bladeColor: 0x7dd3fc, glowColor: 0x38bdf8, costGold: 9500, costMat: { fire_core: 6, ice_crystal: 5 } },
+    wpn_abyss: { id: 'wpn_abyss', name: '深淵の双魔刃', icon: '🔮', atk: 820, mag: 2.55, shape: 'abyss', bladeColor: 0xc084fc, glowColor: 0xd946ef, costGold: 26000, costMat: { ice_crystal: 8, abyss_shard: 6 } },
+    wpn_omega: { id: 'wpn_omega', name: '創世神剣オメガ', icon: '🌟', atk: 1850, mag: 3.30, shape: 'omega', bladeColor: 0xfde047, glowColor: 0xf59e0b, costGold: 75000, costMat: { abyss_shard: 10, void_star: 6 } },
+    wpn_genesis: { id: 'wpn_genesis', name: '終焉天帝ラグナロク', icon: '👑', atk: 4200, mag: 4.40, shape: 'god', bladeColor: 0xffffff, glowColor: 0xf43f5e, costGold: 220000, costMat: { void_star: 15 } }
+};
+
+const ARMORS = {
+    arm_cloth: { id: 'arm_cloth', name: '旅人の布服', icon: '👕', hp: 40, mp: 20, def: 0.04, tierLook: 0, plateColor: 0x475569, trimColor: 0x94a3b8, capeColor: 0x334155, costGold: 0, costMat: {} },
+    arm_leather: { id: 'arm_leather', name: '冒険者の革鎧', icon: '🦺', hp: 130, mp: 45, def: 0.10, tierLook: 1, plateColor: 0x92400e, trimColor: 0xfbbf24, capeColor: 0x065f46, costGold: 260, costMat: { slime_gel: 4 } },
+    arm_knight: { id: 'arm_knight', name: '白銀の騎士重鎧', icon: '🛡️', hp: 340, mp: 90, def: 0.18, tierLook: 2, plateColor: 0xcbd5e1, trimColor: 0x38bdf8, capeColor: 0x1d4ed8, costGold: 900, costMat: { ancient_sap: 5 } },
+    arm_crimson: { id: 'arm_crimson', name: '紅蓮竜鱗の戦鎧', icon: '🐉', hp: 850, mp: 180, def: 0.26, tierLook: 3, plateColor: 0xbe123c, trimColor: 0xfde047, capeColor: 0x7f1d1d, costGold: 3000, costMat: { goblin_fang: 6, fire_core: 3 } },
+    arm_glacier: { id: 'arm_glacier', name: '氷晶の聖騎士鎧', icon: '❄️', hp: 2100, mp: 360, def: 0.34, tierLook: 4, plateColor: 0x0284c7, trimColor: 0xe0f2fe, capeColor: 0x0c4a6e, costGold: 9000, costMat: { fire_core: 6, ice_crystal: 5 } },
+    arm_abyss: { id: 'arm_abyss', name: '深淵魔王の冥鎧', icon: '😈', hp: 5200, mp: 720, def: 0.42, tierLook: 4, plateColor: 0x581c87, trimColor: 0xf0abfc, capeColor: 0x2e1065, costGold: 25000, costMat: { ice_crystal: 8, abyss_shard: 6 } },
+    arm_celest: { id: 'arm_celest', name: '創世神装セラフィム', icon: '👼', hp: 13000, mp: 1500, def: 0.50, tierLook: 5, plateColor: 0xfef08a, trimColor: 0xf43f5e, capeColor: 0xffffff, costGold: 72000, costMat: { abyss_shard: 10, void_star: 6 } }
+};
+
+const ACCESSORIES = {
+    acc_none: { id: 'acc_none', name: 'なし', icon: '➖', desc: '未装備', atkBonus: 0, hpBonus: 0, costGold: 0, costMat: {} },
+    acc_vamp_ring: { id: 'acc_vamp_ring', name: '吸血鬼の紅指輪', icon: '💍', desc: '与ダメージの5%HP吸収・攻撃+12%', atkBonus: 0.12, hpBonus: 0.10, lifesteal: 0.05, costGold: 1500, costMat: { goblin_fang: 5 } },
+    acc_twin_charm: { id: 'acc_twin_charm', name: '双子星の魔導符', icon: '♊', desc: '28%の確率でスキルが2連発！', atkBonus: 0.15, hpBonus: 0.15, doubleCast: 0.28, costGold: 6500, costMat: { fire_core: 5, ice_crystal: 4 } },
+    acc_chrono_orb: { id: 'acc_chrono_orb', name: '時空砂時計の宝珠', icon: '⏳', desc: 'スキルCT短縮+18%・MP回復+50%', atkBonus: 0.18, hpBonus: 0.20, cdBonus: 0.18, costGold: 18000, costMat: { ice_crystal: 6, abyss_shard: 5 } },
+    acc_god_crown: { id: 'acc_god_crown', name: '覇王神の黄金勲章', icon: '🏅', desc: 'ボス特攻+35%・報酬+30%・全能力+25%', atkBonus: 0.25, hpBonus: 0.25, bossDmg: 0.35, rewardBonus: 0.30, costGold: 55000, costMat: { abyss_shard: 8, void_star: 5 } }
+};
+
+const EVOLUTIONS = {
+    novice: { id: 'novice', name: '見習い冒険者', tier: 0, reqLv: 1, kaomoji: '(´・ω・`)', color: '#38bdf8', hexColor: 0x38bdf8, hpMult: 1.0, mpMult: 1.0, atkMult: 1.0, spdMult: 1.0, bonusText: '基本職', reqMat: {} },
+    warrior: { id: 'warrior', name: '重装の剣士', tier: 1, reqLv: 10, kaomoji: '(｀・ω・´)⚔️', color: '#fb7185', hexColor: 0xf43f5e, hpMult: 1.35, mpMult: 1.1, atkMult: 1.35, spdMult: 1.05, bonusText: 'HP+35% / 攻撃+35%', reqEvo: 'novice', reqMat: { slime_gel: 5 } },
+    mage: { id: 'mage', name: '星詠みの魔導士', tier: 1, reqLv: 10, kaomoji: '(☆ω☆)🪄', color: '#c084fc', hexColor: 0xa855f7, hpMult: 1.15, mpMult: 1.6, atkMult: 1.40, spdMult: 1.05, bonusText: 'MP+60% / 攻撃+40%', reqEvo: 'novice', reqMat: { slime_gel: 5 } },
+    paladin: { id: 'paladin', name: '聖光の守護騎士', tier: 2, reqLv: 25, kaomoji: '꧁(｀・ω・´)꧂', color: '#fde047', hexColor: 0xeab308, hpMult: 1.85, mpMult: 1.4, atkMult: 1.75, spdMult: 1.10, bonusText: 'HP+85% / 攻撃+75%', reqEvo: 'warrior', reqMat: { ancient_sap: 6, goblin_fang: 4 } },
+    archmage: { id: 'archmage', name: '深淵の大賢者', tier: 2, reqLv: 25, kaomoji: '✧(✪ω✪)✧', color: '#38bdf8', hexColor: 0x0284c7, hpMult: 1.45, mpMult: 2.3, atkMult: 1.95, spdMult: 1.12, bonusText: 'MP+130% / 攻撃+95%', reqEvo: 'mage', reqMat: { ancient_sap: 6, goblin_fang: 4 } },
+    dragonlord: { id: 'dragonlord', name: '紅蓮の竜騎士王', tier: 3, reqLv: 40, kaomoji: '🔥꧁(╬◣д◢)꧂🔥', color: '#f97316', hexColor: 0xea580c, hpMult: 2.50, mpMult: 1.9, atkMult: 2.55, spdMult: 1.18, bonusText: 'HP+150% / 攻撃+155%', reqEvo: 'paladin', reqMat: { fire_core: 6, ice_crystal: 4 } },
+    celestial: { id: 'celestial', name: '星界の天導神官', tier: 3, reqLv: 40, kaomoji: '👼✨(*˘︶˘*)✨', color: '#34d399', hexColor: 0x10b981, hpMult: 2.10, mpMult: 3.1, atkMult: 2.75, spdMult: 1.20, bonusText: 'MP+210% / 攻撃+175%', reqEvo: 'archmage', reqMat: { fire_core: 6, ice_crystal: 4 } },
+    ex_valkyrie: { id: 'ex_valkyrie', name: '戦乙女ヴァルキリー', tier: 4, isExJob: true, reqLv: 55, kaomoji: '⚔️👼꧁(✧ω✧)꧂', color: '#f472b6', hexColor: 0xec4899, hpMult: 3.4, mpMult: 2.8, atkMult: 3.6, spdMult: 1.25, exCritBonus: 0.15, bonusText: '全能力激増＆会心率+15%', reqEvo: 'dragonlord', reqMat: { ice_crystal: 8, abyss_shard: 6 } },
+    ex_chronos: { id: 'ex_chronos', name: '時空魔帝クロノス', tier: 4, isExJob: true, reqLv: 55, kaomoji: '⏳🌌(★ω★)🌌', color: '#818cf8', hexColor: 0x6366f1, hpMult: 3.0, mpMult: 4.2, atkMult: 3.9, spdMult: 1.28, exCdBonus: 0.15, bonusText: '魔力超絶＆CT短縮+15%', reqEvo: 'celestial', reqMat: { ice_crystal: 8, abyss_shard: 6 } },
+    myth_god: { id: 'myth_god', name: '創世神オメガ・顔文字', tier: 5, isExJob: true, reqLv: 80, kaomoji: '👑🌟꧁(≧▽≦)꧂🌟👑', color: '#fde047', hexColor: 0xf59e0b, hpMult: 5.2, mpMult: 6.0, atkMult: 5.8, spdMult: 1.35, exCritBonus: 0.25, exCdBonus: 0.20, exDefBonus: 0.12, bonusText: '神話級全ステータス＆全耐性UP', reqEvo: 'ex_valkyrie', reqMat: { abyss_shard: 12, void_star: 8 } }
+};
+
+const SKILLS = {
+    slash_heavy: { id: 'slash_heavy', name: '烈空斬', icon: '⚔️', type: 'SINGLE_DMG', baseMp: 8, cd: 2.2, baseMult: 2.2, desc: '前方に蒼い三日月真空波を放つ単体強撃' },
+    spin_whirl: { id: 'spin_whirl', name: '旋風円舞', icon: '🌪️', type: 'AOE_DMG', baseMp: 14, cd: 3.8, baseMult: 1.85, radius: 6.2, desc: '周囲の敵全てを切り裂く竜巻範囲攻撃' },
+    bash_shield: { id: 'bash_shield', name: '破邪の衝撃', icon: '🛡️', type: 'INTERRUPT', baseMp: 12, cd: 4.5, baseMult: 1.9, desc: 'ボス詠唱を中断し気絶させる衝撃波' },
+    heal_light: { id: 'heal_light', name: '聖光の癒し', icon: '💚', type: 'HEAL', baseMp: 16, cd: 5.5, isSupport: true, desc: 'HPを即座に大回復し状態異常を解除' },
+    meteor_star: { id: 'meteor_star', name: '星屑メテオ', icon: '☄️', type: 'AOE_DMG', baseMp: 26, cd: 6.5, baseMult: 3.1, radius: 7.2, desc: '巨大隕石を落として広範囲を焼き尽くす' },
+    frost_nova: { id: 'frost_nova', name: '絶対零度ノヴァ', icon: '❄️', type: 'AOE_SLOW', baseMp: 22, cd: 6.0, baseMult: 2.3, radius: 6.8, desc: '12本の氷柱で広範囲攻撃＋移動速度低下' },
+    thunder_bolt: { id: 'thunder_bolt', name: '天罰の紫電', icon: '⚡', type: 'THUNDER', baseMp: 20, cd: 4.2, baseMult: 3.3, desc: '上空から稲妻を落として単体に超大ダメージ' },
+    vamp_drain: { id: 'vamp_drain', name: '深淵ドレイン', icon: '🩸', type: 'DRAIN', baseMp: 18, cd: 5.0, baseMult: 2.4, desc: '敵の生命力を吸収して自分のHPを回復' },
+    aegis_wall: { id: 'aegis_wall', name: '神域イージス', icon: '🔰', type: 'DEF_BUFF', baseMp: 24, cd: 9.0, isSupport: true, desc: '無敵バリア＆被ダメージ大幅軽減バフ' },
+    warcry_fury: { id: 'warcry_fury', name: '覇王の咆哮', icon: '🔥', type: 'ATK_BUFF', baseMp: 22, cd: 8.5, isSupport: true, desc: '闘気を爆発させ攻撃力を大幅に引き上げる' },
+    phoenix_dive: { id: 'phoenix_dive', name: '不死鳥の烈火', icon: '🦅', type: 'AOE_BURN', baseMp: 32, cd: 7.5, baseMult: 3.6, radius: 7.5, desc: '不死鳥が急降下し広範囲に炎上継続ダメージ' },
+    void_blade: { id: 'void_blade', name: '虚無次元斬', icon: '🌌', type: 'SINGLE_DMG', baseMp: 30, cd: 5.2, baseMult: 4.4, desc: '空間ごと切り裂く次元の裂け目必殺斬撃' },
+    genesis_nova: { id: 'genesis_nova', name: '創世ビッグバン', icon: '💥', type: 'AOE_DMG', baseMp: 45, cd: 9.5, baseMult: 5.2, radius: 8.8, desc: '特異点収束から超新星爆発を起こす究極奥義' },
+    holy_aurora: { id: 'holy_aurora', name: '極光の聖域', icon: '🌈', type: 'HEAL_MP', baseMp: 28, cd: 8.0, isSupport: true, desc: '虹色オーロラでHPとMPを同時に大幅回復' }
+};
+
+function getSkillMpCost(sk, lv) {
+    return Math.round(sk.baseMp * (1 + (lv - 1) * 0.08));
+}
+
+function getSkillEffectStats(sk, lv, st) {
+    const mult = Number(((sk.baseMult || 1) * (1 + (lv - 1) * 0.16) * (st ? st.treeSkillPowerMult : 1)).toFixed(2));
+    if (sk.type === 'HEAL') {
+        const hpPct = Math.min(0.95, (0.32 + (lv - 1) * 0.04) * (st ? st.treeHealPowerMult : 1));
+        return { hpPct, summary: `HP ${Math.round(hpPct * 100)}% 回復` };
     }
-};
+    if (sk.type === 'HEAL_MP') {
+        const hpPct = Math.min(0.95, (0.35 + (lv - 1) * 0.04) * (st ? st.treeHealPowerMult : 1));
+        const mpPct = Math.min(0.85, 0.28 + (lv - 1) * 0.03);
+        return { hpPct, mpPct, summary: `HP ${Math.round(hpPct * 100)}% / MP ${Math.round(mpPct * 100)}% 回復` };
+    }
+    if (sk.type === 'INTERRUPT') {
+        const stunDur = Number((2.0 + (lv - 1) * 0.25).toFixed(1));
+        return { mult, stunDur, summary: `倍率 x${mult} / 詠唱中断＋気絶 ${stunDur}秒` };
+    }
+    if (sk.type === 'DRAIN') {
+        const drainRate = Math.min(0.80, 0.35 + (lv - 1) * 0.03);
+        return { mult, drainRate, summary: `倍率 x${mult} / 与ダメの ${Math.round(drainRate * 100)}% HP吸収` };
+    }
+    if (sk.type === 'AOE_SLOW') {
+        const slowDur = Number((3.5 + (lv - 1) * 0.3).toFixed(1));
+        return { mult, slowDur, slowFactor: 0.45, summary: `範囲倍率 x${mult} / 鈍足 ${slowDur}秒` };
+    }
+    if (sk.type === 'DEF_BUFF') {
+        const defBonus = Math.min(0.45, 0.18 + (lv - 1) * 0.02);
+        const duration = Number((6.0 + (lv - 1) * 0.5).toFixed(1));
+        const invuln = Number((1.2 + (lv - 1) * 0.12).toFixed(1));
+        return { defBonus, duration, invuln, summary: `無敵${invuln}s ＋ 軽減+${Math.round(defBonus * 100)}% (${duration}s)` };
+    }
+    if (sk.type === 'ATK_BUFF') {
+        const atkBonus = 0.25 + (lv - 1) * 0.04;
+        const duration = Number((7.0 + (lv - 1) * 0.5).toFixed(1));
+        return { atkBonus, duration, summary: `攻撃力 +${Math.round(atkBonus * 100)}% (${duration}秒)` };
+    }
+    return { mult, summary: `ダメージ倍率 x${mult}` };
+}
 
-window.TITLES = {
-    title_none:   { id: 'title_none',   name: '称号なし',           bonusText: 'ボーナスなし',          atkPct: 0,    hpPct: 0,    crit: 0 },
-    title_novice: { id: 'title_novice', name: '🌱 駆け出し冒険者',   bonusText: '攻撃+5% / HP+10%',      atkPct: 0.05, hpPct: 0.10, crit: 0.02 },
-    title_hunter: { id: 'title_hunter', name: '⚔️ 百獣の討伐者',    bonusText: '攻撃+15% / 会心+5%',    atkPct: 0.15, hpPct: 0.10, crit: 0.05 },
-    title_boss:   { id: 'title_boss',   name: '👑 魔王を討つ者',     bonusText: '攻撃+22% / HP+20%',     atkPct: 0.22, hpPct: 0.20, crit: 0.06 },
-    title_tower:  { id: 'title_tower',  name: '🗼 試練の踏破者',     bonusText: '攻撃+30% / 会心+10%',   atkPct: 0.30, hpPct: 0.25, crit: 0.10 },
-    title_god:    { id: 'title_god',    name: '🌟 顔文字界の創世神', bonusText: '攻撃+50% / HP+50% / 会心+15%', atkPct: 0.50, hpPct: 0.50, crit: 0.15 }
-};
-
-window.ACHIEVEMENTS = [
-    { id: 'ach_lv5',     name: 'はじめての成長',     desc: 'プレイヤーLv.5に到達',   key: 'lv',             req: 5,  rewardAp: 5,  rewardSp: 2,  titleId: 'title_novice' },
-    { id: 'ach_kill30',  name: 'モンスターハンター', desc: 'モンスターを30体討伐', key: 'kills',          req: 30, rewardAp: 8,  rewardSp: 3,  titleId: 'title_hunter' },
-    { id: 'ach_boss5',   name: '強敵撃破の証',       desc: 'エリアボスを5体討伐',    key: 'bossKills',      req: 5,  rewardAp: 12, rewardSp: 4,  titleId: 'title_boss' },
-    { id: 'ach_tower10', name: '試練の塔 10F突破',   desc: '試練の塔で10階に到達',   key: 'bestTowerFloor', req: 10, rewardAp: 15, rewardSp: 5,  titleId: 'title_tower' },
-    { id: 'ach_lv50',    name: '伝説の英雄',         desc: 'プレイヤーLv.50に到達',  key: 'lv',             req: 50, rewardAp: 30, rewardSp: 10, titleId: 'title_god' }
+const SKILL_TREE_NODES = [
+    { id: 't_might', name: '剛力の極意', icon: '💪', maxLv: 15, desc: '物理・総合攻撃力 +6% / Lv' },
+    { id: 't_arcana', name: '魔導の深淵', icon: '🔮', maxLv: 15, desc: 'スキル魔力＆スキル威力 +8% / Lv' },
+    { id: 't_vital', name: '不屈の生命', icon: '❤️', maxLv: 15, desc: '最大HP +8% ＆ HP自然回復強化 / Lv' },
+    { id: 't_crit', name: '致命の一撃', icon: '💥', maxLv: 15, desc: '会心率 +5% ＆ 会心ダメージ +12% / Lv' },
+    { id: 't_chant', name: '高速詠唱', icon: '⚡', maxLv: 12, desc: 'スキルCT短縮 +5% ＆ MP回復 +10% / Lv' },
+    { id: 't_aegis', name: '聖域の加護', icon: '🛡️', maxLv: 12, desc: '被ダメ軽減 +3% ＆ 回復スキル効果 +8% / Lv' },
+    { id: 't_fortune', name: '黄金の幸運', icon: '💰', maxLv: 15, desc: '獲得EXP＆ゴールド +10% / Lv' },
+    { id: 't_warlord', name: '覇王の器', icon: '👑', maxLv: 10, desc: '全基礎ステータス +5% ＆ CT短縮 +3% / Lv' }
 ];
 
-window.ZONES = {
+const PETS = {
+    pet_slime: { id: 'pet_slime', name: 'ぷるぷる相棒スライム', kaomoji: '(・ω・)💧', color: 0x38bdf8, atkRatio: 0.35, healRatio: 0.06, costGold: 400, costMat: { slime_gel: 5 }, desc: '一緒に戦って少しだけHPを癒やしてくれる' },
+    pet_fox: { id: 'pet_fox', name: 'お稲荷キツネ精霊', kaomoji: '🦊(^・ω・^)', color: 0xfbbf24, atkRatio: 0.55, healRatio: 0.08, mpRestore: 0.08, costGold: 2200, costMat: { ancient_sap: 6, goblin_fang: 3 }, desc: '攻撃支援＋定期的にHPとMPを同時回復！' },
+    pet_dragon: { id: 'pet_dragon', name: '紅蓮のちびドラゴン', kaomoji: '🐉(｀炎ω炎´)', color: 0xf43f5e, atkRatio: 0.95, healRatio: 0.10, costGold: 9500, costMat: { fire_core: 6, ice_crystal: 4 }, desc: '強力なブレス弾で敵を焼き払うアタッカー相棒' },
+    pet_seraph: { id: 'pet_seraph', name: '星界のミニ天使', kaomoji: '👼(*˘︶˘*)✨', color: 0xfde047, atkRatio: 1.35, healRatio: 0.16, mpRestore: 0.15, costGold: 38000, costMat: { abyss_shard: 8, void_star: 4 }, desc: '超高火力支援＆HP/MP大回復の最強パートナー' }
+};
+
+const TITLES = {
+    title_none: { id: 'title_none', name: '称号なし', hp: 0, atk: 0, crit: 0, reward: 0, bonusText: 'ボーナスなし' },
+    title_slayer: { id: 'title_slayer', name: '魔物ハンター', hp: 0.08, atk: 0.10, crit: 0.03, reward: 0.05, bonusText: 'HP+8% / 攻撃+10% / 会心+3%' },
+    title_boss: { id: 'title_boss', name: '巨獣討伐の英雄', hp: 0.15, atk: 0.18, crit: 0.05, reward: 0.12, bonusText: 'HP+15% / 攻撃+18% / 報酬+12%' },
+    title_tower: { id: 'title_tower', name: '試練の塔の制覇者', hp: 0.22, atk: 0.25, crit: 0.08, reward: 0.20, bonusText: 'HP+22% / 攻撃+25% / 会心+8% / 報酬+20%' },
+    title_rebirth: { id: 'title_rebirth', name: '輪廻を超えし神話', hp: 0.35, atk: 0.40, crit: 0.12, reward: 0.35, bonusText: 'HP+35% / 攻撃+40% / 会心+12% / 報酬+35%' }
+};
+
+const ACHIEVEMENTS = [
+    { id: 'ach_kill_30', name: '駆け出し討伐隊', desc: 'モンスターを累計30体討伐', key: 'kills', req: 30, rewardAp: 3, rewardSp: 2, titleId: 'title_slayer' },
+    { id: 'ach_boss_5', name: 'ボスハンター', desc: 'ボスモンスターを累計5体討伐', key: 'bossKills', req: 5, rewardAp: 5, rewardSp: 3, titleId: 'title_boss' },
+    { id: 'ach_tower_10', name: '試練の登頂者', desc: '無限の試練の塔 第10階層到達', key: 'bestTowerFloor', req: 10, rewardAp: 8, rewardSp: 4, titleId: 'title_tower' },
+    { id: 'ach_rebirth_1', name: '極限超越の覚醒者', desc: '極限超越転生を1回達成', key: 'rebirthCount', req: 1, rewardAp: 12, rewardSp: 6, titleId: 'title_rebirth' }
+];
+
+const ZONES = {
     town: {
         id: 'town', stageNum: 0, name: '始まりの顔文字広場', recLv: 1, safe: true,
-        skyColor: 0x0284c7, groundColor: 0x16a34a,
-        desc: '安全街。HP/MPが高速回復し、ワープ陣から各ステージや試練の塔へ出発できます。',
-        monsters: []
-    },
-    meadow: {
-        id: 'meadow', stageNum: 1, name: 'ぷるぷる草原', recLv: 1, safe: false,
-        skyColor: 0x0ea5e9, groundColor: 0x22c55e,
-        desc: '初心者向けの穏やかな草原。スライムやゴブリンが生息しています。',
-        monsters: [
-            { name: 'ぷるスライム',   kaomoji: '(・ω・)',     lv: 1, hp: 55,   atk: 7,   exp: 22,  gold: 18,  color: 0x10b981, scale: 1.0,  count: 6, drop: 'slime_gel' },
-            { name: 'ちびゴブリン',   kaomoji: '(｀皿´)',     lv: 3, hp: 105,  atk: 13,  exp: 38,  gold: 30,  color: 0x84cc16, scale: 1.05, count: 4, drop: 'goblin_fang' },
-            { name: 'キングスライム', kaomoji: '👑(・ω・)',   lv: 6, hp: 440,  atk: 26,  exp: 190, gold: 165, color: 0x059669, scale: 2.0,  count: 1, isBoss: true, drop: 'slime_gel' }
-        ]
+        skyColor: 0x0c4a6e, groundColor: 0x15803d,
+        desc: 'HP・MPが高速回復する平和な拠点。中央のワープ陣から好きなステージへ出発しよう！',
+        drops: [], monsters: []
     },
     forest: {
-        id: 'forest', stageNum: 2, name: '妖精の迷い森', recLv: 6, safe: false,
-        skyColor: 0x065f46, groundColor: 0x14532d,
-        desc: '神秘的な樹海。精霊やトレントから古代樹の霊液が手に入ります。',
+        id: 'forest', stageNum: 1, name: '木漏れ日のスライム草原', recLv: 1, safe: false,
+        skyColor: 0x064e3b, groundColor: 0x166534,
+        desc: '初心者に最適な穏やかな草原。スライムと森の精霊が棲む。',
+        drops: ['slime_gel', 'ancient_sap'],
         monsters: [
-            { name: 'もり精霊',     kaomoji: '(｡･ω･｡)',     lv: 7,  hp: 230,  atk: 25,  exp: 78,  gold: 62,  color: 0x34d399, scale: 1.05, count: 6, drop: 'ancient_sap' },
-            { name: 'おこトレント', kaomoji: '(╬ﾟ皿ﾟ)',     lv: 10, hp: 380,  atk: 35,  exp: 120, gold: 95,  color: 0x92400e, scale: 1.25, count: 4, drop: 'goblin_fang' },
-            { name: '森の守護大樹', kaomoji: '🌳(╬◣д◢)',   lv: 14, hp: 1500, atk: 64,  exp: 540, gold: 460, color: 0x15803d, scale: 2.15, count: 1, isBoss: true, drop: 'ancient_sap' }
+            { name: 'ぷるぷるスライム', kaomoji: '(・ω・)', lv: 1, hp: 65, atk: 9, exp: 32, gold: 28, color: 0x38bdf8, scale: 1.0, count: 4, drop: 'slime_gel' },
+            { name: '森の切り株ゴーレム', kaomoji: '【・皿・】', lv: 4, hp: 145, atk: 16, exp: 68, gold: 55, color: 0x22c55e, scale: 1.25, count: 2, drop: 'ancient_sap' },
+            { name: 'キングスライム', kaomoji: '👑(｀・ω・´)👑', lv: 8, hp: 460, atk: 32, exp: 240, gold: 210, color: 0x0284c7, scale: 1.9, count: 1, isBoss: true, drop: 'ancient_sap' }
         ]
     },
     ruins: {
-        id: 'ruins', stageNum: 3, name: '古代の石像遺跡', recLv: 14, safe: false,
-        skyColor: 0x334155, groundColor: 0x475569,
-        desc: '古代文明の遺構。硬いゴーレムや装甲騎士が徘徊しています。',
+        id: 'ruins', stageNum: 2, name: '古代樹の遺跡回廊', recLv: 10, safe: false,
+        skyColor: 0x1e1b4b, groundColor: 0x3f6212,
+        desc: '古代の魔力が眠る遺跡。ゴブリン戦士と石像兵が徘徊する。',
+        drops: ['ancient_sap', 'goblin_fang'],
         monsters: [
-            { name: '遺跡ゴーレム', kaomoji: '【・_・】',     lv: 15, hp: 700,  atk: 60,  exp: 220,  gold: 180,  color: 0x64748b, scale: 1.2,  count: 6, drop: 'goblin_fang' },
-            { name: '呪いの鎧騎士', kaomoji: '⚔️(◣_◢)',    lv: 19, hp: 1020, atk: 80,  exp: 320,  gold: 260,  color: 0x4f46e5, scale: 1.25, count: 4, drop: 'ancient_sap' },
-            { name: '古代の巨神兵', kaomoji: '🗿꧁(╬◣д◢)꧂', lv: 24, hp: 4400, atk: 145, exp: 1450, gold: 1250, color: 0x38bdf8, scale: 2.25, count: 1, isBoss: true, drop: 'fire_core' }
+            { name: '遺跡ゴブリン', kaomoji: '(▼皿▼#)', lv: 11, hp: 340, atk: 34, exp: 145, gold: 120, color: 0x84cc16, scale: 1.1, count: 4, drop: 'goblin_fang' },
+            { name: '古代ガーディアン', kaomoji: '【╬◣д◢】', lv: 15, hp: 680, atk: 52, exp: 290, gold: 240, color: 0xa855f7, scale: 1.4, count: 2, drop: 'ancient_sap' },
+            { name: '遺跡の覇王オーガ', kaomoji: '👹꧁(╬◣皿◢)꧂', lv: 20, hp: 2100, atk: 95, exp: 950, gold: 820, color: 0xd946ef, scale: 2.1, count: 1, isBoss: true, drop: 'goblin_fang' }
         ]
     },
     volcano: {
-        id: 'volcano', stageNum: 4, name: '灼熱の黒曜火山', recLv: 25, safe: false,
-        skyColor: 0x7f1d1d, groundColor: 0x450a0a,
-        desc: 'マグマが噴き上がる危険地帯。紅蓮の炎核がドロップします。',
+        id: 'volcano', stageNum: 3, name: '紅蓮の灼熱火山', recLv: 22, safe: false,
+        skyColor: 0x450a0a, groundColor: 0x7f1d1d,
+        desc: '溶岩が噴き上げる灼熱地帯。炎の精霊と火竜が待ち受ける。',
+        drops: ['goblin_fang', 'fire_core'],
         monsters: [
-            { name: 'マグマボム',   kaomoji: '🔥(＞＜)',       lv: 26, hp: 2200,  atk: 140, exp: 640,  gold: 540,  color: 0xf97316, scale: 1.15, count: 6, drop: 'fire_core' },
-            { name: 'サラマンダー', kaomoji: '🦎(｀皿´)',     lv: 30, hp: 3200,  atk: 180, exp: 900,  gold: 760,  color: 0xef4444, scale: 1.3,  count: 4, drop: 'fire_core' },
-            { name: '紅蓮の炎帝竜', kaomoji: '🐉꧁(╬◣д◢)꧂', lv: 36, hp: 14000, atk: 330, exp: 4000, gold: 3500, color: 0xdc2626, scale: 2.4,  count: 1, isBoss: true, isRaidBoss: true, drop: 'fire_core' }
+            { name: 'フレイムインプ', kaomoji: '🔥(｀皿´)🔥', lv: 23, hp: 1150, atk: 88, exp: 480, gold: 410, color: 0xf97316, scale: 1.15, count: 4, drop: 'fire_core' },
+            { name: 'マグマゴーレム', kaomoji: '【🔥◣д◢🔥】', lv: 28, hp: 2400, atk: 135, exp: 960, gold: 800, color: 0xef4444, scale: 1.5, count: 2, drop: 'goblin_fang' },
+            { name: '炎獄竜イグニス', kaomoji: '🐉꧁(╬◣д◢)꧂🔥', lv: 34, hp: 7800, atk: 240, exp: 3200, gold: 2800, color: 0xdc2626, scale: 2.25, count: 1, isBoss: true, drop: 'fire_core' }
         ]
     },
     glacier: {
-        id: 'glacier', stageNum: 5, name: '絶界の氷河神殿', recLv: 40, safe: false,
-        skyColor: 0x0c4a6e, groundColor: 0x0369a1,
-        desc: 'すべてが凍てつく極寒の神殿。永久氷晶が眠っています。',
+        id: 'glacier', stageNum: 4, name: '永久凍土の氷結神殿', recLv: 36, safe: false,
+        skyColor: 0x082f49, groundColor: 0x0369a1,
+        desc: 'すべてが凍りつく極寒の神殿。強力な氷晶の魔獣が棲む。',
+        drops: ['fire_core', 'ice_crystal'],
         monsters: [
-            { name: 'ブリザード霊',   kaomoji: '❄️(；・∀・)',     lv: 42, hp: 7000,  atk: 320, exp: 1900,  gold: 1600,  color: 0x7dd3fc, scale: 1.2,  count: 6, drop: 'ice_crystal' },
-            { name: '氷結の死神',     kaomoji: '💀(◣д◢)',       lv: 47, hp: 9800,  atk: 420, exp: 2700,  gold: 2300,  color: 0x38bdf8, scale: 1.35, count: 4, drop: 'ice_crystal' },
-            { name: '絶対零度の氷龍', kaomoji: '❄️🐉꧁(╬◣д◢)꧂', lv: 55, hp: 44000, atk: 760, exp: 12000, gold: 10000, color: 0x0284c7, scale: 2.5,  count: 1, isBoss: true, isRaidBoss: true, drop: 'void_shard' }
+            { name: 'フロストウルフ', kaomoji: '❄️(▼ω▼)❄️', lv: 37, hp: 3600, atk: 210, exp: 1500, gold: 1300, color: 0x38bdf8, scale: 1.2, count: 4, drop: 'ice_crystal' },
+            { name: '氷結の重装騎士', kaomoji: '【❄️｀・ω・´】', lv: 42, hp: 7400, atk: 310, exp: 2900, gold: 2500, color: 0x7dd3fc, scale: 1.55, count: 2, drop: 'fire_core' },
+            { name: '氷帝フェンリル', kaomoji: '🐺❄️꧁(╬◣д◢)꧂', lv: 48, hp: 24000, atk: 540, exp: 9500, gold: 8200, color: 0x0ea5e9, scale: 2.3, count: 1, isBoss: true, isRaidBoss: true, drop: 'ice_crystal' }
         ]
     },
     abyss: {
-        id: 'abyss', stageNum: 6, name: '終焉の星屑深淵', recLv: 60, safe: false,
-        skyColor: 0x1e1b4b, groundColor: 0x090d16,
-        desc: '宇宙の果ての最終決戦エリア。星屑の霊珠を持つ神話級ボスが君臨！',
+        id: 'abyss', stageNum: 5, name: '深淵の魔王城', recLv: 52, safe: false,
+        skyColor: 0x1e0936, groundColor: 0x3b0764,
+        desc: '闇の魔力が渦巻く魔王の居城。大技を放つレイドボスが君臨！',
+        drops: ['ice_crystal', 'abyss_shard'],
         monsters: [
-            { name: '深淵の星喰らい', kaomoji: '🌌(╬◣д◢)',       lv: 65, hp: 25000,  atk: 800,  exp: 6500,  gold: 5600,  color: 0xa855f7, scale: 1.3,  count: 6, drop: 'void_shard' },
-            { name: '虚無の堕天使',   kaomoji: '😈꧁(◣_◢)꧂',     lv: 75, hp: 38000,  atk: 1080, exp: 9500,  gold: 8200,  color: 0xf43f5e, scale: 1.45, count: 4, drop: 'star_fragment' },
-            { name: '創世の終焉魔王', kaomoji: '👑🌌꧁(╬◣д◢)꧂', lv: 90, hp: 165000, atk: 2000, exp: 45000, gold: 38000, color: 0xfde047, scale: 2.75, count: 1, isBoss: true, isRaidBoss: true, drop: 'star_fragment' }
+            { name: 'アビスデーモン', kaomoji: '😈(▼皿▼)😈', lv: 54, hp: 11000, atk: 480, exp: 4500, gold: 3900, color: 0xc084fc, scale: 1.25, count: 4, drop: 'abyss_shard' },
+            { name: '冥界のデスナイト', kaomoji: '💀【╬◣皿◢】', lv: 60, hp: 22000, atk: 690, exp: 8800, gold: 7600, color: 0xa855f7, scale: 1.6, count: 2, drop: 'ice_crystal' },
+            { name: '深淵魔王アザトース', kaomoji: '👑😈꧁(╬◣д◢)꧂', lv: 68, hp: 72000, atk: 1200, exp: 28000, gold: 24000, color: 0xd946ef, scale: 2.45, count: 1, isBoss: true, isRaidBoss: true, drop: 'abyss_shard' }
+        ]
+    },
+    sanctuary: {
+        id: 'sanctuary', stageNum: 6, name: '創世の星界神域', recLv: 72, safe: false,
+        skyColor: 0x172554, groundColor: 0x312e81,
+        desc: '神々が集う最終決戦の聖域。創世の星屑をドロップする最強の領域。',
+        drops: ['abyss_shard', 'void_star'],
+        monsters: [
+            { name: '星界のセラフ兵', kaomoji: '✨(☆皿☆)✨', lv: 74, hp: 34000, atk: 1150, exp: 14000, gold: 12000, color: 0xfde047, scale: 1.3, count: 4, drop: 'void_star' },
+            { name: '次元裁定者', kaomoji: '🌌【✧◣д◢✧】', lv: 82, hp: 68000, atk: 1650, exp: 27000, gold: 23000, color: 0xf472b6, scale: 1.65, count: 2, drop: 'abyss_shard' },
+            { name: '創世神アルテマ', kaomoji: '👑🌟꧁(╬◣д◢)꧂🌟', lv: 92, hp: 220000, atk: 2900, exp: 85000, gold: 75000, color: 0xf59e0b, scale: 2.6, count: 1, isBoss: true, isRaidBoss: true, drop: 'void_star' }
         ]
     }
 };
 
-window.EMOTES = [
-    { id: 'em_wave',   icon: '👋', kaomoji: '(≧▽≦)ﾉｼ',       label: 'やっほー',   msg: 'やっほー！よろしくね！' },
-    { id: 'em_joy',    icon: '🎉', kaomoji: '✧*｡٩(ˊᗜˋ*)و✧*｡', label: 'やったー',   msg: 'やったー！最高！！' },
-    { id: 'em_bow',    icon: '🙇', kaomoji: '(´・ω・`)ペコリ', label: 'ありがとう', msg: 'ありがとうございます！' },
-    { id: 'em_dance',  icon: '💃', kaomoji: '♪(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧', label: 'ダンス',     msg: 'るんるんダンス♪' },
-    { id: 'em_heart',  icon: '💖', kaomoji: '(*˘︶˘*).｡.:*♡', label: 'ハート',     msg: '大好き♡' },
-    { id: 'em_rage',   icon: '💢', kaomoji: '(╯°□°）╯︵ ┻━┻', label: 'ちゃぶ台',   msg: 'うおおお！ちゃぶ台返し！！' },
-    { id: 'em_cry',    icon: '😭', kaomoji: '(´；ω；`)',       label: 'えんえん',   msg: 'えんえん…助けて…' },
-    { id: 'em_dogeza', icon: '🙏', kaomoji: 'orz ごめん！',     label: '土下座',     msg: 'ごめんなさいぃぃ！！' },
-    { id: 'em_faint',  icon: '👻', kaomoji: '(×_×)昇天',       label: '気絶',       msg: 'もうダメ…魂が抜ける…' },
-    { id: 'em_sleep',  icon: '💤', kaomoji: '(－ω－) zzZ',     label: 'おやすみ',   msg: 'ふぁ…眠くなってきた…zzZ' },
-    { id: 'em_salute', icon: '🔥', kaomoji: '(｀・ω・´)ゞ',     label: '敬礼',       msg: '任せろ！全力で行くぞ！' },
-    { id: 'em_dash',   icon: '💨', kaomoji: 'ε=ε=┏( >_<)┛',   label: 'ダッシュ',   msg: '急げ急げーっ！！' }
+const EMOTES = [
+    { id: 'joy', icon: '😆', label: '大喜び', kaomoji: '(≧▽≦)ﾉ', motion: 'jump', msg: 'やったー！！', allyReply: 'おめでとう！(≧▽≦)' },
+    { id: 'love', icon: '😍', label: 'ハート', kaomoji: '(♡ω♡)💕', motion: 'jump', msg: '最高すぎる〜！', allyReply: 'いいね！(♡ω♡)' },
+    { id: 'tableflip', icon: '┻━┻', label: 'ちゃぶ台', kaomoji: '(╯°□°）╯︵ ┻━┻', motion: 'flip', msg: 'うおおおりゃああ！', allyReply: 'わわっ！落ち着いて！' },
+    { id: 'beam', icon: '⚡', label: 'ビーム', kaomoji: '( ・∀・)━☆・*。', motion: 'beam', msg: '顔文字ビーム！！', allyReply: 'すごい光だ！(☆ω☆)' },
+    { id: 'dance', icon: '💃', label: 'ダンス', kaomoji: '♪(┌・。・)┌', motion: 'spin', msg: '踊り明かそう♪', allyReply: 'ノリノリだね♪' },
+    { id: 'victory', icon: '✌️', label: '勝利', kaomoji: 'v(｡･ω･｡)ｨｪｨ♪', motion: 'jump', msg: 'イェイ！大勝利！', allyReply: 'さすが冒険者！' },
+    { id: 'fire', icon: '🔥', label: '燃える', kaomoji: '(｀炎ω炎´)', motion: 'jump', msg: '魂が燃えてきた！', allyReply: '気合十分だね！' },
+    { id: 'flex', icon: '💪', label: 'ムキムキ', kaomoji: 'ᕦ(ò_óˇ)ᕤ', motion: 'shake', msg: '筋肉こそ正義！', allyReply: 'たくましい！(｀・ω・´)' },
+    { id: 'cool', icon: '😎', label: 'キメ顔', kaomoji: '( •̀ω•́ )✧', motion: 'none', msg: 'フッ、余裕だぜ', allyReply: 'かっこいい〜！' },
+    { id: 'dogeza', icon: '🙇', label: '土下座', kaomoji: '＿|￣|○', motion: 'bow', msg: '申し訳ありません！', allyReply: '頭を上げて！(；´Д｀)' },
+    { id: 'cry', icon: '😭', label: '号泣', kaomoji: '(；Д；)', motion: 'shake', msg: 'うええええん！', allyReply: 'よしよし、元気出して！' },
+    { id: 'hello', icon: '👋', label: '挨拶', kaomoji: '(*・ω・)ﾉ', motion: 'jump', msg: 'こんにちはー！', allyReply: 'やあ！今日も頑張ろう！' }
+];
+
+const KAOMOJI_PRESETS = [
+    '(´・ω・`)', '(｀・ω・´)', '(≧▽≦)', '(☆ω☆)', '(╯°□°）╯︵ ┻━┻',
+    '꧁(✧ω✧)꧂', '(^・ω・^)', 'ʕ•ᴥ•ʔ', '(・∀・)━☆', '(*˘︶˘*).｡.:*♡'
 ];
