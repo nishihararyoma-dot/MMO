@@ -1524,21 +1524,21 @@ window.injectGearMenuV7 = injectGearMenuV7;
   installV45Part2();
 
   // 【修正】激重の MutationObserver を廃止し、画面タップ時だけ 0.3秒間隔制限付きで実行
+// 【修正】激重の MutationObserver を廃止し、画面タップ時だけ 0.3秒間隔制限付きで実行
   let _lastGearCheckV7 = 0;
   document.addEventListener('click', () => {
     const now = performance.now();
     if (now - _lastGearCheckV7 < 300) return;
     _lastGearCheckV7 = now;
     setTimeout(() => {
-      injectGearMenuV7();
-      syncDebugHudPillV7();
+      window.injectGearMenuV7?.();
+      window.syncDebugHudPillV7?.();
     }, 50);
   }, true);
 
-  // 本体のデータ準備完了後にHUDだけ同期（フライング起動はしない）
   window.addEventListener('load', () => {
     setTimeout(() => {
-      syncDebugHudPillV7();
+      window.syncDebugHudPillV7?.();
     }, 800);
   });
 })();
