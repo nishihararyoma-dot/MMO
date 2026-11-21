@@ -1,4 +1,4 @@
-// ▼▼▼ ここから【game8.js 完全版 v109】剣増殖バグ完全修正（1本のみ表示・再生成ループ防止）・MP上限成長＆自動回復・剣横振りモーション ▼▼▼
+// ▼▼▼ ここから【game8.js 完全版 v110】左手の剣1本化＆描画直前フック水平横振り・設定内にスキルスタジオ追加・右上オンライン完全消去・MP成長＆自動回復 ▼▼▼
 (() => {
   'use strict';
 
@@ -20,6 +20,7 @@
       #kmj-v45-online-pill, [id*="online-pill"], [class*="online-pill"] {
         display: none !important;
         visibility: hidden !important;
+        opacity: 0 !important;
         pointer-events: none !important;
       }
       #kmj-real-chat-move-bar {
@@ -64,7 +65,7 @@
       }
       #kmj-warp-compass-hud {
         position: fixed;
-        top: 84px;
+        top: 64px;
         right: 12px;
         z-index: 950;
         display: flex;
@@ -107,24 +108,49 @@
     document.head.appendChild(st);
   }
 
+  // =========================================================
+  // 2. 右上の邪魔な「オンライン / 合言葉部屋」バーを永久非表示
+  // =========================================================
   function hideTopRightOnlineBarV8() {
     document.getElementById('kmj-v45-online-pill')?.remove();
     const w = window.innerWidth || 800;
-    document.querySelectorAll('div, span, header, nav').forEach(el => {
-      if (el.id === 'hud' || el.id === 'modal' || el.closest('#modal') || el.closest('#kmj-warp-compass-hud')) return;
+    const allEls = document.querySelectorAll('div, span, header, nav, section, aside');
+    for (let i = 0; i < allEls.length; i++) {
+      const el = allEls[i];
+      if (!el || el.id === 'hud' || el.id === 'modal' || el.closest('#modal') || el.closest('#kmj-warp-compass-hud') || el.closest('#kmj-v9-studio-modal')) continue;
+      if (el.dataset.v8HiddenOnline === '1') continue;
       const txt = (el.textContent || '').trim();
-      if (!txt || txt.length > 52) return;
-      if (txt.includes('合言葉部屋') || /オンライン\s*\(\d+人\)/.test(txt)) {
+      if (!txt || txt.length > 60) continue;
+      if (txt.includes('合言葉部屋') || /オンライン\s*\(\s*\d+\s*人\s*\)/.test(txt) || /^●?\s*オンライン/.test(txt)) {
         const rect = el.getBoundingClientRect();
-        if (rect.width > 0 && rect.height < 68 && rect.right >= w - 360 && rect.top <= 95) {
+        if (rect.width > 0 && rect.height < 85 && rect.right >= w - 420 && rect.top <= 115) {
+          el.dataset.v8HiddenOnline = '1';
           el.style.setProperty('display', 'none', 'important');
+          el.style.setProperty('visibility', 'hidden', 'important');
+          el.style.setProperty('opacity', '0', 'important');
+          el.style.setProperty('pointer-events', 'none', 'important');
         }
       }
+    }
+  }
+
+  // DOM変化を監視して右上のオンラインバーが出現した瞬間に消す
+  if (!window._v8OnlineObserver && typeof MutationObserver !== 'undefined') {
+    window._v8OnlineObserver = new MutationObserver(() => {
+      hideTopRightOnlineBarV8();
     });
+    const startObs = () => {
+      if (document.body) {
+        window._v8OnlineObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+      } else {
+        setTimeout(startObs, 100);
+      }
+    };
+    startObs();
   }
 
   // =========================================================
-  // 2. チャット枠の移動つまみ＆右下リサイズつまみ
+  // 3. チャット枠の移動つまみ＆右下リサイズつまみ
   // =========================================================
   function installChatDragAndResizeHandles() {
     const chatInput = Array.from(document.querySelectorAll('input')).find(inp =>
@@ -253,7 +279,7 @@
   }
 
   // =========================================================
-  // 3. 驚異度999・格上【格上】ラベル
+  // 4. 驚異度999・格上【格上】ラベル
   // =========================================================
   function getThreatRankV8(inst) {
     const d = inst?.saveData || {};
@@ -400,7 +426,7 @@
   }
 
   // =========================================================
-  // 4. 純粋な戦士・剣士・騎士クラス進化ツリー（魔法系・杖系クラス完全消去！）
+  // 5. 純粋な戦士・剣士・騎士クラス進化ツリー（魔法系・杖系完全消去）
   // =========================================================
   const FORBIDDEN_MAGIC_JOB_REGEX = /魔法|魔導|賢者|メイジ|ウィザード|ソーサラー|スペル|アーク|杖|ロッド|スタッフ|spell|mage|wizard|sorcerer|sage|witch|warlock/i;
 
@@ -427,23 +453,188 @@
           for (let i = gObj.length - 1; i >= 0; i--) {
             const item = gObj[i];
             const str = `${item?.id || ''} ${item?.name || ''} ${item?.desc || ''}`;
-            if (FORBIDDEN_MAGIC_JOB_REGEX.test(str)) {
-              gObj.splice(i, 1);
-            }
+            if (FORBIDDEN_MAGIC_JOB_REGEX.test(str)) gObj.splice(i, 1);
           }
         } else if (typeof gObj === 'object') {
           Object.keys(gObj).forEach(k => {
             const item = gObj[k];
             const str = `${k} ${item?.id || ''} ${item?.name || ''} ${item?.desc || ''}`;
-            if (FORBIDDEN_MAGIC_JOB_REGEX.test(str)) {
-              delete gObj[k];
-            }
+            if (FORBIDDEN_MAGIC_JOB_REGEX.test(str)) delete gObj[k];
           });
         }
       } catch (e) {}
     });
   }
 
+  // =========================================================
+  // 6. 【最重要】左手の剣を1本に統合＆グリップ軸で水平横振りするエンジン
+  // =========================================================
+  function enforceSingleLeftSwordAndHorizontalSwing(game) {
+    if (typeof THREE === 'undefined' || !game?.player) return;
+    const player = game.player;
+    const rootObj = player.group || player.mesh;
+    if (!rootObj) return;
+
+    rootObj.updateMatrixWorld?.(true);
+
+    // 体のメイン立方体（BoxGeometry）を探す
+    let bodyMesh = null;
+    let maxBodyVol = 0;
+    rootObj.children.forEach(ch => {
+      if (ch.isMesh && ch.geometry?.type === 'BoxGeometry') {
+        const p = ch.geometry.parameters || {};
+        const v = (p.width || 1) * (p.height || 1) * (p.depth || 1);
+        if (v > maxBodyVol && (p.depth || 0) >= 0.35) {
+          maxBodyVol = v;
+          bodyMesh = ch;
+        }
+      }
+    });
+
+    const bodyX = bodyMesh ? bodyMesh.position.x : 0;
+    const bodyY = bodyMesh ? bodyMesh.position.y : 0.6;
+    const bodyW = bodyMesh ? ((bodyMesh.geometry.parameters?.width || 1) * (bodyMesh.scale?.x || 1)) : 1.0;
+
+    // すでにV8専用ピボットを構築済みかチェック
+    let swingPivot = rootObj.getObjectByName('V8_LEFT_SWORD_PIVOT');
+
+    // ルート直下・配下にあるすべてのメッシュをスキャンして「剣パーツ」と「余分な剣」を仕分け
+    const allMeshes = [];
+    rootObj.traverse(obj => {
+      if (obj.isMesh && obj !== bodyMesh) {
+        allMeshes.push(obj);
+      }
+    });
+
+    // 体の左右（|x - bodyX| > bodyW * 0.35）にあるパーツ群を抽出
+    const sideMeshes = [];
+    allMeshes.forEach(m => {
+      if (m.userData?.isV8SwordPart) return;
+      // 顔パネル・頭の双葉・球体の手（SphereGeometry）は除外
+      if (m.geometry?.type === 'PlaneGeometry' || m.material?.map?.image) return;
+      if (m.geometry?.type === 'SphereGeometry') return;
+
+      // ローカル座標を取得
+      const worldPos = new THREE.Vector3();
+      m.getWorldPosition(worldPos);
+      const localPos = rootObj.worldToLocal(worldPos.clone());
+
+      // 体の横（剣がある側）にあるパーツか？
+      if (Math.abs(localPos.x - bodyX) > bodyW * 0.32) {
+        // 頭の双葉（bodyY + 0.55より上で中心寄り）は除外
+        if (localPos.y > bodyY + 0.55 && Math.abs(localPos.x - bodyX) < bodyW * 0.45) return;
+        sideMeshes.push({ mesh: m, localPos });
+      }
+    });
+
+    if (sideMeshes.length > 0) {
+      // 最も外側（|localPos.x - bodyX| が最大）の刀身メッシュ＝「黄色い鍔＋銀色の刀身のメイン剣」を特定！
+      let bestBlade = null;
+      let bestScore = -1;
+
+      sideMeshes.forEach(item => {
+        const pm = item.mesh.geometry?.parameters || {};
+        const h = (pm.height || pm.length || 0) * (item.mesh.scale?.y || 1);
+        const w = Math.max(pm.width || 0.05, pm.radiusTop || 0.05, pm.radiusBottom || 0.05) * (item.mesh.scale?.x || 1);
+        const outDist = Math.abs(item.localPos.x - bodyX);
+        // 縦長で、より外側にあるパーツ（銀色のメイン刀身）を高スコアにする
+        if (h >= 0.32 && h > w * 1.6) {
+          const score = outDist * 10 + h;
+          if (score > bestScore) {
+            bestScore = score;
+            bestBlade = item;
+          }
+        }
+      });
+
+      if (bestBlade) {
+        // ピボットがまだ無ければ「持ち手（グリップ）の位置」に専用ピボットを作成！
+        if (!swingPivot) {
+          swingPivot = new THREE.Group();
+          swingPivot.name = 'V8_LEFT_SWORD_PIVOT';
+          // 持ち手（鍔の少し下）をピボット原点に設定
+          const gripY = Math.max(0.28, bodyY - 0.12);
+          swingPivot.position.set(bestBlade.localPos.x, gripY, bestBlade.localPos.z);
+          rootObj.add(swingPivot);
+        }
+
+        // メイン剣の近く（半径0.36以内）にあるパーツ（銀刀身・黄色い鍔・柄）だけをピボットへ移籍し、
+        // それより内側にある2本目の剣（茶色い剣など）はすべて非表示にする！
+        sideMeshes.forEach(item => {
+          const m = item.mesh;
+          const distToMain = Math.hypot(
+            item.localPos.x - bestBlade.localPos.x,
+            item.localPos.z - bestBlade.localPos.z
+          );
+
+          if (distToMain <= 0.34) {
+            // メイン剣の構成パーツ（刀身・黄色い鍔・柄）→ ピボットの子として統合！
+            if (m.parent !== swingPivot) {
+              const relX = item.localPos.x - swingPivot.position.x;
+              const relY = item.localPos.y - swingPivot.position.y;
+              const relZ = item.localPos.z - swingPivot.position.z;
+              swingPivot.attach ? swingPivot.attach(m) : swingPivot.add(m);
+              m.position.set(relX, relY, relZ);
+              m.rotation.set(0, 0, 0);
+            }
+            m.visible = true;
+            m.userData.isV8SwordPart = true;
+          } else {
+            // 2本目の重複剣（内側の茶色い剣など）→ 完全に非表示化（削除しないので再生成も起きない）
+            m.visible = false;
+            m.scale.set(0.0001, 0.0001, 0.0001);
+          }
+        });
+      }
+    }
+
+    // 7. ピボット（左手の剣）の水平横振りアニメーションを毎フレーム描画直前に適用！
+    if (swingPivot) {
+      swingPivot.visible = true;
+      const animT = Number(player.attackAnimTimer || 0);
+      const tNow = performance.now() * 0.004;
+
+      if (animT > 0) {
+        // 攻撃中：0.36秒かけて右後方から左前方へ豪快に水平横振り！
+        const prog = 1 - Math.min(1, animT / 0.36);
+        // 刀身を完全に水平（地面と平行）に倒す
+        swingPivot.rotation.x = Math.PI * 0.48;
+        // 左手側から大きく振りかぶって水平に薙ぎ払う（-1.35rad -> +1.55rad）
+        swingPivot.rotation.y = -1.35 + Math.sin(prog * Math.PI * 0.85) * 2.9;
+        swingPivot.rotation.z = -0.15;
+      } else {
+        // 通常待機中：少し前に傾けて構え、呼吸に合わせて滑らかに揺れる（生き生きと動く）
+        swingPivot.rotation.x = 0.34 + Math.sin(tNow) * 0.06;
+        swingPivot.rotation.y = Math.cos(tNow * 0.8) * 0.08;
+        swingPivot.rotation.z = -0.16 + Math.sin(tNow) * 0.04;
+      }
+    }
+  }
+
+  // Three.js の描画直前にフックして、本体側アニメーションに絶対に上書きされないようにする！
+  function hookWebGLRendererRenderV8() {
+    if (typeof THREE === 'undefined' || !THREE.WebGLRenderer) {
+      setTimeout(hookWebGLRendererRenderV8, 100);
+      return;
+    }
+    const RP = THREE.WebGLRenderer.prototype;
+    if (RP._v8RenderHooked) return;
+    RP._v8RenderHooked = true;
+    const origRender = RP.render;
+    RP.render = function (scene, camera, ...rest) {
+      if (window.game) {
+        try {
+          enforceSingleLeftSwordAndHorizontalSwing(window.game);
+        } catch (e) {}
+      }
+      return origRender.call(this, scene, camera, ...rest);
+    };
+  }
+  hookWebGLRendererRenderV8();
+
+  // =========================================================
+  // 7. コア機能インストール
+  // =========================================================
   function installV8Core() {
     if (typeof KaomojiMMORPG === 'undefined') {
       setTimeout(installV8Core, 100);
@@ -458,9 +649,7 @@
     P.alignAvatarFaceStrictly = function () {};
 
     Object.assign(P, {
-      // =========================================================
       // A. 真の最大MP成長（Lv101頭打ち解消）＆ 毎秒スムーズMP自然回復
-      // =========================================================
       updateMpGrowthAndRegenV8(dt = 0.016) {
         const d = this.saveData;
         if (!d) return;
@@ -519,9 +708,7 @@
         this._v8LastSaveMp = curMp;
       },
 
-      // =========================================================
       // B. ワープゾーン一本化
-      // =========================================================
       updateSingleStageWarpAndHudV8() {
         if (!this.scene || !this.player?.pos) return;
 
@@ -610,9 +797,7 @@
         }
       },
 
-      // =========================================================
-      // C. 顔修正 ＋ 剣増殖バグ完全防止（1本のみ表示）＋ 剣の横振りモーション
-      // =========================================================
+      // C. 顔パネル修正＆武器名クリーンアップ
       fixFacesAndWeaponsV8() {
         if (typeof THREE === 'undefined') return;
         const d = this.saveData || {};
@@ -663,95 +848,9 @@
           for (let i = 1; i < oldFaces.length; i++) grp.remove(oldFaces[i]);
         };
 
-        // 剣増殖バグ防止（削除せず1本だけ表示して再生成を防ぐ）＆横振りモーション
-        const processSwordHorizontalSwing = (entity, rootObj) => {
-          if (!rootObj) return;
-          rootObj.updateMatrixWorld?.(true);
-
-          // 1. 武器グループ候補を収集（親子関係がある場合は最上位の武器グループ単位に整理）
-          const rawGroups = [];
-          rootObj.traverse(obj => {
-            if (obj !== rootObj && /sword|weapon|blade|wpn|katana|staff/i.test(obj.name || '')) {
-              rawGroups.push(obj);
-            }
-          });
-          const wpnGroups = rawGroups.filter(g => !rawGroups.some(other => other !== g && other.getObjectById(g.id)));
-
-          if (wpnGroups.length > 0) {
-            wpnGroups.forEach((g, idx) => {
-              const isPrimary = (idx === 0);
-              g.visible = isPrimary;
-              g.traverse(ch => { if (ch.isMesh) ch.visible = isPrimary; });
-            });
-          }
-
-          // 2. 名前のない細長い刀身メッシュも検出し、1本目以外を非表示化
-          const blades = [];
-          rootObj.traverse(obj => {
-            if (!obj.isMesh || !obj.geometry) return;
-            let p = obj.parent;
-            while (p && p !== rootObj) {
-              if (p.visible === false) return;
-              p = p.parent;
-            }
-            const pm = obj.geometry.parameters || {};
-            const h = (pm.height || pm.length || 0) * (obj.scale?.y || 1);
-            const w = Math.max(pm.width || 0.05, pm.radiusTop || 0.05, pm.radiusBottom || 0.05) * (obj.scale?.x || 1);
-            if (h >= 0.45 && h > w * 2.2) {
-              const relX = obj.matrixWorld.elements[12] - rootObj.matrixWorld.elements[12];
-              const relZ = obj.matrixWorld.elements[14] - rootObj.matrixWorld.elements[14];
-              if (Math.hypot(relX, relZ) >= 0.22) {
-                blades.push({
-                  mesh: obj,
-                  distFromCenter: Math.hypot(relX, relZ),
-                  wx: obj.matrixWorld.elements[12],
-                  wz: obj.matrixWorld.elements[14]
-                });
-              }
-            }
-          });
-
-          let primaryBlade = blades[0]?.mesh || null;
-          if (blades.length > 1) {
-            blades.sort((a, b) => a.distFromCenter - b.distFromCenter);
-            primaryBlade = blades[0].mesh;
-            for (let i = 1; i < blades.length; i++) {
-              const dup = blades[i];
-              if (Math.hypot(dup.wx - blades[0].wx, dup.wz - blades[0].wz) >= 0.14) {
-                rootObj.traverse(obj => {
-                  if (!obj.isMesh || obj === primaryBlade) return;
-                  const mx = obj.matrixWorld.elements[12];
-                  const mz = obj.matrixWorld.elements[14];
-                  if (Math.hypot(mx - dup.wx, mz - dup.wz) < 0.18) {
-                    obj.visible = false;
-                  }
-                });
-              }
-            }
-          }
-
-          // 3. 1本目の剣の「横振り（水平スイング）」モーション制御
-          const swingPivot = wpnGroups[0] || primaryBlade;
-          if (swingPivot && entity) {
-            const animT = Number(entity.attackAnimTimer || 0);
-            if (animT > 0) {
-              const prog = 1 - Math.min(1, animT / 0.36);
-              const hSweep = -1.25 + Math.sin(prog * Math.PI * 0.85) * 2.7;
-              swingPivot.rotation.x = Math.PI * 0.44;
-              swingPivot.rotation.y = hSweep;
-              swingPivot.rotation.z = -0.25;
-            } else {
-              swingPivot.rotation.x = 0.22;
-              swingPivot.rotation.y = 0;
-              swingPivot.rotation.z = -0.18;
-            }
-          }
-        };
-
         const pRoot = this.player?.group || this.player?.mesh;
         if (pRoot) {
           fixCube(pRoot, d.kaomoji || d.face || this.player.kaomoji || '(´・ω・`)', '#0f294a', '#38bdf8');
-          processSwordHorizontalSwing(this.player, pRoot);
         }
 
         if (Array.isArray(this.npcs)) {
@@ -790,11 +889,11 @@
           pf.rotation.set(0, 0, 0);
           pf.scale.set(1, 1, 1);
         }
+
+        enforceSingleLeftSwordAndHorizontalSwing(this);
       },
 
-      // =========================================================
       // D. 全14種スキル MP消費（元MP×5 + 1Lv毎+10）
-      // =========================================================
       getSkillDataV8(slotOrSkill = 0) {
         if (window.KMJ_SKILL_FX_V9?.getSkillInfo) {
           return window.KMJ_SKILL_FX_V9.getSkillInfo(this, slotOrSkill);
@@ -845,9 +944,7 @@
         }
       },
 
-      // =========================================================
       // E. 格上1.5倍・全称号＆実績パッシブ・ペット火力・クラス
-      // =========================================================
       normalizeHigherLevelMonstersV8() {
         if (!Array.isArray(this.monsters)) return;
         const pLv = Math.max(1, Number(this.saveData?.lv ?? this.saveData?.level ?? this.player?.lv ?? 1));
@@ -1006,6 +1103,37 @@
           }
         });
 
+        // ★ 「設定」画面 または 「スキル」画面を開いたときに必ずスキル進化スタジオ（試す）＋剣横振りテストを注入！
+        const isSettingsOrSkillModal = (
+          /set|opt|cfg|config|system|skill|magic|art/.test(tab) ||
+          /設定|音量|グラフィック|脅威ランク|セーブ|スキル強化|スキル一覧/.test(txt)
+        );
+        if (isSettingsOrSkillModal && !body.querySelector('#kmj-v8-studio-in-settings')) {
+          const count = window.KMJ_SKILL_FX_V9?.getAll14Skills?.(this)?.length || 14;
+          body.insertAdjacentHTML('afterbegin', `
+            <div id="kmj-v8-studio-in-settings" class="card-box" style="margin-bottom:8px;border:1.5px solid #f472b6;background:rgba(30,27,75,0.96);display:flex;flex-direction:column;gap:6px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                <div>
+                  <div style="font-size:11.5px;font-weight:900;color:#f9a8d4;">🎬 全${count}種スキル 個別進化スタジオ（試す）</div>
+                  <div style="font-size:9.5px;color:#cbd5e1;">全${count}種スキル（Lv.1〜100進化）と左手の剣の横振りモーションをその場で試せます！</div>
+                </div>
+                <button type="button" id="kmj-v8-open-studio-btn" style="background:linear-gradient(90deg,#ec4899,#8b5cf6);border:none;color:#fff;border-radius:7px;padding:7px 11px;font-size:11px;font-weight:900;cursor:pointer;white-space:nowrap;">⚡ スキルを試す</button>
+              </div>
+              <button type="button" id="kmj-v8-test-swing-btn" style="background:#0284c7;border:1px solid #38bdf8;color:#fff;border-radius:6px;padding:5px 8px;font-size:10.5px;font-weight:900;cursor:pointer;">⚔️ 左手の剣・水平横振りモーションをテスト再生</button>
+            </div>
+          `);
+          body.querySelector('#kmj-v8-open-studio-btn').onclick = () => {
+            document.getElementById('modal')?.classList?.add('hidden');
+            window.KMJ_SKILL_FX_V9?.openStudioModal?.(this);
+          };
+          body.querySelector('#kmj-v8-test-swing-btn').onclick = () => {
+            document.getElementById('modal')?.classList?.add('hidden');
+            if (typeof this.triggerAttackVisual === 'function' && this.player) {
+              this.triggerAttackVisual(this.player, false);
+            }
+          };
+        }
+
         if (/stat|evo|job|class/.test(tab)) {
           const cur = this.getCurrentClassV8();
           if (!Array.isArray(d.unlockedClassesClean)) d.unlockedClassesClean = ['novice'];
@@ -1042,8 +1170,6 @@
           });
           body.insertAdjacentHTML('afterbegin', `<div class="card-box" style="margin-bottom:8px;border-color:#fbbf24;background:rgba(30,27,75,0.95);"><b style="color:#fde047;font-size:11.5px;">👑 全称号＆全実績 常時パッシブ発動中（装備不要）</b><div style="font-size:10px;color:#fff;margin-top:2px;">全ステ <b style="color:#4ade80;">+${Math.round(pas.statPct * 100)}%</b> / 最大HP <b style="color:#38bdf8;">+${Math.round(pas.hpPct * 100)}%</b> / 報酬 <b style="color:#fbbf24;">+${Math.round(pas.rewardPct * 100)}%</b></div></div>`);
         }
-
-        window.KMJ_SKILL_FX_V9?.injectSkillPreviewUI?.(this, body, tab);
       };
       P._v8ModalHooked = true;
     }
@@ -1052,6 +1178,7 @@
       const origLoop = P.updateRemotePlayers;
       P.updateRemotePlayers = function (dt) {
         origLoop.call(this, dt);
+        hideTopRightOnlineBarV8();
         this.updateMpGrowthAndRegenV8(dt);
         installChatDragAndResizeHandles();
         this.updateSingleStageWarpAndHudV8();
@@ -1067,6 +1194,7 @@
     setTimeout(() => {
       const g = window.game;
       if (g) {
+        hideTopRightOnlineBarV8();
         purgeGlobalMagicClassesV8();
         g.updateMpGrowthAndRegenV8(0.016);
         installChatDragAndResizeHandles();
@@ -1081,6 +1209,7 @@
   installV8Core();
   document.addEventListener('click', () => {
     setTimeout(() => {
+      hideTopRightOnlineBarV8();
       setupThreatControlsV8();
       purgeGlobalMagicClassesV8();
       window.game?.updateMpGrowthAndRegenV8?.(0.016);
@@ -1089,4 +1218,4 @@
   }, true);
   setTimeout(setupThreatControlsV8, 300);
 })();
-// ▲▲▲ ここまで【game8.js 完全版 v109】 ▲▲▲
+// ▲▲▲ ここまで【game8.js 完全版 v110】 ▲▲▲
