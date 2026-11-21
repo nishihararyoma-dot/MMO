@@ -21,7 +21,7 @@
   });
 
   // ゲームインスタンス取得＆自動生成ヘルパー
-function getOrCreateGameInstance(allowCreate = false) {
+  function getOrCreateGameInstance(allowCreate = false) {
     let inst = window.__kmjInstance || window.game || window.app || window.mmorpg || window.gameInstance;
     if (!inst && allowCreate) {
       const GameClass = (typeof KaomojiMMORPG !== 'undefined') ? KaomojiMMORPG : window.KaomojiMMORPG;
@@ -104,7 +104,7 @@ function getOrCreateGameInstance(allowCreate = false) {
 
   function openUnifiedDebugModalV7() {
     document.getElementById('kmj-v7-debug-modal')?.remove();
-    const g = getOrCreateGameInstance();
+    const g = getOrCreateGameInstance(true);
     if (!isDebugActiveV7(g)) {
       setDebugActiveV7(true, false);
     }
@@ -443,7 +443,24 @@ function getOrCreateGameInstance(allowCreate = false) {
     return inst.saveData;
   }
 
-function unblockTitleOverlay() {
+  function findTitleOverlay() {
+    const byId = document.querySelector('#title-screen, #title-overlay, #start-screen, #login-screen, .title-overlay, .title-screen');
+    if (byId) return byId;
+    const btns = Array.from(document.querySelectorAll('button'));
+    const startBtn = btns.find(b => (b.textContent || '').includes('冒険を始める'));
+    if (!startBtn) return null;
+    let el = startBtn.parentElement;
+    while (el && el !== document.body && el !== document.documentElement) {
+      const st = window.getComputedStyle(el);
+      if (st.position === 'fixed' || st.position === 'absolute' || el.offsetHeight >= window.innerHeight * 0.6) {
+        return el;
+      }
+      el = el.parentElement;
+    }
+    return startBtn.parentElement;
+  }
+
+  function unblockTitleOverlay() {
     const overlay = findTitleOverlay();
     if (overlay) {
       overlay.style.zIndex = '950';
@@ -482,7 +499,7 @@ function unblockTitleOverlay() {
     unblockTitleOverlay();
   }
 
-function launchGameSafely(forceNew = false) {
+  function launchGameSafely(forceNew = false) {
     const inst = getOrCreateGameInstance(true);
     if (!inst) return;
 
@@ -544,7 +561,6 @@ function launchGameSafely(forceNew = false) {
   }
 
   function bindTitleRescueButtons() {
-  function bindTitleRescueButtons() {
     if (window._v7TitleButtonsBound) return;
     window._v7TitleButtonsBound = true;
 
@@ -578,7 +594,7 @@ function launchGameSafely(forceNew = false) {
         const before = txt;
         setTimeout(() => {
           if ((btn.textContent || '').trim() === before) {
-            const inst = getOrCreateGameInstance();
+            const inst = getOrCreateGameInstance(true);
             const nextOnline = before.includes('オフライン');
             if (inst?.saveData) inst.saveData.onlineMode = nextOnline;
             btn.textContent = nextOnline ? '🌐 オンライン' : '📴 オフライン';
@@ -591,7 +607,7 @@ function launchGameSafely(forceNew = false) {
         const before = txt;
         setTimeout(() => {
           if ((btn.textContent || '').trim() === before) {
-            const inst = getOrCreateGameInstance();
+            const inst = getOrCreateGameInstance(true);
             const turnOn = before.includes('OFF');
             if (turnOn) {
               const pass = prompt('合言葉（ルームパスワード）を入力してください：', inst?.saveData?.roomPassword || '');
@@ -795,6 +811,9 @@ function launchGameSafely(forceNew = false) {
 
     KaomojiMMORPG.prototype.installV7Hooks();
   }
+
+  window.injectGearMenuV7 = injectGearMenuV7;
+  window.syncDebugHudPillV7 = syncDebugHudPillV7;
 
   bindTitleRescueButtons();
   setTimeout(markTitleDataReady, 300);
@@ -1228,7 +1247,6 @@ function launchGameSafely(forceNew = false) {
 
   installV45Core();
 })();
-
 // =========================================================
 // 4. 【後編】ペット火力プレイヤー参照化・オンライン復旧・Lv.999クラス選択UI
 // =========================================================
@@ -1537,7 +1555,6 @@ function launchGameSafely(forceNew = false) {
   installV45Part2();
 
   // 【修正】激重の MutationObserver を廃止し、画面タップ時だけ 0.3秒間隔制限付きで実行
-// 【修正】激重の MutationObserver を廃止し、画面タップ時だけ 0.3秒間隔制限付きで実行
   let _lastGearCheckV7 = 0;
   document.addEventListener('click', () => {
     const now = performance.now();
