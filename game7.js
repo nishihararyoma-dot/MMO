@@ -21,16 +21,20 @@
   });
 
   // ゲームインスタンス取得＆自動生成ヘルパー
-// 【修正】本体が作る前に勝手に new KaomojiMMORPG() しない！
-// 【修正】自動では生成せず、ボタンタップ時（allowCreate = true）だけ本体を生成する
-  function getOrCreateGameInstance(allowCreate = false) {
+function getOrCreateGameInstance(allowCreate = false) {
     let inst = window.__kmjInstance || window.game || window.app || window.mmorpg || window.gameInstance;
-    if (!inst && allowCreate && typeof window.KaomojiMMORPG === 'function') {
-      try {
-        inst = new window.KaomojiMMORPG();
-        window.game = inst;
-      } catch (e) {
-        console.error(e);
+    if (!inst && allowCreate) {
+      const GameClass = (typeof KaomojiMMORPG !== 'undefined') ? KaomojiMMORPG : window.KaomojiMMORPG;
+      if (typeof GameClass === 'function') {
+        try {
+          inst = new GameClass();
+          window.game = inst;
+        } catch (e) {
+          console.error(e);
+          alert('起動エラー: ' + (e && e.message ? e.message : e));
+        }
+      } else {
+        alert('エラー: KaomojiMMORPG が見つかりません');
       }
     }
     if (inst) window.__kmjInstance = inst;
