@@ -1323,7 +1323,25 @@
       proto._v8HudWrapped = true;
     }
   }
+// HUD更新（0.4秒以内の連続DOM走査を防止して超軽量化）
+    if (typeof proto.refreshAllHUD === 'function' && !proto._v8HudWrapped) {
+      const origHud = proto.refreshAllHUD;
+      let _lastHudV8 = 0;
+      proto.refreshAllHUD = function (...args) {
+        const res = origHud.apply(this, args);
+        const now = performance.now();
+        if (now - _lastHudV8 < 400) return res;
+        _lastHudV8 = now;
 
+        this.syncAchievementPassiveBuffsV40();
+        ensureThreatRankBarV8(this);
+        enhanceChatWindowV8();
+        renderAchievementPassiveCardV8(this);
+        window.KMJ_SKILL_FX_V9?.syncAllSkills?.(this);
+        return res;
+      };
+      proto._v8HudWrapped = true;
+    }
   installV8Core();
   window.updateMpGrowthAndRegenV8 = function (dt = 0.016) {
     const inst = window.__kmjInstance || window.game;
