@@ -482,9 +482,68 @@ function unblockTitleOverlay() {
     unblockTitleOverlay();
   }
 
-  function launchGameSafely(forceNew = false) {
+function launchGameSafely(forceNew = false) {
     const inst = getOrCreateGameInstance(true);
     if (!inst) return;
+
+    try {
+      if (forceNew) {
+        try {
+          localStorage.removeItem(inst._saveStorageKeyV7 || 'kaomoji_fantasy_3d_save');
+        } catch (e) {}
+        inst.saveData = null;
+      }
+      ensureSaveDataReady(inst);
+
+      const overlay = findTitleOverlay();
+      if (overlay) {
+        overlay.style.display = 'none';
+        overlay.classList.add('hidden');
+      }
+
+      const startMethods = ['startGame', 'beginGame', 'enterWorld', 'enterGame', 'start', 'play'];
+      let started = false;
+      for (const mName of startMethods) {
+        if (typeof inst[mName] === 'function') {
+          inst[mName]();
+          started = true;
+          break;
+        }
+      }
+
+      if (!started || !inst._v7LoopStarted) {
+        if (!inst._initCalledV7 && typeof inst.init === 'function') {
+          inst._initCalledV7 = true;
+          inst.init();
+        }
+        inst.buildPlayerEntity?.();
+        inst.spawnMonsters?.();
+        inst.refreshAllHUD?.();
+
+        if (!inst._loopRunning && !inst._v7LoopStarted && typeof inst.update === 'function') {
+          inst._v7LoopStarted = true;
+          let lastT = performance.now();
+          const tick = (now) => {
+            const dt = Math.min(0.1, Math.max(0.001, (now - lastT) * 0.001));
+            lastT = now;
+            try {
+              inst.update(dt);
+              if (inst.renderer && inst.scene && inst.camera) {
+                inst.renderer.render(inst.scene, inst.camera);
+              }
+            } catch (e) {}
+            requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      alert('ゲーム開始時エラー: ' + (e && e.message ? e.message : e));
+    }
+  }
+
+  function bindTitleRescueButtons() {
   function bindTitleRescueButtons() {
     if (window._v7TitleButtonsBound) return;
     window._v7TitleButtonsBound = true;
