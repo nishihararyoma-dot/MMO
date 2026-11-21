@@ -1808,126 +1808,125 @@
   hookGameV9();
 })();
 // ▲▲▲ ここまで【スキルエフェクト専用 game9.js 3/3】 ▲▲▲
-// ▼▼▼ 強力版パッチ（MP表記、MPズレ、武器バグ、神域イージス） ▼▼▼
+// ▼▼▼ 根幹オーバーライドパッチ（MP完全同期・剣2本バグ撲滅・イージス専用化） ▼▼▼
 (() => {
   'use strict';
   
-  if (typeof KaomojiMMORPG === 'undefined') return;
-  const P = KaomojiMMORPG.prototype;
+  const V9 = window.KMJ_SKILL_FX_V9;
+  if (!V9) return;
 
-  // 1. スキルUIの消費MP表記（定期監視して強制上書き）
-  const enforceSkillUI = () => {
-    if (!window.game || !window.game.skills || !window.game.saveData?.skills) return;
-    const skillCards = document.querySelectorAll('.skill-card');
-    skillCards.forEach(card => {
-      const titleEl = card.querySelector('.skill-title');
-      const mpEl = card.querySelector('.skill-mp');
-      if (!titleEl || !mpEl) return;
-      
-      const baseNameMatch = titleEl.textContent.trim().match(/^([^\sLv]+)/);
-      if (baseNameMatch) {
-        const baseName = baseNameMatch[1];
-        const skillDef = window.game.skills.find(s => s.name.includes(baseName));
-        if (skillDef) {
-          const currentLv = window.game.saveData.skills[skillDef.id] || 0;
-          if (currentLv > 0) {
-            // 新計算式：元のMP × 5 + (Lv - 1) × 10
-            const newMp = (skillDef.mpCost * 5) + (currentLv - 1) * 10;
-            const currentText = mpEl.textContent;
-            const newText = currentText.replace(/消費MP:\s*\d+/, `消費MP: ${newMp}`);
-            if (currentText !== newText) {
-              mpEl.textContent = newText;
+  // 1. イージス専用化 ＆ 聖光の癒し（holy属性）の修復
+  // holy属性は元の「game9.js 2/3」で定義した光柱＆天使の輪エフェクトに戻ります。
+  
+  // イージス専用のシールドエフェクトビルダーを新規追加
+  V9.EFFECT_BUILDERS.aegis_shield = function(root, info, scale) {
+    const tier = info.tier;
+    const shieldGrp = new THREE.Group();
+    shieldGrp.position.set(0, 1.2 * scale, 1.8 * scale); // キャラクターの前方に配置
+    
+    const shieldMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.6 * scale, 1.6 * scale, 0.15 * scale, 8, 1, false, 0, Math.PI),
+      new THREE.MeshBasicMaterial({ color: 0xfde047, transparent: true, opacity: 0.7, side: THREE.DoubleSide, wireframe: tier < 2 })
+    );
+    shieldMesh.rotation.x = Math.PI / 2;
+    shieldGrp.add(shieldMesh);
+    
+    if (tier >= 1) { // 進化したら内側に白い光の盾を追加
+      const innerShield = new THREE.Mesh(
+        new THREE.PlaneGeometry(2.4 * scale, 2.4 * scale),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 })
+      );
+      shieldGrp.add(innerShield);
+    }
+    root.add(shieldGrp);
+    
+    return (p) => {
+      const fade = p > 0.8 ? (1 - p) * 5 : 1;
+      shieldGrp.scale.setScalar(Math.min(1, p * 3));
+      shieldGrp.children.forEach(c => {
+         if(c.material) c.material.opacity = fade * (c === shieldMesh ? 0.7 : 0.9);
+      });
+    };
+  };
+
+  // 実行直前にスキル名をチェックし、「イージス」が含まれていれば専用エフェクトにすり替える
+  const origGetSkillInfo = V9.getSkillInfo;
+  V9.getSkillInfo = function(game, slotIdx) {
+    const info = origGetSkillInfo(game, slotIdx);
+    if (info && info.origName && (info.origName.includes('イージス') || info.origName.includes('神域'))) {
+       info.theme.id = 'aegis_shield'; // 強制的に専用エフェクトを適用
+       // 進化段階に合わせて名前も盾っぽく変更
+       const tierNames = ["神域イージス", "絶対防壁【聖盾】", "神聖城郭【アイギス】", "🌈 創世神盾【神域イージス・ゼロ】"];
+       info.evolvedName = tierNames[info.tier] || tierNames[0];
+    }
+    return info;
+  };
+
+
+  // 2. MP表記と剣2本バグの「常時監視ループ」（非同期ロード対策）
+  setInterval(() => {
+    const game = window.game;
+    if (!game) return;
+
+    // --- A. 左上プレイヤーMPの強制上書き ---
+    if (game.player && game.player.mp !== undefined) {
+      const mpTextEl = document.getElementById('player-mp-text') || document.querySelector('.player-mp-text');
+      if (mpTextEl) {
+         const expectedText = `${Math.floor(game.player.mp)} / ${game.player.maxMp}`;
+         if (mpTextEl.textContent !== expectedText) {
+            mpTextEl.textContent = expectedText;
+         }
+      }
+    }
+
+    // --- B. スキルUIの消費MP表記と実際の消費MPを強制上書き ---
+    if (game.skills && game.saveData && game.saveData.skills) {
+      document.querySelectorAll('.skill-card').forEach(card => {
+        const titleEl = card.querySelector('.skill-title');
+        const mpEl = card.querySelector('.skill-mp');
+        if (!titleEl || !mpEl) return;
+        
+        const baseNameMatch = titleEl.textContent.trim().match(/^([^\sLv]+)/);
+        if (baseNameMatch) {
+          const baseName = baseNameMatch[1];
+          const skillDef = game.skills.find(s => s.name.includes(baseName));
+          if (skillDef) {
+            const currentLv = game.saveData.skills[skillDef.id] || 0;
+            if (currentLv > 0) {
+              // 新計算式（元MP×5 ＋ (Lv-1)×10）
+              const newMp = (skillDef.mpCost * 5) + (currentLv - 1) * 10;
+              
+              // 実際のゲーム内データも書き換える（実際の消費量を同期）
+              if (skillDef.currentMpCost !== newMp) {
+                skillDef.currentMpCost = newMp;
+              }
+
+              // 画像[cite: 3] の「消費MP: ◯ / CT: ◯s」の形式を維持して置換
+              const currentText = mpEl.textContent;
+              const updatedText = currentText.replace(/消費MP:\s*\d+/, `消費MP:${newMp}`);
+              if (currentText !== updatedText) {
+                mpEl.textContent = updatedText;
+              }
             }
           }
         }
-      }
-    });
-  };
-  // 1秒ごとにUIの表記ズレを監視・修正
-  setInterval(enforceSkillUI, 1000);
-
-  // 2. プレイヤーの左上MP表記のズレを修正（コア関数をフック）
-  const origUpdatePlayerStatus = P.updatePlayerStatus;
-  P.updatePlayerStatus = function() {
-    if (typeof origUpdatePlayerStatus === 'function') origUpdatePlayerStatus.call(this);
-    if (this.player && this.player.mp !== undefined) {
-      const mpEls = document.querySelectorAll('.player-mp-text, #player-mp-text'); // 該当しそうなクラスとID両方探す
-      mpEls.forEach(el => {
-        el.textContent = `${Math.floor(this.player.mp)} / ${this.player.maxMp}`;
       });
     }
-  };
 
-  // 3. 剣2本持ちバグの修正（メッシュのクリーンアップを徹底）
-  const origEquipWeapon = P.updatePlayerWeapon;
-  P.updatePlayerWeapon = function() {
-    if (this.player && this.player.mesh) {
-      // 武器っぽい名前のオブジェクトを徹底的に探して消す
-      const toRemove = [];
-      this.player.mesh.children.forEach(child => {
-        if (child.name === 'weapon_group' || child.name.includes('weapon') || child.name.includes('sword')) {
-          toRemove.push(child);
+    // --- C. 剣2本持ちバグの監視・自動削除 ---
+    if (game.player && game.player.mesh) {
+      // 武器モデル（weapon_group 等）を探す
+      const weapons = game.player.mesh.children.filter(c => c.name === 'weapon_group' || (c.name && c.name.includes('weapon')));
+      if (weapons.length > 1) {
+        // 複数存在する場合は、最後に追加されたもの（最新の武器）だけ残して他を消す
+        for (let i = 0; i < weapons.length - 1; i++) {
+          game.player.mesh.remove(weapons[i]);
+          if (weapons[i].geometry) weapons[i].geometry.dispose();
+          if (weapons[i].material) weapons[i].material.dispose();
         }
-      });
-      toRemove.forEach(w => {
-        this.player.mesh.remove(w);
-        if (w.geometry) w.geometry.dispose();
-        if (w.material) w.material.dispose();
-      });
-    }
-    if (typeof origEquipWeapon === 'function') origEquipWeapon.call(this);
-  };
-
-  // 4. 神域イージスを「防御・盾」特化に変更
-  const initAegis = setInterval(() => {
-    const V9 = window.KMJ_SKILL_FX_V9;
-    if (V9 && V9.ATTRIBUTES) {
-      const holyAttr = V9.ATTRIBUTES.find(a => a.id === 'holy');
-      if (holyAttr) {
-        holyAttr.names = (base) => [
-          base,
-          "絶対防壁【聖盾】",
-          "神聖城郭【アイギス】",
-          "🌈 創世神盾【神域イージス・ゼロ】"
-        ];
       }
-      
-      if (V9.EFFECT_BUILDERS) {
-        V9.EFFECT_BUILDERS.holy = function (root, info, scale) {
-          const tier = info.tier;
-          const shieldGrp = new THREE.Group();
-          // キャラクターの少し前に展開
-          shieldGrp.position.set(0, 1.2 * scale, 1.8 * scale);
-          
-          const shieldMesh = new THREE.Mesh(
-            new THREE.CylinderGeometry(1.6 * scale, 1.6 * scale, 0.15 * scale, 8, 1, false, 0, Math.PI),
-            new THREE.MeshBasicMaterial({ color: 0xfde047, transparent: true, opacity: 0.7, side: THREE.DoubleSide, wireframe: tier < 2 })
-          );
-          shieldMesh.rotation.x = Math.PI / 2;
-          shieldGrp.add(shieldMesh);
-          
-          if (tier >= 1) {
-            const innerShield = new THREE.Mesh(
-              new THREE.PlaneGeometry(2.4 * scale, 2.4 * scale),
-              new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 })
-            );
-            shieldGrp.add(innerShield);
-          }
-          
-          root.add(shieldGrp);
-          
-          return (p, elapsed) => {
-            const fade = p > 0.8 ? (1 - p) * 5 : 1;
-            shieldGrp.scale.setScalar(Math.min(1, p * 3));
-            shieldGrp.children.forEach(c => {
-               if(c.material) c.material.opacity = fade * (c === shieldMesh ? 0.7 : 0.9);
-            });
-          };
-        };
-      }
-      clearInterval(initAegis); // 設定できたら監視終了
     }
-  }, 500);
+  }, 200); // 0.2秒ごとに監視して自動修正（動作は非常に軽く負荷はかかりません）
 
 })();
-// ▲▲▲ 強力版パッチ ここまで ▲▲▲
+// ▲▲▲ 根幹オーバーライドパッチ ここまで ▲▲▲
