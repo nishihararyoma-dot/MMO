@@ -1,4 +1,4 @@
-// ▼▼▼ ここから【game8.js 完全版 v111】左手の剣1本確実生成＆水平横振り・魔法スタジオのデバッグ限定化・ステージ選択ボタン削除・右上オンライン完全消去 ▼▼▼
+// ▼▼▼ ここから【game8.js 完全版 v112】剣の水平横振りモーション・武器グレード別(★1〜★6)豪華3D剣＆斬撃エフェクト・デバッグモード切替 ▼▼▼
 (() => {
   'use strict';
 
@@ -11,7 +11,7 @@
   } catch (e) {}
 
   // =========================================================
-  // 1. スタイル定義（チャットつまみ・デバッグ限定スタジオボタン）
+  // 1. スタイル定義
   // =========================================================
   if (!document.getElementById('kmj-v8-ui-style')) {
     const st = document.createElement('style');
@@ -92,7 +92,7 @@
   }
 
   // =========================================================
-  // 2. デバッグモード判定（魔法スタジオをデバッグ限定にする）
+  // 2. デバッグモード管理（設定画面のボタン or 左上5回タップで切替）
   // =========================================================
   function isDebugModeActiveV8(game) {
     if (!game) game = window.game;
@@ -102,14 +102,40 @@
       if (localStorage.getItem('kmj_debug_mode') === '1') return true;
       if (/[?&]debug=1/i.test(window.location.search || '')) return true;
     } catch (e) {}
-
-    const modal = document.getElementById('modal');
-    if (modal && !modal.classList.contains('hidden')) {
-      const mTxt = modal.textContent || '';
-      if (/デバッグ|無敵モード|LvMAX|ゴールド追加|デバッグメニュー/.test(mTxt)) return true;
-    }
     return false;
   }
+
+  function setDebugModeActiveV8(enabled) {
+    const val = !!enabled;
+    window._kmjDebugUnlocked = val;
+    window.DEBUG_MODE = val;
+    if (window.game) {
+      window.game._debugInfiniteMode = val;
+      window.game.debugMode = val;
+    }
+    try {
+      if (val) localStorage.setItem('kmj_debug_mode', '1');
+      else localStorage.removeItem('kmj_debug_mode');
+    } catch (e) {}
+    window.game?.updateSingleStageWarpAndHudV8?.();
+    window.game?.showAlertBanner?.(val ? '🛠️ デバッグモード ON（魔法スタジオ解放）' : '🛠️ デバッグモード OFF', 1800);
+  }
+
+  // 左上ステータス欄の5回連続タップでもデバッグ切替可能にする
+  let _topLeftTapCount = 0;
+  let _topLeftLastTap = 0;
+  document.addEventListener('click', (e) => {
+    if (e.clientX < 240 && e.clientY < 110) {
+      const now = performance.now();
+      if (now - _topLeftLastTap < 650) _topLeftTapCount++;
+      else _topLeftTapCount = 1;
+      _topLeftLastTap = now;
+      if (_topLeftTapCount >= 5) {
+        _topLeftTapCount = 0;
+        setDebugModeActiveV8(!isDebugModeActiveV8(window.game));
+      }
+    }
+  }, true);
 
   // =========================================================
   // 3. 右上の邪魔な「オンライン / 合言葉部屋」バーを永久非表示
@@ -469,48 +495,545 @@
   }
 
   // =========================================================
-  // 7. 【完全修正】左手の剣を1本だけ確実に構築＆水平横振りするエンジン
+  // 7. 装備武器＆グレード（★1〜★6）完全特定エンジン
   // =========================================================
-  function getWeaponVisualColorsV8(game) {
+  function getEquippedWeaponProfileV8(game) {
     const d = game?.saveData || {};
     let wpnObj = null;
     let wpnIdx = 0;
+
     let wList = [];
     if (typeof WEAPONS !== 'undefined' && WEAPONS) {
       wList = (Array.isArray(WEAPONS) ? WEAPONS : Object.values(WEAPONS)).filter(w => w && typeof w === 'object');
     }
-    const rawId = d.equippedWeapon ?? d.weaponId ?? d.weapon ?? d.equip?.weapon;
-    if (rawId && typeof rawId === 'object') {
-      wpnObj = rawId;
-    } else if (rawId !== undefined && rawId !== null && wList.length > 0) {
-      const idx = wList.findIndex(w => String(w.id) === String(rawId) || String(w.name) === String(rawId));
-      if (idx >= 0) { wpnObj = wList[idx]; wpnIdx = idx; }
-      else if (typeof rawId === 'number' && wList[rawId]) { wpnObj = wList[rawId]; wpnIdx = rawId; }
+
+    // 1. 本体メソッドから取得
+    if (typeof game?.getEquippedWeapon === 'function') {
+      try { wpnObj = game.getEquippedWeapon(); } catch (e) {}
+    } else if (typeof game?.getCurrentWeapon === 'function') {
+      try { wpnObj = game.getCurrentWeapon(); } catch (e) {}
     }
-    if (!wpnObj && wList.length > 0) wpnObj = wList[0];
 
-    const name = String(wpnObj?.name || d.weaponName || '');
-    const key = `${name}|${wpnIdx}`;
+    // 2. saveDataのあらゆる候補キーから探索
+    if (!wpnObj) {
+      const candidateKeys = [
+        d.equippedWeapon, d.equipWeapon, d.weaponId, d.weapon,
+        d.curWeapon, d.activeWeapon, d.eqWeapon, d.selectedWeapon,
+        d.equip?.weapon, d.equipment?.weapon,
+        game?.player?.weaponId, game?.player?.weapon,
+        game?._v8LastEquippedWeaponId
+      ];
+      for (const rawId of candidateKeys) {
+        if (rawId === undefined || rawId === null || rawId === '') continue;
+        if (typeof rawId === 'object') {
+          wpnObj = rawId;
+          break;
+        }
+        if (wList.length > 0) {
+          const idx = wList.findIndex(w =>
+            String(w.id) === String(rawId) ||
+            String(w.weaponId) === String(rawId) ||
+            String(w.name) === String(rawId)
+          );
+          if (idx >= 0) {
+            wpnObj = wList[idx];
+            wpnIdx = idx;
+            break;
+          }
+          if (typeof rawId === 'number' && wList[rawId]) {
+            wpnObj = wList[rawId];
+            wpnIdx = rawId;
+            break;
+          }
+        }
+      }
+    }
 
-    if (/炎|火|紅蓮|ブレイズ|太陽/i.test(name)) return { key, blade: 0xf87171, edge: 0xfef08a, guard: 0xf59e0b, len: 1.25 };
-    if (/氷|吹雪|零度|アイス/i.test(name)) return { key, blade: 0x7dd3fc, edge: 0xffffff, guard: 0x38bdf8, len: 1.25 };
-    if (/雷|電|サンダー|紫電/i.test(name)) return { key, blade: 0xfde047, edge: 0xffffff, guard: 0xa855f7, len: 1.28 };
-    if (/風|嵐|疾風|翠嵐/i.test(name)) return { key, blade: 0x6ee7b7, edge: 0xffffff, guard: 0x10b981, len: 1.25 };
-    if (/闇|黒|ダーク|アビス|魔剣/i.test(name)) return { key, blade: 0xc084fc, edge: 0xf43f5e, guard: 0x312e81, len: 1.32 };
-    if (/聖|黄金|エクスカリバー|神|創世/i.test(name)) return { key, blade: 0xfef08a, edge: 0xffffff, guard: 0xf59e0b, len: 1.38 };
-    if (wpnIdx >= 3) return { key, blade: 0x93c5fd, edge: 0xffffff, guard: 0xfacc15, len: 1.22 };
-    return { key, blade: 0xcbd5e1, edge: 0xf8fafc, guard: 0xfacc15, len: 1.12 };
+    // 3. 所持武器リストの equipped フラグからも探索
+    if (!wpnObj) {
+      const invSources = [d.weapons, d.ownedWeapons, d.inventory, d.bag];
+      for (const src of invSources) {
+        if (Array.isArray(src)) {
+          const eq = src.find(it => it && (it.equipped || it.isEquipped || it.selected));
+          if (eq) { wpnObj = eq; break; }
+        }
+      }
+    }
+
+    if (wpnObj && wList.length > 0) {
+      const foundIdx = wList.findIndex(w => w === wpnObj || String(w.id) === String(wpnObj.id) || String(w.name) === String(wpnObj.name));
+      if (foundIdx >= 0) wpnIdx = foundIdx;
+    }
+
+    if (!wpnObj && wList.length > 0) {
+      wpnObj = wList[0];
+      wpnIdx = 0;
+    }
+
+    const wName = String(wpnObj?.name || d.weaponName || game?._v8LastEquippedWeaponName || '見習いの剣');
+    const wDesc = String(wpnObj?.desc || wpnObj?.description || '');
+    const rar = String(wpnObj?.rarity || wpnObj?.rank || wpnObj?.grade || '').toUpperCase();
+    const atkVal = Number(wpnObj?.atk ?? wpnObj?.attack ?? wpnObj?.power ?? 0);
+    const plusLv = Number(d.weaponPlus ?? d.weaponEnhance ?? wpnObj?.plus ?? wpnObj?.lv ?? 0);
+    const search = `${wName} ${wDesc} ${rar} ${wpnObj?.attr || wpnObj?.element || ''}`;
+
+    // グレード（0〜5の6段階：★1〜★6）を判定
+    let grade = 0;
+    if (/LR|MYTH|GOD|神話|創世|アルティメット/.test(rar) || /創世|神話|エクスカリバー|ラグナロク|アルティメット|天叢雲|神剣/.test(wName)) {
+      grade = 5;
+    } else if (/UR|LEGEND|伝説|覇王|天帝/.test(rar) || /覇王|天帝|虚空|聖剣|竜王|カオス/.test(wName) || atkVal >= 800) {
+      grade = 4;
+    } else if (/SSR|EPIC|英雄/.test(rar) || /英雄|魔剣|竜|ドラゴン|雷神|氷帝|炎帝|オリハルコン/.test(wName) || atkVal >= 350) {
+      grade = 3;
+    } else if (/SR|RARE|名剣|騎士/.test(rar) || /ミスリル|プラチナ|騎士|名剣|炎|氷|雷|風/.test(wName) || atkVal >= 120) {
+      grade = 2;
+    } else if (/R|UNCOMMON/.test(rar) || /鋼|アイアン|鉄|シルバー|銀|大剣|ロング/.test(wName) || atkVal >= 35) {
+      grade = 1;
+    } else if (wList.length > 1 && wpnIdx > 0) {
+      grade = Math.min(5, Math.floor((wpnIdx / Math.max(1, wList.length - 1)) * 5.4));
+    }
+
+    if (plusLv >= 50) grade = 5;
+    else if (plusLv >= 30) grade = Math.max(grade, 4);
+    else if (plusLv >= 15) grade = Math.max(grade, 3);
+    else if (plusLv >= 5) grade = Math.max(grade, 2);
+
+    // 属性・カラーテーマ決定
+    let colors = { c1: 0x94a3b8, c2: 0xf8fafc, c3: 0xb45309, guard: 0xd97706, aura: 0x38bdf8, shape: 'octa' };
+    if (grade === 1) {
+      colors = { c1: 0xcbd5e1, c2: 0xffffff, c3: 0x38bdf8, guard: 0xfacc15, aura: 0x38bdf8, shape: 'octa' };
+    } else if (grade >= 2) {
+      colors = { c1: 0x60a5fa, c2: 0xffffff, c3: 0x38bdf8, guard: 0xfbbf24, aura: 0x60a5fa, shape: 'octa' };
+    }
+
+    if (/炎|火|紅蓮|ブレイズ|フレア|イフリート|太陽|fire|flame|blaze/i.test(search)) {
+      colors = { c1: 0xef4444, c2: 0xfef08a, c3: 0xf97316, guard: 0xf59e0b, aura: 0xf97316, shape: 'tetra' };
+    } else if (/氷|吹雪|零度|アイス|フロスト|ice|frost|freeze/i.test(search)) {
+      colors = { c1: 0x38bdf8, c2: 0xffffff, c3: 0x818cf8, guard: 0xe0f2fe, aura: 0x38bdf8, shape: 'octa' };
+    } else if (/雷|電|サンダー|紫電|ライトニング|thunder|volt|lightning/i.test(search)) {
+      colors = { c1: 0xfacc15, c2: 0xffffff, c3: 0xa855f7, guard: 0xfde047, aura: 0xa855f7, shape: 'tetra' };
+    } else if (/風|嵐|疾風|翠嵐|ウィンド|テンペスト|wind|storm/i.test(search)) {
+      colors = { c1: 0x10b981, c2: 0xecfdf5, c3: 0xfde047, guard: 0x34d399, aura: 0x34d399, shape: 'octa' };
+    } else if (/聖|光|黄金|パラディン|エクスカリバー|天照|holy|light|gold/i.test(search)) {
+      colors = { c1: 0xfacc15, c2: 0xffffff, c3: 0xf59e0b, guard: 0xfef08a, aura: 0xfde047, shape: 'octa' };
+    } else if (/闇|黒|ダーク|アビス|虚空|ラグナロク|魔剣|dark|void|abyss/i.test(search)) {
+      colors = { c1: 0x9333ea, c2: 0xf43f5e, c3: 0x38bdf8, guard: 0x4c1d95, aura: 0xc084fc, shape: 'dodeca' };
+    } else if (/竜|ドラゴン|ドラグーン|dragon/i.test(search)) {
+      colors = { c1: 0xdc2626, c2: 0xfde047, c3: 0xf97316, guard: 0xfbbf24, aura: 0xef4444, shape: 'tetra' };
+    } else if (grade >= 5) {
+      colors = { c1: 0xf472b6, c2: 0xffffff, c3: 0xfde047, guard: 0xfef08a, aura: 0x38bdf8, shape: 'octa' };
+    }
+
+    const gradeTitles = [
+      '★1 ブロンズ級',
+      '★2 スチール級',
+      '★3 騎士魔剣級',
+      '★4 英雄聖剣級',
+      '★5 覇王天帝級',
+      '★6 創世神話級'
+    ];
+    const key = `${wName}|${wpnIdx}|g${grade}|p${plusLv}`;
+
+    return {
+      key,
+      wName,
+      grade,
+      gradeTitle: gradeTitles[grade] || gradeTitles[0],
+      plusLv,
+      colors
+    };
   }
 
+  // =========================================================
+  // 8. グレード別（★1〜★6）豪華3D剣ビルダー＆水平横振りアニメーション
+  // =========================================================
+  function buildGradeSwordGroupV8(profile) {
+    const { key, grade, colors } = profile;
+    const pivot = new THREE.Group();
+    pivot.name = 'V8_LEFT_SWORD_PIVOT';
+    pivot.userData = { wpnKey: key, grade, auraRings: [], bitSwords: [] };
+
+    const addPart = (mesh) => {
+      mesh.userData.isV8SwordPart = true;
+      mesh.visible = true;
+      pivot.add(mesh);
+      return mesh;
+    };
+
+    const bladeLen = 1.05 + grade * 0.17;
+    const bladeW = 0.15 + grade * 0.025;
+    const guardW = 0.36 + grade * 0.09;
+
+    // 1. グリップ（持ち手：原点 0,0,0 が回転軸）
+    const handle = addPart(new THREE.Mesh(
+      new THREE.BoxGeometry(0.10, 0.34, 0.10),
+      new THREE.MeshBasicMaterial({ color: 0x451a03 })
+    ));
+    handle.position.set(0, 0.02, 0);
+
+    // 2. 柄頭（ポンメル）
+    const pommel = addPart(new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.09 + grade * 0.015, 0),
+      new THREE.MeshBasicMaterial({ color: colors.guard })
+    ));
+    pommel.position.set(0, -0.17, 0);
+
+    // 3. クロスガード（鍔：グレードが高いほど翼状に豪華になる）
+    const guardMain = addPart(new THREE.Mesh(
+      new THREE.BoxGeometry(guardW, 0.10 + grade * 0.015, 0.17 + grade * 0.02),
+      new THREE.MeshBasicMaterial({ color: colors.guard })
+    ));
+    guardMain.position.set(0, 0.21, 0);
+
+    if (grade >= 2) {
+      // 翼型サイドガード
+      [-1, 1].forEach(side => {
+        const wing = addPart(new THREE.Mesh(
+          new THREE.BoxGeometry(0.18 + grade * 0.03, 0.22 + grade * 0.04, 0.12),
+          new THREE.MeshBasicMaterial({ color: colors.c3 })
+        ));
+        wing.position.set(side * (guardW * 0.52), 0.27, 0);
+        wing.rotation.z = -side * 0.42;
+      });
+    }
+
+    // ガード中央の輝石コア（★2以上）
+    if (grade >= 1) {
+      const gem = addPart(new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.08 + grade * 0.02, 0),
+        new THREE.MeshBasicMaterial({ color: colors.c2 })
+      ));
+      gem.position.set(0, 0.21, 0.09);
+    }
+
+    // 4. メイン刀身
+    const blade = addPart(new THREE.Mesh(
+      new THREE.BoxGeometry(bladeW, bladeLen, 0.055),
+      new THREE.MeshBasicMaterial({ color: colors.c1 })
+    ));
+    blade.position.set(0, 0.25 + bladeLen * 0.5, 0);
+
+    // 5. 刀身センターの輝きコアライン
+    const coreLine = addPart(new THREE.Mesh(
+      new THREE.BoxGeometry(bladeW * 0.42, bladeLen * 0.96, 0.072),
+      new THREE.MeshBasicMaterial({ color: colors.c2 })
+    ));
+    coreLine.position.set(0, 0.25 + bladeLen * 0.5, 0);
+
+    // 6. 両サイドのエネルギーブレード（★4以上）
+    if (grade >= 3) {
+      [-1, 1].forEach(side => {
+        const sideEdge = addPart(new THREE.Mesh(
+          new THREE.BoxGeometry(0.055, bladeLen * 0.85, 0.035),
+          new THREE.MeshBasicMaterial({ color: colors.c3 })
+        ));
+        sideEdge.position.set(side * (bladeW * 0.68), 0.25 + bladeLen * 0.46, 0);
+      });
+    }
+
+    // 7. 切っ先（尖った先端）
+    const tip = addPart(new THREE.Mesh(
+      new THREE.ConeGeometry(bladeW * 0.72, 0.24 + grade * 0.03, 4),
+      new THREE.MeshBasicMaterial({ color: colors.c2 })
+    ));
+    tip.rotation.y = Math.PI * 0.25;
+    tip.position.set(0, 0.25 + bladeLen + (0.11 + grade * 0.015), 0);
+
+    // 8. 刀身を囲む回転オーラリング（★4〜★6）
+    if (grade >= 3) {
+      const ringCnt = grade >= 5 ? 2 : 1;
+      for (let r = 0; r < ringCnt; r++) {
+        const ring = addPart(new THREE.Mesh(
+          new THREE.TorusGeometry((0.24 + r * 0.11), 0.024, 8, 24),
+          new THREE.MeshBasicMaterial({ color: r === 0 ? colors.aura : colors.c2 })
+        ));
+        ring.rotation.x = Math.PI / 2;
+        ring.position.set(0, 0.42 + r * (bladeLen * 0.45), 0);
+        pivot.userData.auraRings.push({ mesh: ring, spd: (r === 0 ? 5 : -6) });
+      }
+    }
+
+    // 9. 浮遊する2本の連動ミニ光剣ビット（★6 創世神話級限定！）
+    if (grade >= 5) {
+      [-1, 1].forEach((side, idx) => {
+        const bit = addPart(new THREE.Mesh(
+          new THREE.BoxGeometry(0.065, 0.78, 0.03),
+          new THREE.MeshBasicMaterial({ color: idx === 0 ? 0xf472b6 : 0x38bdf8 })
+        ));
+        bit.position.set(side * 0.36, 0.72, -0.05);
+        pivot.userData.bitSwords.push({ mesh: bit, side, baseY: 0.72 });
+      });
+    }
+
+    return pivot;
+  }
+
+  // =========================================================
+  // 9. 剣を振った瞬間のグレード連動3D斬撃エフェクト！
+  // =========================================================
+  const _activeSlashFxV8 = [];
+  let _lastSlashTimeV8 = 0;
+
+  function spawnSwordSlashFxV8(game, entity, profile, swingDir = 1) {
+    if (!game?.scene || !entity?.pos || typeof THREE === 'undefined') return;
+    const now = performance.now();
+    if (now - _lastSlashTimeV8 < 110) return;
+    _lastSlashTimeV8 = now;
+
+    if (!profile) profile = getEquippedWeaponProfileV8(game);
+    const { grade, colors } = profile;
+    const { c1, c2, c3, shape } = colors;
+    const sc = 1.0 + grade * 0.25;
+    const rainbow = [0xf472b6, 0x38bdf8, 0xfde047, 0x34d399, 0xa855f7, 0xf97316];
+
+    const root = new THREE.Group();
+    root.position.set(entity.pos.x, 0, entity.pos.z);
+    root.rotation.y = entity.rotY || 0;
+
+    // 1. 多重水平斬撃アーク（グレード0〜5で1重〜6重に進化！）
+    const arcs = [];
+    const arcLayers = 1 + grade;
+    for (let i = 0; i < arcLayers; i++) {
+      const col = grade >= 5 ? rainbow[i % rainbow.length] : (i % 3 === 0 ? c1 : (i % 3 === 1 ? c2 : c3));
+      const rIn = (0.85 + i * 0.22) * sc;
+      const rOut = (1.75 + i * 0.32) * sc;
+      const span = Math.PI * (0.76 + Math.min(0.45, grade * 0.08));
+      const mat = new THREE.MeshBasicMaterial({
+        color: col,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.96
+      });
+      const mesh = new THREE.Mesh(new THREE.RingGeometry(rIn, rOut, 32, 1, -span * 0.5, span), mat);
+      mesh.rotation.x = -Math.PI * 0.48 + (i % 2 === 0 ? 0.05 : -0.05);
+      mesh.position.set(0, 1.02 + i * 0.07, 0.35 * sc);
+      root.add(mesh);
+      arcs.push({ mesh, mat, idx: i });
+    }
+
+    // 2. 前方へ直進する三日月真空斬撃波（グレード1以上）
+    const waves = [];
+    if (grade >= 1) {
+      const wCnt = grade >= 4 ? 2 : 1;
+      for (let w = 0; w < wCnt; w++) {
+        const wMat = new THREE.MeshBasicMaterial({
+          color: w === 0 ? c2 : c1,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.95
+        });
+        const wave = new THREE.Mesh(
+          new THREE.RingGeometry((0.9 + w * 0.35) * sc, (1.65 + w * 0.45) * sc, 24, 1, -Math.PI * 0.38, Math.PI * 0.76),
+          wMat
+        );
+        wave.rotation.x = -Math.PI * 0.46;
+        wave.position.set(0, 1.08 + w * 0.16, (1.1 + w * 0.4) * sc);
+        root.add(wave);
+        waves.push({ mesh: wave, mat: wMat, baseZ: (1.1 + w * 0.4) * sc });
+      }
+    }
+
+    // 3. 地面衝撃波リング（グレード3以上）
+    let groundRing = null;
+    if (grade >= 3) {
+      const gMat = new THREE.MeshBasicMaterial({ color: c1, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
+      groundRing = new THREE.Mesh(new THREE.RingGeometry(0.65 * sc, 1.55 * sc, 32), gMat);
+      groundRing.rotation.x = -Math.PI / 2;
+      groundRing.position.set(0, 0.09, 0.85 * sc);
+      root.add(groundRing);
+    }
+
+    // 4. 斜め交差X字閃光（グレード4以上）
+    const crossList = [];
+    if (grade >= 4) {
+      for (let c = 0; c < 2; c++) {
+        const cMat = new THREE.MeshBasicMaterial({ color: c === 0 ? c2 : c3, side: THREE.DoubleSide, transparent: true, opacity: 0.92 });
+        const cb = new THREE.Mesh(new THREE.RingGeometry(0.95 * sc, 1.85 * sc, 24, 1, -Math.PI * 0.35, Math.PI * 0.7), cMat);
+        cb.rotation.x = -Math.PI * 0.32;
+        cb.rotation.y = c === 0 ? 0.36 : -0.36;
+        cb.position.set(0, 1.25, 1.1 * sc);
+        root.add(cb);
+        crossList.push({ mesh: cb, mat: cMat });
+      }
+    }
+
+    // 5. 射出される光剣ビット（グレード5・★6神話級限定）
+    const shotBits = [];
+    if (grade >= 5) {
+      for (let s = 0; s < 4; s++) {
+        const side = s % 2 === 0 ? 1 : -1;
+        const lane = Math.floor(s / 2) + 1;
+        const bMat = new THREE.MeshBasicMaterial({ color: rainbow[s % rainbow.length], transparent: true, opacity: 0.96 });
+        const bit = new THREE.Mesh(new THREE.BoxGeometry(0.14 * sc, 0.08 * sc, 1.85 * sc), bMat);
+        bit.position.set(side * (1.1 + lane * 0.65) * sc, 1.15 + lane * 0.18, 0.6);
+        root.add(bit);
+        shotBits.push({ mesh: bit, mat: bMat });
+      }
+    }
+
+    // 6. 属性スパーク飛散
+    const sparks = [];
+    const spCnt = 6 + grade * 5;
+    for (let i = 0; i < spCnt; i++) {
+      const ang = -Math.PI * 0.45 + (Math.PI * 0.9 * i) / Math.max(1, spCnt - 1);
+      const col = grade >= 5 ? rainbow[i % rainbow.length] : (i % 2 === 0 ? c1 : c2);
+      const geo = shape === 'tetra'
+        ? new THREE.TetrahedronGeometry(0.14 + grade * 0.025, 0)
+        : (shape === 'dodeca' ? new THREE.DodecahedronGeometry(0.13 + grade * 0.025, 0) : new THREE.OctahedronGeometry(0.14 + grade * 0.025, 0));
+      const pMat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.95 });
+      const pt = new THREE.Mesh(geo, pMat);
+      pt.position.set(Math.sin(ang) * 1.1 * sc, 1.05, Math.cos(ang) * 1.1 * sc);
+      root.add(pt);
+      sparks.push({
+        mesh: pt,
+        mat: pMat,
+        vx: Math.sin(ang) * (2.8 + (i % 3) * 0.9) * sc,
+        vy: 1.2 + (i % 3) * 0.7,
+        vz: Math.cos(ang) * (3.2 + (i % 3) * 1.0) * sc,
+        sx: Math.sin(ang) * 1.1 * sc,
+        sz: Math.cos(ang) * 1.1 * sc
+      });
+    }
+
+    game.scene.add(root);
+    _activeSlashFxV8.push({
+      scene: game.scene,
+      root,
+      entity,
+      arcs,
+      waves,
+      groundRing,
+      crossList,
+      shotBits,
+      sparks,
+      grade,
+      sc,
+      swingDir,
+      startTime: now,
+      durationMs: 360 + grade * 40
+    });
+
+    if (grade >= 3 && entity === game.player && typeof game.shakeTimer === 'number') {
+      game.shakeTimer = Math.max(game.shakeTimer, 0.08 + (grade - 3) * 0.05);
+    }
+  }
+
+  function updateSlashFxV8(now) {
+    for (let i = _activeSlashFxV8.length - 1; i >= 0; i--) {
+      const fx = _activeSlashFxV8[i];
+      const elapsedSec = (now - fx.startTime) / 1000;
+      const p = Math.min(1, (now - fx.startTime) / fx.durationMs);
+
+      if (fx.entity?.pos) {
+        fx.root.position.set(fx.entity.pos.x, 0, fx.entity.pos.z);
+      }
+
+      const sweep = fx.swingDir * (-1.15 + Math.sin(Math.min(1, p * 1.35) * Math.PI * 0.5) * 2.3);
+      fx.arcs.forEach(a => {
+        a.mesh.rotation.z = sweep - a.idx * 0.14 * fx.swingDir;
+        a.mesh.scale.setScalar(1 + p * (0.28 + fx.grade * 0.05));
+        a.mat.opacity = Math.max(0, (1 - p) * 0.96);
+      });
+
+      fx.waves.forEach(fw => {
+        fw.mesh.position.z = fw.baseZ + p * (4.6 + fx.grade * 0.8) * fx.sc;
+        fw.mesh.scale.setScalar(1 + p * 0.35);
+        fw.mat.opacity = Math.max(0, (1 - p) * 0.95);
+      });
+
+      if (fx.groundRing) {
+        fx.groundRing.scale.setScalar(1 + p * (1.8 + fx.grade * 0.35));
+        fx.groundRing.material.opacity = Math.max(0, (1 - p) * 0.9);
+      }
+
+      fx.crossList.forEach(cb => {
+        cb.mesh.scale.setScalar(1 + p * 0.45);
+        cb.mat.opacity = Math.max(0, (1 - p) * 0.92);
+      });
+
+      fx.shotBits.forEach(ss => {
+        ss.mesh.position.z = 0.6 + p * 7.2 * fx.sc;
+        ss.mat.opacity = Math.max(0, (1 - p) * 0.96);
+      });
+
+      fx.sparks.forEach(pt => {
+        pt.mesh.position.x = pt.sx + pt.vx * p;
+        pt.mesh.position.z = pt.sz + pt.vz * p;
+        pt.mesh.position.y = Math.max(0.1, 1.05 + pt.vy * p - 2.6 * p * p);
+        pt.mesh.rotation.set(elapsedSec * 9, elapsedSec * 7, 0);
+        pt.mat.opacity = Math.max(0, (1 - p) * 0.95);
+      });
+
+      if (p >= 1) {
+        fx.scene.remove(fx.root);
+        _activeSlashFxV8.splice(i, 1);
+      }
+    }
+  }
+
+  // 剣振るモーション＆斬撃エフェクトの確実な起動トリガー
+  function triggerSwordSwingAndSlashV8(game, entity) {
+    if (!game) game = window.game;
+    if (!entity) entity = game?.player;
+    if (!entity) return;
+
+    const now = performance.now();
+    // 120ms以内の二重発火を防止
+    if (entity._v8LastSwingTrigger && now - entity._v8LastSwingTrigger < 120) return;
+    entity._v8LastSwingTrigger = now;
+
+    entity._v8SwingStart = now;
+    entity._v8SwingDir = entity._v8SwingDir === 1 ? -1 : 1; // 連続攻撃で右→左、左→右と交互に水平斬り！
+
+    const profile = getEquippedWeaponProfileV8(game);
+    spawnSwordSlashFxV8(game, entity, profile, entity._v8SwingDir);
+  }
+
+  // 画面右下の「攻撃」ボタンのタッチ/クリックを直接フックして絶対に反応させる
+  if (!window._v8AttackBtnHooked) {
+    window._v8AttackBtnHooked = true;
+    const onAttackPress = (e) => {
+      const btn = e.target?.closest?.('button, [role="button"], div');
+      if (!btn) return;
+      const txt = (btn.textContent || '').trim();
+      const rect = btn.getBoundingClientRect();
+      // 「攻撃」ボタン、または画面右下の丸いメイン攻撃ボタン
+      const isAtkBtn = (
+        txt === '攻撃' ||
+        (txt.includes('攻撃') && txt.length <= 8) ||
+        (rect.width >= 55 && rect.width <= 120 && rect.height >= 55 && rect.height <= 120 &&
+         rect.right >= window.innerWidth - 130 && rect.bottom >= window.innerHeight - 130)
+      );
+      if (isAtkBtn && window.game?.player) {
+        triggerSwordSwingAndSlashV8(window.game, window.game.player);
+      }
+    };
+    document.addEventListener('touchstart', onAttackPress, { capture: true, passive: true });
+    document.addEventListener('mousedown', onAttackPress, true);
+  }
+
+  // =========================================================
+  // 10. 毎フレーム描画直前：剣の3D表示更新＆水平横振りモーション適用
+  // =========================================================
   function enforceSingleLeftSwordAndHorizontalSwing(game) {
     if (typeof THREE === 'undefined' || !game?.player) return;
+    const now = performance.now();
+    updateSlashFxV8(now);
+
     const player = game.player;
     const rootObj = player.group || player.mesh;
     if (!rootObj) return;
 
+    // 攻撃タイマーや攻撃状態の変化からも自動検知（オート攻撃・キーボード攻撃対応）
+    const curCd = Number(player.attackCooldown ?? player.atkCd ?? player.attackTimer ?? 0);
+    if (player._v8PrevCd !== undefined && curCd > player._v8PrevCd + 0.05) {
+      triggerSwordSwingAndSlashV8(game, player);
+    }
+    player._v8PrevCd = curCd;
+
     rootObj.updateMatrixWorld?.(true);
 
-    // 1. 体のメイン立方体（BoxGeometry）と丸い手（SphereGeometry）の位置を特定
+    // 1. 体のメイン立方体と丸い手の位置を特定
     let bodyMesh = null;
     let maxBodyVol = 0;
     let handSphereX = null;
@@ -537,118 +1060,75 @@
     const bodyY = bodyMesh ? bodyMesh.position.y : 0.6;
     const bodyW = bodyMesh ? ((bodyMesh.geometry.parameters?.width || 1) * (bodyMesh.scale?.x || 1)) : 1.0;
 
-    // 2. ゲーム本体側が自動生成した重複剣メッシュ（側面にある立方体・円柱パーツ）をすべて安全に非表示化（scaleは触らない）
+    // 2. 本体側が自動生成した重複剣メッシュを非表示化
     rootObj.traverse(m => {
       if (!m.isMesh || m === bodyMesh || m.userData?.isV8SwordPart) return;
-      if (m.geometry?.type === 'PlaneGeometry' || m.material?.map?.image) return; // 顔パネルは残す
-      if (m.geometry?.type === 'SphereGeometry') return; // 丸い手は残す
+      if (m.geometry?.type === 'PlaneGeometry' || m.material?.map?.image) return;
+      if (m.geometry?.type === 'SphereGeometry') return;
 
       const wp = new THREE.Vector3();
       m.getWorldPosition(wp);
       const lp = rootObj.worldToLocal(wp.clone());
 
-      // 体の左右側面（|x - bodyX| > bodyW * 0.32）にある本体側の武器パーツを非表示化
       if (Math.abs(lp.x - bodyX) > bodyW * 0.32) {
-        // 頭頂部の双葉は残す
         if (lp.y > bodyY + 0.55 && Math.abs(lp.x - bodyX) < bodyW * 0.45) return;
         m.visible = false;
       }
     });
 
-    // 3. 左手側（丸い手がある側の反対＝画面向かって右側）のX座標を決定
+    // 3. 装備武器・グレードが変化したら3D剣モデルを即座に再構築！
+    const profile = getEquippedWeaponProfileV8(game);
+    let swingPivot = rootObj.getObjectByName('V8_LEFT_SWORD_PIVOT');
+
+    if (!swingPivot || swingPivot.userData?.wpnKey !== profile.key) {
+      if (swingPivot) rootObj.remove(swingPivot);
+      swingPivot = buildGradeSwordGroupV8(profile);
+      rootObj.add(swingPivot);
+    }
+
     const swordSideSign = (handSphereX !== null && handSphereX < bodyX) ? 1 : 1;
     const gripX = bodyX + swordSideSign * (bodyW * 0.64);
     const gripY = Math.max(0.32, bodyY - 0.14);
     const gripZ = 0.08;
 
-    // 4. V8専用の1本の美しい剣ピボット（持ち手原点）を取得または新規作成
-    let swingPivot = rootObj.getObjectByName('V8_LEFT_SWORD_PIVOT');
-    const visCfg = getWeaponVisualColorsV8(game);
-
-    if (!swingPivot || swingPivot.userData?.wpnKey !== visCfg.key) {
-      if (swingPivot) rootObj.remove(swingPivot);
-
-      swingPivot = new THREE.Group();
-      swingPivot.name = 'V8_LEFT_SWORD_PIVOT';
-      swingPivot.userData = { wpnKey: visCfg.key };
-
-      const markPart = (mesh) => {
-        mesh.userData.isV8SwordPart = true;
-        mesh.visible = true;
-        swingPivot.add(mesh);
-      };
-
-      // ① グリップ（持ち手：原点 0,0,0 を中心に配置＝ここが回転軸になる！）
-      const handle = new THREE.Mesh(
-        new THREE.BoxGeometry(0.11, 0.34, 0.11),
-        new THREE.MeshBasicMaterial({ color: 0x451a03 })
-      );
-      handle.position.set(0, 0.02, 0);
-      markPart(handle);
-
-      // ② 柄頭（ポンメル）
-      const pommel = new THREE.Mesh(
-        new THREE.BoxGeometry(0.16, 0.09, 0.16),
-        new THREE.MeshBasicMaterial({ color: visCfg.guard })
-      );
-      pommel.position.set(0, -0.16, 0);
-      markPart(pommel);
-
-      // ③ 黄金の鍔（クロスガード）
-      const guard = new THREE.Mesh(
-        new THREE.BoxGeometry(0.42, 0.11, 0.18),
-        new THREE.MeshBasicMaterial({ color: visCfg.guard })
-      );
-      guard.position.set(0, 0.21, 0);
-      markPart(guard);
-
-      // ④ メイン刀身（ブレード）
-      const bladeLen = visCfg.len;
-      const blade = new THREE.Mesh(
-        new THREE.BoxGeometry(0.17, bladeLen, 0.06),
-        new THREE.MeshBasicMaterial({ color: visCfg.blade })
-      );
-      blade.position.set(0, 0.26 + bladeLen * 0.5, 0);
-      markPart(blade);
-
-      // ⑤ 刀身の輝きセンターライン
-      const edgeLine = new THREE.Mesh(
-        new THREE.BoxGeometry(0.06, bladeLen * 0.96, 0.072),
-        new THREE.MeshBasicMaterial({ color: visCfg.edge })
-      );
-      edgeLine.position.set(0, 0.26 + bladeLen * 0.5, 0);
-      markPart(edgeLine);
-
-      // ⑥ 切っ先（先端の尖り）
-      const tip = new THREE.Mesh(
-        new THREE.ConeGeometry(0.12, 0.24, 4),
-        new THREE.MeshBasicMaterial({ color: visCfg.edge })
-      );
-      tip.rotation.y = Math.PI * 0.25;
-      tip.position.set(0, 0.26 + bladeLen + 0.11, 0);
-      markPart(tip);
-
-      rootObj.add(swingPivot);
-    }
-
     swingPivot.visible = true;
     swingPivot.position.set(gripX, gripY, gripZ);
 
-    // 5. 持ち手（ピボット原点）を軸にした水平横振りモーション！
-    const animT = Number(player.attackAnimTimer || 0);
-    const tNow = performance.now() * 0.004;
+    // オーラリング＆光剣ビットの常時アニメーション
+    const tSec = now * 0.004;
+    if (Array.isArray(swingPivot.userData?.auraRings)) {
+      swingPivot.userData.auraRings.forEach(ar => {
+        ar.mesh.rotation.z = tSec * ar.spd;
+      });
+    }
+    if (Array.isArray(swingPivot.userData?.bitSwords)) {
+      swingPivot.userData.bitSwords.forEach((bs, idx) => {
+        bs.mesh.position.y = bs.baseY + Math.sin(tSec * 2 + idx * Math.PI) * 0.08;
+      });
+    }
 
-    if (animT > 0) {
-      // 攻撃中：0.36秒かけて刀身を地面と水平に倒し、右側から左側へ一気に水平横振り！
-      const prog = 1 - Math.min(1, animT / 0.36);
-      swingPivot.rotation.x = Math.PI * 0.48;
-      swingPivot.rotation.y = -1.35 + Math.sin(prog * Math.PI * 0.85) * 2.95;
-      swingPivot.rotation.z = -0.12;
+    // 4. 水平横振りモーション（performance.now() 基準で確実に380ms間スイング！）
+    const swingElapsed = player._v8SwingStart ? (now - player._v8SwingStart) : 9999;
+    const swingDuration = 380;
+
+    if (swingElapsed >= 0 && swingElapsed < swingDuration) {
+      const p = swingElapsed / swingDuration;
+      const dir = player._v8SwingDir || 1;
+      // 剣を地面と平行（水平）に倒し、大きく振りかぶって一気に薙ぎ払う！
+      swingPivot.rotation.x = Math.PI * 0.49;
+      const startAng = dir === 1 ? -1.45 : 1.55;
+      const sweepDelta = dir === 1 ? 3.15 : -3.15;
+      // イージング（前半一気に加速して振り切る）
+      const ease = 1 - Math.pow(1 - p, 2.4);
+      swingPivot.rotation.y = startAng + sweepDelta * ease;
+      swingPivot.rotation.z = -0.10;
+      // 振り切り時に少し前に踏み込む
+      swingPivot.position.z = gripZ + Math.sin(p * Math.PI) * 0.28;
     } else {
-      // 通常待機中：少し前に傾けて構え、呼吸に合わせて滑らかに揺れる
-      swingPivot.rotation.x = 0.28 + Math.sin(tNow) * 0.06;
-      swingPivot.rotation.y = Math.cos(tNow * 0.8) * 0.08;
-      swingPivot.rotation.z = -0.14 + Math.sin(tNow) * 0.04;
+      // 通常待機中：斜め前に構えて呼吸に合わせて滑らかに揺れる
+      swingPivot.rotation.x = 0.30 + Math.sin(tSec) * 0.06;
+      swingPivot.rotation.y = Math.cos(tSec * 0.8) * 0.08;
+      swingPivot.rotation.z = -0.14 + Math.sin(tSec) * 0.04;
     }
   }
 
@@ -673,7 +1153,7 @@
   hookWebGLRendererRenderV8();
 
   // =========================================================
-  // 8. コア機能インストール
+  // 11. コア機能インストール
   // =========================================================
   function installV8Core() {
     if (typeof KaomojiMMORPG === 'undefined') {
@@ -697,6 +1177,27 @@
       };
       window.KMJ_SKILL_FX_V9._v8DebugGated = true;
     }
+
+    // 通常攻撃系の全メソッドをフックして確実に剣を振る！
+    ['attack', 'doAttack', 'performAttack', 'basicAttack', 'normalAttack', 'executeAttack', 'triggerAttackVisual'].forEach(fnName => {
+      if (typeof P[fnName] === 'function' && !P[`_v8Hooked_${fnName}`]) {
+        const origFn = P[fnName];
+        P[`_v8Hooked_${fnName}`] = true;
+        P[fnName] = function (...args) {
+          if (fnName === 'triggerAttackVisual') {
+            const ent = args[0] || this.player;
+            const isSkill = !!args[1];
+            if (!isSkill && ent === this.player) {
+              triggerSwordSwingAndSlashV8(this, ent);
+              return;
+            }
+          } else if (this.player) {
+            triggerSwordSwingAndSlashV8(this, this.player);
+          }
+          return origFn.apply(this, args);
+        };
+      }
+    });
 
     Object.assign(P, {
       // A. 真の最大MP成長（Lv101頭打ち解消）＆ 毎秒スムーズMP自然回復
@@ -758,7 +1259,7 @@
         this._v8LastSaveMp = curMp;
       },
 
-      // B. ワープゾーン一本化（ステージ選択ボタン削除・デバッグ限定魔法スタジオHUD）
+      // B. ワープゾーン一本化（デバッグ限定魔法スタジオHUD）
       updateSingleStageWarpAndHudV8() {
         if (!this.scene || !this.player?.pos) return;
 
@@ -1105,7 +1606,42 @@
           }
         });
 
-        // ★ 魔法スタジオは「デバッグモード有効時」のみ表示！
+        // 武器タブを開いたとき、現在装備中の武器グレード＆斬撃エフェクトプレビュー表示＋装備ボタン検知
+        if (/wpn|weapon|equip|forge|smith|item/.test(tab) || /武器|装備|鍛冶/.test(txt)) {
+          const prof = getEquippedWeaponProfileV8(this);
+          if (!body.querySelector('#kmj-v8-wpn-grade-banner')) {
+            body.insertAdjacentHTML('afterbegin', `
+              <div id="kmj-v8-wpn-grade-banner" class="card-box" style="margin-bottom:8px;border:1.5px solid #38bdf8;background:rgba(15,23,42,0.95);display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                <div>
+                  <div style="font-size:11px;font-weight:900;color:#7dd3fc;">⚔️ 装備中: ${prof.wName} 【${prof.gradeTitle}】</div>
+                  <div style="font-size:9.5px;color:#cbd5e1;">高グレード武器ほど3Dの剣が豪華になり、振った時に${prof.grade + 1}重の水平斬撃エフェクトが炸裂します！</div>
+                </div>
+                <button type="button" id="kmj-v8-preview-wpn-swing" style="background:#0284c7;border:none;color:#fff;border-radius:6px;padding:6px 10px;font-size:10.5px;font-weight:900;cursor:pointer;white-space:nowrap;">⚡ 振りテスト</button>
+              </div>
+            `);
+            body.querySelector('#kmj-v8-preview-wpn-swing').onclick = () => {
+              document.getElementById('modal')?.classList?.add('hidden');
+              triggerSwordSwingAndSlashV8(this, this.player);
+            };
+          }
+
+          // 装備ボタンを押した瞬間に即座に3Dの剣を更新する
+          body.querySelectorAll('button').forEach(btn => {
+            if (/装備|装着|変更/.test(btn.textContent || '') && !btn.dataset.v8EqHooked) {
+              btn.dataset.v8EqHooked = '1';
+              btn.addEventListener('click', () => {
+                const card = btn.closest('div');
+                const titleLine = card?.querySelector('b, strong, div')?.textContent || '';
+                if (titleLine) this._v8LastEquippedWeaponName = titleLine.trim();
+                setTimeout(() => {
+                  enforceSingleLeftSwordAndHorizontalSwing(this);
+                }, 40);
+              });
+            }
+          });
+        }
+
+        // 魔法スタジオは「デバッグモード有効時」のみ表示！
         if (isDebugModeActiveV8(this) && !body.querySelector('#kmj-v8-studio-in-debug')) {
           const count = window.KMJ_SKILL_FX_V9?.getAll14Skills?.(this)?.length || 14;
           body.insertAdjacentHTML('afterbegin', `
@@ -1117,7 +1653,7 @@
                 </div>
                 <button type="button" id="kmj-v8-open-studio-btn" style="background:linear-gradient(90deg,#ec4899,#8b5cf6);border:none;color:#fff;border-radius:7px;padding:7px 11px;font-size:11px;font-weight:900;cursor:pointer;white-space:nowrap;">⚡ スタジオ起動</button>
               </div>
-              <button type="button" id="kmj-v8-test-swing-btn" style="background:#0284c7;border:1px solid #38bdf8;color:#fff;border-radius:6px;padding:5px 8px;font-size:10.5px;font-weight:900;cursor:pointer;">⚔️ 左手の剣・水平横振りモーションをテスト再生</button>
+              <button type="button" id="kmj-v8-test-swing-btn" style="background:#0284c7;border:1px solid #38bdf8;color:#fff;border-radius:6px;padding:5px 8px;font-size:10.5px;font-weight:900;cursor:pointer;">⚔️ 左手の剣・水平横振り＆斬撃エフェクトをテスト再生</button>
             </div>
           `);
           body.querySelector('#kmj-v8-open-studio-btn').onclick = () => {
@@ -1126,10 +1662,28 @@
           };
           body.querySelector('#kmj-v8-test-swing-btn').onclick = () => {
             document.getElementById('modal')?.classList?.add('hidden');
-            if (typeof this.triggerAttackVisual === 'function' && this.player) {
-              this.triggerAttackVisual(this.player, false);
-            }
+            triggerSwordSwingAndSlashV8(this, this.player);
           };
+        }
+
+        // 「設定」画面の最下部にデバッグモード切替ボタンを配置（ここからいつでもデバッグON/OFF可能）
+        if (/set|opt|cfg|config|system/.test(tab) || /設定|音量|グラフィック|セーブ/.test(txt)) {
+          if (!body.querySelector('#kmj-v8-debug-toggle-box')) {
+            const dbgNow = isDebugModeActiveV8(this);
+            body.insertAdjacentHTML('beforeend', `
+              <div id="kmj-v8-debug-toggle-box" class="card-box" style="margin-top:10px;border:1px dashed #64748b;background:rgba(15,23,42,0.85);display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                <div>
+                  <div style="font-size:11px;font-weight:900;color:#cbd5e1;">🛠️ 開発者デバッグモード（現在: ${dbgNow ? 'ON' : 'OFF'}）</div>
+                  <div style="font-size:9px;color:#94a3b8;">ONにすると右上に「魔法スタジオ」が解放されます（左上Lv表示5回連打でも切替可）</div>
+                </div>
+                <button type="button" id="kmj-v8-toggle-debug-btn" style="background:${dbgNow ? '#059669' : '#334155'};border:1px solid #94a3b8;color:#fff;border-radius:6px;padding:6px 10px;font-size:10.5px;font-weight:900;cursor:pointer;white-space:nowrap;">${dbgNow ? 'ON → OFFにする' : 'OFF → ONにする'}</button>
+              </div>
+            `);
+            body.querySelector('#kmj-v8-toggle-debug-btn').onclick = () => {
+              setDebugModeActiveV8(!isDebugModeActiveV8(this));
+              this.renderModalContent();
+            };
+          }
         }
 
         if (/stat|evo|job|class/.test(tab)) {
@@ -1216,4 +1770,4 @@
   }, true);
   setTimeout(setupThreatControlsV8, 300);
 })();
-// ▲▲▲ ここまで【game8.js 完全版 v111】 ▲▲▲
+// ▲▲▲ ここまで【game8.js 完全版 v112】 ▲▲▲
