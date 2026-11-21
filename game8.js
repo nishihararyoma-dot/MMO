@@ -762,81 +762,60 @@
   setTimeout(patchDOMTextsAndAchievementsV52, 400);
 })();
 // ▲▲▲ ここまで【追加パッチ】 ▲▲▲
-// ▼▼▼ ここから【追加パッチ】フィールド脅威ランク即時見た目反映＆一括増減ボタン ▼▼▼
+// ▼▼▼ ここから【フリーズ修正・安全版】フィールド脅威ランク即時反映＆一括増減ボタン ▼▼▼
 (() => {
   'use strict';
+
+  // 旧パッチの無限ループ監視処理が動いていたら即座に強制停止
+  try { window._v52MutationObs?.disconnect(); } catch (e) {}
+  try { window._v53Observer?.disconnect(); } catch (e) {}
 
   const THREAT_MIN = 1;
   const THREAT_MAX = 999;
 
-  // 現在の脅威ランクを取得
-  function getCurrentThreatValueV53(inst) {
+  function getThreatValSafe() {
+    const inst = window.__kmjInstance || window.game || window.app || window.mmorpg;
     const d = inst?.saveData || {};
     const keys = ['threatRank', 'fieldThreatRank', 'threat', 'threatLevel', 'threatLv', 'danger'];
     for (const k of keys) {
-      if (typeof d[k] === 'number' && !Number.isNaN(d[k])) return Math.max(THREAT_MIN, Math.min(THREAT_MAX, Math.floor(d[k])));
+      if (typeof d[k] === 'number' && !Number.isNaN(d[k])) {
+        return Math.max(THREAT_MIN, Math.min(THREAT_MAX, Math.floor(d[k])));
+      }
     }
     for (const k of keys) {
-      if (typeof inst?.[k] === 'number' && !Number.isNaN(inst[k])) return Math.max(THREAT_MIN, Math.min(THREAT_MAX, Math.floor(inst[k])));
+      if (typeof inst?.[k] === 'number' && !Number.isNaN(inst[k])) {
+        return Math.max(THREAT_MIN, Math.min(THREAT_MAX, Math.floor(inst[k])));
+      }
     }
     return 1;
   }
 
-  // DOM上の「フィールド脅威ランク: +〇〇 / 999」と「+〇〇% 増加します」をフレーム待ちなしで即時書き換え
-  function updateThreatCardDOMImmediateV53(val) {
+  // 値が変わったときだけDOMテキストを1回書き換える（再描画ループ防止）
+  function syncThreatTextSafe(val) {
     const safeVal = Math.max(THREAT_MIN, Math.min(THREAT_MAX, Math.floor(val)));
     const pct = safeVal * 25;
+    const titleDesired = `🔥 フィールド脅威ランク: +${safeVal} / ${THREAT_MAX}`;
+    const descDesired = `敵の強さとEXP/Gドロップ率が +${pct}% 増加します`;
 
-    const card = findFieldThreatCardV53();
-    if (card) {
-      const walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT, null);
-      let node;
-      while ((node = walker.nextNode())) {
-        const txt = node.nodeValue || '';
-        if (/フィールド脅威ランク|脅威ランク/.test(txt)) {
-          node.nodeValue = txt.replace(/([+-]?\d+)\s*\/\s*\d+/, `+${safeVal} / ${THREAT_MAX}`);
-        } else if (/^\s*[+-]?\d+\s*\/\s*\d+\s*$/.test(txt)) {
-          node.nodeValue = `+${safeVal} / ${THREAT_MAX}`;
-        } else if (/ドロップ率が/.test(txt) || /\+\d+%\s*増加/.test(txt)) {
-          node.nodeValue = txt.replace(/[+-]?\d+%/, `+${pct}%`);
-        }
-      }
-    }
-
-    // 画面内の他箇所にある脅威ランク表記も即時同期
-    document.querySelectorAll('span, div, p, b, strong').forEach(el => {
+    document.querySelectorAll('div, span, p, b, strong').forEach(el => {
       if (el.children.length > 0) return;
-      const t = el.textContent || '';
-      if (t.includes('フィールド脅威ランク:')) {
-        el.textContent = `🔥 フィールド脅威ランク: +${safeVal} / ${THREAT_MAX}`;
-      } else if (t.includes('敵の強さとEXP/Gドロップ率が')) {
-        el.textContent = `敵の強さとEXP/Gドロップ率が +${pct}% 増加します`;
+      const cur = el.textContent || '';
+      if (cur.includes('フィールド脅威ランク:') && cur !== titleDesired) {
+        el.textContent = titleDesired;
+      } else if (cur.includes('敵の強さとEXP/Gドロップ率が') && cur !== descDesired) {
+        el.textContent = descDesired;
       }
     });
   }
 
-  // 「フィールド脅威ランク」カード要素を取得
-  function findFieldThreatCardV53() {
-    const allDivs = document.querySelectorAll('div');
-    for (const div of allDivs) {
-      const txt = div.textContent || '';
-      if (txt.includes('フィールド脅威ランク') && txt.includes('EXP/Gドロップ率')) {
-        // 一番内側のカードコンテナを特定
-        if (div.querySelectorAll('div').length <= 6) {
-          return div;
-        }
-      }
-    }
-    return null;
-  }
+  let _spawnDebounceTimer = null;
 
-  // 脅威ランクを即座に変更し、見た目・HUD・敵ステータスをすべて即時反映
-  function applyThreatRankImmediatelyV53(nextRaw) {
+  function setThreatRankSafe(nextRaw) {
     const inst = window.__kmjInstance || window.game || window.app || window.mmorpg;
     const nextVal = Math.max(THREAT_MIN, Math.min(THREAT_MAX, Math.floor(Number(nextRaw) || 1)));
 
-    // 1. まず画面の見た目を0msで即時更新（体感を最優先）
-    updateThreatCardDOMImmediateV53(nextVal);
+    // 1. 見た目を即座に更新
+    syncThreatTextSafe(nextVal);
 
     if (!inst) return;
     const d = inst.saveData;
@@ -856,126 +835,108 @@
     });
     inst._lastThreatBeforeV52 = nextVal;
 
-    // 2. 既存のHUD更新・敵スケーリング・セーブを即時実行
-    try { inst.forceThreatCap999V50?.(); } catch (e) {}
-    try { inst.refreshAllHUD?.(); } catch (e) {}
-    // refreshAllHUD後に古い表記で上書きされないよう再度即時反映
-    updateThreatCardDOMImmediateV53(nextVal);
-
-    // 3. フィールドに出現中の敵も新しい脅威ランクに合わせて即更新
-    try {
-      if (Array.isArray(inst.monsters) && inst.monsters.length > 0) {
-        if (typeof inst.spawnMonsters === 'function' && !inst._inBattleLock) {
-          inst.spawnMonsters();
+    // 2. 連打しても重くならないよう敵の再計算は120ms後に1回だけ実行
+    clearTimeout(_spawnDebounceTimer);
+    _spawnDebounceTimer = setTimeout(() => {
+      try {
+        if (Array.isArray(inst.monsters) && inst.monsters.length > 0) {
+          if (typeof inst.spawnMonsters === 'function' && !inst._inBattleLock) {
+            inst.spawnMonsters();
+          }
+          inst.normalizeMonsterHigherLevelScalingV50?.();
+          inst.applyKakueTagAndScalingV52?.();
         }
-        inst.normalizeMonsterHigherLevelScalingV50?.();
-        inst.applyKakueTagAndScalingV52?.();
-      }
-    } catch (e) {}
-
-    try { inst.saveGame?.(false); } catch (e) {}
+        inst.saveGame?.(false);
+        syncThreatTextSafe(nextVal);
+      } catch (e) {}
+    }, 120);
   }
 
-  // 一括操作ボタンバー（MIN / -100 / -10 / -1 / +1 / +10 / +100 / MAX / 数値指定）を注入
-  function injectThreatQuickControlsV53() {
-    const card = findFieldThreatCardV53();
+  // 一括操作ボタンバーを安全に1回だけ追加
+  function ensureThreatButtonsSafe() {
+    const curVal = getThreatValSafe();
+    syncThreatTextSafe(curVal);
+
+    if (document.getElementById('kmj-safe-threat-bar')) return;
+
+    // 「フィールド脅威ランク:」のテキスト要素から親カードを探す
+    let card = null;
+    const nodes = document.querySelectorAll('div, span, p, b');
+    for (const el of nodes) {
+      if (el.children.length === 0 && (el.textContent || '').includes('フィールド脅威ランク:')) {
+        let p = el.parentElement;
+        while (p && p !== document.body) {
+          if ((p.textContent || '').includes('EXP/Gドロップ率')) {
+            card = p;
+            break;
+          }
+          p = p.parentElement;
+        }
+        if (card) break;
+      }
+    }
     if (!card) return;
 
-    const inst = window.__kmjInstance || window.game || window.app || window.mmorpg;
-    const curVal = getCurrentThreatValueV53(inst);
-    updateThreatCardDOMImmediateV53(curVal);
-
-    // 既存の -1 / +1 ボタンも即時更新フックに差し替え
-    card.querySelectorAll('button:not(.kmj-v53-qbtn)').forEach(btn => {
-      if (btn.dataset.v53Hooked) return;
-      const t = (btn.textContent || '').trim();
-      if (t === '-1' || t === '+1') {
-        btn.dataset.v53Hooked = '1';
-        const delta = t === '+1' ? 1 : -1;
-        btn.onclick = (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          const now = getCurrentThreatValueV53(window.__kmjInstance || window.game || window.app || window.mmorpg);
-          applyThreatRankImmediatelyV53(now + delta);
-        };
-      }
-    });
-
-    if (document.getElementById('kmj-v53-threat-quickbar')) return;
-
     const bar = document.createElement('div');
-    bar.id = 'kmj-v53-threat-quickbar';
-    bar.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;padding-top:7px;border-top:1px solid rgba(148,163,184,0.22);align-items:center;';
+    bar.id = 'kmj-safe-threat-bar';
+    bar.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;padding-top:7px;border-top:1px solid rgba(148,163,184,0.25);align-items:center;';
 
-    const presets = [
-      { label: 'MIN (1)', mode: 'set', val: 1, bg: '#334155', col: '#e2e8f0' },
-      { label: '-100', mode: 'add', val: -100, bg: '#1e3a8a', col: '#dbeafe' },
-      { label: '-10', mode: 'add', val: -10, bg: '#1d4ed8', col: '#eff6ff' },
-      { label: '+10', mode: 'add', val: 10, bg: '#dc2626', col: '#fef2f2' },
-      { label: '+100', mode: 'add', val: 100, bg: '#b91c1c', col: '#fee2e2' },
-      { label: 'MAX (999)', mode: 'set', val: 999, bg: '#d97706', col: '#fef3c7' },
-      { label: '🎯 数値指定', mode: 'prompt', val: 0, bg: '#059669', col: '#ecfdf5' }
+    const items = [
+      { label: 'MIN (1)', type: 'set', val: 1, bg: '#334155', col: '#f1f5f9' },
+      { label: '-100', type: 'add', val: -100, bg: '#1e3a8a', col: '#dbeafe' },
+      { label: '-10', type: 'add', val: -10, bg: '#1d4ed8', col: '#eff6ff' },
+      { label: '+10', type: 'add', val: 10, bg: '#dc2626', col: '#fef2f2' },
+      { label: '+100', type: 'add', val: 100, bg: '#b91c1c', col: '#fee2e2' },
+      { label: 'MAX (999)', type: 'set', val: 999, bg: '#d97706', col: '#fef3c7' },
+      { label: '🎯 数値指定', type: 'prompt', val: 0, bg: '#059669', col: '#ecfdf5' }
     ];
 
-    presets.forEach(p => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'kmj-v53-qbtn';
-      b.textContent = p.label;
-      b.style.cssText = `background:${p.bg};color:${p.col};border:none;border-radius:6px;padding:5px 8px;font-size:11px;font-weight:900;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.35);transition:transform 0.06s;`;
-      b.onpointerdown = () => { b.style.transform = 'scale(0.94)'; };
-      b.onpointerup = () => { b.style.transform = 'scale(1)'; };
-      b.onpointerleave = () => { b.style.transform = 'scale(1)'; };
-
-      b.onclick = (e) => {
+    items.forEach(item => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = item.label;
+      btn.style.cssText = `background:${item.bg};color:${item.col};border:none;border-radius:6px;padding:5px 8px;font-size:11px;font-weight:900;cursor:pointer;`;
+      btn.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const g = window.__kmjInstance || window.game || window.app || window.mmorpg;
-        const now = getCurrentThreatValueV53(g);
-        if (p.mode === 'set') {
-          applyThreatRankImmediatelyV53(p.val);
-        } else if (p.mode === 'add') {
-          applyThreatRankImmediatelyV53(now + p.val);
-        } else if (p.mode === 'prompt') {
-          const input = prompt(`設定したい脅威ランクを入力してください（1〜999）\n現在値: ${now}`, String(now));
-          if (input !== null && input.trim() !== '') {
-            const num = Number(input.trim());
-            if (!Number.isNaN(num)) {
-              applyThreatRankImmediatelyV53(num);
-            }
+        const now = getThreatValSafe();
+        if (item.type === 'set') setThreatRankSafe(item.val);
+        else if (item.type === 'add') setThreatRankSafe(now + item.val);
+        else {
+          const res = prompt(`設定したい脅威ランクを入力（1〜999）\n現在値: ${now}`, String(now));
+          if (res !== null && res.trim() !== '' && !Number.isNaN(Number(res))) {
+            setThreatRankSafe(Number(res));
           }
         }
       };
-      bar.appendChild(b);
+      bar.appendChild(btn);
     });
 
     card.appendChild(bar);
   }
 
-  function installV53ThreatUI() {
-    injectThreatQuickControlsV53();
-
-    if (typeof KaomojiMMORPG !== 'undefined' && !KaomojiMMORPG.prototype._v53Installed) {
-      KaomojiMMORPG.prototype._v53Installed = true;
-      const origHud = KaomojiMMORPG.prototype.refreshAllHUD;
-      if (typeof origHud === 'function') {
-        KaomojiMMORPG.prototype.refreshAllHUD = function (...args) {
-          const res = origHud.apply(this, args);
-          injectThreatQuickControlsV53();
-          return res;
-        };
+  // 既存の「-1」「+1」ボタンのクリックも横取りして即時反映（DOM書き換え不要で超軽量）
+  if (!window._safeThreatClickHooked) {
+    window._safeThreatClickHooked = true;
+    document.addEventListener('click', (e) => {
+      const btn = e.target?.closest?.('button');
+      if (!btn) return;
+      const t = (btn.textContent || '').trim();
+      if (t === '-1' || t === '+1') {
+        const cardTxt = btn.closest('div')?.parentElement?.textContent || '';
+        if (cardTxt.includes('フィールド脅威ランク')) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          const now = getThreatValSafe();
+          setThreatRankSafe(now + (t === '+1' ? 1 : -1));
+          return;
+        }
       }
-    }
-
-    if (!window._v53Observer) {
-      window._v53Observer = new MutationObserver(() => {
-        injectThreatQuickControlsV53();
-      });
-      window._v53Observer.observe(document.body, { childList: true, subtree: true });
-    }
+      // メニューやタブをクリックした少し後にボタンバーを安全に確認・設置
+      setTimeout(ensureThreatButtonsSafe, 60);
+    }, true);
   }
 
-  installV53ThreatUI();
-  setTimeout(installV53ThreatUI, 300);
+  setTimeout(ensureThreatButtonsSafe, 400);
 })();
-// ▲▲▲ ここまで【追加パッチ】 ▲▲▲
+// ▲▲▲ ここまで【フリーズ修正・安全版】 ▲▲▲
