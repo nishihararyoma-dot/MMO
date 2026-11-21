@@ -459,3 +459,306 @@
   applyPatchPart2();
 })();
 // ▲▲▲ ここまで【2/2】 ▲▲▲
+// ▼▼▼ ここから【追加パッチ】フィールド脅威ランク/999表記・【格上】表記・全実績常時パッシブ化 ▼▼▼
+(() => {
+  'use strict';
+
+  const MAX_THREAT_999 = 999;
+
+  // 1. DOM内の「フィールド脅威ランク: +〇〇 / 50」を確実に「/ 999」へ書き換え＆実績タブの装備ボタンをパッシブ表記へ変更
+  function patchDOMTextsAndAchievementsV52() {
+    // テキストノード単位で「/ 50」を「/ 999」へ置換
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
+    let node;
+    while ((node = walker.nextNode())) {
+      const val = node.nodeValue;
+      if (!val) continue;
+      if (val.includes('/ 50') || val.includes('/50')) {
+        const parentTxt = node.parentElement?.textContent || '';
+        if (/脅威|驚異|フィールド/.test(parentTxt)) {
+          node.nodeValue = val.replace(/\/\s*50\b/g, '/ 999');
+        }
+      }
+    }
+
+    // 実績・称号パネル内の「装備式」ボタンを「常時パッシブ発動中」に変更
+    const achPanels = document.querySelectorAll('#tab-achievements, #panel-achievements, [data-tab-panel="achievements"], [data-tab-panel="titles"], #tab-titles');
+    achPanels.forEach(panel => {
+      panel.querySelectorAll('button').forEach(btn => {
+        const t = (btn.textContent || '').trim();
+        const hint = `${btn.id || ''} ${btn.className || ''} ${btn.dataset?.achId || ''}`.toLowerCase();
+        // 実績アイテムの装備ボタン判定（タイトル称号ではなく実績側）
+        if (/装備する|装着する|セットする|装備中|装着中/.test(t) && (/ach|実績/.test(hint) || /ach|実績/.test(btn.closest('div')?.textContent || ''))) {
+          btn.textContent = '✨ 常時パッシブ発動中';
+          btn.disabled = true;
+          btn.style.background = '#065f46';
+          btn.style.color = '#6ee7b7';
+          btn.style.border = '1px solid #10b981';
+          btn.style.cursor = 'default';
+          btn.style.opacity = '1';
+        }
+      });
+    });
+  }
+
+  // 2. Canvas描画（敵の頭上ラベル等）で「Lv.〇〇」がプレイヤーLvより高い場合に自動で「【格上】」を先頭に付けて描画
+  if (!CanvasRenderingContext2D.prototype._v52KakueHooked) {
+    CanvasRenderingContext2D.prototype._v52KakueHooked = true;
+    const origFillText = CanvasRenderingContext2D.prototype.fillText;
+    CanvasRenderingContext2D.prototype.fillText = function (text, x, y, ...rest) {
+      if (typeof text === 'string' && !text.includes('【格上】') && !text.includes('推奨')) {
+        const m = text.match(/Lv\.?\s*(\d+)/i);
+        if (m) {
+          const targetLv = Number(m[1]);
+          const inst = window.__kmjInstance || window.game || window.app || window.mmorpg;
+          const pLv = Number(inst?.saveData?.lv ?? inst?.saveData?.level ?? inst?.player?.lv ?? 1);
+          if (targetLv > pLv && pLv >= 1) {
+            text = `【格上】${text}`;
+          }
+        }
+      }
+      return origFillText.call(this, text, x, y, ...rest);
+    };
+  }
+
+  function installV52Patch() {
+    if (typeof KaomojiMMORPG === 'undefined') {
+      setTimeout(installV52Patch, 120);
+      return;
+    }
+
+    const proto = KaomojiMMORPG.prototype;
+    if (proto._v52Installed) return;
+    proto._v52Installed = true;
+
+    Object.assign(proto, {
+      // A. 格上の敵データ自体にも「【格上】」表記を付与＆1Lv毎+1.5倍線形加算
+      applyKakueTagAndScalingV52() {
+        if (!Array.isArray(this.monsters)) return;
+        const d = this.saveData || {};
+        const playerLv = Math.max(1, Number(d.lv ?? d.level ?? this.player?.lv ?? 1));
+
+        this.monsters.forEach(m => {
+          if (!m || m.dead) return;
+          const mLv = Math.max(1, Number(m.lv ?? m.level ?? 1));
+          const isKakue = mLv > playerLv;
+
+          // 元の素の名前を保存して【格上】タグを付け外し
+          if (!m._rawNameV52 && typeof m.name === 'string') {
+            m._rawNameV52 = m.name.replace(/^【格上】\s*/g, '');
+          }
+          if (m._rawNameV52) {
+            const desiredName = isKakue ? `【格上】${m._rawNameV52}` : m._rawNameV52;
+            if (m.name !== desiredName) {
+              m.name = desiredName;
+              // 頭上ラベル再生成メソッドがあれば更新
+              if (typeof this.updateMonsterLabel === 'function') {
+                try { this.updateMonsterLabel(m); } catch (e) {}
+              }
+            }
+          }
+        });
+      },
+
+      // B. 解除済みの「全実績」を装備不要の常時パッシブとして集計
+      getAllUnlockedAchievementsPassiveV52() {
+        const d = this.saveData || {};
+        const rawList = (typeof ACHIEVEMENTS !== 'undefined' && ACHIEVEMENTS)
+          ? (Array.isArray(ACHIEVEMENTS)
+              ? ACHIEVEMENTS
+              : Object.entries(ACHIEVEMENTS).map(([k, v]) => ({ id: k, ...(typeof v === 'object' ? v : { name: String(v) }) })))
+          : [];
+
+        const unlockedIds = new Set();
+        [d.achievements, d.unlockedAchievements, d.earnedAchievements, d.achUnlocked].forEach(src => {
+          if (!src) return;
+          if (Array.isArray(src)) {
+            src.forEach(v => {
+              if (typeof v === 'string') unlockedIds.add(v);
+              else if (v && typeof v === 'object' && (v.unlocked || v.completed || v.done)) {
+                unlockedIds.add(String(v.id || v.achId || ''));
+              }
+            });
+          } else if (typeof src === 'object') {
+            Object.entries(src).forEach(([k, v]) => {
+              if (v === true || (typeof v === 'object' && v && (v.unlocked || v.completed || v.done))) {
+                unlockedIds.add(String(k));
+              }
+            });
+          }
+        });
+
+        let totalCount = rawList.length;
+        let unlockedCount = 0;
+
+        if (totalCount > 0) {
+          rawList.forEach((a, idx) => {
+            const aid = String(a.id || a.achId || `ach_${idx}`);
+            if (a.unlocked || a.completed || unlockedIds.has(aid)) {
+              unlockedCount++;
+            }
+          });
+        } else {
+          unlockedCount = unlockedIds.size;
+          totalCount = Math.max(unlockedCount, 1);
+        }
+
+        const isComplete = rawList.length > 0 && unlockedCount >= rawList.length;
+
+        // 解除実績1個ごとに ATK/MATK/DEF +3%、最大HP +4%、獲得EXP/GOLD +4% が常時パッシブ加算
+        // 全実績コンプリート時はさらに「創世神話の覇者（全ステ+50%・獲得EXP/GOLD+50%）」が常時追加
+        return {
+          unlockedCount,
+          totalCount,
+          isComplete,
+          statBonusPct: (unlockedCount * 0.03) + (isComplete ? 0.50 : 0),
+          hpBonusPct: (unlockedCount * 0.04) + (isComplete ? 0.50 : 0),
+          rewardBonusPct: (unlockedCount * 0.04) + (isComplete ? 0.50 : 0)
+        };
+      },
+
+      // C. 実績タブ上部に「全実績常時パッシブ発動中」パネルを表示
+      renderAchievementPassivePanelV52() {
+        const container = document.querySelector('#tab-achievements, #panel-achievements, [data-tab-panel="achievements"], #tab-titles, [data-tab-panel="titles"]');
+        if (!container) return;
+
+        let box = document.getElementById('kmj-ach-all-passive-v52');
+        if (!box) {
+          box = document.createElement('div');
+          box.id = 'kmj-ach-all-passive-v52';
+          box.style.cssText = 'background:linear-gradient(135deg,rgba(20,35,60,.96),rgba(15,23,42,.98));border:1.5px solid #fbbf24;border-radius:10px;padding:9px 11px;margin-bottom:10px;box-shadow:0 0 16px rgba(251,191,36,.25);';
+          container.insertBefore(box, container.firstChild);
+        }
+
+        const p = this.getAllUnlockedAchievementsPassiveV52();
+        const sig = `${p.unlockedCount}/${p.totalCount}|${p.isComplete}`;
+        if (box.dataset.sig === sig) return;
+        box.dataset.sig = sig;
+
+        box.innerHTML = `
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+            <span style="font-size:12px;font-weight:900;color:#fde047;">🏆 実績パッシブ効果（装備不要・全実績が常時発動！）</span>
+            <span style="font-size:11px;font-weight:900;color:#34d399;">解除数: ${p.unlockedCount} / ${p.totalCount}</span>
+          </div>
+          <div style="font-size:10.5px;color:#f8fafc;font-weight:800;line-height:1.45;">
+            ⚡ 常時適用中の全実績パッシブ合計：<span style="color:#4ade80;">全攻撃・防御 +${Math.round(p.statBonusPct * 100)}%</span> ／
+            <span style="color:#38bdf8;">最大HP +${Math.round(p.hpBonusPct * 100)}%</span> ／
+            <span style="color:#fbbf24;">獲得EXP・GOLD +${Math.round(p.rewardBonusPct * 100)}%</span>
+          </div>
+          <div style="margin-top:4px;font-size:9.5px;color:${p.isComplete ? '#fef08a' : '#cbd5e1'};font-weight:700;">
+            ${p.isComplete
+              ? '👑【全実績コンプリート達成！】永続パッシブ「創世神話の覇者（全ステ+50%・報酬+50%）」常時発動中！'
+              : '※ 実績は装備切り替え不要です。解除したすべての実績のパッシブ効果が重複して常時発動します。'}
+          </div>
+        `;
+      }
+    });
+
+    // D. フィールド脅威ランクの増減メソッド（+1 / -1 ボタン等）が上限50で止まらないよう999に開放
+    ['changeThreatRank', 'adjustThreatRank', 'changeThreat', 'addThreat', 'setThreatRank'].forEach(fn => {
+      if (typeof proto[fn] === 'function' && !proto[`_v52_${fn}`]) {
+        const orig = proto[fn];
+        proto[fn] = function (delta, ...rest) {
+          const d = this.saveData;
+          const res = orig.apply(this, [delta, ...rest]);
+          if (d) {
+            const key = ['threatRank', 'threat', 'threatLevel', 'threatLv'].find(k => typeof d[k] === 'number');
+            if (key && typeof delta === 'number') {
+              // 既存メソッドが50でクランプしていた場合でも999まで反映
+              const target = Math.max(1, Math.min(MAX_THREAT_999, (this._lastThreatBeforeV52 || d[key]) + delta));
+              if (d[key] === 50 && target > 50) {
+                d[key] = target;
+                this[key] = target;
+              }
+            }
+          }
+          patchDOMTextsAndAchievementsV52();
+          return res;
+        };
+        proto[`_v52_${fn}`] = true;
+      }
+    });
+
+    // E. ステータス計算に「解除済み全実績の常時パッシブ」を合算
+    if (typeof proto.getPlayerStats === 'function' && !proto._v52AchStatsWrapped) {
+      const origStats = proto.getPlayerStats;
+      proto.getPlayerStats = function (...args) {
+        const st = origStats.apply(this, args) || {};
+        const p = this.getAllUnlockedAchievementsPassiveV52();
+        if (p && (p.statBonusPct > 0 || p.hpBonusPct > 0)) {
+          const sMult = 1 + p.statBonusPct;
+          const hMult = 1 + p.hpBonusPct;
+          if (typeof st.atk === 'number') st.atk = Math.max(1, Math.floor(st.atk * sMult));
+          if (typeof st.matk === 'number') st.matk = Math.max(1, Math.floor(st.matk * sMult));
+          if (typeof st.mAtk === 'number') st.mAtk = Math.max(1, Math.floor(st.mAtk * sMult));
+          if (typeof st.def === 'number') st.def = Math.max(0, Math.floor(st.def * sMult));
+          if (typeof st.maxHp === 'number') st.maxHp = Math.max(20, Math.floor(st.maxHp * hMult));
+        }
+        return st;
+      };
+      proto._v52AchStatsWrapped = true;
+    }
+
+    // F. 撃破報酬にも「解除済み全実績のパッシブ倍率」を合算
+    ['killMonster', 'onMonsterKilled'].forEach(fn => {
+      if (typeof proto[fn] === 'function' && !proto[`_v52Ach_${fn}`]) {
+        const orig = proto[fn];
+        proto[fn] = function (m, ...rest) {
+          const res = orig.apply(this, [m, ...rest]);
+          const d = this.saveData;
+          const p = this.getAllUnlockedAchievementsPassiveV52();
+          if (d && p && p.rewardBonusPct > 0) {
+            const bExp = Math.floor((Number(m?.exp || m?.expReward || 10)) * p.rewardBonusPct);
+            const bGold = Math.floor((Number(m?.gold || m?.goldReward || 8)) * p.rewardBonusPct);
+            if (bExp > 0) d.exp = (Number(d.exp) || 0) + bExp;
+            if (bGold > 0) {
+              d.gold = (Number(d.gold) || 0) + bGold;
+              if ('coins' in d) d.coins = d.gold;
+            }
+          }
+          return res;
+        };
+        proto[`_v52Ach_${fn}`] = true;
+      }
+    });
+
+    // G. HUD更新＆フレーム更新フック
+    if (typeof proto.refreshAllHUD === 'function' && !proto._v52HudWrapped) {
+      const origHud = proto.refreshAllHUD;
+      proto.refreshAllHUD = function (...args) {
+        if (this.saveData) {
+          const key = ['threatRank', 'threat', 'threatLevel', 'threatLv'].find(k => typeof this.saveData[k] === 'number');
+          if (key) this._lastThreatBeforeV52 = this.saveData[key];
+        }
+        const res = origHud.apply(this, args);
+        this.applyKakueTagAndScalingV52();
+        this.renderAchievementPassivePanelV52();
+        patchDOMTextsAndAchievementsV52();
+        return res;
+      };
+      proto._v52HudWrapped = true;
+    }
+
+    if (typeof proto.update === 'function' && !proto._v52UpdateWrapped) {
+      const origUpdate = proto.update;
+      proto.update = function (dt = 0.016, ...rest) {
+        const res = origUpdate.apply(this, [dt, ...rest]);
+        this.applyKakueTagAndScalingV52();
+        return res;
+      };
+      proto._v52UpdateWrapped = true;
+    }
+
+    // DOM変化を監視して「/ 50」表記や実績装備ボタンを即座に書き換え
+    if (!window._v52MutationObs) {
+      window._v52MutationObs = new MutationObserver(() => {
+        patchDOMTextsAndAchievementsV52();
+      });
+      window._v52MutationObs.observe(document.body, { childList: true, subtree: true, characterData: true });
+    }
+  }
+
+  installV52Patch();
+  setTimeout(patchDOMTextsAndAchievementsV52, 400);
+})();
+// ▲▲▲ ここまで【追加パッチ】 ▲▲▲
