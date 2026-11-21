@@ -1,4 +1,4 @@
-// ▼▼▼ ここから【スキルエフェクト専用 game9.js 1/3】極光の聖域HP減少バグ完全修正・火属性4種完全分離・全14種重複ゼロ排他マッピング ▼▼▼
+// ▼▼▼ ここから【スキルエフェクト専用 game9.js 1/4】CSS・属性別シンセ音・全17種進化プロファイル(【神】統一)・3Dループ・極光の聖域 ▼▼▼
 (() => {
   'use strict';
 
@@ -83,7 +83,7 @@
   }
 
   // =========================================================
-  // 2. 属性別リッチ・シンセサイザー効果音
+  // 2. 属性別リッチ・シンセサイザー効果音（全17種個別プリセット）
   // =========================================================
   function playMagicAudioV9(attrId = 'sword', tier = 0) {
     try {
@@ -150,7 +150,7 @@
   }
 
   // =========================================================
-  // 3. 全17種の独立進化プロファイル（火属性4種完全分離・被りゼロ設計）
+  // 3. 全17種の独立進化プロファイル（【真】→【極】→【神】1文字統一・火属性4種完全分離）
   // =========================================================
   const SKILL_DERIVATION_PROFILES_V9 = [
     {
@@ -164,7 +164,7 @@
         b,
         `【真】絶対防壁・金剛聖盾`,
         `【極】不落城塞盾「アイギス・フォートレス」`,
-        `【神話奥義】創世不滅神盾「神域イージス・ゼロ」`
+        `【神】創世不滅神盾「神域イージス・ゼロ」`
       ]
     },
     {
@@ -178,7 +178,7 @@
         b,
         `【真】極光祝福の聖域・改`,
         `【極】天界聖域陣「オーロラ・エリュシオン」`,
-        `【神話奥義】創世楽園領域「極光の聖域・アルカディア」`
+        `【神】創世楽園領域「極光の聖域・アルカディア」`
       ]
     },
     {
@@ -192,7 +192,7 @@
         b,
         `【真】蒼穹烈空・双月斬`,
         `【極】次元裂断「真空三日月・無双閃」`,
-        `【神話奥義】天翔斬空神技「蒼穹烈空・次元断罪斬」`
+        `【神】天翔斬空神技「蒼穹烈空・次元断罪斬」`
       ]
     },
     {
@@ -206,7 +206,7 @@
         b,
         `【真】紅蓮天隕・${b}`,
         `【極】星墜焦熱符「カタストロフ・${b}」`,
-        `【神話奥義】創世天隕「アルティメット・スターフォール」`
+        `【神】創世天隕「アルティメット・スターフォール」`
       ]
     },
     {
@@ -220,7 +220,7 @@
         b,
         `【真】螺旋業火・${b}`,
         `【極】炎帝昇竜符「クリムゾン・ピラー」`,
-        `【神話奥義】太陽神話「アポロン・天衝紅蓮螺旋柱」`
+        `【神】太陽神話「アポロン・天衝紅蓮螺旋柱」`
       ]
     },
     {
@@ -234,7 +234,7 @@
         b,
         `【真】連装爆炎・${b}`,
         `【極】紅蓮弾幕符「イグニッション・ノヴァ」`,
-        `【神話奥義】爆焔神話「イフリート・千輪大爆炎陣」`
+        `【神】爆焔神話「イフリート・千輪大爆炎陣」`
       ]
     },
     {
@@ -248,7 +248,7 @@
         b,
         `【真】地殻灼熱・${b}`,
         `【極】煉獄噴火符「ヴォルカニック・コア」`,
-        `【神話奥義】地底創世「ムスペルヘイム・終焉マグマ噴火」`
+        `【神】地底創世「ムスペルヘイム・終焉マグマ噴火」`
       ]
     },
     {
@@ -262,7 +262,7 @@
         b,
         `【真】氷晶零度・${b}`,
         `【極】絶対零度符「コキュートス・${b}」`,
-        `【神話奥義】銀世界神話「エターナル・ダイヤモンドダスト」`
+        `【神】銀世界神話「エターナル・ダイヤモンドダスト」`
       ]
     },
     {
@@ -276,7 +276,7 @@
         b,
         `【真】紫電一閃・${b}`,
         `【極】雷神降臨符「タケミカヅチ・${b}」`,
-        `【神話奥義】天罰神雷「インドラ・オーバーロードサンダー」`
+        `【神】天罰神雷「インドラ・オーバーロードサンダー」`
       ]
     },
     {
@@ -290,7 +290,7 @@
         b,
         `【真】翠嵐烈風・${b}`,
         `【極】風神天舞符「テンペスト・${b}」`,
-        `【神話奥義】天空神話「シルフィード・無尽真空覇王陣」`
+        `【神】天空神話「シルフィード・無尽真空覇王陣」`
       ]
     },
     {
@@ -304,7 +304,7 @@
         b,
         `【真】蒼海激流・${b}`,
         `【極】海神怒涛符「リヴァイアサン・${b}」`,
-        `【神話奥義】深淵海神「ポセイドン・創世大津波ノヴァ」`
+        `【神】深淵海神「ポセイドン・創世大津波ノヴァ」`
       ]
     },
     {
@@ -318,7 +318,7 @@
         b,
         `【真】剛岩破邪・${b}`,
         `【極】地母神符「ガイア・クラッシュ・${b}」`,
-        `【神話奥義】星砕神話「タイタン・天地開闢金剛砕」`
+        `【神】星砕神話「タイタン・天地開闢金剛砕」`
       ]
     },
     {
@@ -332,7 +332,7 @@
         b,
         `【真】聖光煌めき・${b}`,
         `【極】天照聖域符「セイクリッド・${b}」`,
-        `【神話奥義】創世聖典「セラフィム・無限光輪の奇跡」`
+        `【神】創世聖典「セラフィム・無限光輪の奇跡」`
       ]
     },
     {
@@ -346,7 +346,7 @@
         b,
         `【真】黒蝕冥界・${b}`,
         `【極】虚空崩壊符「アビスノヴァ・${b}」`,
-        `【神話奥義】終焉神話「ラグナロク・次元黒蝕シンギュラリティ」`
+        `【神】終焉神話「ラグナロク・次元黒蝕シンギュラリティ」`
       ]
     },
     {
@@ -360,7 +360,7 @@
         b,
         `【真】猛毒瘴気・${b}`,
         `【極】魔界呪詛符「ベリアル・${b}」`,
-        `【神話奥義】混沌神話「ヒュドラ・無間地獄の瘴気陣」`
+        `【神】混沌神話「ヒュドラ・無間地獄の瘴気陣」`
       ]
     },
     {
@@ -374,7 +374,7 @@
         b,
         `【真】星屑流星・${b}`,
         `【極】銀河星霊符「スターダスト・${b}」`,
-        `【神話奥義】宇宙創世「ビッグバン・ギャラクシーノヴァ」`
+        `【神】宇宙創世「ビッグバン・ギャラクシーノヴァ」`
       ]
     },
     {
@@ -388,7 +388,7 @@
         b,
         `【真】蒼穹剣閃・${b}`,
         `【極】剣聖奥義符「天翔十字・${b}」`,
-        `【神話奥義】創世剣神「エクスカリバー・無限光剣陣」`
+        `【神】創世剣神「エクスカリバー・無限光剣陣」`
       ]
     }
   ];
@@ -561,7 +561,6 @@
         cr.mesh.material.opacity = fade * 0.95;
       });
 
-      // 1秒ごとにフィールド内の全プレイヤーへ安全に持続回復＆バフ適用
       if (s.tickAcc >= 1.0) {
         s.tickAcc -= 1.0;
 
@@ -578,7 +577,6 @@
             const healHp = Math.max(5, Math.floor(realMaxHp * (0.08 + s.tier * 0.04)));
             const healMp = Math.max(5, Math.floor(realMaxMp * (0.10 + s.tier * 0.05)));
 
-            // 現在のHP/MPから絶対に減少させない安全ガード付き加算
             const nextHp = Math.min(realMaxHp, Math.max(curHp, curHp + healHp));
             const nextMp = Math.min(realMaxMp, Math.max(curMp, curMp + healMp));
 
@@ -632,11 +630,29 @@
     }
   }
 
+  // 次パート（2/4）から参照できるよう内部ヘルパーを共有オブジェクトに格納
+  window.KMJ_SKILL_FX_V9 = {
+    ATTRIBUTES: SKILL_DERIVATION_PROFILES_V9,
+    EFFECT_BUILDERS: {},
+    register3DAnimation: register3DAnimationV9,
+    spawnAuroraSanctuaryField: spawnAuroraSanctuaryFieldV9,
+    updateSanctuaryFields: updateSanctuaryFieldsV9,
+    _playMagicAudio: playMagicAudioV9
+  };
+})();
+// ▲▲▲ ここまで【スキルエフェクト専用 game9.js 1/4】 ▲▲▲
+// ▼▼▼ ここから【スキルエフェクト専用 game9.js 2/4】カットイン・詠唱オーラ・14種排他マッピング・スタジオUI・3Dビルダー(1〜4) ▼▼▼
+(() => {
+  'use strict';
+
+  const V9 = window.KMJ_SKILL_FX_V9;
+  if (!V9) return;
+
   // =========================================================
   // 6. スペルカードカットイン＆詠唱オーラ
   // =========================================================
   function showSpellCardCutinV9(game, info) {
-    playMagicAudioV9(info.theme.id, info.tier);
+    V9._playMagicAudio?.(info.theme.id, info.tier);
 
     let layer = document.getElementById('kmj-v9-cutin-layer');
     if (!layer) {
@@ -717,7 +733,7 @@
     footRing2.position.y = 0.10;
     grp.add(footRing2);
 
-    register3DAnimationV9(game.scene, grp, 0.75, (p, elapsed) => {
+    V9.register3DAnimation(game.scene, grp, 0.75, (p, elapsed) => {
       grp.position.set(entity.pos.x, 0, entity.pos.z);
       footRing1.rotation.z = elapsed * 4;
       footRing2.rotation.z = -elapsed * 5;
@@ -730,14 +746,9 @@
   // =========================================================
   // 7. 公開API（全14種1対1排他割り当て・スキル一覧MP書き換え・スタジオUI）
   // =========================================================
-  window.KMJ_SKILL_FX_V9 = {
-    ATTRIBUTES: SKILL_DERIVATION_PROFILES_V9,
-    EFFECT_BUILDERS: {},
-    register3DAnimation: register3DAnimationV9,
+  Object.assign(V9, {
     showSpellCardCutin: showSpellCardCutinV9,
     spawnCasterChantAura: spawnCasterChantAuraV9,
-    spawnAuroraSanctuaryField: spawnAuroraSanctuaryFieldV9,
-    updateSanctuaryFields: updateSanctuaryFieldsV9,
 
     getAll14Skills(game) {
       let list = [];
@@ -770,24 +781,24 @@
       allList.forEach((sk, idx) => {
         if (!sk || typeof sk !== 'object') return;
         if (!sk._origNameV9 && typeof sk.name === 'string') {
-          sk._origNameV9 = sk.name.replace(/^【(真|極|奥義|神話奥義)】[^「・]*[・「]?|」$/g, '').trim() || sk.name;
+          sk._origNameV9 = sk.name.replace(/^【(真|極|神|奥義|神話奥義)】[^「・]*[・「]?|」$/g, '').trim() || sk.name;
         }
         const origName = sk._origNameV9 || `秘技・第${idx + 1}の型`;
         const searchStr = `${origName} ${sk.desc || ''}`;
 
-        let chosen = SKILL_DERIVATION_PROFILES_V9.find(p => !usedProfileIds.has(p.id) && p.match.test(searchStr));
+        let chosen = V9.ATTRIBUTES.find(p => !usedProfileIds.has(p.id) && p.match.test(searchStr));
 
         if (!chosen && /炎|火|爆|メテオ|ブレイズ|フレア|fire|flame|blaze/i.test(searchStr)) {
           const fireVariants = ['fire_meteor', 'fire_pillar', 'fire_burst', 'fire_eruption'];
           const freeFireId = fireVariants.find(fid => !usedProfileIds.has(fid));
           if (freeFireId) {
-            chosen = SKILL_DERIVATION_PROFILES_V9.find(p => p.id === freeFireId);
+            chosen = V9.ATTRIBUTES.find(p => p.id === freeFireId);
           }
         }
 
         if (!chosen) {
-          chosen = SKILL_DERIVATION_PROFILES_V9.find(p => !usedProfileIds.has(p.id))
-            || SKILL_DERIVATION_PROFILES_V9[idx % SKILL_DERIVATION_PROFILES_V9.length];
+          chosen = V9.ATTRIBUTES.find(p => !usedProfileIds.has(p.id))
+            || V9.ATTRIBUTES[idx % V9.ATTRIBUTES.length];
         }
 
         usedProfileIds.add(chosen.id);
@@ -833,9 +844,9 @@
       const origName = rawSkill?._origNameV9 || `秘技・第${slotIdx + 1}の型`;
       const tier = skillLv >= 100 ? 3 : (skillLv >= 50 ? 2 : (skillLv >= 10 ? 1 : 0));
 
-      const theme = rawSkill?._uniqueThemeV9 || SKILL_DERIVATION_PROFILES_V9[slotIdx % SKILL_DERIVATION_PROFILES_V9.length];
+      const theme = rawSkill?._uniqueThemeV9 || V9.ATTRIBUTES[slotIdx % V9.ATTRIBUTES.length];
       const evolvedName = theme.names(origName)[tier] || origName;
-      const tierLabels = ['通常魔法', '✨ 魔法進化Ⅰ【真】', '🔥 魔法進化Ⅱ【極】', '🌈 魔法最終進化【神話スペルカード】'];
+      const tierLabels = ['通常魔法', '✨ 魔法進化Ⅰ【真】', '🔥 魔法進化Ⅱ【極】', '🌈 魔法最終進化【神】'];
 
       return {
         rawSkill, slotIdx, skillLv, origMp, mpCost, origName, evolvedName,
@@ -929,7 +940,7 @@
               <button type="button" class="v9-cast-skill-btn" data-idx="${idx}" data-tier="0" style="background:#334155;color:#fff;border:none;border-radius:5px;padding:5px 2px;font-size:9.5px;font-weight:900;cursor:pointer;">Lv.1 通常</button>
               <button type="button" class="v9-cast-skill-btn" data-idx="${idx}" data-tier="1" style="background:#0284c7;color:#fff;border:none;border-radius:5px;padding:5px 2px;font-size:9.5px;font-weight:900;cursor:pointer;">Lv.10【真】</button>
               <button type="button" class="v9-cast-skill-btn" data-idx="${idx}" data-tier="2" style="background:#d97706;color:#fff;border:none;border-radius:5px;padding:5px 2px;font-size:9.5px;font-weight:900;cursor:pointer;">Lv.50【極】</button>
-              <button type="button" class="v9-cast-skill-btn" data-idx="${idx}" data-tier="3" style="background:linear-gradient(90deg,#db2777,#7c3aed);color:#fde047;border:none;border-radius:5px;padding:5px 2px;font-size:9.5px;font-weight:900;cursor:pointer;">Lv.100【神話】</button>
+              <button type="button" class="v9-cast-skill-btn" data-idx="${idx}" data-tier="3" style="background:linear-gradient(90deg,#db2777,#7c3aed);color:#fde047;border:none;border-radius:5px;padding:5px 2px;font-size:9.5px;font-weight:900;cursor:pointer;">Lv.100【神】</button>
             </div>
           </div>
         `;
@@ -981,16 +992,11 @@
       `);
       body.querySelector('#kmj-v9-inline-studio-btn').onclick = () => this.openStudioModal(game);
     }
-  };
-})();
-// ▲▲▲ ここまで【スキルエフェクト専用 game9.js 1/3】 ▲▲▲
-// ▼▼▼ ここから【スキルエフェクト専用 game9.js 2/3】前半8種個別3Dビルダー（神域イージス聖盾・極光の聖域・烈空三日月斬・火属性4種完全分離・氷柱隆起） ▼▼▼
-(() => {
-  'use strict';
+  });
 
-  const V9 = window.KMJ_SKILL_FX_V9;
-  if (!V9 || !V9.EFFECT_BUILDERS) return;
-
+  // =========================================================
+  // 8. 個別3Dビルダー共通幾何ヘルパー（魔法陣ベース・六角エネルギー盾）
+  // =========================================================
   function addMagicCircleBase(root, radius, c1, c2, tier, ringsOut) {
     const ringCount = 2 + tier;
     for (let r = 0; r < ringCount; r++) {
@@ -1027,7 +1033,7 @@
   }
 
   // =========================================================
-  // 1. 🛡️ 神域イージス（防御特化：多重エネルギー聖盾＆六角守護ドーム）
+  // 9. 個別3Dビルダー (1/17) 🛡️ 神域イージス（多重エネルギー聖盾＆六角守護ドーム）
   // =========================================================
   V9.EFFECT_BUILDERS.aegis_shield = function (root, info, scale) {
     const tier = info.tier;
@@ -1099,7 +1105,7 @@
   };
 
   // =========================================================
-  // 2. 🌈 極光の聖域（展開バースト演出 ※持続フィールドは 1/3 で常駐展開）
+  // 10. 個別3Dビルダー (2/17) 🌈 極光の聖域（展開バースト演出）
   // =========================================================
   V9.EFFECT_BUILDERS.aurora_sanctuary = function (root, info, scale) {
     const tier = info.tier;
@@ -1130,7 +1136,7 @@
   };
 
   // =========================================================
-  // 3. ⚔️ 烈空斬（前方へ疾走する三日月真空斬撃波・進化で双月＆多重次元斬）
+  // 11. 個別3Dビルダー (3/17) ⚔️ 烈空斬（三日月真空斬撃波・進化で双月＆多重次元斬）
   // =========================================================
   V9.EFFECT_BUILDERS.slash_crescent = function (root, info, scale) {
     const tier = info.tier;
@@ -1161,7 +1167,7 @@
   };
 
   // =========================================================
-  // 4. ☄️ 火属性①：星屑メテオ（上空から巨大隕石落下＆着弾衝撃波）
+  // 12. 個別3Dビルダー (4/17) ☄️ 火属性①：星屑メテオ（超巨大隕石落下＆着弾衝撃波）
   // =========================================================
   V9.EFFECT_BUILDERS.fire_meteor = function (root, info, scale) {
     const tier = info.tier;
@@ -1236,8 +1242,36 @@
     };
   };
 
+  V9._addMagicCircleBase = addMagicCircleBase;
+})();
+// ▲▲▲ ここまで【スキルエフェクト専用 game9.js 2/4】 ▲▲▲
+// ▼▼▼ ここから【スキルエフェクト専用 game9.js 3/4】3Dビルダー(5〜12)：火属性3種・氷柱隆起・紫電落雷・旋風竜巻・蒼海渦潮・巨岩隆起 ▼▼▼
+(() => {
+  'use strict';
+
+  const V9 = window.KMJ_SKILL_FX_V9;
+  if (!V9 || !V9.EFFECT_BUILDERS) return;
+
+  const addMagicCircleBase = V9._addMagicCircleBase || function (root, radius, c1, c2, tier, ringsOut) {
+    const ringCount = 2 + tier;
+    for (let r = 0; r < ringCount; r++) {
+      const rIn = radius * (0.32 + r * (0.68 / ringCount));
+      const rOut = rIn + 0.14 * (1 + tier * 0.25);
+      const col = r % 2 === 0 ? c1 : c2;
+      const segs = r === 0 ? 6 : (r === 1 ? 8 : 36);
+      const mesh = new THREE.Mesh(
+        new THREE.RingGeometry(rIn, rOut, segs),
+        new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide, transparent: true, opacity: 0.92 })
+      );
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.y = 0.05 + r * 0.025;
+      root.add(mesh);
+      ringsOut.push({ mesh, speed: (r % 2 === 0 ? 1 : -1) * (2.2 + r * 0.7) });
+    }
+  };
+
   // =========================================================
-  // 5. 🔥 火属性②：紅蓮業火・螺旋炎柱（天高く立ち昇る極太炎柱＆螺旋炎リング）
+  // 13. 個別3Dビルダー (5/17) 🔥 火属性②：紅蓮業火・螺旋炎柱（天高く立ち昇る極太炎柱＆螺旋炎リング）
   // =========================================================
   V9.EFFECT_BUILDERS.fire_pillar = function (root, info, scale) {
     const tier = info.tier;
@@ -1303,7 +1337,7 @@
   };
 
   // =========================================================
-  // 6. 💥 火属性③：爆炎ファイア・連装火球弾幕（放射状火球連射＆連続大爆発）
+  // 14. 個別3Dビルダー (6/17) 💥 火属性③：爆炎ファイア・連装火球弾幕（放射状火球連射＆連続大爆発）
   // =========================================================
   V9.EFFECT_BUILDERS.fire_burst = function (root, info, scale) {
     const tier = info.tier;
@@ -1378,7 +1412,7 @@
   };
 
   // =========================================================
-  // 7. 🌋 火属性④：灼熱ブレイズ・溶岩マグマ噴火（大地亀裂＆溶岩塊噴出）
+  // 15. 個別3Dビルダー (7/17) 🌋 火属性④：灼熱ブレイズ・溶岩マグマ噴火（大地亀裂＆溶岩塊噴出）
   // =========================================================
   V9.EFFECT_BUILDERS.fire_eruption = function (root, info, scale) {
     const tier = info.tier;
@@ -1450,7 +1484,7 @@
   };
 
   // =========================================================
-  // 8. ❄️ 絶対零度ノヴァ（地面の下からクリスタル氷柱が波紋状に次々と生えて進化！）
+  // 16. 個別3Dビルダー (8/17) ❄️ 絶対零度ノヴァ（地面の下からクリスタル氷柱が波紋状に次々と生えて進化！）
   // =========================================================
   V9.EFFECT_BUILDERS.ice = function (root, info, scale) {
     const tier = info.tier;
@@ -1549,35 +1583,9 @@
       }
     };
   };
-})();
-// ▲▲▲ ここまで【スキルエフェクト専用 game9.js 2/3】 ▲▲▲
-// ▼▼▼ ここから【スキルエフェクト専用 game9.js 3/3】後半9種の個別3Dビルダー・武器種別×グレード6段階の水平横振り攻撃エフェクト・統合実行エンジン ▼▼▼
-(() => {
-  'use strict';
-
-  const V9 = window.KMJ_SKILL_FX_V9;
-  if (!V9 || !V9.EFFECT_BUILDERS) return;
-
-  function addMagicCircleBase(root, radius, c1, c2, tier, ringsOut) {
-    const ringCount = 2 + tier;
-    for (let r = 0; r < ringCount; r++) {
-      const rIn = radius * (0.32 + r * (0.68 / ringCount));
-      const rOut = rIn + 0.14 * (1 + tier * 0.25);
-      const col = r % 2 === 0 ? c1 : c2;
-      const segs = r === 0 ? 6 : (r === 1 ? 8 : 36);
-      const mesh = new THREE.Mesh(
-        new THREE.RingGeometry(rIn, rOut, segs),
-        new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide, transparent: true, opacity: 0.92 })
-      );
-      mesh.rotation.x = -Math.PI / 2;
-      mesh.position.y = 0.05 + r * 0.025;
-      root.add(mesh);
-      ringsOut.push({ mesh, speed: (r % 2 === 0 ? 1 : -1) * (2.2 + r * 0.7) });
-    }
-  }
 
   // =========================================================
-  // 9. ⚡ 紫電・天罰落雷魔法
+  // 17. 個別3Dビルダー (9/17) ⚡ 紫電・天罰落雷魔法
   // =========================================================
   V9.EFFECT_BUILDERS.thunder = function (root, info, scale) {
     const tier = info.tier;
@@ -1649,7 +1657,7 @@
   };
 
   // =========================================================
-  // 10. 🌪️ 旋風円舞・螺旋竜巻魔法
+  // 18. 個別3Dビルダー (10/17) 🌪️ 旋風円舞・螺旋竜巻魔法
   // =========================================================
   V9.EFFECT_BUILDERS.wind = function (root, info, scale) {
     const tier = info.tier;
@@ -1711,7 +1719,7 @@
   };
 
   // =========================================================
-  // 11. 🌊 蒼海・大渦潮水柱魔法
+  // 19. 個別3Dビルダー (11/17) 🌊 蒼海・大渦潮水柱魔法
   // =========================================================
   V9.EFFECT_BUILDERS.water = function (root, info, scale) {
     const tier = info.tier;
@@ -1777,7 +1785,7 @@
   };
 
   // =========================================================
-  // 12. 🪨 破邪の衝撃・巨岩隆起魔法
+  // 20. 個別3Dビルダー (12/17) 🪨 破邪の衝撃・巨岩隆起魔法
   // =========================================================
   V9.EFFECT_BUILDERS.earth = function (root, info, scale) {
     const tier = info.tier;
@@ -1831,9 +1839,35 @@
       });
     };
   };
+})();
+// ▲▲▲ ここまで【スキルエフェクト専用 game9.js 3/4】 ▲▲▲
+// ▼▼▼ ここから【スキルエフェクト専用 game9.js 4/4】3Dビルダー(13〜17)・統合実行エンジン・武器6段階水平横振り・重複回避安全フック ▼▼▼
+(() => {
+  'use strict';
+
+  const V9 = window.KMJ_SKILL_FX_V9;
+  if (!V9 || !V9.EFFECT_BUILDERS) return;
+
+  const addMagicCircleBase = V9._addMagicCircleBase || function (root, radius, c1, c2, tier, ringsOut) {
+    const ringCount = 2 + tier;
+    for (let r = 0; r < ringCount; r++) {
+      const rIn = radius * (0.32 + r * (0.68 / ringCount));
+      const rOut = rIn + 0.14 * (1 + tier * 0.25);
+      const col = r % 2 === 0 ? c1 : c2;
+      const segs = r === 0 ? 6 : (r === 1 ? 8 : 36);
+      const mesh = new THREE.Mesh(
+        new THREE.RingGeometry(rIn, rOut, segs),
+        new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide, transparent: true, opacity: 0.92 })
+      );
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.y = 0.05 + r * 0.025;
+      root.add(mesh);
+      ringsOut.push({ mesh, speed: (r % 2 === 0 ? 1 : -1) * (2.2 + r * 0.7) });
+    }
+  };
 
   // =========================================================
-  // 13. 💖 聖光の癒し・天照光輪魔法
+  // 21. 個別3Dビルダー (13/17) 💖 聖光の癒し・天照光輪魔法
   // =========================================================
   V9.EFFECT_BUILDERS.holy_heal = function (root, info, scale) {
     const tier = info.tier;
@@ -1916,7 +1950,7 @@
   };
 
   // =========================================================
-  // 14. 🌌 黒蝕・ブラックホール魔法
+  // 22. 個別3Dビルダー (14/17) 🌌 黒蝕・ブラックホール魔法
   // =========================================================
   V9.EFFECT_BUILDERS.dark = function (root, info, scale) {
     const tier = info.tier;
@@ -2015,7 +2049,7 @@
   };
 
   // =========================================================
-  // 15. ☠️ 呪詛・魔界瘴気魔法
+  // 23. 個別3Dビルダー (15/17) ☠️ 呪詛・魔界瘴気魔法
   // =========================================================
   V9.EFFECT_BUILDERS.poison = function (root, info, scale) {
     const tier = info.tier;
@@ -2074,7 +2108,7 @@
   };
 
   // =========================================================
-  // 16. 🌟 星屑・銀河流星魔法
+  // 24. 個別3Dビルダー (16/17) 🌟 星屑・銀河流星魔法
   // =========================================================
   V9.EFFECT_BUILDERS.star = function (root, info, scale) {
     const tier = info.tier;
@@ -2117,7 +2151,7 @@
   };
 
   // =========================================================
-  // 17. 🗡️ 秘剣・無限光剣陣
+  // 25. 個別3Dビルダー (17/17) 🗡️ 秘剣・無限光剣陣
   // =========================================================
   V9.EFFECT_BUILDERS.sword = function (root, info, scale) {
     const tier = info.tier;
@@ -2205,7 +2239,7 @@
   };
 
   // =========================================================
-  // 18. 統合実行エンジン（防御・聖域・治癒・前方斬撃は術者中心、攻撃系は敵中心）
+  // 26. 統合実行エンジン（防御・聖域・治癒・前方斬撃は術者中心、攻撃系は敵中心）
   // =========================================================
   function executeFullMagic3D(game, entity, info) {
     if (!game?.useWebGL || !game?.scene || !entity?.pos || typeof THREE === 'undefined') return;
@@ -2354,7 +2388,7 @@
   V9.previewSkillByObj = function (game, skillObj, tier = 0) {
     const baseInfo = V9.getSkillInfo(game, skillObj);
     const lvMap = [1, 10, 50, 100];
-    const tierLabels = ['通常魔法', '✨ 魔法進化Ⅰ【真】', '🔥 魔法進化Ⅱ【極】', '🌈 魔法最終進化【神話スペルカード】'];
+    const tierLabels = ['通常魔法', '✨ 魔法進化Ⅰ【真】', '🔥 魔法進化Ⅱ【極】', '🌈 魔法最終進化【神】'];
     const simLv = lvMap[tier] || 1;
     const simMp = (baseInfo.origMp * 5) + (simLv - 1) * 10;
     const info = {
@@ -2370,7 +2404,7 @@
   };
 
   // =========================================================
-  // 19. 武器種別 × 武器グレード（6段階）の超豪華・水平横振り攻撃エフェクト！
+  // 27. 武器種別 × 武器グレード（6段階）の超豪華・水平横振り攻撃エフェクト！
   // =========================================================
   function getEquippedWeaponProfileV9(game, entity) {
     const isLocal = (entity === game?.player);
@@ -2407,7 +2441,6 @@
     const wDesc = String(wpnObj?.desc || '');
     const search = `${wName} ${wDesc} ${wpnObj?.attr || wpnObj?.element || ''}`;
 
-    // 武器グレード（0〜5の6段階）をレア度・一覧順位・強化値(+)から自動算出
     let grade = 0;
     const rar = String(wpnObj?.rarity || wpnObj?.rank || wpnObj?.grade || '').toUpperCase();
     if (/LR|MYTH|GOD|神話|創世|アルティメット/.test(rar) || /創世|神話|エクスカリバー|ラグナロク|アルティメット|天叢雲/.test(wName)) {
@@ -2424,14 +2457,12 @@
       grade = Math.min(5, Math.floor((wpnIdx / Math.max(1, wList.length - 1)) * 5.4));
     }
 
-    // 武器強化値（+値）や武器レベルがあればグレード底上げ
     const plusLv = Number(d.weaponPlus ?? d.weaponEnhance ?? wpnObj?.plus ?? wpnObj?.lv ?? 0);
     if (plusLv >= 50) grade = 5;
     else if (plusLv >= 30) grade = Math.max(grade, 4);
     else if (plusLv >= 15) grade = Math.max(grade, 3);
     else if (plusLv >= 5) grade = Math.max(grade, 2);
 
-    // 武器種別ごとのカラー＆モチーフ決定
     let style = { c1: 0x38bdf8, c2: 0xe0f2fe, c3: 0x7dd3fc, shape: 'octa' };
     if (/炎|火|紅蓮|ブレイズ|フレア|イフリート|太陽|fire|flame|blaze/i.test(search)) {
       style = { c1: 0xef4444, c2: 0xfacc15, c3: 0xf97316, shape: 'tetra' };
@@ -2461,9 +2492,8 @@
     const { c1, c2, c3, shape } = style;
     const rotY = entity.rotY || 0;
 
-    // グレードに応じたスケール＆多重度（グレード0〜5）
     const sc = 1.0 + grade * 0.24;
-    const slashLayers = 1 + grade; // 1重〜6重の水平斬撃アーク
+    const slashLayers = 1 + grade;
     const rainbowCols = [0xf472b6, 0x38bdf8, 0xfde047, 0x34d399, 0xa855f7, 0xf97316];
 
     const root = new THREE.Group();
@@ -2642,6 +2672,9 @@
     }
   }
 
+  // =========================================================
+  // 28. game7.js / game8.js との重複フック衝突防止＆安全バインド
+  // =========================================================
   function hookGameV9() {
     if (typeof KaomojiMMORPG === 'undefined') {
       setTimeout(hookGameV9, 100);
@@ -2654,6 +2687,12 @@
     const origVis = P.triggerAttackVisual;
     P.triggerAttackVisual = function (entity, isSkill = false, skillInfo = null) {
       if (!isSkill && entity) {
+        // game8.js側が既に同フレームで水平横振りFXを発動済みの場合は二重描画を防止
+        const now = performance.now();
+        if (entity._lastSlashFxTime && (now - entity._lastSlashFxTime) < 60) {
+          return;
+        }
+        entity._lastSlashFxTime = now;
         entity.attackAnimTimer = 0.36;
         entity.attackIsSkill = false;
         spawnWeaponHorizontalSlashV9(this, entity);
@@ -2676,11 +2715,11 @@
     setTimeout(() => {
       if (window.game) {
         V9.syncAllSkills(window.game);
-        window.game.showAlertBanner?.('✨ MP上限成長＆自動回復・魔法系クラス削除・武器別＆グレード別横振り斬撃完了！', 2600);
+        window.game.showAlertBanner?.('✨ 全17種3D魔法演出・【神】統一・武器6段階水平横振りシステム起動！', 2600);
       }
     }, 350);
   }
 
   hookGameV9();
 })();
-// ▲▲▲ ここまで【スキルエフェクト専用 game9.js 3/3】 ▲▲▲
+// ▲▲▲ ここまで【スキルエフェクト専用 game9.js 4/4】 ▲▲▲
