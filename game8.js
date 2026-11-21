@@ -1,4 +1,4 @@
-// ▼▼▼ ここから【game8.js 完全版 v112】剣の水平横振りモーション・武器グレード別(★1〜★6)豪華3D剣＆斬撃エフェクト・デバッグモード切替 ▼▼▼
+// ▼▼▼ ここから【game8.js 完全版 v112 + 名前入力追加】剣の水平横振りモーション・武器グレード別(★1〜★6)豪華3D剣＆斬撃エフェクト・デバッグモード切替 ▼▼▼
 (() => {
   'use strict';
 
@@ -1666,8 +1666,50 @@
           };
         }
 
-        // 「設定」画面の最下部にデバッグモード切替ボタンを配置（ここからいつでもデバッグON/OFF可能）
+        // 「設定」画面の最下部にプレイヤー名入力欄＆デバッグモード切替ボタンを配置
         if (/set|opt|cfg|config|system/.test(tab) || /設定|音量|グラフィック|セーブ/.test(txt)) {
+          if (!body.querySelector('#kmj-v8-player-name-box')) {
+            const curName = String(d.playerName || d.name || this.player?.name || '冒険者');
+            const escName = curName.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            body.insertAdjacentHTML('beforeend', `
+              <div id="kmj-v8-player-name-box" class="card-box" style="margin-top:10px;border:1.5px solid #38bdf8;background:rgba(15,23,42,0.92);display:flex;flex-direction:column;gap:6px;">
+                <div style="font-size:11px;font-weight:900;color:#7dd3fc;">✏️ プレイヤー名設定（現在: <span id="kmj-v8-cur-name-lbl" style="color:#fff;">${escName}</span>）</div>
+                <div style="display:flex;gap:6px;align-items:center;">
+                  <input type="text" id="kmj-v8-player-name-input" value="${escName}" maxlength="20" placeholder="名前を入力（最大20文字）" style="flex:1;min-width:0;background:#0f172a;border:1px solid #475569;color:#fff;border-radius:6px;padding:6px 8px;font-size:12px;font-weight:700;outline:none;" />
+                  <button type="button" id="kmj-v8-player-name-save-btn" style="background:#0284c7;border:none;color:#fff;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;white-space:nowrap;">変更</button>
+                </div>
+              </div>
+            `);
+            const nameInp = body.querySelector('#kmj-v8-player-name-input');
+            const saveBtn = body.querySelector('#kmj-v8-player-name-save-btn');
+            const applyPlayerName = () => {
+              const raw = (nameInp?.value || '').trim();
+              if (!raw) {
+                this.showAlertBanner?.('⚠️ 名前を入力してください', 1400);
+                return;
+              }
+              if (/debug777/i.test(raw)) return;
+              d.name = raw;
+              d.playerName = raw;
+              if (this.player) this.player.name = raw;
+              const lbl = body.querySelector('#kmj-v8-cur-name-lbl');
+              if (lbl) lbl.textContent = raw;
+              this.updateHUD?.();
+              this.updateHud?.();
+              this.saveGame?.(false);
+              this.showAlertBanner?.(`✅ プレイヤー名を「${raw}」に変更しました`, 1600);
+            };
+            if (nameInp) {
+              nameInp.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  applyPlayerName();
+                }
+              });
+            }
+            if (saveBtn) saveBtn.onclick = applyPlayerName;
+          }
+
           if (!body.querySelector('#kmj-v8-debug-toggle-box')) {
             const dbgNow = isDebugModeActiveV8(this);
             body.insertAdjacentHTML('beforeend', `
@@ -1770,4 +1812,4 @@
   }, true);
   setTimeout(setupThreatControlsV8, 300);
 })();
-// ▲▲▲ ここまで【game8.js 完全版 v112】 ▲▲▲
+// ▲▲▲ ここまで【game8.js 完全版 v112 + 名前入力追加】 ▲▲▲
