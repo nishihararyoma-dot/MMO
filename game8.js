@@ -1,4 +1,4 @@
-// ▼▼▼ ここから【game8.js 決定版 v105】実際のチャット枠専用「上部移動つまみ＆右下リサイズつまみ」・ワープ一本化（ステージ選択ワープのみ）・MP5倍＆1Lv毎+10完全同期・驚異度999・格上1.5倍・12クラス進化 ▼▼▼
+// ▼▼▼ ここから【game8.js 完全版 v106】剣1本化（player.group対応）・内部MP＆左上MP完全同期・スキル一覧消費MP同期・チャット移動＆拡大つまみ・ワープ一本化 ▼▼▼
 (() => {
   'use strict';
 
@@ -11,7 +11,7 @@
   } catch (e) {}
 
   // =========================================================
-  // 1. スタイル定義（チャット枠の移動つまみ・右下リサイズつまみ・ワープナビ）
+  // 1. スタイル定義（チャットつまみ・ワープナビ）
   // =========================================================
   if (!document.getElementById('kmj-v8-ui-style')) {
     const st = document.createElement('style');
@@ -22,7 +22,6 @@
         visibility: hidden !important;
         pointer-events: none !important;
       }
-      /* 実際のチャット枠の上部：移動つまみ */
       #kmj-real-chat-move-bar {
         width: 100%;
         height: 24px;
@@ -42,7 +41,6 @@
         letter-spacing: 0.04em;
         flex-shrink: 0;
       }
-      /* 実際のチャット枠の右下角：大きさ変えるつまみ */
       #kmj-real-chat-resize-grip {
         position: absolute;
         right: 0px;
@@ -64,7 +62,6 @@
         font-weight: 900;
         text-shadow: 0 1px 2px #000;
       }
-      /* 右上のワープナビ＆魔法スタジオボタン */
       #kmj-warp-compass-hud {
         position: fixed;
         top: 84px;
@@ -125,18 +122,11 @@
       }
     });
   }
-  hideTopRightOnlineBarV8();
-  setInterval(hideTopRightOnlineBarV8, 500);
 
   // =========================================================
-  // 2. 実際の黒いチャット枠だけを特定して「移動つまみ」＆「右下リサイズつまみ」を装着
+  // 2. チャット枠の移動つまみ＆右下リサイズつまみ
   // =========================================================
   function installChatDragAndResizeHandles() {
-    // 以前誤爆した外側のバーが残っていれば必ず削除
-    document.getElementById('kmj-chat-move-bar')?.remove();
-    document.getElementById('kmj-chat-resize-corner')?.remove();
-
-    // 「メッセージを入力...」のinput要素から最小のチャット枠（黒いボックス）を逆算特定
     const chatInput = Array.from(document.querySelectorAll('input')).find(inp =>
       /メッセージ|チャット|発言/.test(inp.placeholder || '')
     );
@@ -149,7 +139,6 @@
     while (cur && cur !== document.body) {
       const txt = cur.textContent || '';
       const rect = cur.getBoundingClientRect();
-      // 「全体チャット」タブと入力欄の両方を含み、かつ画面幅いっぱいの親ラッパーではない実体枠
       if (txt.includes('全体チャット') && rect.width > 160 && rect.width < maxAllowedW && rect.height > 80) {
         realChatBox = cur;
         break;
@@ -158,24 +147,20 @@
     }
     if (!realChatBox) return;
 
-    // もし親要素に overflow:hidden があってつまみが切れる場合は visible にする
     if (realChatBox.parentElement && realChatBox.parentElement !== document.body) {
       realChatBox.parentElement.style.pointerEvents = 'none';
     }
     realChatBox.style.pointerEvents = 'auto';
 
-    // チャットログ表示エリア（スクロール部分）を特定
     let logArea = null;
     for (const ch of realChatBox.querySelectorAll('div')) {
       if (ch === realChatBox) continue;
-      const t = ch.textContent || '';
-      if (t.includes('全体チャットへようこそ') && !ch.querySelector('input')) {
+      if ((ch.textContent || '').includes('全体チャットへようこそ') && !ch.querySelector('input')) {
         logArea = ch;
         break;
       }
     }
 
-    // 初回のみ fixed 座標化して位置・サイズ制御可能にする
     if (!realChatBox.dataset.v8ChatReady) {
       const r = realChatBox.getBoundingClientRect();
       realChatBox.style.position = 'fixed';
@@ -191,16 +176,13 @@
       realChatBox.dataset.v8ChatReady = '1';
     }
 
-    // ① チャット枠の上部：移動つまみ
     if (!realChatBox.querySelector('#kmj-real-chat-move-bar')) {
       const moveBar = document.createElement('div');
       moveBar.id = 'kmj-real-chat-move-bar';
       moveBar.innerHTML = `<span>✥ 移動つまみ（ドラッグで移動）</span>`;
       realChatBox.insertBefore(moveBar, realChatBox.firstChild);
 
-      let moving = false;
-      let sx = 0, sy = 0, ol = 0, ot = 0;
-
+      let moving = false, sx = 0, sy = 0, ol = 0, ot = 0;
       const startM = (cx, cy) => {
         moving = true; sx = cx; sy = cy;
         const r = realChatBox.getBoundingClientRect();
@@ -222,23 +204,18 @@
         if (moving && e.touches.length > 0) { e.preventDefault(); doM(e.touches[0].clientX, e.touches[0].clientY); }
       }, { passive: false });
       window.addEventListener('touchend', endM);
-
       moveBar.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); startM(e.clientX, e.clientY); });
       window.addEventListener('mousemove', (e) => { if (moving) doM(e.clientX, e.clientY); });
       window.addEventListener('mouseup', endM);
     }
 
-    // ② チャット枠の右下角：大きさ変えるつまみ（↘）
     if (!realChatBox.querySelector('#kmj-real-chat-resize-grip')) {
       const grip = document.createElement('div');
       grip.id = 'kmj-real-chat-resize-grip';
-      grip.title = 'ドラッグしてチャットの大きさを変更';
       grip.textContent = '↘';
       realChatBox.appendChild(grip);
 
-      let resizing = false;
-      let sx = 0, sy = 0, ow = 300, oh = 160, oLogH = 75;
-
+      let resizing = false, sx = 0, sy = 0, ow = 300, oh = 160, oLogH = 75;
       const startR = (cx, cy) => {
         resizing = true; sx = cx; sy = cy;
         const r = realChatBox.getBoundingClientRect();
@@ -247,21 +224,17 @@
       };
       const doR = (cx, cy) => {
         if (!resizing) return;
-        const dx = cx - sx;
-        const dy = cy - sy;
+        const dx = cx - sx, dy = cy - sy;
         const curLeft = realChatBox.getBoundingClientRect().left;
         const maxW = Math.min(620, window.innerWidth - curLeft - 6);
-        const nextW = Math.max(200, Math.min(maxW, Math.round(ow + dx)));
-        realChatBox.style.width = `${nextW}px`;
-
+        realChatBox.style.width = `${Math.max(200, Math.min(maxW, Math.round(ow + dx)))}px`;
         if (logArea) {
           const nextLogH = Math.max(36, Math.min(320, Math.round(oLogH + dy)));
           logArea.style.height = `${nextLogH}px`;
           logArea.style.maxHeight = `${nextLogH}px`;
           logArea.style.overflowY = 'auto';
         } else {
-          const nextH = Math.max(110, Math.min(420, Math.round(oh + dy)));
-          realChatBox.style.height = `${nextH}px`;
+          realChatBox.style.height = `${Math.max(110, Math.min(420, Math.round(oh + dy)))}px`;
         }
       };
       const endR = () => { resizing = false; };
@@ -273,7 +246,6 @@
         if (resizing && e.touches.length > 0) { e.preventDefault(); doR(e.touches[0].clientX, e.touches[0].clientY); }
       }, { passive: false });
       window.addEventListener('touchend', endR);
-
       grip.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); startR(e.clientX, e.clientY); });
       window.addEventListener('mousemove', (e) => { if (resizing) doR(e.clientX, e.clientY); });
       window.addEventListener('mouseup', endR);
@@ -281,7 +253,7 @@
   }
 
   // =========================================================
-  // 3. 驚異度（フィールド脅威ランク）999即時反映＆一括ボタン
+  // 3. 驚異度999・格上【格上】ラベル
   // =========================================================
   function getThreatRankV8(inst) {
     const d = inst?.saveData || {};
@@ -390,7 +362,6 @@
     card.appendChild(bar);
   }
 
-  // Canvas頭上ラベル【格上】自動付与
   if (!CanvasRenderingContext2D.prototype._v8KakueHooked) {
     CanvasRenderingContext2D.prototype._v8KakueHooked = true;
     const origFill = CanvasRenderingContext2D.prototype.fillText;
@@ -407,7 +378,6 @@
     };
   }
 
-  // 水平顔文字テクスチャ生成（90度回転＆球体めり込み防止）
   const _faceTexCacheV8 = new Map();
   function makeHorizontalFaceTexV8(faceStr, bg = '#0f294a', bd = '#38bdf8') {
     const face = String(faceStr || '(´・ω・`)').trim() || '(´・ω・`)';
@@ -429,7 +399,6 @@
     return tex;
   }
 
-  // Lv.999 12クラス進化ツリー
   const CLASS_TREE_V8 = [
     { id: 'novice', name: '見習い冒険者', icon: '🗡️', reqLv: 1, cost: 0, fxName: '蒼き光の斬撃波', atk: 1.0, def: 1.0, hp: 1.0, desc: '基本の冒険者クラス。' },
     { id: 'warrior', name: '重装戦士', icon: '⚔️', reqLv: 15, cost: 500, fxName: '紅蓮の豪快衝撃斬', atk: 1.28, def: 1.22, hp: 1.25, desc: 'Lv.15〜｜真紅のワイドスラッシュ。' },
@@ -459,12 +428,49 @@
 
     Object.assign(P, {
       // =========================================================
-      // A. ワープゾーン一本化（元々ある「ステージ選択できる方」だけ残す！）
+      // A. 左上のMP（126/126など）と内部MPの完全同期（ズレ撲滅）
+      // =========================================================
+      syncPlayerMpCompletelyV8() {
+        const d = this.saveData;
+        if (!d) return;
+
+        // getPlayerStats() が返す本当の最大MP（装備・パッシブ込み）を取得
+        let realMaxMp = Number(d.maxMp || this.player?.maxMp || 100);
+        if (typeof this.getPlayerStats === 'function') {
+          const st = this.getPlayerStats();
+          if (st && typeof st.maxMp === 'number' && st.maxMp > 0) {
+            realMaxMp = Math.floor(st.maxMp);
+          }
+        }
+
+        // 初回ロード時、元の saveData.maxMp が 50 でキャップされていたら新 maxMp に合わせて引き上げる
+        if (!this._v8MpBootSynced) {
+          this._v8MpBootSynced = true;
+          const oldMax = Number(d.maxMp || realMaxMp);
+          if (oldMax > 0 && realMaxMp > oldMax && typeof d.mp === 'number') {
+            const ratio = Math.min(1, Math.max(0, d.mp / oldMax));
+            d.mp = Math.round(realMaxMp * ratio);
+          }
+        }
+
+        d.maxMp = realMaxMp;
+        if (this.player) {
+          this.player.maxMp = realMaxMp;
+          if (typeof d.mp === 'number') {
+            if (d.mp > realMaxMp) d.mp = realMaxMp;
+            this.player.mp = d.mp;
+          } else if (typeof this.player.mp === 'number') {
+            d.mp = Math.min(realMaxMp, this.player.mp);
+          }
+        }
+      },
+
+      // =========================================================
+      // B. ワープゾーン一本化（ステージ選択できるワープだけ残す）
       // =========================================================
       updateSingleStageWarpAndHudV8() {
         if (!this.scene || !this.player?.pos) return;
 
-        // 1) 以前追加してしまった二重の黄色いワープ門があれば完全に削除する
         if (Array.isArray(this._v8WarpBeacons)) {
           this._v8WarpBeacons.forEach(b => { if (b?.grp) this.scene.remove(b.grp); });
           this._v8WarpBeacons = [];
@@ -475,25 +481,19 @@
         });
         toRemove.forEach(ch => this.scene.remove(ch));
 
-        // 2) 元々ゲーム内にある「ステージ選択できるワープゾーン」の座標だけを取得
         let stageWarpPos = null;
         const rawPortals = this.portals || this.zonePortals || this.warpGates || this.currentZone?.portals;
         if (Array.isArray(rawPortals) && rawPortals.length > 0) {
           const p0 = rawPortals[0];
           const wx = p0?.pos?.x ?? p0?.position?.x ?? p0?.x;
           const wz = p0?.pos?.z ?? p0?.position?.z ?? p0?.z;
-          if (typeof wx === 'number' && typeof wz === 'number') {
-            stageWarpPos = { x: wx, z: wz };
-          }
+          if (typeof wx === 'number' && typeof wz === 'number') stageWarpPos = { x: wx, z: wz };
         }
         if (!stageWarpPos && this.warpPortal) {
           const wx = this.warpPortal.pos?.x ?? this.warpPortal.position?.x ?? this.warpPortal.x;
           const wz = this.warpPortal.pos?.z ?? this.warpPortal.position?.z ?? this.warpPortal.z;
-          if (typeof wx === 'number' && typeof wz === 'number') {
-            stageWarpPos = { x: wx, z: wz };
-          }
+          if (typeof wx === 'number' && typeof wz === 'number') stageWarpPos = { x: wx, z: wz };
         }
-        // シーン内の元のワープリング・アーチオブジェクトを検索
         if (!stageWarpPos) {
           this.scene.traverse(obj => {
             if (stageWarpPos) return;
@@ -503,7 +503,6 @@
           });
         }
 
-        // 3) 右上HUD：本来のステージ選択ワープへの距離ナビ（1つだけ）＋「🎬 魔法エフェクトスタジオ」
         let hud = document.getElementById('kmj-warp-compass-hud');
         if (!hud) {
           hud = document.createElement('div');
@@ -540,7 +539,6 @@
                 this.player.pos.z = stageWarpPos.z + 2.2;
                 this.showAlertBanner?.('🌀 ステージ選択ワープゾーンの前に移動しました！', 1600);
               } else {
-                // 画面上部の「ステージ」ボタンを押すのと同じ動作を呼ぶ
                 const stageBtn = Array.from(document.querySelectorAll('button')).find(b => (b.textContent || '').includes('ステージ'));
                 stageBtn?.click();
               }
@@ -552,8 +550,6 @@
             stBtn.onclick = () => {
               if (window.KMJ_SKILL_FX_V9?.openStudioModal) {
                 window.KMJ_SKILL_FX_V9.openStudioModal(this);
-              } else {
-                this.showAlertBanner?.('⚠️ game9.js を読み込んでください', 1800);
               }
             };
           }
@@ -561,7 +557,7 @@
       },
 
       // =========================================================
-      // B. 顔90度回転＆球体めり込み完全修正 ＋ 武器の杖撤廃＆剣1本化
+      // C. 顔修正 ＋ キャラ右手の剣2本持ちバグ完全撲滅（player.group対応）
       // =========================================================
       fixFacesAndWeaponsV8() {
         if (typeof THREE === 'undefined') return;
@@ -613,12 +609,38 @@
           for (let i = 1; i < oldFaces.length; i++) grp.remove(oldFaces[i]);
         };
 
+        // キャラの右手に剣が2本重なる現象を完全に防ぐ（player.group の中身を直接検査）
+        const cleanExtraWeapons = (grp) => {
+          if (!grp) return;
+          // 1) グループや名前付き武器が複数ある場合
+          const namedWpns = grp.children.filter(c => /sword|weapon|blade|wpn|katana|staff/i.test(c.name || ''));
+          if (namedWpns.length > 1) {
+            for (let i = 0; i < namedWpns.length - 1; i++) grp.remove(namedWpns[i]);
+          }
+          // 2) 名前なしメッシュとして右手側（x >= 0.35）に縦長の剣（高さ > 幅*2）が複数生えている場合
+          const bladeMeshes = grp.children.filter(c => {
+            if (!c.isMesh || !c.geometry) return false;
+            const pm = c.geometry.parameters || {};
+            const h = (pm.height || 0) * (c.scale?.y || 1);
+            const w = (pm.width || 1) * (c.scale?.x || 1);
+            return c.position.x >= 0.32 && h >= 0.55 && h > w * 2.2;
+          });
+          if (bladeMeshes.length > 1) {
+            // 最後の1本だけ残し、重複した刀身＋その近くの柄パーツを削除
+            const keep = bladeMeshes[bladeMeshes.length - 1];
+            for (let i = 0; i < bladeMeshes.length - 1; i++) {
+              const dup = bladeMeshes[i];
+              const dupX = dup.position.x;
+              // 同じX座標付近にある柄・鍔パーツも一緒に削除
+              const parts = grp.children.filter(c => c !== keep && c.isMesh && Math.abs(c.position.x - dupX) < 0.08 && c.position.x >= 0.30);
+              parts.forEach(p => grp.remove(p));
+            }
+          }
+        };
+
         if (this.player?.group) {
           fixCube(this.player.group, d.kaomoji || d.face || this.player.kaomoji || '(´・ω・`)', '#0f294a', '#38bdf8');
-          const staff = this.player.group.getObjectByName?.('mage_staff_weapon');
-          if (staff) this.player.group.remove(staff);
-          const swords = this.player.group.children.filter(c => /sword|weapon|blade|wpn|katana/i.test(c.name || ''));
-          for (let i = 0; i < swords.length - 1; i++) this.player.group.remove(swords[i]);
+          cleanExtraWeapons(this.player.group);
         }
 
         if (Array.isArray(this.npcs)) {
@@ -660,7 +682,7 @@
       },
 
       // =========================================================
-      // C. 全14種スキル完全対応：MP消費5倍 ＋ 1レベ上がる毎に +10 増加！
+      // D. 全14種スキル MP消費（元MP×5 + 1Lv毎+10）＆スキル一覧UI完全同期
       // =========================================================
       getSkillDataV8(slotOrSkill = 0) {
         if (window.KMJ_SKILL_FX_V9?.getSkillInfo) {
@@ -686,13 +708,12 @@
           }
         }
 
-        const defOrig = [20, 26, 22, 16, 30, 18, 24, 28, 32, 35, 40, 45, 50, 60][slotIdx] || 16;
+        const defOrig = [9, 14, 12, 16, 26, 22, 20, 24, 28, 30, 32, 35, 40, 50][slotIdx] || 16;
         if (raw && raw._origMpV8 === undefined) {
           const cur = Number(raw.mpCost ?? raw.mp ?? raw.costMp ?? 0);
           raw._origMpV8 = cur > 0 ? cur : defOrig;
         }
         const origMp = raw?._origMpV8 || defOrig;
-        // 素のMP消費5倍 ＋ 1レベ上がる毎に +10 増加！
         const mpCost = (origMp * 5) + (skillLv - 1) * 10;
         return { raw, slotIdx, skillLv, origMp, mpCost, evolvedName: raw?.name || `スキル${slotIdx + 1}` };
       },
@@ -711,24 +732,10 @@
             if ('costMp' in sk) sk.costMp = info.mpCost;
           });
         }
-        // 画面右下の全スキルボタンを漏れなく書き換え
-        document.querySelectorAll('.skill-slot-btn, .skill-slot, .skill-btn, [data-skill-slot]').forEach((btn, idx) => {
-          const slot = btn.dataset.skillSlot !== undefined ? Number(btn.dataset.skillSlot) : idx;
-          const info = this.getSkillDataV8(slot);
-          btn.querySelectorAll('span, div, small, b').forEach(el => {
-            if (el.children.length > 0) return;
-            const txt = (el.textContent || '').trim();
-            if (/^\d+$/.test(txt) && Number(txt) !== info.mpCost) {
-              el.textContent = String(info.mpCost);
-            } else if (/^MP\s*\d+$/i.test(txt)) {
-              el.textContent = `MP ${info.mpCost}`;
-            }
-          });
-        });
       },
 
       // =========================================================
-      // D. 格上1.5倍線形加算・全称号＆実績パッシブ・ペット火力参照
+      // E. 格上1.5倍・全称号＆実績パッシブ・ペット火力・12クラス
       // =========================================================
       normalizeHigherLevelMonstersV8() {
         if (!Array.isArray(this.monsters)) return;
@@ -815,6 +822,7 @@
     if (typeof P.useSkillSlot === 'function' && !P._v8SkillHooked) {
       const origUse = P.useSkillSlot;
       P.useSkillSlot = function (slotIdx) {
+        this.syncPlayerMpCompletelyV8();
         this.syncAllSkillsV8();
         const d = this.saveData;
         const info = this.getSkillDataV8(slotIdx);
@@ -853,6 +861,7 @@
         if (typeof st.matk === 'number') st.matk = Math.floor(st.matk * cls.atk * (1 + pas.statPct));
         if (typeof st.def === 'number') st.def = Math.floor(st.def * cls.def * (1 + pas.statPct));
         if (typeof st.maxHp === 'number') st.maxHp = Math.floor(st.maxHp * cls.hp * (1 + pas.hpPct));
+        if (typeof st.maxMp === 'number') st.maxMp = Math.floor(st.maxMp * (1 + pas.hpPct * 0.5));
         return st;
       };
       P._v8StatsHooked = true;
@@ -861,8 +870,10 @@
     if (typeof P.renderModalContent === 'function' && !P._v8ModalHooked) {
       const origMd = P.renderModalContent;
       P.renderModalContent = function () {
+        this.syncPlayerMpCompletelyV8();
         this.syncAllSkillsV8();
         origMd.call(this);
+        this.syncAllSkillsV8();
         const body = document.getElementById('modal-body');
         if (!body) return;
         const tab = String(this.activeTab || '').toLowerCase();
@@ -916,13 +927,16 @@
     if (typeof P.updateRemotePlayers === 'function' && !P._v8LoopHooked) {
       const origLoop = P.updateRemotePlayers;
       P.updateRemotePlayers = function (dt) {
+        this.syncPlayerMpCompletelyV8();
         origLoop.call(this, dt);
+        this.syncPlayerMpCompletelyV8();
         installChatDragAndResizeHandles();
         this.updateSingleStageWarpAndHudV8();
         this.fixFacesAndWeaponsV8();
         this.syncAllSkillsV8();
         this.syncPetPowerV8();
         this.normalizeHigherLevelMonstersV8();
+        window.KMJ_SKILL_FX_V9?.updateSanctuaryFields?.(this, dt);
       };
       P._v8LoopHooked = true;
     }
@@ -930,6 +944,7 @@
     setTimeout(() => {
       const g = window.game;
       if (g) {
+        g.syncPlayerMpCompletelyV8();
         installChatDragAndResizeHandles();
         g.updateSingleStageWarpAndHudV8();
         g.fixFacesAndWeaponsV8();
@@ -943,9 +958,10 @@
   document.addEventListener('click', () => {
     setTimeout(() => {
       setupThreatControlsV8();
+      window.game?.syncPlayerMpCompletelyV8?.();
       window.game?.syncAllSkillsV8?.();
     }, 40);
   }, true);
   setTimeout(setupThreatControlsV8, 300);
 })();
-// ▲▲▲ ここまで【game8.js 決定版 v105】 ▲▲▲
+// ▲▲▲ ここまで【game8.js 完全版 v106】 ▲▲▲
