@@ -1,4 +1,4 @@
-// ▼▼▼ ここから【game8.js 完全版 v107】MP自動回復修復・剣2本完全削除(全階層対応)・魔法系役職完全削除・チャットつまみ・ワープ一本化 ▼▼▼
+// ▼▼▼ ここから【game8.js 完全版 v108】MP上限成長＆自動回復修復・魔法系役職完全消去・剣横振りモーション・剣1本化 ▼▼▼
 (() => {
   'use strict';
 
@@ -400,21 +400,50 @@
   }
 
   // =========================================================
-  // 4. 純粋な戦士・剣士・騎士クラス進化ツリー（魔法系・杖系クラス完全削除！）
+  // 4. 純粋な戦士・剣士・騎士クラス進化ツリー（魔法系・杖系クラス完全消去！）
   // =========================================================
+  const FORBIDDEN_MAGIC_JOB_REGEX = /魔法|魔導|賢者|メイジ|ウィザード|ソーサラー|スペル|アーク|杖|ロッド|スタッフ|spell|mage|wizard|sorcerer|sage|witch|warlock/i;
+
   const CLASS_TREE_V8 = [
-    { id: 'novice', name: '見習い冒険者', icon: '🗡️', reqLv: 1, cost: 0, fxName: '蒼き光の斬撃波', atk: 1.0, def: 1.0, hp: 1.0, desc: '基本の冒険者クラス。' },
-    { id: 'warrior', name: '重装戦士', icon: '⚔️', reqLv: 15, cost: 500, fxName: '紅蓮の豪快衝撃斬', atk: 1.28, def: 1.22, hp: 1.25, desc: 'Lv.15〜｜真紅のワイドスラッシュ。' },
-    { id: 'fencer', name: '疾風の剣士', icon: '💨', reqLv: 15, cost: 500, fxName: '蒼穹の連撃剣閃', atk: 1.32, def: 1.12, hp: 1.18, desc: 'Lv.15〜｜鋭い蒼い剣閃を放つ。' },
-    { id: 'paladin', name: '聖騎士（パラディン）', icon: '🛡️', reqLv: 50, cost: 2500, fxName: '黄金の聖光十字斬', atk: 1.48, def: 1.55, hp: 1.50, desc: 'Lv.50〜｜聖なる十字斬撃を放つ。' },
-    { id: 'berserker', name: '剛剣の覇者', icon: '🔥', reqLv: 50, cost: 2500, fxName: '紅蓮烈火の剛剣波', atk: 1.65, def: 1.30, hp: 1.40, desc: 'Lv.50〜｜圧倒的破壊力の剛剣波。' },
-    { id: 'ninja', name: '疾風の影忍者', icon: '🌪️', reqLv: 100, cost: 6000, fxName: '翠嵐の三連疾風刃', atk: 1.75, def: 1.40, hp: 1.48, desc: 'Lv.100〜｜三連斬撃波と旋風を起こす。' },
-    { id: 'blade_master', name: '蒼穹の剣聖', icon: '⚡', reqLv: 200, cost: 15000, fxName: '次元断ち・蒼雷クロス斬', atk: 2.08, def: 1.68, hp: 1.78, desc: 'Lv.200〜｜稲妻クロス斬撃。' },
-    { id: 'dragoon', name: '紅蓮の竜騎士', icon: '🐉', reqLv: 350, cost: 35000, fxName: '竜王の業火ブレイブ斬', atk: 2.52, def: 2.08, hp: 2.18, desc: 'Lv.350〜｜紅蓮の炎柱と竜の爪痕。' },
-    { id: 'emperor_blade', name: '覇王・天帝剣神', icon: '👑', reqLv: 550, cost: 80000, fxName: '天帝覇王・黄金螺旋斬', atk: 3.15, def: 2.65, hp: 2.80, desc: 'Lv.550〜｜黄金神環と螺旋斬撃波。' },
-    { id: 'void_overlord', name: '虚空の創世剣帝', icon: '🌌', reqLv: 750, cost: 150000, fxName: 'アビスノヴァ・黒蝕次元斬', atk: 3.65, def: 3.05, hp: 3.20, desc: 'Lv.750〜｜漆黒重力輪とネオン紫リング。' },
-    { id: 'mythic_god', name: '創世神話・アルティメット顔文字神', icon: '🌈', reqLv: 999, cost: 500000, fxName: '創世神話・虹翼天翔ノヴァ斬', atk: 4.50, def: 3.80, hp: 4.00, desc: 'Lv.999〜｜全属性の虹翼天翔ノヴァ斬。' }
+    { id: 'novice', name: '見習い冒険者', icon: '🗡️', reqLv: 1, cost: 0, fxName: '蒼き光の水平斬撃波', atk: 1.0, def: 1.0, hp: 1.0, desc: '基本の冒険者クラス。' },
+    { id: 'warrior', name: '重装戦士', icon: '⚔️', reqLv: 15, cost: 500, fxName: '紅蓮の豪快水平衝撃斬', atk: 1.28, def: 1.22, hp: 1.25, desc: 'Lv.15〜｜真紅のワイド水平スラッシュ。' },
+    { id: 'fencer', name: '疾風の剣士', icon: '💨', reqLv: 15, cost: 500, fxName: '蒼穹の連撃水平剣閃', atk: 1.32, def: 1.12, hp: 1.18, desc: 'Lv.15〜｜鋭い蒼い水平剣閃を放つ。' },
+    { id: 'paladin', name: '聖騎士（パラディン）', icon: '🛡️', reqLv: 50, cost: 2500, fxName: '黄金の聖光水平十字斬', atk: 1.48, def: 1.55, hp: 1.50, desc: 'Lv.50〜｜聖なる水平斬撃を放つ。' },
+    { id: 'berserker', name: '剛剣の覇者', icon: '🔥', reqLv: 50, cost: 2500, fxName: '紅蓮烈火の剛剣水平波', atk: 1.65, def: 1.30, hp: 1.40, desc: 'Lv.50〜｜圧倒的破壊力の剛剣水平波。' },
+    { id: 'ninja', name: '疾風の影忍者', icon: '🌪️', reqLv: 100, cost: 6000, fxName: '翠嵐の三連疾風水平刃', atk: 1.75, def: 1.40, hp: 1.48, desc: 'Lv.100〜｜三連水平斬撃波と旋風を起こす。' },
+    { id: 'blade_master', name: '蒼穹の剣聖', icon: '⚡', reqLv: 200, cost: 15000, fxName: '次元断ち・蒼雷水平斬', atk: 2.08, def: 1.68, hp: 1.78, desc: 'Lv.200〜｜稲妻水平斬撃。' },
+    { id: 'dragoon', name: '紅蓮の竜騎士', icon: '🐉', reqLv: 350, cost: 35000, fxName: '竜王の業火ブレイブ水平斬', atk: 2.52, def: 2.08, hp: 2.18, desc: 'Lv.350〜｜紅蓮の炎と竜の水平斬撃。' },
+    { id: 'emperor_blade', name: '覇王・天帝剣神', icon: '👑', reqLv: 550, cost: 80000, fxName: '天帝覇王・黄金水平螺旋斬', atk: 3.15, def: 2.65, hp: 2.80, desc: 'Lv.550〜｜黄金神環と水平斬撃波。' },
+    { id: 'void_overlord', name: '虚空の創世剣帝', icon: '🌌', reqLv: 750, cost: 150000, fxName: 'アビスノヴァ・黒蝕水平次元斬', atk: 3.65, def: 3.05, hp: 3.20, desc: 'Lv.750〜｜漆黒重力輪とネオン紫水平斬。' },
+    { id: 'mythic_god', name: '創世神話・アルティメット顔文字神', icon: '🌈', reqLv: 999, cost: 500000, fxName: '創世神話・虹翼天翔水平ノヴァ斬', atk: 4.50, def: 3.80, hp: 4.00, desc: 'Lv.999〜｜全属性の虹翼水平ノヴァ斬。' }
   ];
+
+  // 本体側のグローバル進化データ（EVOLUTIONS等）から魔法系役職を徹底除去
+  function purgeGlobalMagicClassesV8() {
+    ['EVOLUTIONS', 'CLASSES', 'JOBS', 'CLASS_LIST', 'EVOLUTION_TREE'].forEach(gName => {
+      try {
+        const gObj = window[gName];
+        if (!gObj) return;
+        if (Array.isArray(gObj)) {
+          for (let i = gObj.length - 1; i >= 0; i--) {
+            const item = gObj[i];
+            const str = `${item?.id || ''} ${item?.name || ''} ${item?.desc || ''}`;
+            if (FORBIDDEN_MAGIC_JOB_REGEX.test(str)) {
+              gObj.splice(i, 1);
+            }
+          }
+        } else if (typeof gObj === 'object') {
+          Object.keys(gObj).forEach(k => {
+            const item = gObj[k];
+            const str = `${k} ${item?.id || ''} ${item?.name || ''} ${item?.desc || ''}`;
+            if (FORBIDDEN_MAGIC_JOB_REGEX.test(str)) {
+              delete gObj[k];
+            }
+          });
+        }
+      } catch (e) {}
+    });
+  }
 
   function installV8Core() {
     if (typeof KaomojiMMORPG === 'undefined') {
@@ -426,71 +455,79 @@
     if (P._v8CoreInstalled) return;
     P._v8CoreInstalled = true;
 
+    purgeGlobalMagicClassesV8();
     P.alignAvatarFaceStrictly = function () {};
 
     Object.assign(P, {
       // =========================================================
-      // A. MP自動回復を絶対に邪魔しない差分同期方式
+      // A. 真の最大MP成長（Lv101頭打ち解消）＆ 毎秒スムーズMP自然回復
       // =========================================================
-      syncPlayerMpCompletelyV8() {
+      updateMpGrowthAndRegenV8(dt = 0.016) {
         const d = this.saveData;
         if (!d) return;
 
-        // 魔法系役職の残骸がセーブデータにあったら剣士系へ変換
-        const forbiddenIds = ['spellblade', 'arch_spellblade', 'astral_knight', 'mage', 'wizard', 'sage', 'sorcerer'];
-        if (forbiddenIds.includes(d.evolutionId)) d.evolutionId = 'warrior';
-        if (forbiddenIds.includes(d.classId)) d.classId = 'warrior';
+        // 魔法系役職の残骸を剣士系へ強制変換
+        const curEvo = String(d.evolutionId || '');
+        const curCls = String(d.classId || '');
+        if (FORBIDDEN_MAGIC_JOB_REGEX.test(curEvo)) d.evolutionId = 'warrior';
+        if (FORBIDDEN_MAGIC_JOB_REGEX.test(curCls)) d.classId = 'warrior';
 
-        let realMaxMp = Math.max(Number(this.player?.maxMp || 0), Number(d.maxMp || 0), 100);
+        const pLv = Math.max(1, Number(d.lv ?? d.level ?? this.player?.lv ?? 1));
+        const pas = this.getAllPassivesV8();
+        const cls = this.getCurrentClassV8();
+
+        // レベルに応じた真の最大MP計算（基本100 + Lv毎+20 + クラス・パッシブ補正）
+        let baseStatMp = 0;
         if (typeof this.getPlayerStats === 'function') {
           const st = this.getPlayerStats();
-          if (st && typeof st.maxMp === 'number' && st.maxMp > 0) {
-            realMaxMp = Math.floor(st.maxMp);
-          }
+          if (st && typeof st.maxMp === 'number') baseStatMp = Math.floor(st.maxMp);
         }
+        const levelScaledMaxMp = Math.floor((100 + (pLv - 1) * 20) * (1 + (cls.atk - 1) * 0.35 + pas.hpPct * 0.5));
+        const realMaxMp = Math.max(baseStatMp, levelScaledMaxMp, 100);
 
-        // 初回ロード時のみ旧maxMpとの比率で引き上げ
-        if (!this._v8MpBootSynced) {
-          this._v8MpBootSynced = true;
-          const oldMax = Number(d.maxMp || realMaxMp);
-          const baseCur = Number(this.player?.mp ?? d.mp ?? realMaxMp);
-          if (oldMax > 0 && realMaxMp > oldMax) {
-            const ratio = Math.min(1, Math.max(0, baseCur / oldMax));
-            const boosted = Math.round(realMaxMp * ratio);
-            if (this.player) this.player.mp = boosted;
-            d.mp = boosted;
+        // 初回ロード時、古い100基準の現在MPを新しい最大MPへ滑らかに引き上げ
+        if (!this._v8MpInitialized) {
+          this._v8MpInitialized = true;
+          const oldCur = Number(this.player?.mp ?? d.mp ?? realMaxMp);
+          const initMp = oldCur <= 105 ? realMaxMp : Math.min(realMaxMp, oldCur);
+          d.maxMp = realMaxMp;
+          d.mp = initMp;
+          if (this.player) {
+            this.player.maxMp = realMaxMp;
+            this.player.mp = initMp;
           }
-          this._v8LastPlayerMp = Number(this.player?.mp ?? d.mp ?? realMaxMp);
-          this._v8LastSaveMp = Number(d.mp ?? this._v8LastPlayerMp);
+          this._v8LastPlayerMp = initMp;
+          this._v8LastSaveMp = initMp;
+          return;
         }
 
         d.maxMp = realMaxMp;
-        if (this.player) {
-          this.player.maxMp = realMaxMp;
-          const pMp = typeof this.player.mp === 'number' ? this.player.mp : null;
-          const sMp = typeof d.mp === 'number' ? d.mp : null;
+        if (this.player) this.player.maxMp = realMaxMp;
 
-          if (pMp !== null && sMp !== null) {
-            // 本体が player.mp を自然回復・消費して変化させた場合 -> d.mp を追従させる（自動回復を殺さない！）
-            if (Math.abs(pMp - this._v8LastPlayerMp) > 0.0001) {
-              const clamped = Math.max(0, Math.min(realMaxMp, pMp));
-              this.player.mp = clamped;
-              d.mp = clamped;
-            }
-            // 逆に外部（ポーションや聖域など）が d.mp を変化させた場合 -> player.mp を追従させる
-            else if (Math.abs(sMp - this._v8LastSaveMp) > 0.0001) {
-              const clamped = Math.max(0, Math.min(realMaxMp, sMp));
-              d.mp = clamped;
-              this.player.mp = clamped;
-            }
-            this._v8LastPlayerMp = this.player.mp;
-            this._v8LastSaveMp = d.mp;
-          }
+        // 現在のMPを取得（スキル消費などで減った方の値を優先採用）
+        const pMp = typeof this.player?.mp === 'number' ? this.player.mp : realMaxMp;
+        const sMp = typeof d.mp === 'number' ? d.mp : pMp;
+        let curMp = Math.min(pMp, sMp);
+
+        // 外部処理で回復が増えた場合は高い方を採用
+        if (pMp > this._v8LastPlayerMp + 0.5) curMp = pMp;
+        else if (sMp > this._v8LastSaveMp + 0.5) curMp = sMp;
+
+        // 自然回復（毎秒最大MPの 8% ＋ 最低12MP/秒 をスムーズに回復）
+        const stepDt = Math.min(0.1, Math.max(0.001, dt || 0.016));
+        if (curMp < realMaxMp) {
+          const regenPerSec = Math.max(12, realMaxMp * 0.08);
+          curMp = Math.min(realMaxMp, curMp + regenPerSec * stepDt);
         }
+
+        d.mp = curMp;
+        if (this.player) this.player.mp = curMp;
+        this._v8LastPlayerMp = curMp;
+        this._v8LastSaveMp = curMp;
       },
 
       // =========================================================
-      // B. ワープゾーン一本化（ステージ選択できるワープだけ残す）
+      // B. ワープゾーン一本化
       // =========================================================
       updateSingleStageWarpAndHudV8() {
         if (!this.scene || !this.player?.pos) return;
@@ -581,7 +618,7 @@
       },
 
       // =========================================================
-      // C. 顔修正 ＋ 剣2本持ちバグ完全撲滅（全階層 traverse スキャン対応）
+      // C. 顔修正 ＋ 剣2本持ち完全削除 ＋ 剣のダイナミック横振りモーション
       // =========================================================
       fixFacesAndWeaponsV8() {
         if (typeof THREE === 'undefined') return;
@@ -633,12 +670,11 @@
           for (let i = 1; i < oldFaces.length; i++) grp.remove(oldFaces[i]);
         };
 
-        // 子・孫・ひ孫まで全階層（traverse）を走査して重複した2本目の剣を徹底削除！
-        const cleanExtraWeaponsDeep = (rootObj) => {
+        // 剣の重複削除＆横振り対象パーツの特定
+        const processSwordHorizontalSwing = (entity, rootObj) => {
           if (!rootObj) return;
           rootObj.updateMatrixWorld?.(true);
 
-          // 1) 武器グループ（Group等）が複数ある場合
           const wpnGroups = [];
           rootObj.traverse(obj => {
             if (obj !== rootObj && /sword|weapon|blade|wpn|katana|staff|armR|rightArm/i.test(obj.name || '')) {
@@ -651,19 +687,15 @@
             }
           }
 
-          // 2) 全メッシュから「縦長の刀身メッシュ」を検出し、2本目以降を削除
           const blades = [];
           rootObj.traverse(obj => {
             if (!obj.isMesh || !obj.geometry) return;
             const pm = obj.geometry.parameters || {};
             const h = (pm.height || pm.length || 0) * (obj.scale?.y || 1);
             const w = Math.max(pm.width || 0.05, pm.radiusTop || 0.05, pm.radiusBottom || 0.05) * (obj.scale?.x || 1);
-            // 高さ0.45以上かつ縦が幅の2.2倍以上の縦長パーツを刀身とみなす
             if (h >= 0.45 && h > w * 2.2) {
-              // rootObj 基準の相対X座標を計算
               const relX = obj.matrixWorld.elements[12] - rootObj.matrixWorld.elements[12];
               const relZ = obj.matrixWorld.elements[14] - rootObj.matrixWorld.elements[14];
-              // 体中心（0,0）から外側に0.22以上離れているもの
               if (Math.hypot(relX, relZ) >= 0.22) {
                 blades.push({ mesh: obj, distFromCenter: Math.hypot(relX, relZ), wx: obj.matrixWorld.elements[12], wz: obj.matrixWorld.elements[14] });
               }
@@ -671,7 +703,6 @@
           });
 
           if (blades.length > 1) {
-            // 体に一番近い1本だけ残し、それ以外の重複剣とその近くの柄・鍔パーツを削除
             blades.sort((a, b) => a.distFromCenter - b.distFromCenter);
             const keep = blades[0].mesh;
             for (let i = 1; i < blades.length; i++) {
@@ -688,12 +719,31 @@
               toDel.forEach(m => m.parent?.remove(m));
             }
           }
+
+          // 剣の「横振り（水平スイング）」モーション制御！
+          const swingPivot = wpnGroups[wpnGroups.length - 1] || blades[0]?.mesh;
+          if (swingPivot && entity) {
+            const animT = Number(entity.attackAnimTimer || 0);
+            if (animT > 0) {
+              const prog = 1 - Math.min(1, animT / 0.36); // 0 -> 1
+              // 右斜め後ろ(-1.25rad)から左前(+1.45rad)へ水平に豪快に薙ぎ払う！
+              const hSweep = -1.25 + Math.sin(prog * Math.PI * 0.85) * 2.7;
+              swingPivot.rotation.x = Math.PI * 0.44; // 刀身を水平に寝かせる
+              swingPivot.rotation.y = hSweep;
+              swingPivot.rotation.z = -0.25;
+            } else {
+              // 通常構えポーズに戻す
+              swingPivot.rotation.x = 0.22;
+              swingPivot.rotation.y = 0;
+              swingPivot.rotation.z = -0.18;
+            }
+          }
         };
 
         const pRoot = this.player?.group || this.player?.mesh;
         if (pRoot) {
           fixCube(pRoot, d.kaomoji || d.face || this.player.kaomoji || '(´・ω・`)', '#0f294a', '#38bdf8');
-          cleanExtraWeaponsDeep(pRoot);
+          processSwordHorizontalSwing(this.player, pRoot);
         }
 
         if (Array.isArray(this.npcs)) {
@@ -875,7 +925,7 @@
     if (typeof P.useSkillSlot === 'function' && !P._v8SkillHooked) {
       const origUse = P.useSkillSlot;
       P.useSkillSlot = function (slotIdx) {
-        this.syncPlayerMpCompletelyV8();
+        this.updateMpGrowthAndRegenV8(0.016);
         this.syncAllSkillsV8();
         const d = this.saveData;
         const info = this.getSkillDataV8(slotIdx);
@@ -912,11 +962,13 @@
         if (!st) return st;
         const cls = this.getCurrentClassV8();
         const pas = this.getAllPassivesV8();
+        const pLv = Math.max(1, Number(this.saveData?.lv ?? this.saveData?.level ?? 1));
         if (typeof st.atk === 'number') st.atk = Math.floor(st.atk * cls.atk * (1 + pas.statPct));
         if (typeof st.matk === 'number') st.matk = Math.floor(st.matk * cls.atk * (1 + pas.statPct));
         if (typeof st.def === 'number') st.def = Math.floor(st.def * cls.def * (1 + pas.statPct));
         if (typeof st.maxHp === 'number') st.maxHp = Math.floor(st.maxHp * cls.hp * (1 + pas.hpPct));
-        if (typeof st.maxMp === 'number') st.maxMp = Math.floor(st.maxMp * (1 + pas.hpPct * 0.5));
+        const scaledMp = Math.floor((100 + (pLv - 1) * 20) * (1 + pas.hpPct * 0.5));
+        if (typeof st.maxMp === 'number') st.maxMp = Math.max(Math.floor(st.maxMp * (1 + pas.hpPct * 0.5)), scaledMp);
         return st;
       };
       P._v8StatsHooked = true;
@@ -925,7 +977,8 @@
     if (typeof P.renderModalContent === 'function' && !P._v8ModalHooked) {
       const origMd = P.renderModalContent;
       P.renderModalContent = function () {
-        this.syncPlayerMpCompletelyV8();
+        purgeGlobalMagicClassesV8();
+        this.updateMpGrowthAndRegenV8(0.016);
         this.syncAllSkillsV8();
         origMd.call(this);
         this.syncAllSkillsV8();
@@ -937,6 +990,15 @@
         const pLv = Math.max(1, Number(d.lv ?? d.level ?? 1));
         const gold = Number(d.gold ?? d.coins ?? 0);
 
+        // 画面DOM上に残っている魔法系役職カード・ボタンを徹底除去！
+        body.querySelectorAll('div, button, li, tr').forEach(el => {
+          if (el.id === 'modal-body' || el.querySelector('input')) return;
+          const t = el.textContent || '';
+          if (t.length < 180 && FORBIDDEN_MAGIC_JOB_REGEX.test(t) && /クラス|進化|転職|Lv\.|選択|解放/.test(t)) {
+            el.style.display = 'none';
+          }
+        });
+
         if (/stat|evo|job|class/.test(tab)) {
           const cur = this.getCurrentClassV8();
           if (!Array.isArray(d.unlockedClassesClean)) d.unlockedClassesClean = ['novice'];
@@ -946,11 +1008,11 @@
             const lbl = isC ? '✅ 選択中' : (isU ? '🔄 切替(無料)' : (!okLv ? `🔒 Lv.${c.reqLv}` : `✨ 解放(${c.cost.toLocaleString()}G)`));
             return `<div style="background:#1e293b;border:1px solid ${isC ? '#34d399' : '#334155'};border-radius:7px;padding:6px;">
               <div style="font-size:11px;font-weight:900;color:#fff;">${c.icon} ${c.name}</div>
-              <div style="font-size:9px;color:#f472b6;">${c.fxName}</div>
+              <div style="font-size:9px;color:#38bdf8;">${c.fxName}</div>
               <button type="button" class="v8-cls-btn" data-id="${c.id}" ${isC || (!isU && !okLv) ? 'disabled' : ''} style="margin-top:4px;width:100%;background:${isC ? '#059669' : '#0284c7'};border:none;color:#fff;border-radius:5px;padding:4px;font-size:10px;font-weight:900;">${lbl}</button>
             </div>`;
           }).join('');
-          body.insertAdjacentHTML('afterbegin', `<div class="card-box" style="margin-bottom:8px;border-color:#38bdf8;"><b style="color:#7dd3fc;font-size:11px;">⚜️ Lv.999 クラス進化（現在: ${cur.name}）</b><div style="display:grid;grid-template-columns:repeat(2,1fr);gap:5px;margin-top:5px;max-height:210px;overflow-y:auto;">${cards}</div></div>`);
+          body.insertAdjacentHTML('afterbegin', `<div class="card-box" style="margin-bottom:8px;border-color:#38bdf8;"><b style="color:#7dd3fc;font-size:11px;">⚔️ 純粋剣士・戦士クラス進化（現在: ${cur.name}）</b><div style="display:grid;grid-template-columns:repeat(2,1fr);gap:5px;margin-top:5px;max-height:220px;overflow-y:auto;">${cards}</div></div>`);
           body.querySelectorAll('.v8-cls-btn').forEach(b => b.onclick = () => {
             const c = CLASS_TREE_V8.find(x => x.id === b.dataset.id);
             if (!c) return;
@@ -983,7 +1045,7 @@
       const origLoop = P.updateRemotePlayers;
       P.updateRemotePlayers = function (dt) {
         origLoop.call(this, dt);
-        this.syncPlayerMpCompletelyV8();
+        this.updateMpGrowthAndRegenV8(dt);
         installChatDragAndResizeHandles();
         this.updateSingleStageWarpAndHudV8();
         this.fixFacesAndWeaponsV8();
@@ -998,7 +1060,8 @@
     setTimeout(() => {
       const g = window.game;
       if (g) {
-        g.syncPlayerMpCompletelyV8();
+        purgeGlobalMagicClassesV8();
+        g.updateMpGrowthAndRegenV8(0.016);
         installChatDragAndResizeHandles();
         g.updateSingleStageWarpAndHudV8();
         g.fixFacesAndWeaponsV8();
@@ -1012,10 +1075,11 @@
   document.addEventListener('click', () => {
     setTimeout(() => {
       setupThreatControlsV8();
-      window.game?.syncPlayerMpCompletelyV8?.();
+      purgeGlobalMagicClassesV8();
+      window.game?.updateMpGrowthAndRegenV8?.(0.016);
       window.game?.syncAllSkillsV8?.();
     }, 40);
   }, true);
   setTimeout(setupThreatControlsV8, 300);
 })();
-// ▲▲▲ ここまで【game8.js 完全版 v107】 ▲▲▲
+// ▲▲▲ ここまで【game8.js 完全版 v108】 ▲▲▲
