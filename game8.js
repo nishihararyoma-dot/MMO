@@ -1,4 +1,4 @@
-// ▼▼▼ ここから【game8.js 決定版】チャット移動つまみ＆右下リサイズつまみ・手前ワープ判定一致・右上オンライン消去・顔90度回転＆球体埋まり完全修正・驚異度999・格上1.5倍・12クラス進化・全称号＆実績パッシブ ▼▼▼
+// ▼▼▼ ここから【game8.js 決定版 v105】実際のチャット枠専用「上部移動つまみ＆右下リサイズつまみ」・ワープ一本化（ステージ選択ワープのみ）・MP5倍＆1Lv毎+10完全同期・驚異度999・格上1.5倍・12クラス進化 ▼▼▼
 (() => {
   'use strict';
 
@@ -11,7 +11,7 @@
   } catch (e) {}
 
   // =========================================================
-  // 1. スタイル定義（チャット移動つまみ・右下リサイズつまみ・ワープナビ・スタジオボタン）
+  // 1. スタイル定義（チャット枠の移動つまみ・右下リサイズつまみ・ワープナビ）
   // =========================================================
   if (!document.getElementById('kmj-v8-ui-style')) {
     const st = document.createElement('style');
@@ -22,13 +22,13 @@
         visibility: hidden !important;
         pointer-events: none !important;
       }
-      /* チャット移動つまみ（上部バー） */
-      #kmj-chat-move-bar {
+      /* 実際のチャット枠の上部：移動つまみ */
+      #kmj-real-chat-move-bar {
         width: 100%;
         height: 24px;
-        background: linear-gradient(90deg, rgba(15, 23, 42, 0.98), rgba(30, 58, 138, 0.95), rgba(15, 23, 42, 0.98));
+        background: linear-gradient(90deg, #0f172a, #1d4ed8, #0f172a);
         border-bottom: 1.5px solid #38bdf8;
-        border-radius: 10px 10px 0 0;
+        border-radius: 8px 8px 0 0;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -36,30 +36,31 @@
         cursor: move;
         touch-action: none;
         user-select: none;
-        color: #7dd3fc;
+        color: #e0f2fe;
         font-size: 10.5px;
         font-weight: 900;
         letter-spacing: 0.04em;
+        flex-shrink: 0;
       }
-      /* チャット右下リサイズつまみ */
-      #kmj-chat-resize-corner {
+      /* 実際のチャット枠の右下角：大きさ変えるつまみ */
+      #kmj-real-chat-resize-grip {
         position: absolute;
-        right: 0;
-        bottom: 0;
+        right: 0px;
+        bottom: 0px;
         width: 28px;
         height: 28px;
-        background: linear-gradient(135deg, transparent 42%, #38bdf8 45%, #0284c7 100%);
-        border-bottom-right-radius: 10px;
+        background: linear-gradient(135deg, transparent 40%, #38bdf8 44%, #0284c7 100%);
+        border-bottom-right-radius: 8px;
         cursor: nwse-resize;
         touch-action: none;
         user-select: none;
-        z-index: 30;
+        z-index: 60;
         display: flex;
         align-items: flex-end;
         justify-content: flex-end;
         padding: 2px 3px;
         color: #ffffff;
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 900;
         text-shadow: 0 1px 2px #000;
       }
@@ -113,7 +114,7 @@
     document.getElementById('kmj-v45-online-pill')?.remove();
     const w = window.innerWidth || 800;
     document.querySelectorAll('div, span, header, nav').forEach(el => {
-      if (el.id === 'hud' || el.id === 'modal' || el.closest('#modal') || el.closest('#chat-box') || el.closest('#kmj-warp-compass-hud')) return;
+      if (el.id === 'hud' || el.id === 'modal' || el.closest('#modal') || el.closest('#kmj-warp-compass-hud')) return;
       const txt = (el.textContent || '').trim();
       if (!txt || txt.length > 52) return;
       if (txt.includes('合言葉部屋') || /オンライン\s*\(\d+人\)/.test(txt)) {
@@ -128,139 +129,154 @@
   setInterval(hideTopRightOnlineBarV8, 500);
 
   // =========================================================
-  // 2. チャットの「移動つまみ（上部）」＆「右下リサイズつまみ（↘）」実装
+  // 2. 実際の黒いチャット枠だけを特定して「移動つまみ」＆「右下リサイズつまみ」を装着
   // =========================================================
   function installChatDragAndResizeHandles() {
-    let chatBox = document.getElementById('chat-box') || document.getElementById('chat-container');
-    if (!chatBox) {
-      for (const el of document.querySelectorAll('div')) {
-        const txt = el.textContent || '';
-        if (txt.includes('全体チャット') && txt.includes('部屋/オフライン') && el.querySelector('input')) {
-          chatBox = el;
-          break;
-        }
+    // 以前誤爆した外側のバーが残っていれば必ず削除
+    document.getElementById('kmj-chat-move-bar')?.remove();
+    document.getElementById('kmj-chat-resize-corner')?.remove();
+
+    // 「メッセージを入力...」のinput要素から最小のチャット枠（黒いボックス）を逆算特定
+    const chatInput = Array.from(document.querySelectorAll('input')).find(inp =>
+      /メッセージ|チャット|発言/.test(inp.placeholder || '')
+    );
+    if (!chatInput) return;
+
+    let realChatBox = null;
+    let cur = chatInput.parentElement;
+    const maxAllowedW = (window.innerWidth || 800) * 0.72;
+
+    while (cur && cur !== document.body) {
+      const txt = cur.textContent || '';
+      const rect = cur.getBoundingClientRect();
+      // 「全体チャット」タブと入力欄の両方を含み、かつ画面幅いっぱいの親ラッパーではない実体枠
+      if (txt.includes('全体チャット') && rect.width > 160 && rect.width < maxAllowedW && rect.height > 80) {
+        realChatBox = cur;
+        break;
+      }
+      cur = cur.parentElement;
+    }
+    if (!realChatBox) return;
+
+    // もし親要素に overflow:hidden があってつまみが切れる場合は visible にする
+    if (realChatBox.parentElement && realChatBox.parentElement !== document.body) {
+      realChatBox.parentElement.style.pointerEvents = 'none';
+    }
+    realChatBox.style.pointerEvents = 'auto';
+
+    // チャットログ表示エリア（スクロール部分）を特定
+    let logArea = null;
+    for (const ch of realChatBox.querySelectorAll('div')) {
+      if (ch === realChatBox) continue;
+      const t = ch.textContent || '';
+      if (t.includes('全体チャットへようこそ') && !ch.querySelector('input')) {
+        logArea = ch;
+        break;
       }
     }
-    if (!chatBox) return;
 
-    // ログ表示領域の特定
-    let logArea = chatBox.querySelector('#chat-messages, #chat-log, .chat-messages, .chat-log');
-    if (!logArea) {
-      for (const ch of chatBox.querySelectorAll('div')) {
-        if ((ch.textContent || '').includes('全体チャットへようこそ')) {
-          logArea = ch;
-          break;
-        }
-      }
+    // 初回のみ fixed 座標化して位置・サイズ制御可能にする
+    if (!realChatBox.dataset.v8ChatReady) {
+      const r = realChatBox.getBoundingClientRect();
+      realChatBox.style.position = 'fixed';
+      realChatBox.style.left = `${Math.max(6, Math.round(r.left || 12))}px`;
+      realChatBox.style.top = `${Math.max(50, Math.round(r.top || (window.innerHeight - 250)))}px`;
+      realChatBox.style.bottom = 'auto';
+      realChatBox.style.right = 'auto';
+      realChatBox.style.width = `${Math.max(240, Math.round(r.width || 300))}px`;
+      realChatBox.style.boxSizing = 'border-box';
+      realChatBox.style.display = 'flex';
+      realChatBox.style.flexDirection = 'column';
+      realChatBox.style.overflow = 'visible';
+      realChatBox.dataset.v8ChatReady = '1';
     }
 
-    // 自由移動・自由リサイズできるようにスタイルを初期化
-    if (!chatBox.dataset.v8Positioned) {
-      const rect = chatBox.getBoundingClientRect();
-      chatBox.style.position = 'fixed';
-      chatBox.style.left = `${Math.max(8, rect.left || 14)}px`;
-      chatBox.style.top = `${Math.max(60, rect.top || (window.innerHeight - 280))}px`;
-      chatBox.style.bottom = 'auto';
-      chatBox.style.right = 'auto';
-      chatBox.style.width = `${Math.max(250, Math.round(rect.width || 360))}px`;
-      chatBox.style.boxSizing = 'border-box';
-      chatBox.style.overflow = 'hidden';
-      chatBox.dataset.v8Positioned = '1';
-    }
-
-    // ① 上部：チャットの移動つまみ
-    if (!document.getElementById('kmj-chat-move-bar')) {
+    // ① チャット枠の上部：移動つまみ
+    if (!realChatBox.querySelector('#kmj-real-chat-move-bar')) {
       const moveBar = document.createElement('div');
-      moveBar.id = 'kmj-chat-move-bar';
-      moveBar.innerHTML = `<span>✥ チャット移動つまみ（ドラッグで移動）</span>`;
-      chatBox.insertBefore(moveBar, chatBox.firstChild);
+      moveBar.id = 'kmj-real-chat-move-bar';
+      moveBar.innerHTML = `<span>✥ 移動つまみ（ドラッグで移動）</span>`;
+      realChatBox.insertBefore(moveBar, realChatBox.firstChild);
 
       let moving = false;
-      let startX = 0, startY = 0, origLeft = 0, origTop = 0;
+      let sx = 0, sy = 0, ol = 0, ot = 0;
 
-      const beginMove = (cx, cy) => {
-        moving = true;
-        startX = cx;
-        startY = cy;
-        const r = chatBox.getBoundingClientRect();
-        origLeft = r.left;
-        origTop = r.top;
+      const startM = (cx, cy) => {
+        moving = true; sx = cx; sy = cy;
+        const r = realChatBox.getBoundingClientRect();
+        ol = r.left; ot = r.top;
       };
-      const doMove = (cx, cy) => {
+      const doM = (cx, cy) => {
         if (!moving) return;
-        const maxLeft = Math.max(0, window.innerWidth - chatBox.offsetWidth);
-        const maxTop = Math.max(0, window.innerHeight - chatBox.offsetHeight);
-        const nextL = Math.max(0, Math.min(maxLeft, origLeft + (cx - startX)));
-        const nextT = Math.max(0, Math.min(maxTop, origTop + (cy - startY)));
-        chatBox.style.left = `${Math.round(nextL)}px`;
-        chatBox.style.top = `${Math.round(nextT)}px`;
+        const maxL = Math.max(0, window.innerWidth - realChatBox.offsetWidth);
+        const maxT = Math.max(0, window.innerHeight - realChatBox.offsetHeight);
+        realChatBox.style.left = `${Math.max(0, Math.min(maxL, Math.round(ol + (cx - sx))))}px`;
+        realChatBox.style.top = `${Math.max(0, Math.min(maxT, Math.round(ot + (cy - sy))))}px`;
       };
-      const endMove = () => { moving = false; };
+      const endM = () => { moving = false; };
 
       moveBar.addEventListener('touchstart', (e) => {
-        if (e.touches.length > 0) { e.stopPropagation(); beginMove(e.touches[0].clientX, e.touches[0].clientY); }
+        if (e.touches.length > 0) { e.stopPropagation(); startM(e.touches[0].clientX, e.touches[0].clientY); }
       }, { passive: false });
       window.addEventListener('touchmove', (e) => {
-        if (moving && e.touches.length > 0) { e.preventDefault(); doMove(e.touches[0].clientX, e.touches[0].clientY); }
+        if (moving && e.touches.length > 0) { e.preventDefault(); doM(e.touches[0].clientX, e.touches[0].clientY); }
       }, { passive: false });
-      window.addEventListener('touchend', endMove);
+      window.addEventListener('touchend', endM);
 
-      moveBar.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); beginMove(e.clientX, e.clientY); });
-      window.addEventListener('mousemove', (e) => { if (moving) doMove(e.clientX, e.clientY); });
-      window.addEventListener('mouseup', endMove);
+      moveBar.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); startM(e.clientX, e.clientY); });
+      window.addEventListener('mousemove', (e) => { if (moving) doM(e.clientX, e.clientY); });
+      window.addEventListener('mouseup', endM);
     }
 
-    // ② 右下：大きさ変えるつまみ（↘）
-    if (!document.getElementById('kmj-chat-resize-corner')) {
-      const resizer = document.createElement('div');
-      resizer.id = 'kmj-chat-resize-corner';
-      resizer.title = 'ドラッグしてチャットの大きさを変更';
-      resizer.textContent = '↘';
-      chatBox.appendChild(resizer);
+    // ② チャット枠の右下角：大きさ変えるつまみ（↘）
+    if (!realChatBox.querySelector('#kmj-real-chat-resize-grip')) {
+      const grip = document.createElement('div');
+      grip.id = 'kmj-real-chat-resize-grip';
+      grip.title = 'ドラッグしてチャットの大きさを変更';
+      grip.textContent = '↘';
+      realChatBox.appendChild(grip);
 
       let resizing = false;
-      let startX = 0, startY = 0, origW = 360, origH = 180, origLogH = 90;
+      let sx = 0, sy = 0, ow = 300, oh = 160, oLogH = 75;
 
-      const beginResize = (cx, cy) => {
-        resizing = true;
-        startX = cx;
-        startY = cy;
-        const r = chatBox.getBoundingClientRect();
-        origW = r.width;
-        origH = r.height;
-        origLogH = logArea ? logArea.getBoundingClientRect().height : 90;
+      const startR = (cx, cy) => {
+        resizing = true; sx = cx; sy = cy;
+        const r = realChatBox.getBoundingClientRect();
+        ow = r.width; oh = r.height;
+        oLogH = logArea ? logArea.getBoundingClientRect().height : 75;
       };
-      const doResize = (cx, cy) => {
+      const doR = (cx, cy) => {
         if (!resizing) return;
-        const dx = cx - startX;
-        const dy = cy - startY;
-        const maxW = Math.min(680, window.innerWidth - chatBox.getBoundingClientRect().left - 6);
-        const nextW = Math.max(220, Math.min(maxW, origW + dx));
-        chatBox.style.width = `${Math.round(nextW)}px`;
+        const dx = cx - sx;
+        const dy = cy - sy;
+        const curLeft = realChatBox.getBoundingClientRect().left;
+        const maxW = Math.min(620, window.innerWidth - curLeft - 6);
+        const nextW = Math.max(200, Math.min(maxW, Math.round(ow + dx)));
+        realChatBox.style.width = `${nextW}px`;
 
         if (logArea) {
-          const nextLogH = Math.max(36, Math.min(340, origLogH + dy));
-          logArea.style.height = `${Math.round(nextLogH)}px`;
-          logArea.style.maxHeight = `${Math.round(nextLogH)}px`;
+          const nextLogH = Math.max(36, Math.min(320, Math.round(oLogH + dy)));
+          logArea.style.height = `${nextLogH}px`;
+          logArea.style.maxHeight = `${nextLogH}px`;
           logArea.style.overflowY = 'auto';
         } else {
-          const nextH = Math.max(115, Math.min(440, origH + dy));
-          chatBox.style.height = `${Math.round(nextH)}px`;
+          const nextH = Math.max(110, Math.min(420, Math.round(oh + dy)));
+          realChatBox.style.height = `${nextH}px`;
         }
       };
-      const endResize = () => { resizing = false; };
+      const endR = () => { resizing = false; };
 
-      resizer.addEventListener('touchstart', (e) => {
-        if (e.touches.length > 0) { e.stopPropagation(); beginResize(e.touches[0].clientX, e.touches[0].clientY); }
+      grip.addEventListener('touchstart', (e) => {
+        if (e.touches.length > 0) { e.stopPropagation(); startR(e.touches[0].clientX, e.touches[0].clientY); }
       }, { passive: false });
       window.addEventListener('touchmove', (e) => {
-        if (resizing && e.touches.length > 0) { e.preventDefault(); doResize(e.touches[0].clientX, e.touches[0].clientY); }
+        if (resizing && e.touches.length > 0) { e.preventDefault(); doR(e.touches[0].clientX, e.touches[0].clientY); }
       }, { passive: false });
-      window.addEventListener('touchend', endResize);
+      window.addEventListener('touchend', endR);
 
-      resizer.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); beginResize(e.clientX, e.clientY); });
-      window.addEventListener('mousemove', (e) => { if (resizing) doResize(e.clientX, e.clientY); });
-      window.addEventListener('mouseup', endResize);
+      grip.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); startR(e.clientX, e.clientY); });
+      window.addEventListener('mousemove', (e) => { if (resizing) doR(e.clientX, e.clientY); });
+      window.addEventListener('mouseup', endR);
     }
   }
 
@@ -443,117 +459,51 @@
 
     Object.assign(P, {
       // =========================================================
-      // A. ワープ位置を手前に配置＆「ワープ判定のある場所」と100%一致させる！
+      // A. ワープゾーン一本化（元々ある「ステージ選択できる方」だけ残す！）
       // =========================================================
-      updateWarpPortalsAndCompassV8() {
-        if (!this.scene || !this.player?.pos || typeof THREE === 'undefined') return;
-        const d = this.saveData || {};
-        const zIdx = Number(d.zone ?? d.zoneIndex ?? this.currentZoneIndex ?? 0);
-        const zName = String(this.currentZone?.name || d.zoneName || '');
-        const isPlaza = (zIdx === 0 || /始まり|広場|plaza|town|start/i.test(zName));
+      updateSingleStageWarpAndHudV8() {
+        if (!this.scene || !this.player?.pos) return;
 
-        // 1) ゲーム本来のポータルオブジェクトがある場合は座標を「手前（距離11m付近）」へ引き寄せる！
-        const portals = [];
-        const rawList = this.portals || this.zonePortals || this.warpGates || this.currentZone?.portals;
-        if (Array.isArray(rawList) && rawList.length > 0) {
-          rawList.forEach((pt, idx) => {
-            if (!pt) return;
-            const targetZ = pt.targetZone ?? pt.toZone ?? (isPlaza ? 1 : (idx === 0 ? zIdx + 1 : 0));
-            const label = pt.label || pt.name || (targetZ === 0 ? '🏠 広場へ戻る' : '🌀 次ステージへ');
-            // 奥すぎる座標（z < -13 や z > 13）を手前に再配置し、ポータル自身の判定座標も書き換える！
-            const nearX = rawList.length === 1 ? 0 : (idx === 0 ? -5.5 : 5.5);
-            const nearZ = -11.5;
-            if (typeof pt.x === 'number') pt.x = nearX;
-            if (typeof pt.z === 'number') pt.z = nearZ;
-            if (pt.pos) { pt.pos.x = nearX; pt.pos.z = nearZ; }
-            if (pt.position) { pt.position.x = nearX; pt.position.z = nearZ; }
-            if (pt.mesh?.position) { pt.mesh.position.x = nearX; pt.mesh.position.z = nearZ; }
-            portals.push({ x: nearX, z: nearZ, label, targetZone: targetZ });
-          });
-        } else {
-          // ポータル配列がないフィールドでも手前（z = -11.5）にワープ判定付きポータルを設置
-          if (isPlaza) {
-            portals.push({ x: 0, z: -11.5, label: '🌀 ステージ1へワープ', targetZone: 1 });
-          } else {
-            portals.push({ x: -5.5, z: -11.5, label: `🌀 ステージ${zIdx + 1}へ`, targetZone: zIdx + 1 });
-            portals.push({ x: 5.5, z: -11.5, label: '🏠 広場へ戻る', targetZone: 0 });
-          }
+        // 1) 以前追加してしまった二重の黄色いワープ門があれば完全に削除する
+        if (Array.isArray(this._v8WarpBeacons)) {
+          this._v8WarpBeacons.forEach(b => { if (b?.grp) this.scene.remove(b.grp); });
+          this._v8WarpBeacons = [];
         }
-
-        // 2) ポータル座標そのものに「ワープ判定リング＋光の門＋回転クリスタル」を描画
-        if (!this._v8WarpBeacons) this._v8WarpBeacons = [];
-        while (this._v8WarpBeacons.length < portals.length) {
-          const bGrp = new THREE.Group();
-          bGrp.userData.isV8WarpBeacon = true;
-
-          // ワープ判定範囲（半径2.5m）を示す地面の魔法陣リング
-          const judgeRing = new THREE.Mesh(
-            new THREE.RingGeometry(1.8, 2.5, 36),
-            new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.95 })
-          );
-          judgeRing.rotation.x = -Math.PI / 2;
-          judgeRing.position.y = 0.08;
-          bGrp.add(judgeRing);
-
-          const innerDisc = new THREE.Mesh(
-            new THREE.CircleGeometry(1.8, 32),
-            new THREE.MeshBasicMaterial({ color: 0x0284c7, side: THREE.DoubleSide, transparent: true, opacity: 0.35 })
-          );
-          innerDisc.rotation.x = -Math.PI / 2;
-          innerDisc.position.y = 0.06;
-          bGrp.add(innerDisc);
-
-          // 立体のワープ門（黄金トーラスアーチ）
-          const arch = new THREE.Mesh(
-            new THREE.TorusGeometry(2.0, 0.16, 12, 32),
-            new THREE.MeshBasicMaterial({ color: 0xfde047, transparent: true, opacity: 0.95 })
-          );
-          arch.position.y = 2.0;
-          bGrp.add(arch);
-
-          // 回転クリスタル
-          const crystal = new THREE.Mesh(
-            new THREE.OctahedronGeometry(0.55, 0),
-            new THREE.MeshBasicMaterial({ color: 0xf472b6 })
-          );
-          crystal.position.y = 2.1;
-          bGrp.add(crystal);
-
-          this.scene.add(bGrp);
-          this._v8WarpBeacons.push({ grp: bGrp, crystal, judgeRing });
-        }
-        for (let i = portals.length; i < this._v8WarpBeacons.length; i++) {
-          this._v8WarpBeacons[i].grp.visible = false;
-        }
-
-        const tNow = performance.now() * 0.003;
-        const px = this.player.pos.x;
-        const pz = this.player.pos.z;
-
-        portals.forEach((pt, idx) => {
-          const b = this._v8WarpBeacons[idx];
-          b.grp.visible = true;
-          b.grp.position.set(pt.x, 0, pt.z);
-          b.crystal.rotation.y = tNow;
-          b.crystal.position.y = 2.1 + Math.sin(tNow * 1.6) * 0.22;
-
-          // 3) ワープの見た目（判定リング半径2.4m以内）に入ったら確実にワープ判定を発動！
-          const dist = Math.hypot(pt.x - px, pt.z - pz);
-          if (dist <= 2.4 && (!this._v8WarpCooldown || performance.now() > this._v8WarpCooldown)) {
-            this._v8WarpCooldown = performance.now() + 1800;
-            // ワープ先に着いた時、門の上に重ならないよう少し手前に配置
-            this.player.pos.x = 0;
-            this.player.pos.z = -4.0;
-            if (typeof this.loadZone === 'function') {
-              this.loadZone(pt.targetZone);
-            } else if (typeof this.changeZone === 'function') {
-              this.changeZone(pt.targetZone);
-            }
-            this.showAlertBanner?.(`🌀 「${pt.label}」へワープしました！`, 1800);
-          }
+        const toRemove = [];
+        this.scene.children.forEach(ch => {
+          if (ch.userData?.isV8WarpBeacon) toRemove.push(ch);
         });
+        toRemove.forEach(ch => this.scene.remove(ch));
 
-        // 4) 画面右上のワープ距離ナビ＆「🎬 魔法スタジオ」ボタン
+        // 2) 元々ゲーム内にある「ステージ選択できるワープゾーン」の座標だけを取得
+        let stageWarpPos = null;
+        const rawPortals = this.portals || this.zonePortals || this.warpGates || this.currentZone?.portals;
+        if (Array.isArray(rawPortals) && rawPortals.length > 0) {
+          const p0 = rawPortals[0];
+          const wx = p0?.pos?.x ?? p0?.position?.x ?? p0?.x;
+          const wz = p0?.pos?.z ?? p0?.position?.z ?? p0?.z;
+          if (typeof wx === 'number' && typeof wz === 'number') {
+            stageWarpPos = { x: wx, z: wz };
+          }
+        }
+        if (!stageWarpPos && this.warpPortal) {
+          const wx = this.warpPortal.pos?.x ?? this.warpPortal.position?.x ?? this.warpPortal.x;
+          const wz = this.warpPortal.pos?.z ?? this.warpPortal.position?.z ?? this.warpPortal.z;
+          if (typeof wx === 'number' && typeof wz === 'number') {
+            stageWarpPos = { x: wx, z: wz };
+          }
+        }
+        // シーン内の元のワープリング・アーチオブジェクトを検索
+        if (!stageWarpPos) {
+          this.scene.traverse(obj => {
+            if (stageWarpPos) return;
+            if (obj.userData?.isPortal || obj.userData?.isWarp || /portal|warp|gate/i.test(obj.name || '')) {
+              stageWarpPos = { x: obj.position.x, z: obj.position.z };
+            }
+          });
+        }
+
+        // 3) 右上HUD：本来のステージ選択ワープへの距離ナビ（1つだけ）＋「🎬 魔法エフェクトスタジオ」
         let hud = document.getElementById('kmj-warp-compass-hud');
         if (!hud) {
           hud = document.createElement('div');
@@ -561,30 +511,42 @@
           document.body.appendChild(hud);
         }
 
+        const px = this.player.pos.x;
+        const pz = this.player.pos.z;
         const arrows = ['⬆️', '↗️', '➡️', '↘️', '⬇️', '↙️', '⬅️', '↖️'];
-        const pillsHtml = portals.map((pt, idx) => {
-          const dx = pt.x - px;
-          const dz = pt.z - pz;
+
+        let warpPillHtml = '';
+        if (stageWarpPos) {
+          const dx = stageWarpPos.x - px;
+          const dz = stageWarpPos.z - pz;
           const dist = Math.round(Math.hypot(dx, dz));
           const deg = (Math.atan2(dx, -dz) * 180 / Math.PI + 360) % 360;
           const arrow = arrows[Math.round(deg / 45) % 8];
-          return `<div class="kmj-warp-pill" data-pidx="${idx}"><span>${pt.label}</span><span style="color:#fde047;">${arrow} ${dist}m</span></div>`;
-        }).join('');
+          warpPillHtml = `<div class="kmj-warp-pill" id="kmj-single-warp-nav"><span>🌀 ステージ選択ワープ</span><span style="color:#fde047;">${arrow} ${dist}m</span></div>`;
+        } else {
+          warpPillHtml = `<div class="kmj-warp-pill" id="kmj-single-warp-nav"><span>🌀 ステージ選択を開く</span></div>`;
+        }
 
-        const fullHudHtml = `${pillsHtml}<button type="button" id="kmj-open-studio-hud-btn" class="kmj-studio-launch-btn">🎬 魔法エフェクトスタジオ</button>`;
-        if (hud._lastHtml !== fullHudHtml) {
-          hud._lastHtml = fullHudHtml;
-          hud.innerHTML = fullHudHtml;
-          hud.querySelectorAll('.kmj-warp-pill').forEach(el => {
-            el.onclick = () => {
-              const pt = portals[Number(el.dataset.pidx)];
-              if (!pt) return;
-              // タップでワープ判定リングのすぐ手前（1.5m手前）へワープ移動！
-              this.player.pos.x = pt.x;
-              this.player.pos.z = pt.z + 2.8;
-              this.showAlertBanner?.(`🌀 「${pt.label}」の前に移動しました（そのまま進むとワープ！）`, 1800);
+        const fullHtml = `${warpPillHtml}<button type="button" id="kmj-open-studio-hud-btn" class="kmj-studio-launch-btn">🎬 魔法スタジオ (全14種)</button>`;
+        if (hud._lastHtml !== fullHtml) {
+          hud._lastHtml = fullHtml;
+          hud.innerHTML = fullHtml;
+
+          const navEl = hud.querySelector('#kmj-single-warp-nav');
+          if (navEl) {
+            navEl.onclick = () => {
+              if (stageWarpPos) {
+                this.player.pos.x = stageWarpPos.x;
+                this.player.pos.z = stageWarpPos.z + 2.2;
+                this.showAlertBanner?.('🌀 ステージ選択ワープゾーンの前に移動しました！', 1600);
+              } else {
+                // 画面上部の「ステージ」ボタンを押すのと同じ動作を呼ぶ
+                const stageBtn = Array.from(document.querySelectorAll('button')).find(b => (b.textContent || '').includes('ステージ'));
+                stageBtn?.click();
+              }
             };
-          });
+          }
+
           const stBtn = hud.querySelector('#kmj-open-studio-hud-btn');
           if (stBtn) {
             stBtn.onclick = () => {
@@ -698,7 +660,7 @@
       },
 
       // =========================================================
-      // C. 素のMP消費5倍（最低50〜）同期
+      // C. 全14種スキル完全対応：MP消費5倍 ＋ 1レベ上がる毎に +10 増加！
       // =========================================================
       getSkillDataV8(slotOrSkill = 0) {
         if (window.KMJ_SKILL_FX_V9?.getSkillInfo) {
@@ -706,7 +668,9 @@
         }
         const d = this.saveData || {};
         let slotIdx = typeof slotOrSkill === 'number' ? slotOrSkill : 0;
-        let raw = null, skillLv = 1;
+        let raw = null;
+        let skillLv = 1;
+
         if (typeof slotOrSkill === 'object' && slotOrSkill !== null) {
           raw = slotOrSkill;
           const sid = String(raw.id || raw.skillId || '');
@@ -721,14 +685,16 @@
             }
           }
         }
-        const defOrig = [20, 26, 22, 16, 30][slotIdx] || 15;
+
+        const defOrig = [20, 26, 22, 16, 30, 18, 24, 28, 32, 35, 40, 45, 50, 60][slotIdx] || 16;
         if (raw && raw._origMpV8 === undefined) {
           const cur = Number(raw.mpCost ?? raw.mp ?? raw.costMp ?? 0);
           raw._origMpV8 = cur > 0 ? cur : defOrig;
         }
         const origMp = raw?._origMpV8 || defOrig;
-        const mpCost = Math.max(50, Math.floor(origMp * 5 * (1 + (skillLv - 1) * 0.08)));
-        return { raw, slotIdx, skillLv, mpCost, evolvedName: raw?.name || `スキル${slotIdx + 1}` };
+        // 素のMP消費5倍 ＋ 1レベ上がる毎に +10 増加！
+        const mpCost = (origMp * 5) + (skillLv - 1) * 10;
+        return { raw, slotIdx, skillLv, origMp, mpCost, evolvedName: raw?.name || `スキル${slotIdx + 1}` };
       },
 
       syncAllSkillsV8() {
@@ -745,13 +711,18 @@
             if ('costMp' in sk) sk.costMp = info.mpCost;
           });
         }
+        // 画面右下の全スキルボタンを漏れなく書き換え
         document.querySelectorAll('.skill-slot-btn, .skill-slot, .skill-btn, [data-skill-slot]').forEach((btn, idx) => {
           const slot = btn.dataset.skillSlot !== undefined ? Number(btn.dataset.skillSlot) : idx;
           const info = this.getSkillDataV8(slot);
           btn.querySelectorAll('span, div, small, b').forEach(el => {
             if (el.children.length > 0) return;
             const txt = (el.textContent || '').trim();
-            if (/^\d+$/.test(txt) && Number(txt) < 50) el.textContent = String(info.mpCost);
+            if (/^\d+$/.test(txt) && Number(txt) !== info.mpCost) {
+              el.textContent = String(info.mpCost);
+            } else if (/^MP\s*\d+$/i.test(txt)) {
+              el.textContent = `MP ${info.mpCost}`;
+            }
           });
         });
       },
@@ -947,8 +918,9 @@
       P.updateRemotePlayers = function (dt) {
         origLoop.call(this, dt);
         installChatDragAndResizeHandles();
-        this.updateWarpPortalsAndCompassV8();
+        this.updateSingleStageWarpAndHudV8();
         this.fixFacesAndWeaponsV8();
+        this.syncAllSkillsV8();
         this.syncPetPowerV8();
         this.normalizeHigherLevelMonstersV8();
       };
@@ -959,7 +931,7 @@
       const g = window.game;
       if (g) {
         installChatDragAndResizeHandles();
-        g.updateWarpPortalsAndCompassV8();
+        g.updateSingleStageWarpAndHudV8();
         g.fixFacesAndWeaponsV8();
         g.syncAllSkillsV8();
         g.syncPetPowerV8();
@@ -968,7 +940,12 @@
   }
 
   installV8Core();
-  document.addEventListener('click', () => setTimeout(setupThreatControlsV8, 40), true);
+  document.addEventListener('click', () => {
+    setTimeout(() => {
+      setupThreatControlsV8();
+      window.game?.syncAllSkillsV8?.();
+    }, 40);
+  }, true);
   setTimeout(setupThreatControlsV8, 300);
 })();
-// ▲▲▲ ここまで【game8.js 決定版】 ▲▲▲
+// ▲▲▲ ここまで【game8.js 決定版 v105】 ▲▲▲
