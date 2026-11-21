@@ -2460,8 +2460,6 @@
     const { grade, style } = getEquippedWeaponProfileV9(game, entity);
     const { c1, c2, c3, shape } = style;
     const rotY = entity.rotY || 0;
-    const dirX = Math.sin(rotY);
-    const dirZ = Math.cos(rotY);
 
     // グレードに応じたスケール＆多重度（グレード0〜5）
     const sc = 1.0 + grade * 0.24;
@@ -2489,7 +2487,6 @@
         new THREE.RingGeometry(rIn, rOut, 32, 1, -arcSpan * 0.5, arcSpan),
         mat
       );
-      // 水平横振りになるようX軸をほぼ90度倒す（わずかにロール傾きをつけて立体感を演出）
       mesh.rotation.x = -Math.PI * 0.48 + (i % 2 === 0 ? 0.06 : -0.06);
       mesh.position.set(0, (1.02 + i * 0.08) * Math.min(1.35, sc), 0.35 * sc);
       root.add(mesh);
@@ -2599,12 +2596,10 @@
 
     const duration = 0.34 + grade * 0.035;
     V9.register3DAnimation(game.scene, root, duration, (p, elapsed) => {
-      // 術者の移動に追従
       if (entity?.pos) {
         root.position.set(entity.pos.x, 0, entity.pos.z);
       }
 
-      // 横振り軌道（右から左へ高速スウィープ）
       const sweepZ = -1.1 + Math.sin(Math.min(1, p * 1.35) * Math.PI * 0.5) * 2.2;
       arcs.forEach(a => {
         a.mesh.rotation.z = sweepZ - a.idx * 0.14;
@@ -2642,7 +2637,6 @@
       });
     });
 
-    // 高グレード武器（SSR以上）の攻撃時は気持ちいいカメラ微振動を付与
     if (grade >= 3 && entity === game.player && typeof game.shakeTimer === 'number') {
       game.shakeTimer = Math.max(game.shakeTimer, 0.08 + (grade - 3) * 0.05);
     }
