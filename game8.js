@@ -1,4 +1,4 @@
-// ▼▼▼ ここから【game8.js 完全版 v113】右上歯車メニューに名前入力＆デバッグ切替追加・剣の水平横振りモーション・武器グレード別(★1〜★6)豪華3D剣＆斬撃エフェクト ▼▼▼
+// ▼▼▼ ここから【game8.js 完全版 v114】右上歯車メニューにスキルスタジオ直接配置＆debug777対応・剣の水平横振りモーション・武器グレード別(★1〜★6)豪華3D剣＆斬撃エフェクト ▼▼▼
 (() => {
   'use strict';
 
@@ -92,7 +92,7 @@
   }
 
   // =========================================================
-  // 2. デバッグモード管理（右上歯車メニュー内ボタン or 左上5回タップで切替）
+  // 2. デバッグモード管理（debug777入力 / 歯車メニュー / 左上5回タップ）
   // =========================================================
   function isDebugModeActiveV8(game) {
     if (!game) game = window.game;
@@ -105,6 +105,15 @@
     return false;
   }
 
+  function openSkillStudioDirectV8(game) {
+    const g = game || window.game;
+    if (window.KMJ_SKILL_FX_V9 && typeof window.KMJ_SKILL_FX_V9.openStudioModal === 'function') {
+      window.KMJ_SKILL_FX_V9.openStudioModal(g);
+    } else {
+      g?.showAlertBanner?.('⚠️ スキルスタジオ(game9.js)を読み込み中です。少し待って再度押してください。', 2200);
+    }
+  }
+
   function setDebugModeActiveV8(enabled) {
     const val = !!enabled;
     window._kmjDebugUnlocked = val;
@@ -112,6 +121,7 @@
     if (window.game) {
       window.game._debugInfiniteMode = val;
       window.game.debugMode = val;
+      window.game.isDebug = val;
     }
     try {
       if (val) localStorage.setItem('kmj_debug_mode', '1');
@@ -124,7 +134,21 @@
       gearBtn.style.borderColor = val ? '#34d399' : '#64748b';
       gearBtn.style.background = val ? '#059669' : '#1e293b';
     }
-    window.game?.showAlertBanner?.(val ? '🛠️ デバッグモード ON（魔法スタジオ解放）' : '🛠️ デバッグモード OFF', 1800);
+    window.game?.showAlertBanner?.(val ? '🛠️ デバッグモード ON（スキルスタジオ解放）' : '🛠️ デバッグモード OFF', 1800);
+  }
+
+  // 画面上のどの入力欄でも「debug777」が入力されたら即座にデバッグモードをONにする
+  if (!window._v8Debug777GlobalHooked) {
+    window._v8Debug777GlobalHooked = true;
+    document.addEventListener('input', (e) => {
+      const el = e.target;
+      if (!el || typeof el.value !== 'string') return;
+      if (/debug777/i.test(el.value.trim())) {
+        if (!isDebugModeActiveV8(window.game)) {
+          setDebugModeActiveV8(true);
+        }
+      }
+    }, true);
   }
 
   // 左上ステータス欄の5回連続タップでもデバッグ切替可能にする
@@ -168,7 +192,44 @@
     const g = window.game;
     const d = g?.saveData || {};
 
-    // 1. プレイヤー名入力欄を歯車メニュー内に追加
+    // 1. 「🎬 スキルスタジオ」ボタンを歯車メニュー内に直接追加（いつでも一発起動）
+    if (!gearBox.querySelector('#kmj-v8-gear-studio-btn')) {
+      const studioBtn = document.createElement('button');
+      studioBtn.type = 'button';
+      studioBtn.id = 'kmj-v8-gear-studio-btn';
+      studioBtn.textContent = '🎬 スキルスタジオ';
+      studioBtn.style.cssText = 'margin-top:6px;width:100%;padding:7px 8px;border-radius:6px;border:1.5px solid #fde047;background:linear-gradient(90deg,#db2777,#7c3aed);color:#fff;font-size:11.5px;font-weight:900;cursor:pointer;box-shadow:0 2px 8px rgba(219,39,119,0.45);';
+      studioBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openSkillStudioDirectV8(window.game);
+      });
+      studioBtn.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+      gearBox.appendChild(studioBtn);
+    }
+
+    // 2. デバッグモード切替ボタンを歯車メニュー内に追加
+    if (!gearBox.querySelector('#kmj-v8-gear-debug-btn')) {
+      const dbgBtn = document.createElement('button');
+      dbgBtn.type = 'button';
+      dbgBtn.id = 'kmj-v8-gear-debug-btn';
+      const syncBtnVisual = () => {
+        const on = isDebugModeActiveV8(window.game);
+        dbgBtn.textContent = on ? '🛠️ デバッグモード: ON' : '🛠️ デバッグモード: OFF';
+        dbgBtn.style.cssText = `margin-top:5px;width:100%;padding:6px 8px;border-radius:6px;border:1px solid ${on ? '#34d399' : '#64748b'};background:${on ? '#059669' : '#1e293b'};color:#fff;font-size:11px;font-weight:900;cursor:pointer;`;
+      };
+      syncBtnVisual();
+      dbgBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDebugModeActiveV8(!isDebugModeActiveV8(window.game));
+        syncBtnVisual();
+      });
+      dbgBtn.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+      gearBox.appendChild(dbgBtn);
+    }
+
+    // 3. プレイヤー名入力欄（debug777入力でもデバッグ起動）を歯車メニュー内に追加
     if (!gearBox.querySelector('#kmj-v8-gear-name-box')) {
       const curName = String(d.playerName || d.name || g?.player?.name || '冒険者');
       const escName = curName.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -179,12 +240,11 @@
       nameWrap.innerHTML = `
         <div style="font-size:10px;font-weight:900;color:#7dd3fc;">✏️ プレイヤー名変更</div>
         <div style="display:flex;gap:4px;align-items:center;">
-          <input type="text" id="kmj-v8-gear-name-input" value="${escName}" maxlength="20" placeholder="名前を入力" style="flex:1;min-width:0;width:90px;background:#020617;border:1px solid #475569;color:#fff;border-radius:5px;padding:4px 6px;font-size:11px;font-weight:700;outline:none;" />
+          <input type="text" id="kmj-v8-gear-name-input" value="${escName}" maxlength="20" placeholder="名前 / debug777" style="flex:1;min-width:0;width:90px;background:#020617;border:1px solid #475569;color:#fff;border-radius:5px;padding:4px 6px;font-size:11px;font-weight:700;outline:none;" />
           <button type="button" id="kmj-v8-gear-name-save" style="background:#0284c7;border:none;color:#fff;border-radius:5px;padding:4px 8px;font-size:10.5px;font-weight:900;cursor:pointer;white-space:nowrap;">変更</button>
         </div>
       `;
 
-      // タッチ・クリックで歯車メニューが閉じてしまうのを防ぐ
       ['click', 'mousedown', 'touchstart'].forEach(ev => {
         nameWrap.addEventListener(ev, (e) => e.stopPropagation(), ev === 'touchstart' ? { passive: true } : false);
       });
@@ -197,6 +257,11 @@
         const raw = (inp?.value || '').trim();
         if (!raw) {
           g?.showAlertBanner?.('⚠️ 名前を入力してください', 1400);
+          return;
+        }
+        if (/debug777/i.test(raw)) {
+          setDebugModeActiveV8(true);
+          openSkillStudioDirectV8(window.game);
           return;
         }
         if (g?.saveData) {
@@ -225,27 +290,6 @@
           applyName();
         });
       }
-    }
-
-    // 2. デバッグモード切替ボタンを歯車メニュー内に追加
-    if (!gearBox.querySelector('#kmj-v8-gear-debug-btn')) {
-      const dbgBtn = document.createElement('button');
-      dbgBtn.type = 'button';
-      dbgBtn.id = 'kmj-v8-gear-debug-btn';
-      const syncBtnVisual = () => {
-        const on = isDebugModeActiveV8(window.game);
-        dbgBtn.textContent = on ? '🛠️ デバッグモード: ON' : '🛠️ デバッグモード: OFF';
-        dbgBtn.style.cssText = `margin-top:5px;width:100%;padding:6px 8px;border-radius:6px;border:1px solid ${on ? '#34d399' : '#64748b'};background:${on ? '#059669' : '#1e293b'};color:#fff;font-size:11px;font-weight:900;cursor:pointer;`;
-      };
-      syncBtnVisual();
-      dbgBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setDebugModeActiveV8(!isDebugModeActiveV8(window.game));
-        syncBtnVisual();
-      });
-      dbgBtn.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
-      gearBox.appendChild(dbgBtn);
     }
   }
 
@@ -1361,14 +1405,14 @@
           document.body.appendChild(hud);
         }
 
-        const fullHtml = `<button type="button" id="kmj-open-studio-hud-btn" class="kmj-studio-launch-btn">🎬 魔法スタジオ (DEBUG)</button>`;
+        const fullHtml = `<button type="button" id="kmj-open-studio-hud-btn" class="kmj-studio-launch-btn">🎬 スキルスタジオ (DEBUG)</button>`;
         if (hud._lastHtml !== fullHtml) {
           hud._lastHtml = fullHtml;
           hud.innerHTML = fullHtml;
           const stBtn = hud.querySelector('#kmj-open-studio-hud-btn');
           if (stBtn) {
             stBtn.onclick = () => {
-              window.KMJ_SKILL_FX_V9?.openStudioModal?.(this);
+              openSkillStudioDirectV8(this);
             };
           }
         }
@@ -1726,7 +1770,7 @@
           `);
           body.querySelector('#kmj-v8-open-studio-btn').onclick = () => {
             document.getElementById('modal')?.classList?.add('hidden');
-            window.KMJ_SKILL_FX_V9?.openStudioModal?.(this);
+            openSkillStudioDirectV8(this);
           };
           body.querySelector('#kmj-v8-test-swing-btn').onclick = () => {
             document.getElementById('modal')?.classList?.add('hidden');
@@ -1821,4 +1865,4 @@
   }, true);
   setTimeout(setupThreatControlsV8, 300);
 })();
-// ▲▲▲ ここまで【game8.js 完全版 v113】 ▲▲▲
+// ▲▲▲ ここまで【game8.js 完全版 v114】 ▲▲▲
