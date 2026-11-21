@@ -1808,3 +1808,120 @@
   hookGameV9();
 })();
 // ▲▲▲ ここまで【スキルエフェクト専用 game9.js 3/3】 ▲▲▲
+// ▼▼▼ 追加修正パッチ（MP表記、MPズレ、武器バグ、神域イージス、極光の聖域拡張） ▼▼▼
+(() => {
+  'use strict';
+  
+  if (typeof KaomojiMMORPG === 'undefined') return;
+  const P = KaomojiMMORPG.prototype;
+
+  // 1. スキルUIの消費MP表記と実際の消費MPを完全に同期させる
+  const origUpdateSkillUI = P.updateSkillUI;
+  P.updateSkillUI = function() {
+    // まず本来のUI更新を実行
+    if (typeof origUpdateSkillUI === 'function') origUpdateSkillUI.call(this);
+    
+    // UIのテキストを新計算式（元のMP×5 + (Lv-1)×10）で書き換える
+    if (this.skills && this.saveData && this.saveData.skills) {
+      const skillCards = document.querySelectorAll('.skill-card');
+      skillCards.forEach(card => {
+        const titleEl = card.querySelector('.skill-title');
+        const mpEl = card.querySelector('.skill-mp');
+        if (!titleEl || !mpEl) return;
+        
+        const skillNameMatch = titleEl.textContent.trim().match(/^([^\sLv]+)/);
+        if (skillNameMatch) {
+          const baseName = skillNameMatch[1];
+          const skillDef = this.skills.find(s => s.name.includes(baseName));
+          if (skillDef) {
+            const currentLv = this.saveData.skills[skillDef.id] || 0;
+            if (currentLv > 0) {
+              const newMp = (skillDef.mpCost * 5) + (currentLv - 1) * 10;
+              mpEl.textContent = mpEl.textContent.replace(/消費MP:\s*\d+/, `消費MP: ${newMp}`);
+            }
+          }
+        }
+      });
+    }
+  };
+
+  // 2. プレイヤーの左上MP表記のズレを修正（強制同期）
+  const origUpdatePlayerStatus = P.updatePlayerStatus;
+  P.updatePlayerStatus = function() {
+    if (typeof origUpdatePlayerStatus === 'function') origUpdatePlayerStatus.call(this);
+    // UI側のゲージと内部データを強制的に一致させる
+    if (this.player && this.saveData) {
+      const mpText = document.getElementById('player-mp-text');
+      if (mpText) {
+        mpText.textContent = `${Math.floor(this.player.mp)} / ${this.player.maxMp}`;
+      }
+    }
+  };
+
+  // 3. 剣2本持ちバグの修正（攻撃後に古い武器モデルを確実に削除）
+  const origEquipWeapon = P.updatePlayerWeapon;
+  P.updatePlayerWeapon = function() {
+    if (this.player && this.player.mesh) {
+      // 既存の武器グループをすべて探して削除する
+      const existingWeapons = this.player.mesh.children.filter(c => c.name === 'weapon_group');
+      existingWeapons.forEach(w => this.player.mesh.remove(w));
+    }
+    if (typeof origEquipWeapon === 'function') origEquipWeapon.call(this);
+  };
+
+  // 4. 神域イージスを「防御・盾」特化に変更
+  const V9 = window.KMJ_SKILL_FX_V9;
+  if (V9 && V9.ATTRIBUTES) {
+    const holyAttr = V9.ATTRIBUTES.find(a => a.id === 'holy');
+    if (holyAttr) {
+      // 進化の名前を盾っぽく変更
+      holyAttr.names = (base) => [
+        base,
+        "絶対防壁【聖盾】",
+        "神聖城郭【アイギス】",
+        "🌈 創世神盾【神域イージス・ゼロ】"
+      ];
+    }
+    
+    // 神域イージスのエフェクトを「巨大な光の盾」に変更
+    if (V9.EFFECT_BUILDERS) {
+      V9.EFFECT_BUILDERS.holy = function (root, info, scale) {
+        const tier = info.tier;
+        const c1 = info.theme.c1; // 黄色系
+        const c2 = 0xffffff;      // 白
+        
+        // 前方に巨大なエネルギーシールドを展開
+        const shieldGrp = new THREE.Group();
+        shieldGrp.position.set(0, 1.5 * scale, 1.5 * scale); // キャラの前方
+        
+        const shieldMesh = new THREE.Mesh(
+          new THREE.CylinderGeometry(1.5 * scale, 1.5 * scale, 0.2 * scale, 6, 1, false, 0, Math.PI),
+          new THREE.MeshBasicMaterial({ color: c1, transparent: true, opacity: 0.8, side: THREE.DoubleSide, wireframe: tier < 2 })
+        );
+        shieldMesh.rotation.x = Math.PI / 2;
+        shieldMesh.rotation.z = Math.PI / 2;
+        shieldGrp.add(shieldMesh);
+        
+        // 進化で盾が豪華に（多重展開）
+        if (tier >= 1) {
+          const innerShield = new THREE.Mesh(
+            new THREE.PlaneGeometry(2.5 * scale, 2.5 * scale),
+            new THREE.MeshBasicMaterial({ color: c2, transparent: true, opacity: 0.9 })
+          );
+          shieldGrp.add(innerShield);
+        }
+        
+        root.add(shieldGrp);
+
+        return (p, elapsed) => {
+          const fade = p > 0.8 ? (1 - p) * 5 : 1; // 最後にフェードアウト
+          shieldGrp.scale.setScalar(Math.min(1, p * 3)); // 最初に出現
+          shieldGrp.children.forEach(c => {
+             if(c.material) c.material.opacity = fade * 0.8;
+          });
+        };
+      };
+    }
+  }
+})();
+// ▲▲▲ 追加修正パッチ ここまで ▲▲▲
