@@ -529,7 +529,8 @@
       }
     }
   }
-
+window.injectGearMenuV7 = injectGearMenuV7;
+  window.syncDebugHudPillV7 = syncDebugHudPillV7;
   function bindTitleRescueButtons() {
     if (window._v7TitleButtonsBound) return;
     window._v7TitleButtonsBound = true;
