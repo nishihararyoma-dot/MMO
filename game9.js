@@ -765,7 +765,6 @@
       return list;
     },
 
-    // 全14種が1つも被らない1対1排他割り当て（一度使われたプロファイルIDは二度と使わない！）
     assignUniqueProfiles(allList) {
       const usedProfileIds = new Set();
       allList.forEach((sk, idx) => {
@@ -776,10 +775,8 @@
         const origName = sk._origNameV9 || `秘技・第${idx + 1}の型`;
         const searchStr = `${origName} ${sk.desc || ''}`;
 
-        // 1) 未使用の候補の中からキーワード一致するものを探す
         let chosen = SKILL_DERIVATION_PROFILES_V9.find(p => !usedProfileIds.has(p.id) && p.match.test(searchStr));
 
-        // 2) すでにキーワード一致候補が使われていた場合、火属性同士なら別の火属性派生を優先割り当て
         if (!chosen && /炎|火|爆|メテオ|ブレイズ|フレア|fire|flame|blaze/i.test(searchStr)) {
           const fireVariants = ['fire_meteor', 'fire_pillar', 'fire_burst', 'fire_eruption'];
           const freeFireId = fireVariants.find(fid => !usedProfileIds.has(fid));
@@ -788,7 +785,6 @@
           }
         }
 
-        // 3) それでも決まらなければ、未使用プロファイルから順番に割り当て（重複ゼロ保証！）
         if (!chosen) {
           chosen = SKILL_DERIVATION_PROFILES_V9.find(p => !usedProfileIds.has(p.id))
             || SKILL_DERIVATION_PROFILES_V9[idx % SKILL_DERIVATION_PROFILES_V9.length];
@@ -1394,7 +1390,6 @@
     const magicRings = [];
     addMagicCircleBase(root, areaRadius, c1, c2, tier, magicRings);
 
-    // 地面の赤熱マグマ溜まり＆亀裂ライン
     const lavaPool = new THREE.Mesh(
       new THREE.CircleGeometry(areaRadius * 0.92, 32),
       new THREE.MeshBasicMaterial({ color: c1, side: THREE.DoubleSide, transparent: true, opacity: 0.42 })
@@ -1418,7 +1413,6 @@
       cracks.push(cr);
     }
 
-    // 地底から噴き上がる溶岩塊
     const magmaChunks = [];
     const mCnt = 10 + tier * 6;
     for (let i = 0; i < mCnt; i++) {
@@ -1557,7 +1551,7 @@
   };
 })();
 // ▲▲▲ ここまで【スキルエフェクト専用 game9.js 2/3】 ▲▲▲
-// ▼▼▼ ここから【スキルエフェクト専用 game9.js 3/3】後半9種の個別3Dビルダー（落雷・螺旋竜巻・大渦潮・巨岩隆起・聖光治癒・ブラックホール・魔界瘴気・銀河流星・無限光剣陣）＆統合実行エンジン ▼▼▼
+// ▼▼▼ ここから【スキルエフェクト専用 game9.js 3/3】後半9種の個別3Dビルダー・武器種別×グレード6段階の水平横振り攻撃エフェクト・統合実行エンジン ▼▼▼
 (() => {
   'use strict';
 
@@ -2376,76 +2370,282 @@
   };
 
   // =========================================================
-  // 19. 純粋な戦士・剣士・騎士11クラス別・通常攻撃3Dエフェクト（魔法系役職なし）
+  // 19. 武器種別 × 武器グレード（6段階）の超豪華・水平横振り攻撃エフェクト！
   // =========================================================
-  function spawnClassBasicAttackV9(game, entity) {
+  function getEquippedWeaponProfileV9(game, entity) {
+    const isLocal = (entity === game?.player);
+    const d = isLocal ? (game?.saveData || {}) : (entity || {});
+    let wpnObj = null;
+    let wpnIdx = 0;
+
+    let wList = [];
+    if (typeof WEAPONS !== 'undefined' && WEAPONS) {
+      wList = (Array.isArray(WEAPONS) ? WEAPONS : Object.values(WEAPONS)).filter(w => w && typeof w === 'object');
+    }
+
+    const rawId = d.equippedWeapon ?? d.weaponId ?? d.weapon ?? d.equip?.weapon ?? entity?.weaponId ?? entity?.weapon;
+    if (rawId && typeof rawId === 'object') {
+      wpnObj = rawId;
+      const found = wList.indexOf(wpnObj);
+      if (found >= 0) wpnIdx = found;
+    } else if (rawId !== undefined && rawId !== null && wList.length > 0) {
+      const foundIdx = wList.findIndex(w => String(w.id) === String(rawId) || String(w.name) === String(rawId));
+      if (foundIdx >= 0) {
+        wpnObj = wList[foundIdx];
+        wpnIdx = foundIdx;
+      } else if (typeof rawId === 'number' && wList[rawId]) {
+        wpnObj = wList[rawId];
+        wpnIdx = rawId;
+      }
+    }
+    if (!wpnObj && wList.length > 0) {
+      wpnObj = wList[0];
+      wpnIdx = 0;
+    }
+
+    const wName = String(wpnObj?.name || d.weaponName || 'ブロンズソード');
+    const wDesc = String(wpnObj?.desc || '');
+    const search = `${wName} ${wDesc} ${wpnObj?.attr || wpnObj?.element || ''}`;
+
+    // 武器グレード（0〜5の6段階）をレア度・一覧順位・強化値(+)から自動算出
+    let grade = 0;
+    const rar = String(wpnObj?.rarity || wpnObj?.rank || wpnObj?.grade || '').toUpperCase();
+    if (/LR|MYTH|GOD|神話|創世|アルティメット/.test(rar) || /創世|神話|エクスカリバー|ラグナロク|アルティメット|天叢雲/.test(wName)) {
+      grade = 5;
+    } else if (/UR|LEGEND|伝説|覇王|神剣/.test(rar) || /覇王|神剣|天帝|虚空|聖剣/.test(wName)) {
+      grade = 4;
+    } else if (/SSR|EPIC|英雄|竜/.test(rar) || /竜|英雄|魔剣|雷神|氷帝|炎帝/.test(wName)) {
+      grade = 3;
+    } else if (/SR|RARE|名剣/.test(rar) || /ミスリル|オリハルコン|プラチナ|騎士|名剣/.test(wName)) {
+      grade = 2;
+    } else if (/R|UNCOMMON|鋼|アイアン/.test(rar) || /鋼|アイアン|シルバー|銀|大剣/.test(wName)) {
+      grade = 1;
+    } else if (wList.length > 1) {
+      grade = Math.min(5, Math.floor((wpnIdx / Math.max(1, wList.length - 1)) * 5.4));
+    }
+
+    // 武器強化値（+値）や武器レベルがあればグレード底上げ
+    const plusLv = Number(d.weaponPlus ?? d.weaponEnhance ?? wpnObj?.plus ?? wpnObj?.lv ?? 0);
+    if (plusLv >= 50) grade = 5;
+    else if (plusLv >= 30) grade = Math.max(grade, 4);
+    else if (plusLv >= 15) grade = Math.max(grade, 3);
+    else if (plusLv >= 5) grade = Math.max(grade, 2);
+
+    // 武器種別ごとのカラー＆モチーフ決定
+    let style = { c1: 0x38bdf8, c2: 0xe0f2fe, c3: 0x7dd3fc, shape: 'octa' };
+    if (/炎|火|紅蓮|ブレイズ|フレア|イフリート|太陽|fire|flame|blaze/i.test(search)) {
+      style = { c1: 0xef4444, c2: 0xfacc15, c3: 0xf97316, shape: 'tetra' };
+    } else if (/氷|吹雪|零度|アイス|フロスト|コキュートス|ice|frost|freeze/i.test(search)) {
+      style = { c1: 0x38bdf8, c2: 0xffffff, c3: 0x818cf8, shape: 'octa' };
+    } else if (/雷|電|サンダー|紫電|ライトニング|インドラ|thunder|volt|lightning/i.test(search)) {
+      style = { c1: 0xfacc15, c2: 0xa855f7, c3: 0x38bdf8, shape: 'tetra' };
+    } else if (/風|嵐|疾風|翠嵐|ウィンド|テンペスト|wind|storm/i.test(search)) {
+      style = { c1: 0x34d399, c2: 0xa7f3d0, c3: 0xfde047, shape: 'octa' };
+    } else if (/聖|光|黄金|パラディン|エクスカリバー|天照|holy|light|gold/i.test(search)) {
+      style = { c1: 0xfde047, c2: 0xffffff, c3: 0xf59e0b, shape: 'octa' };
+    } else if (/闇|黒|ダーク|アビス|虚空|ラグナロク|魔剣|dark|void|abyss/i.test(search)) {
+      style = { c1: 0x9333ea, c2: 0xf43f5e, c3: 0x38bdf8, shape: 'dodeca' };
+    } else if (/竜|ドラゴン|ドラグーン|dragon/i.test(search)) {
+      style = { c1: 0xdc2626, c2: 0xfde047, c3: 0xf97316, shape: 'tetra' };
+    } else if (grade >= 5) {
+      style = { c1: 0xf472b6, c2: 0xfde047, c3: 0x38bdf8, shape: 'octa' };
+    }
+
+    return { wName, grade, style };
+  }
+
+  function spawnWeaponHorizontalSlashV9(game, entity) {
     if (!game?.useWebGL || !game?.scene || !entity?.pos || typeof THREE === 'undefined') return;
-    const isLocal = (entity === game.player);
-    const clsId = String(isLocal ? (game.saveData?.evolutionId ?? game.saveData?.classId ?? 'novice') : (entity.evolutionId ?? 'novice'));
+
+    const { grade, style } = getEquippedWeaponProfileV9(game, entity);
+    const { c1, c2, c3, shape } = style;
     const rotY = entity.rotY || 0;
     const dirX = Math.sin(rotY);
     const dirZ = Math.cos(rotY);
 
-    const presets = {
-      novice:        { c1: 0x38bdf8, c2: 0xe0f2fe, sc: 1.0,  arcs: 1, cross: false, ring: false },
-      warrior:       { c1: 0xef4444, c2: 0xf97316, sc: 1.32, arcs: 2, cross: false, ring: true },
-      fencer:        { c1: 0x38bdf8, c2: 0x7dd3fc, sc: 1.36, arcs: 2, cross: false, ring: true },
-      paladin:       { c1: 0xfde047, c2: 0xffffff, sc: 1.48, arcs: 2, cross: true,  ring: true },
-      berserker:     { c1: 0xdc2626, c2: 0xfacc15, sc: 1.56, arcs: 3, cross: false, ring: true },
-      ninja:         { c1: 0x34d399, c2: 0xa7f3d0, sc: 1.50, arcs: 3, cross: false, ring: true },
-      blade_master:  { c1: 0x38bdf8, c2: 0xfacc15, sc: 1.72, arcs: 3, cross: true,  ring: true },
-      dragoon:       { c1: 0xdc2626, c2: 0xf97316, sc: 1.88, arcs: 3, cross: false, ring: true },
-      emperor_blade: { c1: 0xfacc15, c2: 0xf472b6, sc: 2.12, arcs: 4, cross: true,  ring: true },
-      void_overlord: { c1: 0x9333ea, c2: 0xf43f5e, sc: 2.28, arcs: 4, cross: true,  ring: true },
-      mythic_god:    { c1: 0xf472b6, c2: 0x38bdf8, sc: 2.52, arcs: 5, cross: true,  ring: true }
-    };
-    const cfg = presets[clsId] || presets.novice;
+    // グレードに応じたスケール＆多重度（グレード0〜5）
+    const sc = 1.0 + grade * 0.24;
+    const slashLayers = 1 + grade; // 1重〜6重の水平斬撃アーク
+    const rainbowCols = [0xf472b6, 0x38bdf8, 0xfde047, 0x34d399, 0xa855f7, 0xf97316];
 
-    const grp = new THREE.Group();
-    grp.position.set(entity.pos.x + dirX * 1.3, 0, entity.pos.z + dirZ * 1.3);
+    const root = new THREE.Group();
+    root.position.set(entity.pos.x, 0, entity.pos.z);
+    root.rotation.y = rotY;
 
-    const meshes = [];
-    for (let a = 0; a < cfg.arcs; a++) {
-      const m = new THREE.MeshBasicMaterial({ color: a % 2 === 0 ? cfg.c1 : cfg.c2, side: THREE.DoubleSide, transparent: true, opacity: 0.94 });
-      const arc = new THREE.Mesh(
-        new THREE.RingGeometry((0.72 + a * 0.28) * cfg.sc, (1.48 + a * 0.35) * cfg.sc, 24, 1, -Math.PI * 0.48, Math.PI * 0.96),
-        m
+    // 1. 剣の横振りに連動して右から左へ薙ぎ払う水平扇形スラッシュ群
+    const arcs = [];
+    for (let i = 0; i < slashLayers; i++) {
+      const col = grade >= 5 ? rainbowCols[i % rainbowCols.length] : (i % 3 === 0 ? c1 : (i % 3 === 1 ? c2 : c3));
+      const rIn = (0.85 + i * 0.22) * sc;
+      const rOut = (1.75 + i * 0.32) * sc;
+      const arcSpan = Math.PI * (0.72 + Math.min(0.45, grade * 0.08));
+      const mat = new THREE.MeshBasicMaterial({
+        color: col,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.96
+      });
+      const mesh = new THREE.Mesh(
+        new THREE.RingGeometry(rIn, rOut, 32, 1, -arcSpan * 0.5, arcSpan),
+        mat
       );
-      arc.rotation.set(Math.PI * (0.35 - a * 0.08), rotY, -0.55 + a * 0.45);
-      arc.position.y = 1.05 + a * 0.16;
-      grp.add(arc);
-      meshes.push(m);
+      // 水平横振りになるようX軸をほぼ90度倒す（わずかにロール傾きをつけて立体感を演出）
+      mesh.rotation.x = -Math.PI * 0.48 + (i % 2 === 0 ? 0.06 : -0.06);
+      mesh.position.set(0, (1.02 + i * 0.08) * Math.min(1.35, sc), 0.35 * sc);
+      root.add(mesh);
+      arcs.push({ mesh, mat, idx: i });
     }
 
-    if (cfg.cross) {
-      const m = new THREE.MeshBasicMaterial({ color: cfg.c2, side: THREE.DoubleSide, transparent: true, opacity: 0.92 });
-      const vArc = new THREE.Mesh(
-        new THREE.RingGeometry(0.75 * cfg.sc, 1.75 * cfg.sc, 24, 1, -Math.PI * 0.45, Math.PI * 0.9),
-        m
-      );
-      vArc.rotation.set(0, rotY + Math.PI * 0.5, 0.25);
-      vArc.position.y = 1.25;
-      grp.add(vArc);
-      meshes.push(m);
-    }
-
-    if (cfg.ring) {
-      const m = new THREE.MeshBasicMaterial({ color: cfg.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.85 });
-      const gRing = new THREE.Mesh(new THREE.RingGeometry(0.55 * cfg.sc, 1.65 * cfg.sc, 26), m);
-      gRing.rotation.x = -Math.PI / 2;
-      gRing.position.y = 0.10;
-      grp.add(gRing);
-      meshes.push(m);
-    }
-
-    V9.register3DAnimation(game.scene, grp, 0.34, (p) => {
-      if (cfg.sc > 1.0) {
-        grp.position.x += dirX * 0.14;
-        grp.position.z += dirZ * 0.14;
+    // 2. グレード2以上：前方へ直進する三日月型の飛翔剣気ウェーブ
+    const flyingWaves = [];
+    if (grade >= 2) {
+      const waveCnt = grade >= 4 ? 2 : 1;
+      for (let w = 0; w < waveCnt; w++) {
+        const wMat = new THREE.MeshBasicMaterial({
+          color: w === 0 ? c2 : c1,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.95
+        });
+        const wave = new THREE.Mesh(
+          new THREE.RingGeometry((0.9 + w * 0.35) * sc, (1.65 + w * 0.45) * sc, 24, 1, -Math.PI * 0.38, Math.PI * 0.76),
+          wMat
+        );
+        wave.rotation.x = -Math.PI * 0.46;
+        wave.position.set(0, (1.1 + w * 0.18), (1.2 + w * 0.4) * sc);
+        root.add(wave);
+        flyingWaves.push({ mesh: wave, mat: wMat, baseZ: (1.2 + w * 0.4) * sc });
       }
-      grp.scale.setScalar(1 + p * 0.22);
-      meshes.forEach(m => { m.opacity = Math.max(0, (1 - p) * 0.94); });
+    }
+
+    // 3. グレード3以上：足元から広がる地面衝撃波リング
+    let groundRing = null;
+    if (grade >= 3) {
+      const gMat = new THREE.MeshBasicMaterial({
+        color: c1,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.88
+      });
+      groundRing = new THREE.Mesh(new THREE.RingGeometry(0.65 * sc, 1.55 * sc, 32), gMat);
+      groundRing.rotation.x = -Math.PI / 2;
+      groundRing.position.set(0, 0.09, 0.9 * sc);
+      root.add(groundRing);
+    }
+
+    // 4. グレード4以上：斜め交差する追加X字斬撃閃光
+    const crossBlades = [];
+    if (grade >= 4) {
+      for (let c = 0; c < 2; c++) {
+        const cMat = new THREE.MeshBasicMaterial({
+          color: c === 0 ? c2 : c3,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.92
+        });
+        const cb = new THREE.Mesh(
+          new THREE.RingGeometry(0.95 * sc, 1.85 * sc, 24, 1, -Math.PI * 0.35, Math.PI * 0.7),
+          cMat
+        );
+        cb.rotation.x = -Math.PI * 0.32;
+        cb.rotation.y = (c === 0 ? 0.35 : -0.35);
+        cb.position.set(0, 1.25, 1.15 * sc);
+        root.add(cb);
+        crossBlades.push({ mesh: cb, mat: cMat });
+      }
+    }
+
+    // 5. グレード5（LR・神話級）：連動して飛ぶ光剣ビット
+    const spiritSwords = [];
+    if (grade >= 5) {
+      for (let s = 0; s < 4; s++) {
+        const side = s % 2 === 0 ? 1 : -1;
+        const lane = Math.floor(s / 2) + 1;
+        const sMat = new THREE.MeshBasicMaterial({
+          color: rainbowCols[s % rainbowCols.length],
+          transparent: true,
+          opacity: 0.96
+        });
+        const bit = new THREE.Mesh(new THREE.BoxGeometry(0.14 * sc, 0.08 * sc, 1.8 * sc), sMat);
+        bit.position.set(side * (1.2 + lane * 0.7) * sc, 1.15 + lane * 0.2, 0.6);
+        root.add(bit);
+        spiritSwords.push({ mesh: bit, mat: sMat });
+      }
+    }
+
+    // 6. 武器属性パーティクル飛散（グレード1以上で発生、グレードが上がるほど増量）
+    const particles = [];
+    const pCnt = grade === 0 ? 4 : (8 + grade * 5);
+    for (let i = 0; i < pCnt; i++) {
+      const ang = -Math.PI * 0.45 + (Math.PI * 0.9 * i) / Math.max(1, pCnt - 1);
+      const col = grade >= 5 ? rainbowCols[i % rainbowCols.length] : (i % 2 === 0 ? c1 : c2);
+      const geo = shape === 'tetra'
+        ? new THREE.TetrahedronGeometry(0.14 + grade * 0.025, 0)
+        : (shape === 'dodeca' ? new THREE.DodecahedronGeometry(0.13 + grade * 0.025, 0) : new THREE.OctahedronGeometry(0.14 + grade * 0.025, 0));
+      const pMat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.95 });
+      const pt = new THREE.Mesh(geo, pMat);
+      pt.position.set(Math.sin(ang) * 1.1 * sc, 1.05, Math.cos(ang) * 1.1 * sc);
+      root.add(pt);
+      particles.push({
+        mesh: pt,
+        mat: pMat,
+        vx: Math.sin(ang) * (2.8 + (i % 3) * 0.9) * sc,
+        vy: (1.2 + (i % 3) * 0.7),
+        vz: Math.cos(ang) * (3.2 + (i % 3) * 1.0) * sc,
+        sx: Math.sin(ang) * 1.1 * sc,
+        sz: Math.cos(ang) * 1.1 * sc
+      });
+    }
+
+    const duration = 0.34 + grade * 0.035;
+    V9.register3DAnimation(game.scene, root, duration, (p, elapsed) => {
+      // 術者の移動に追従
+      if (entity?.pos) {
+        root.position.set(entity.pos.x, 0, entity.pos.z);
+      }
+
+      // 横振り軌道（右から左へ高速スウィープ）
+      const sweepZ = -1.1 + Math.sin(Math.min(1, p * 1.35) * Math.PI * 0.5) * 2.2;
+      arcs.forEach(a => {
+        a.mesh.rotation.z = sweepZ - a.idx * 0.14;
+        a.mesh.scale.setScalar(1 + p * (0.28 + grade * 0.05));
+        a.mat.opacity = Math.max(0, (1 - p) * 0.96);
+      });
+
+      flyingWaves.forEach(fw => {
+        fw.mesh.position.z = fw.baseZ + p * (4.5 + grade * 0.8) * sc;
+        fw.mesh.scale.setScalar(1 + p * 0.35);
+        fw.mat.opacity = Math.max(0, (1 - p) * 0.95);
+      });
+
+      if (groundRing) {
+        groundRing.scale.setScalar(1 + p * (1.8 + grade * 0.35));
+        groundRing.material.opacity = Math.max(0, (1 - p) * 0.88);
+      }
+
+      crossBlades.forEach(cb => {
+        cb.mesh.scale.setScalar(1 + p * 0.45);
+        cb.mat.opacity = Math.max(0, (1 - p) * 0.92);
+      });
+
+      spiritSwords.forEach(ss => {
+        ss.mesh.position.z = 0.6 + p * 6.8 * sc;
+        ss.mat.opacity = Math.max(0, (1 - p) * 0.96);
+      });
+
+      particles.forEach(pt => {
+        pt.mesh.position.x = pt.sx + pt.vx * p;
+        pt.mesh.position.z = pt.sz + pt.vz * p;
+        pt.mesh.position.y = Math.max(0.1, 1.05 + pt.vy * p - 2.6 * p * p);
+        pt.mesh.rotation.set(elapsed * 9, elapsed * 7, 0);
+        pt.mat.opacity = Math.max(0, (1 - p) * 0.95);
+      });
     });
+
+    // 高グレード武器（SSR以上）の攻撃時は気持ちいいカメラ微振動を付与
+    if (grade >= 3 && entity === game.player && typeof game.shakeTimer === 'number') {
+      game.shakeTimer = Math.max(game.shakeTimer, 0.08 + (grade - 3) * 0.05);
+    }
   }
 
   function hookGameV9() {
@@ -2462,7 +2662,7 @@
       if (!isSkill && entity) {
         entity.attackAnimTimer = 0.36;
         entity.attackIsSkill = false;
-        spawnClassBasicAttackV9(this, entity);
+        spawnWeaponHorizontalSlashV9(this, entity);
         return;
       }
       if (typeof origVis === 'function') {
@@ -2482,7 +2682,7 @@
     setTimeout(() => {
       if (window.game) {
         V9.syncAllSkills(window.game);
-        window.game.showAlertBanner?.('✨ 全14種スキル重複ゼロ進化・MP自動回復修復・剣1本化・純粋剣士クラス完了！', 2400);
+        window.game.showAlertBanner?.('✨ MP上限成長＆自動回復・魔法系クラス削除・武器別＆グレード別横振り斬撃完了！', 2600);
       }
     }, 350);
   }
