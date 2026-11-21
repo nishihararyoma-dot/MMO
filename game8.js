@@ -1,967 +1,1139 @@
-// ▼▼▼ ここから【game8.js 完全版 v106】剣1本化（player.group対応）・内部MP＆左上MP完全同期・スキル一覧消費MP同期・チャット移動＆拡大つまみ・ワープ一本化 ▼▼▼
+// ▼▼▼ ここから【スキルエフェクト専用 game9.js 3/3】後半9種の個別3Dビルダー・武器種別×グレード6段階の水平横振り攻撃エフェクト・統合実行エンジン ▼▼▼
 (() => {
   'use strict';
 
-  const MAX_LV_999 = 999;
-  const MAX_THREAT_999 = 999;
+  const V9 = window.KMJ_SKILL_FX_V9;
+  if (!V9 || !V9.EFFECT_BUILDERS) return;
 
-  try {
-    ['MAX_LV', 'MAX_LEVEL', 'LEVEL_CAP', 'MAX_PLAYER_LV', 'MAX_SKILL_LV'].forEach(k => { window[k] = MAX_LV_999; });
-    ['MAX_THREAT_RANK', 'MAX_THREAT', 'THREAT_CAP', 'MAX_THREAT_LEVEL', 'MAX_DANGER', 'THREAT_MAX'].forEach(k => { window[k] = MAX_THREAT_999; });
-  } catch (e) {}
-
-  // =========================================================
-  // 1. スタイル定義（チャットつまみ・ワープナビ）
-  // =========================================================
-  if (!document.getElementById('kmj-v8-ui-style')) {
-    const st = document.createElement('style');
-    st.id = 'kmj-v8-ui-style';
-    st.textContent = `
-      #kmj-v45-online-pill, [id*="online-pill"], [class*="online-pill"] {
-        display: none !important;
-        visibility: hidden !important;
-        pointer-events: none !important;
-      }
-      #kmj-real-chat-move-bar {
-        width: 100%;
-        height: 24px;
-        background: linear-gradient(90deg, #0f172a, #1d4ed8, #0f172a);
-        border-bottom: 1.5px solid #38bdf8;
-        border-radius: 8px 8px 0 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        cursor: move;
-        touch-action: none;
-        user-select: none;
-        color: #e0f2fe;
-        font-size: 10.5px;
-        font-weight: 900;
-        letter-spacing: 0.04em;
-        flex-shrink: 0;
-      }
-      #kmj-real-chat-resize-grip {
-        position: absolute;
-        right: 0px;
-        bottom: 0px;
-        width: 28px;
-        height: 28px;
-        background: linear-gradient(135deg, transparent 40%, #38bdf8 44%, #0284c7 100%);
-        border-bottom-right-radius: 8px;
-        cursor: nwse-resize;
-        touch-action: none;
-        user-select: none;
-        z-index: 60;
-        display: flex;
-        align-items: flex-end;
-        justify-content: flex-end;
-        padding: 2px 3px;
-        color: #ffffff;
-        font-size: 12px;
-        font-weight: 900;
-        text-shadow: 0 1px 2px #000;
-      }
-      #kmj-warp-compass-hud {
-        position: fixed;
-        top: 84px;
-        right: 12px;
-        z-index: 950;
-        display: flex;
-        flex-direction: column;
-        align-items: flex-end;
-        gap: 5px;
-        pointer-events: auto;
-      }
-      .kmj-warp-pill {
-        background: rgba(15, 23, 42, 0.9);
-        border: 1.5px solid #38bdf8;
-        box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
-        color: #f8fafc;
-        border-radius: 999px;
-        padding: 5px 11px;
-        font-size: 11px;
-        font-weight: 900;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        cursor: pointer;
-        user-select: none;
-        backdrop-filter: blur(4px);
-      }
-      .kmj-warp-pill:active { transform: scale(0.96); }
-      .kmj-studio-launch-btn {
-        background: linear-gradient(90deg, #db2777, #7c3aed);
-        border: 1.5px solid #fde047;
-        box-shadow: 0 0 14px rgba(236, 72, 153, 0.65);
-        color: #fff;
-        border-radius: 999px;
-        padding: 5px 12px;
-        font-size: 11px;
-        font-weight: 900;
-        cursor: pointer;
-        user-select: none;
-      }
-      .kmj-studio-launch-btn:active { transform: scale(0.96); }
-    `;
-    document.head.appendChild(st);
-  }
-
-  function hideTopRightOnlineBarV8() {
-    document.getElementById('kmj-v45-online-pill')?.remove();
-    const w = window.innerWidth || 800;
-    document.querySelectorAll('div, span, header, nav').forEach(el => {
-      if (el.id === 'hud' || el.id === 'modal' || el.closest('#modal') || el.closest('#kmj-warp-compass-hud')) return;
-      const txt = (el.textContent || '').trim();
-      if (!txt || txt.length > 52) return;
-      if (txt.includes('合言葉部屋') || /オンライン\s*\(\d+人\)/.test(txt)) {
-        const rect = el.getBoundingClientRect();
-        if (rect.width > 0 && rect.height < 68 && rect.right >= w - 360 && rect.top <= 95) {
-          el.style.setProperty('display', 'none', 'important');
-        }
-      }
-    });
+  function addMagicCircleBase(root, radius, c1, c2, tier, ringsOut) {
+    const ringCount = 2 + tier;
+    for (let r = 0; r < ringCount; r++) {
+      const rIn = radius * (0.32 + r * (0.68 / ringCount));
+      const rOut = rIn + 0.14 * (1 + tier * 0.25);
+      const col = r % 2 === 0 ? c1 : c2;
+      const segs = r === 0 ? 6 : (r === 1 ? 8 : 36);
+      const mesh = new THREE.Mesh(
+        new THREE.RingGeometry(rIn, rOut, segs),
+        new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide, transparent: true, opacity: 0.92 })
+      );
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.y = 0.05 + r * 0.025;
+      root.add(mesh);
+      ringsOut.push({ mesh, speed: (r % 2 === 0 ? 1 : -1) * (2.2 + r * 0.7) });
+    }
   }
 
   // =========================================================
-  // 2. チャット枠の移動つまみ＆右下リサイズつまみ
+  // 9. ⚡ 紫電・天罰落雷魔法
   // =========================================================
-  function installChatDragAndResizeHandles() {
-    const chatInput = Array.from(document.querySelectorAll('input')).find(inp =>
-      /メッセージ|チャット|発言/.test(inp.placeholder || '')
+  V9.EFFECT_BUILDERS.thunder = function (root, info, scale) {
+    const tier = info.tier;
+    const c1 = info.theme.c1;
+    const c2 = info.theme.c2;
+    const c3 = info.theme.c3;
+    const areaRadius = (2.1 + tier * 0.75) * scale;
+
+    const magicRings = [];
+    addMagicCircleBase(root, areaRadius, c1, c2, tier, magicRings);
+
+    const skyRing = new THREE.Mesh(
+      new THREE.TorusGeometry(areaRadius * 0.75, 0.18 * scale, 10, 32),
+      new THREE.MeshBasicMaterial({ color: c2, transparent: true, opacity: 0.9 })
     );
-    if (!chatInput) return;
+    skyRing.rotation.x = Math.PI / 2;
+    skyRing.position.y = 7.4 * scale;
+    root.add(skyRing);
 
-    let realChatBox = null;
-    let cur = chatInput.parentElement;
-    const maxAllowedW = (window.innerWidth || 800) * 0.72;
+    const bolts = [];
+    const boltCount = 3 + tier * 3;
+    for (let b = 0; b < boltCount; b++) {
+      const ang = (Math.PI * 2 * b) / boltCount;
+      const rad = b === 0 ? 0 : areaRadius * (0.38 + (b % 2) * 0.38);
+      const bx = Math.cos(ang) * rad;
+      const bz = Math.sin(ang) * rad;
 
-    while (cur && cur !== document.body) {
-      const txt = cur.textContent || '';
-      const rect = cur.getBoundingClientRect();
-      if (txt.includes('全体チャット') && rect.width > 160 && rect.width < maxAllowedW && rect.height > 80) {
-        realChatBox = cur;
-        break;
+      const segs = [];
+      let curX = bx, curZ = bz;
+      for (let s = 0; s < 5; s++) {
+        const nextX = bx + (s % 2 === 0 ? 0.34 : -0.34) * scale;
+        const nextZ = bz + (s % 3 === 0 ? 0.26 : -0.26) * scale;
+        const seg = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.11 * scale, 0.15 * scale, 1.7 * scale, 8),
+          new THREE.MeshBasicMaterial({ color: s % 2 === 0 ? c1 : c3, transparent: true, opacity: 0 })
+        );
+        seg.position.set((curX + nextX) * 0.5, (0.85 + s * 1.48) * scale, (curZ + nextZ) * 0.5);
+        seg.rotation.z = (s % 2 === 0 ? -0.35 : 0.35);
+        seg.rotation.x = (s % 3 === 0 ? 0.28 : -0.28);
+        root.add(seg);
+        segs.push(seg);
+        curX = nextX; curZ = nextZ;
       }
-      cur = cur.parentElement;
-    }
-    if (!realChatBox) return;
-
-    if (realChatBox.parentElement && realChatBox.parentElement !== document.body) {
-      realChatBox.parentElement.style.pointerEvents = 'none';
-    }
-    realChatBox.style.pointerEvents = 'auto';
-
-    let logArea = null;
-    for (const ch of realChatBox.querySelectorAll('div')) {
-      if (ch === realChatBox) continue;
-      if ((ch.textContent || '').includes('全体チャットへようこそ') && !ch.querySelector('input')) {
-        logArea = ch;
-        break;
-      }
+      bolts.push({ segs, delay: (b % 4) * 0.075 });
     }
 
-    if (!realChatBox.dataset.v8ChatReady) {
-      const r = realChatBox.getBoundingClientRect();
-      realChatBox.style.position = 'fixed';
-      realChatBox.style.left = `${Math.max(6, Math.round(r.left || 12))}px`;
-      realChatBox.style.top = `${Math.max(50, Math.round(r.top || (window.innerHeight - 250)))}px`;
-      realChatBox.style.bottom = 'auto';
-      realChatBox.style.right = 'auto';
-      realChatBox.style.width = `${Math.max(240, Math.round(r.width || 300))}px`;
-      realChatBox.style.boxSizing = 'border-box';
-      realChatBox.style.display = 'flex';
-      realChatBox.style.flexDirection = 'column';
-      realChatBox.style.overflow = 'visible';
-      realChatBox.dataset.v8ChatReady = '1';
-    }
+    const dome = new THREE.Mesh(
+      new THREE.SphereGeometry(areaRadius * 0.88, 18, 14, 0, Math.PI * 2, 0, Math.PI * 0.5),
+      new THREE.MeshBasicMaterial({ color: c1, wireframe: true, transparent: true, opacity: 0 })
+    );
+    root.add(dome);
 
-    if (!realChatBox.querySelector('#kmj-real-chat-move-bar')) {
-      const moveBar = document.createElement('div');
-      moveBar.id = 'kmj-real-chat-move-bar';
-      moveBar.innerHTML = `<span>✥ 移動つまみ（ドラッグで移動）</span>`;
-      realChatBox.insertBefore(moveBar, realChatBox.firstChild);
-
-      let moving = false, sx = 0, sy = 0, ol = 0, ot = 0;
-      const startM = (cx, cy) => {
-        moving = true; sx = cx; sy = cy;
-        const r = realChatBox.getBoundingClientRect();
-        ol = r.left; ot = r.top;
-      };
-      const doM = (cx, cy) => {
-        if (!moving) return;
-        const maxL = Math.max(0, window.innerWidth - realChatBox.offsetWidth);
-        const maxT = Math.max(0, window.innerHeight - realChatBox.offsetHeight);
-        realChatBox.style.left = `${Math.max(0, Math.min(maxL, Math.round(ol + (cx - sx))))}px`;
-        realChatBox.style.top = `${Math.max(0, Math.min(maxT, Math.round(ot + (cy - sy))))}px`;
-      };
-      const endM = () => { moving = false; };
-
-      moveBar.addEventListener('touchstart', (e) => {
-        if (e.touches.length > 0) { e.stopPropagation(); startM(e.touches[0].clientX, e.touches[0].clientY); }
-      }, { passive: false });
-      window.addEventListener('touchmove', (e) => {
-        if (moving && e.touches.length > 0) { e.preventDefault(); doM(e.touches[0].clientX, e.touches[0].clientY); }
-      }, { passive: false });
-      window.addEventListener('touchend', endM);
-      moveBar.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); startM(e.clientX, e.clientY); });
-      window.addEventListener('mousemove', (e) => { if (moving) doM(e.clientX, e.clientY); });
-      window.addEventListener('mouseup', endM);
-    }
-
-    if (!realChatBox.querySelector('#kmj-real-chat-resize-grip')) {
-      const grip = document.createElement('div');
-      grip.id = 'kmj-real-chat-resize-grip';
-      grip.textContent = '↘';
-      realChatBox.appendChild(grip);
-
-      let resizing = false, sx = 0, sy = 0, ow = 300, oh = 160, oLogH = 75;
-      const startR = (cx, cy) => {
-        resizing = true; sx = cx; sy = cy;
-        const r = realChatBox.getBoundingClientRect();
-        ow = r.width; oh = r.height;
-        oLogH = logArea ? logArea.getBoundingClientRect().height : 75;
-      };
-      const doR = (cx, cy) => {
-        if (!resizing) return;
-        const dx = cx - sx, dy = cy - sy;
-        const curLeft = realChatBox.getBoundingClientRect().left;
-        const maxW = Math.min(620, window.innerWidth - curLeft - 6);
-        realChatBox.style.width = `${Math.max(200, Math.min(maxW, Math.round(ow + dx)))}px`;
-        if (logArea) {
-          const nextLogH = Math.max(36, Math.min(320, Math.round(oLogH + dy)));
-          logArea.style.height = `${nextLogH}px`;
-          logArea.style.maxHeight = `${nextLogH}px`;
-          logArea.style.overflowY = 'auto';
-        } else {
-          realChatBox.style.height = `${Math.max(110, Math.min(420, Math.round(oh + dy)))}px`;
-        }
-      };
-      const endR = () => { resizing = false; };
-
-      grip.addEventListener('touchstart', (e) => {
-        if (e.touches.length > 0) { e.stopPropagation(); startR(e.touches[0].clientX, e.touches[0].clientY); }
-      }, { passive: false });
-      window.addEventListener('touchmove', (e) => {
-        if (resizing && e.touches.length > 0) { e.preventDefault(); doR(e.touches[0].clientX, e.touches[0].clientY); }
-      }, { passive: false });
-      window.addEventListener('touchend', endR);
-      grip.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); startR(e.clientX, e.clientY); });
-      window.addEventListener('mousemove', (e) => { if (resizing) doR(e.clientX, e.clientY); });
-      window.addEventListener('mouseup', endR);
-    }
-  }
-
-  // =========================================================
-  // 3. 驚異度999・格上【格上】ラベル
-  // =========================================================
-  function getThreatRankV8(inst) {
-    const d = inst?.saveData || {};
-    const keys = ['threatRank', 'fieldThreatRank', 'threat', 'threatLevel', 'threatLv', 'danger'];
-    for (const k of keys) if (typeof d[k] === 'number' && !Number.isNaN(d[k])) return Math.max(1, Math.min(MAX_THREAT_999, Math.floor(d[k])));
-    for (const k of keys) if (typeof inst?.[k] === 'number' && !Number.isNaN(inst[k])) return Math.max(1, Math.min(MAX_THREAT_999, Math.floor(inst[k])));
-    return 1;
-  }
-
-  function renderThreatTextV8(val) {
-    const v = Math.max(1, Math.min(MAX_THREAT_999, Math.floor(val)));
-    const titleStr = `🔥 フィールド脅威ランク: +${v} / ${MAX_THREAT_999}`;
-    const descStr = `敵の強さとEXP/Gドロップ率が +${v * 25}% 増加します`;
-    document.querySelectorAll('div, span, p, b, strong').forEach(el => {
-      if (el.children.length > 0) return;
-      const t = el.textContent || '';
-      if (t.includes('フィールド脅威ランク:') && t !== titleStr) el.textContent = titleStr;
-      else if (t.includes('敵の強さとEXP/Gドロップ率が') && t !== descStr) el.textContent = descStr;
-    });
-  }
-
-  let _threatTimerV8 = null;
-  function applyThreatRankV8(rawNext) {
-    const inst = window.game;
-    const nextVal = Math.max(1, Math.min(MAX_THREAT_999, Math.floor(Number(rawNext) || 1)));
-    renderThreatTextV8(nextVal);
-    if (!inst) return;
-    const d = inst.saveData;
-    const keys = ['threatRank', 'fieldThreatRank', 'threat', 'threatLevel', 'threatLv', 'danger'];
-    if (d) {
-      let wrote = false;
-      keys.forEach(k => { if (typeof d[k] === 'number') { d[k] = nextVal; wrote = true; } });
-      if (!wrote) d.threatRank = nextVal;
-    }
-    keys.forEach(k => { if (typeof inst[k] === 'number') inst[k] = nextVal; });
-
-    clearTimeout(_threatTimerV8);
-    _threatTimerV8 = setTimeout(() => {
-      try {
-        if (!inst.towerState?.active && !inst.inTitleScreen && typeof inst.spawnMonsters === 'function') inst.spawnMonsters();
-        inst.normalizeHigherLevelMonstersV8?.();
-        inst.saveGame?.(false);
-        renderThreatTextV8(nextVal);
-      } catch (e) {}
-    }, 90);
-  }
-
-  function setupThreatControlsV8() {
-    hideTopRightOnlineBarV8();
-    installChatDragAndResizeHandles();
-    renderThreatTextV8(getThreatRankV8(window.game));
-    let card = null;
-    for (const el of document.querySelectorAll('div, span, p, b')) {
-      if (el.children.length === 0 && (el.textContent || '').includes('フィールド脅威ランク:')) {
-        let p = el.parentElement;
-        while (p && p !== document.body) {
-          if ((p.textContent || '').includes('EXP/Gドロップ率')) { card = p; break; }
-          p = p.parentElement;
-        }
-        if (card) break;
-      }
-    }
-    if (!card) return;
-
-    card.querySelectorAll('button').forEach(btn => {
-      const lbl = (btn.textContent || '').trim();
-      if ((lbl === '-1' || lbl === '+1') && !btn.dataset.v8Bound) {
-        const delta = lbl === '+1' ? 1 : -1;
-        const fresh = btn.cloneNode(true);
-        fresh.removeAttribute('onclick');
-        fresh.dataset.v8Bound = '1';
-        fresh.onclick = (e) => { e.preventDefault(); e.stopPropagation(); applyThreatRankV8(getThreatRankV8(window.game) + delta); };
-        btn.replaceWith(fresh);
-      }
-    });
-
-    if (document.getElementById('kmj-v8-threat-bar')) return;
-    const bar = document.createElement('div');
-    bar.id = 'kmj-v8-threat-bar';
-    bar.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;padding-top:7px;border-top:1px solid rgba(148,163,184,0.25);align-items:center;';
-    [
-      { label: 'MIN (1)', m: 'set', v: 1, bg: '#334155', col: '#f1f5f9' },
-      { label: '-100', m: 'add', v: -100, bg: '#1e3a8a', col: '#dbeafe' },
-      { label: '-10', m: 'add', v: -10, bg: '#1d4ed8', col: '#eff6ff' },
-      { label: '+10', m: 'add', v: 10, bg: '#dc2626', col: '#fef2f2' },
-      { label: '+100', m: 'add', v: 100, bg: '#b91c1c', col: '#fee2e2' },
-      { label: 'MAX (999)', m: 'set', v: 999, bg: '#d97706', col: '#fef3c7' },
-      { label: '🎯 数値指定', m: 'prompt', v: 0, bg: '#059669', col: '#ecfdf5' }
-    ].forEach(it => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.textContent = it.label;
-      b.style.cssText = `background:${it.bg};color:${it.col};border:none;border-radius:6px;padding:5px 8px;font-size:11px;font-weight:900;cursor:pointer;`;
-      b.onclick = (e) => {
-        e.preventDefault(); e.stopPropagation();
-        const now = getThreatRankV8(window.game);
-        if (it.m === 'set') applyThreatRankV8(it.v);
-        else if (it.m === 'add') applyThreatRankV8(now + it.v);
-        else {
-          const inp = prompt(`設定したい脅威ランクを入力（1〜999）\n現在値: ${now}`, String(now));
-          if (inp !== null && inp.trim() !== '' && !Number.isNaN(Number(inp))) applyThreatRankV8(Number(inp));
-        }
-      };
-      bar.appendChild(b);
-    });
-    card.appendChild(bar);
-  }
-
-  if (!CanvasRenderingContext2D.prototype._v8KakueHooked) {
-    CanvasRenderingContext2D.prototype._v8KakueHooked = true;
-    const origFill = CanvasRenderingContext2D.prototype.fillText;
-    CanvasRenderingContext2D.prototype.fillText = function (text, x, y, ...rest) {
-      if (typeof text === 'string' && !text.includes('【格上】') && !text.includes('推奨')) {
-        const m = text.match(/Lv\.?\s*(\d+)/i);
-        if (m) {
-          const tLv = Number(m[1]);
-          const pLv = Number(window.game?.saveData?.lv ?? window.game?.saveData?.level ?? window.game?.player?.lv ?? 1);
-          if (tLv > pLv && pLv >= 1) text = `【格上】${text}`;
-        }
-      }
-      return origFill.call(this, text, x, y, ...rest);
+    return (p, elapsed) => {
+      const fade = p > 0.72 ? Math.max(0, 1 - (p - 0.72) / 0.28) : 1;
+      const strobe = Math.sin(elapsed * 65) > -0.2 ? 1.0 : 0.25;
+      magicRings.forEach(r => {
+        r.mesh.rotation.z = elapsed * r.speed * 1.5;
+        r.mesh.material.opacity = fade * 0.92;
+      });
+      skyRing.rotation.z = -elapsed * 5;
+      skyRing.material.opacity = fade * 0.9;
+      bolts.forEach(bt => {
+        const on = p >= bt.delay ? 1 : 0;
+        bt.segs.forEach(sg => { sg.material.opacity = on * strobe * fade * 0.96; });
+      });
+      dome.rotation.y = elapsed * 6;
+      dome.material.opacity = strobe * fade * 0.78;
     };
+  };
+
+  // =========================================================
+  // 10. 🌪️ 旋風円舞・螺旋竜巻魔法
+  // =========================================================
+  V9.EFFECT_BUILDERS.wind = function (root, info, scale) {
+    const tier = info.tier;
+    const c1 = info.theme.c1;
+    const c2 = info.theme.c2;
+    const c3 = info.theme.c3;
+    const areaRadius = (2.1 + tier * 0.75) * scale;
+
+    const magicRings = [];
+    addMagicCircleBase(root, areaRadius, c1, c2, tier, magicRings);
+
+    const tornadoRings = [];
+    const rCnt = 8 + tier * 4;
+    for (let i = 0; i < rCnt; i++) {
+      const t = i / rCnt;
+      const torus = new THREE.Mesh(
+        new THREE.TorusGeometry((0.42 + t * 1.6) * scale, 0.085 * scale, 8, 28),
+        new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? c1 : c2, transparent: true, opacity: 0.9 })
+      );
+      torus.rotation.x = Math.PI / 2 + (i % 2 === 0 ? 0.14 : -0.14);
+      torus.position.y = (0.3 + t * 5.8) * scale;
+      root.add(torus);
+      tornadoRings.push({ mesh: torus, baseY: (0.3 + t * 5.8) * scale, idx: i });
+    }
+
+    const blades = [];
+    const bCnt = 5 + tier * 3;
+    for (let i = 0; i < bCnt; i++) {
+      const ang = (Math.PI * 2 * i) / bCnt;
+      const blade = new THREE.Mesh(
+        new THREE.RingGeometry(0.45 * scale, 0.98 * scale, 16, 1, 0, Math.PI * 0.85),
+        new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? c2 : c3, side: THREE.DoubleSide, transparent: true, opacity: 0.95 })
+      );
+      blade.rotation.x = Math.PI * 0.35;
+      root.add(blade);
+      blades.push({ mesh: blade, ang, h: (0.8 + (i % 4) * 1.15) * scale });
+    }
+
+    return (p, elapsed) => {
+      const fade = p > 0.72 ? Math.max(0, 1 - (p - 0.72) / 0.28) : 1;
+      magicRings.forEach(r => {
+        r.mesh.rotation.z = elapsed * r.speed * 1.6;
+        r.mesh.material.opacity = fade * 0.92;
+      });
+      tornadoRings.forEach(tr => {
+        tr.mesh.rotation.z = elapsed * (12 + tr.idx);
+        tr.mesh.position.y = tr.baseY + p * 1.7 * scale;
+        tr.mesh.scale.setScalar(1 + p * 0.38);
+        tr.mesh.material.opacity = fade * 0.9;
+      });
+      blades.forEach(bl => {
+        const curAng = bl.ang + elapsed * 9.5;
+        const rad = areaRadius * (0.75 + Math.sin(elapsed * 5) * 0.2);
+        bl.mesh.position.set(Math.cos(curAng) * rad, bl.h + p * 1.5 * scale, Math.sin(curAng) * rad);
+        bl.mesh.rotation.y = -curAng;
+        bl.mesh.material.opacity = fade * 0.95;
+      });
+    };
+  };
+
+  // =========================================================
+  // 11. 🌊 蒼海・大渦潮水柱魔法
+  // =========================================================
+  V9.EFFECT_BUILDERS.water = function (root, info, scale) {
+    const tier = info.tier;
+    const c1 = info.theme.c1;
+    const c2 = info.theme.c2;
+    const c3 = info.theme.c3;
+    const areaRadius = (2.2 + tier * 0.75) * scale;
+
+    const magicRings = [];
+    addMagicCircleBase(root, areaRadius, c1, c2, tier, magicRings);
+
+    const geysers = [];
+    const gCnt = 1 + tier * 2;
+    for (let i = 0; i < gCnt; i++) {
+      const isCenter = (i === 0);
+      const ang = (Math.PI * 2 * i) / Math.max(1, gCnt - 1);
+      const rad = isCenter ? 0 : areaRadius * 0.58;
+      const h = (isCenter ? 8.0 : 5.4) * scale;
+      const rTop = (isCenter ? 0.58 : 0.38) * scale;
+      const rBot = (isCenter ? 1.40 : 0.90) * scale;
+
+      const gMesh = new THREE.Mesh(
+        new THREE.CylinderGeometry(rTop, rBot, h, 20, 1, true),
+        new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? c1 : c3, side: THREE.DoubleSide, transparent: true, opacity: 0.74 })
+      );
+      gMesh.position.set(Math.cos(ang) * rad, h * 0.5, Math.sin(ang) * rad);
+      root.add(gMesh);
+      geysers.push({ mesh: gMesh, baseH: h, delay: isCenter ? 0 : 0.12 });
+    }
+
+    const waves = [];
+    for (let i = 0; i < 4 + tier; i++) {
+      const wv = new THREE.Mesh(
+        new THREE.RingGeometry(0.5 * scale, 0.92 * scale, 32),
+        new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? c2 : c3, side: THREE.DoubleSide, transparent: true, opacity: 0.92 })
+      );
+      wv.rotation.x = -Math.PI / 2;
+      wv.position.y = 0.12 + i * 0.03;
+      root.add(wv);
+      waves.push({ mesh: wv, delay: i * 0.13 });
+    }
+
+    return (p, elapsed) => {
+      const fade = p > 0.72 ? Math.max(0, 1 - (p - 0.72) / 0.28) : 1;
+      magicRings.forEach(r => {
+        r.mesh.rotation.z = elapsed * r.speed * 1.4;
+        r.mesh.material.opacity = fade * 0.92;
+      });
+      geysers.forEach(gy => {
+        const lp = Math.max(0, Math.min(1, (p - gy.delay) / 0.85));
+        const hScale = Math.sin(Math.min(1, lp * 1.3) * Math.PI);
+        gy.mesh.scale.set(1 + lp * 0.38, Math.max(0.05, hScale), 1 + lp * 0.38);
+        gy.mesh.position.y = gy.baseH * 0.5 * hScale;
+        gy.mesh.rotation.y = elapsed * 5;
+        gy.mesh.material.opacity = fade * 0.74;
+      });
+      waves.forEach(wv => {
+        const lp = Math.max(0, Math.min(1, (p - wv.delay) / 0.7));
+        wv.mesh.scale.setScalar(1 + lp * (3.8 + tier * 0.6));
+        wv.mesh.material.opacity = lp > 0 ? Math.max(0, (1 - lp) * 0.92) : 0;
+      });
+    };
+  };
+
+  // =========================================================
+  // 12. 🪨 破邪の衝撃・巨岩隆起魔法
+  // =========================================================
+  V9.EFFECT_BUILDERS.earth = function (root, info, scale) {
+    const tier = info.tier;
+    const c1 = info.theme.c1;
+    const c2 = info.theme.c2;
+    const c3 = info.theme.c3;
+    const areaRadius = (2.2 + tier * 0.75) * scale;
+
+    const magicRings = [];
+    addMagicCircleBase(root, areaRadius, c1, c2, tier, magicRings);
+
+    const rocks = [];
+    const layerCount = 1 + tier;
+    for (let layer = 0; layer < layerCount; layer++) {
+      const cnt = 6 + layer * 4;
+      const rad = areaRadius * (0.32 + (layer / Math.max(1, layerCount)) * 0.64);
+      for (let i = 0; i < cnt; i++) {
+        const ang = (Math.PI * 2 * i) / cnt + layer * 0.3;
+        const size = (0.55 + tier * 0.12 + (i % 3) * 0.18) * scale;
+        const rock = new THREE.Mesh(
+          new THREE.DodecahedronGeometry(size, 0),
+          new THREE.MeshBasicMaterial({ color: i % 3 === 0 ? c1 : (i % 3 === 1 ? c2 : c3), transparent: true, opacity: 0.96 })
+        );
+        const startY = -size * 1.4;
+        const targetY = size * (0.85 + (i % 2) * 0.45);
+        rock.position.set(Math.cos(ang) * rad, startY, Math.sin(ang) * rad);
+        rock.rotation.set(i * 0.7, ang, i * 0.4);
+        root.add(rock);
+        rocks.push({
+          mesh: rock,
+          startY,
+          targetY,
+          delay: layer * 0.1 + (i % 3) * 0.025,
+          rotSpd: (i % 2 === 0 ? 1.5 : -1.5)
+        });
+      }
+    }
+
+    return (p, elapsed) => {
+      const fade = p > 0.72 ? Math.max(0, 1 - (p - 0.72) / 0.28) : 1;
+      magicRings.forEach(r => {
+        r.mesh.rotation.z = elapsed * r.speed;
+        r.mesh.material.opacity = fade * 0.92;
+      });
+      rocks.forEach(rk => {
+        const lp = Math.max(0, Math.min(1, (p - rk.delay) / 0.25));
+        const ease = 1 - Math.pow(1 - lp, 3);
+        rk.mesh.position.y = rk.startY + (rk.targetY - rk.startY) * ease;
+        rk.mesh.rotation.y += rk.rotSpd * 0.02;
+        rk.mesh.material.opacity = fade * 0.96;
+      });
+    };
+  };
+
+  // =========================================================
+  // 13. 💖 聖光の癒し・天照光輪魔法
+  // =========================================================
+  V9.EFFECT_BUILDERS.holy_heal = function (root, info, scale) {
+    const tier = info.tier;
+    const c1 = info.theme.c1;
+    const c2 = info.theme.c2;
+    const c3 = info.theme.c3;
+    const areaRadius = (2.2 + tier * 0.75) * scale;
+
+    const magicRings = [];
+    addMagicCircleBase(root, areaRadius, c1, c2, tier, magicRings);
+
+    const hPillar = (8.5 + tier * 2.2) * scale;
+    const pillar = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.55 * scale, 1.45 * scale, hPillar, 24, 1, true),
+      new THREE.MeshBasicMaterial({ color: c1, side: THREE.DoubleSide, transparent: true, opacity: 0.52 })
+    );
+    pillar.position.y = hPillar * 0.5;
+    root.add(pillar);
+
+    const coreBeam = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.24 * scale, 0.45 * scale, hPillar + 1.2, 18, 1, true),
+      new THREE.MeshBasicMaterial({ color: c2, side: THREE.DoubleSide, transparent: true, opacity: 0.92 })
+    );
+    coreBeam.position.y = (hPillar + 1.2) * 0.5;
+    root.add(coreBeam);
+
+    const angelRings = [];
+    const rCnt = 2 + tier;
+    for (let i = 0; i < rCnt; i++) {
+      const ar = new THREE.Mesh(
+        new THREE.TorusGeometry((1.2 + i * 0.45) * scale, 0.09 * scale, 10, 32),
+        new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? c1 : c3, transparent: true, opacity: 0.95 })
+      );
+      ar.rotation.x = Math.PI / 2;
+      ar.position.y = (1.6 + i * 1.1) * scale;
+      root.add(ar);
+      angelRings.push({ mesh: ar, baseY: (1.6 + i * 1.1) * scale, idx: i });
+    }
+
+    const feathers = [];
+    const fCnt = 12 + tier * 6;
+    for (let i = 0; i < fCnt; i++) {
+      const ang = (Math.PI * 2 * i) / fCnt;
+      const rad = (0.5 + (i % 4) * 0.48) * scale;
+      const ft = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.26 * scale, 0.55 * scale),
+        new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? c2 : c1, side: THREE.DoubleSide, transparent: true, opacity: 0.95 })
+      );
+      const topY = (3.5 + (i % 4) * 1.1) * scale;
+      ft.position.set(Math.cos(ang) * rad, topY, Math.sin(ang) * rad);
+      root.add(ft);
+      feathers.push({ mesh: ft, ang, rad, topY });
+    }
+
+    return (p, elapsed) => {
+      const fade = p > 0.72 ? Math.max(0, 1 - (p - 0.72) / 0.28) : 1;
+      magicRings.forEach(r => {
+        r.mesh.rotation.z = elapsed * r.speed;
+        r.mesh.material.opacity = fade * 0.92;
+      });
+      pillar.rotation.y = elapsed * 2.5;
+      pillar.material.opacity = fade * 0.52;
+      coreBeam.material.opacity = fade * 0.92;
+
+      angelRings.forEach(ar => {
+        ar.mesh.rotation.z = elapsed * (3 + ar.idx);
+        ar.mesh.rotation.y = Math.sin(elapsed * 3 + ar.idx) * 0.25;
+        ar.mesh.position.y = ar.baseY + Math.sin(elapsed * 4 + ar.idx) * 0.25;
+        ar.mesh.material.opacity = fade * 0.95;
+      });
+
+      feathers.forEach((ft, idx) => {
+        ft.mesh.position.y = Math.max(0.15, ft.topY - p * 3.8 * scale);
+        ft.mesh.position.x = Math.cos(ft.ang + elapsed * 1.8) * ft.rad;
+        ft.mesh.position.z = Math.sin(ft.ang + elapsed * 1.8) * ft.rad;
+        ft.mesh.rotation.set(elapsed * 3, elapsed * 4 + idx, 0.5);
+        ft.mesh.material.opacity = fade * 0.95;
+      });
+    };
+  };
+
+  // =========================================================
+  // 14. 🌌 黒蝕・ブラックホール魔法
+  // =========================================================
+  V9.EFFECT_BUILDERS.dark = function (root, info, scale) {
+    const tier = info.tier;
+    const c1 = info.theme.c1;
+    const c2 = info.theme.c2;
+    const c3 = info.theme.c3;
+    const areaRadius = (2.3 + tier * 0.75) * scale;
+
+    const magicRings = [];
+    addMagicCircleBase(root, areaRadius, c1, c2, tier, magicRings);
+
+    const centerY = 1.85 * scale;
+    const bh = new THREE.Mesh(
+      new THREE.SphereGeometry(1.05 * scale, 24, 24),
+      new THREE.MeshBasicMaterial({ color: 0x05070e, transparent: true, opacity: 0.98 })
+    );
+    bh.position.y = centerY;
+    root.add(bh);
+
+    const disk1 = new THREE.Mesh(
+      new THREE.TorusGeometry(1.9 * scale, 0.16 * scale, 10, 36),
+      new THREE.MeshBasicMaterial({ color: c1, transparent: true, opacity: 0.95 })
+    );
+    disk1.position.y = centerY;
+    disk1.rotation.x = Math.PI * 0.36;
+    root.add(disk1);
+
+    const disk2 = new THREE.Mesh(
+      new THREE.TorusGeometry(2.45 * scale, 0.11 * scale, 10, 36),
+      new THREE.MeshBasicMaterial({ color: c2, transparent: true, opacity: 0.9 })
+    );
+    disk2.position.y = centerY;
+    disk2.rotation.set(Math.PI * 0.42, 0.4, 0);
+    root.add(disk2);
+
+    const pulledOrbs = [];
+    const oCnt = 16 + tier * 8;
+    for (let i = 0; i < oCnt; i++) {
+      const ang = (Math.PI * 2 * i) / oCnt;
+      const startRad = (2.8 + (i % 3) * 0.8) * scale;
+      const startY = (0.4 + (i % 5) * 0.75) * scale;
+      const orb = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.18 * scale, 0),
+        new THREE.MeshBasicMaterial({ color: i % 3 === 0 ? c1 : (i % 3 === 1 ? c2 : c3), transparent: true, opacity: 0.95 })
+      );
+      root.add(orb);
+      pulledOrbs.push({ mesh: orb, ang, startRad, startY });
+    }
+
+    const novaRing = new THREE.Mesh(
+      new THREE.RingGeometry(0.4 * scale, 1.1 * scale, 32),
+      new THREE.MeshBasicMaterial({ color: c2, side: THREE.DoubleSide, transparent: true, opacity: 0 })
+    );
+    novaRing.rotation.x = -Math.PI / 2;
+    novaRing.position.y = 0.15;
+    root.add(novaRing);
+
+    return (p, elapsed) => {
+      magicRings.forEach(r => {
+        r.mesh.rotation.z = -elapsed * r.speed * 1.5;
+        r.mesh.material.opacity = Math.max(0, (1 - p * 0.9) * 0.92);
+      });
+
+      if (p < 0.72) {
+        const suckP = p / 0.72;
+        const sc = 0.6 + suckP * 0.75;
+        bh.scale.setScalar(sc);
+        disk1.scale.setScalar(sc);
+        disk2.scale.setScalar(sc);
+        disk1.rotation.z = elapsed * 8;
+        disk2.rotation.z = -elapsed * 6;
+
+        pulledOrbs.forEach(ob => {
+          const curRad = ob.startRad * (1 - suckP);
+          const curAng = ob.ang + suckP * 6.5;
+          ob.mesh.position.set(
+            Math.cos(curAng) * curRad,
+            ob.startY + (centerY - ob.startY) * suckP,
+            Math.sin(curAng) * curRad
+          );
+          ob.mesh.material.opacity = 0.95;
+        });
+      } else {
+        const expP = (p - 0.72) / 0.28;
+        bh.scale.setScalar(Math.max(0.01, (1 - expP) * 1.35));
+        disk1.scale.setScalar(1.35 + expP * 2.2);
+        disk2.scale.setScalar(1.35 + expP * 2.5);
+        disk1.material.opacity = Math.max(0, (1 - expP) * 0.95);
+        disk2.material.opacity = Math.max(0, (1 - expP) * 0.9);
+
+        novaRing.material.opacity = Math.max(0, (1 - expP) * 0.98);
+        novaRing.scale.setScalar(1 + expP * 4.5);
+        pulledOrbs.forEach(ob => { ob.mesh.material.opacity = 0; });
+      }
+    };
+  };
+
+  // =========================================================
+  // 15. ☠️ 呪詛・魔界瘴気魔法
+  // =========================================================
+  V9.EFFECT_BUILDERS.poison = function (root, info, scale) {
+    const tier = info.tier;
+    const c1 = info.theme.c1;
+    const c2 = info.theme.c2;
+    const c3 = info.theme.c3;
+    const areaRadius = (2.1 + tier * 0.7) * scale;
+
+    const magicRings = [];
+    addMagicCircleBase(root, areaRadius, c1, c2, tier, magicRings);
+
+    const curseChains = [];
+    for (let i = 0; i < 2 + tier; i++) {
+      const ch = new THREE.Mesh(
+        new THREE.TorusGeometry((1.1 + i * 0.38) * scale, 0.08 * scale, 8, 28),
+        new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? c1 : c3, transparent: true, opacity: 0.9 })
+      );
+      ch.position.y = (1.1 + i * 0.45) * scale;
+      ch.rotation.set(Math.PI * 0.35, i * 0.7, 0);
+      root.add(ch);
+      curseChains.push({ mesh: ch, spd: (i % 2 === 0 ? 4 : -4) });
+    }
+
+    const bubbles = [];
+    const bCnt = 14 + tier * 6;
+    for (let i = 0; i < bCnt; i++) {
+      const ang = (Math.PI * 2 * i) / bCnt;
+      const rad = (0.4 + (i % 4) * 0.48) * scale;
+      const bb = new THREE.Mesh(
+        new THREE.SphereGeometry((0.22 + (i % 3) * 0.11) * scale, 14, 14),
+        new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? c2 : c1, transparent: true, opacity: 0.88 })
+      );
+      bb.position.set(Math.cos(ang) * rad, 0.2, Math.sin(ang) * rad);
+      root.add(bb);
+      bubbles.push({ mesh: bb, ang, rad, spd: 2.2 + (i % 4) * 0.75 });
+    }
+
+    return (p, elapsed) => {
+      const fade = p > 0.72 ? Math.max(0, 1 - (p - 0.72) / 0.28) : 1;
+      magicRings.forEach(r => {
+        r.mesh.rotation.z = elapsed * r.speed;
+        r.mesh.material.opacity = fade * 0.92;
+      });
+      curseChains.forEach(ch => {
+        ch.mesh.rotation.z = elapsed * ch.spd;
+        ch.mesh.material.opacity = fade * 0.9;
+      });
+      bubbles.forEach((bb, idx) => {
+        bb.mesh.position.y = 0.2 + p * bb.spd * scale;
+        bb.mesh.position.x = Math.cos(bb.ang + elapsed * 2.2) * bb.rad;
+        bb.mesh.position.z = Math.sin(bb.ang + elapsed * 2.2) * bb.rad;
+        bb.mesh.scale.setScalar(1 + Math.sin(elapsed * 9 + idx) * 0.28);
+        bb.mesh.material.opacity = fade * 0.88;
+      });
+    };
+  };
+
+  // =========================================================
+  // 16. 🌟 星屑・銀河流星魔法
+  // =========================================================
+  V9.EFFECT_BUILDERS.star = function (root, info, scale) {
+    const tier = info.tier;
+    const c1 = info.theme.c1;
+    const c2 = info.theme.c2;
+    const c3 = info.theme.c3;
+    const areaRadius = (2.2 + tier * 0.75) * scale;
+
+    const magicRings = [];
+    addMagicCircleBase(root, areaRadius, c1, c2, tier, magicRings);
+
+    const comets = [];
+    const cCnt = 6 + tier * 4;
+    for (let i = 0; i < cCnt; i++) {
+      const ang = (Math.PI * 2 * i) / cCnt;
+      const rad = (0.4 + (i % 3) * 0.65) * scale;
+      const star = new THREE.Mesh(
+        new THREE.OctahedronGeometry((0.34 + (i % 2) * 0.12) * scale, 0),
+        new THREE.MeshBasicMaterial({ color: i % 3 === 0 ? c1 : (i % 3 === 1 ? c2 : c3), transparent: true, opacity: 0.96 })
+      );
+      const startY = (6.8 + (i % 4) * 1.4) * scale;
+      star.position.set(Math.cos(ang) * rad, startY, Math.sin(ang) * rad);
+      root.add(star);
+      comets.push({ mesh: star, startY, delay: (i % 5) * 0.07 });
+    }
+
+    return (p, elapsed) => {
+      const fade = p > 0.72 ? Math.max(0, 1 - (p - 0.72) / 0.28) : 1;
+      magicRings.forEach(r => {
+        r.mesh.rotation.z = elapsed * r.speed * 1.4;
+        r.mesh.material.opacity = fade * 0.92;
+      });
+      comets.forEach(cm => {
+        const lp = Math.max(0, Math.min(1, (p - cm.delay) / 0.5));
+        cm.mesh.position.y = Math.max(0.25, cm.startY * (1 - lp * lp));
+        cm.mesh.rotation.set(elapsed * 8, elapsed * 10, 0);
+        cm.mesh.material.opacity = fade * 0.96;
+      });
+    };
+  };
+
+  // =========================================================
+  // 17. 🗡️ 秘剣・無限光剣陣
+  // =========================================================
+  V9.EFFECT_BUILDERS.sword = function (root, info, scale) {
+    const tier = info.tier;
+    const c1 = info.theme.c1;
+    const c2 = info.theme.c2;
+    const c3 = info.theme.c3;
+    const areaRadius = (2.2 + tier * 0.75) * scale;
+
+    const magicRings = [];
+    addMagicCircleBase(root, areaRadius, c1, c2, tier, magicRings);
+
+    const swords = [];
+    const sCount = 8 + tier * 6 + (tier === 3 ? 2 : 0);
+    for (let s = 0; s < sCount; s++) {
+      const ringLayer = s < sCount * 0.5 ? 0 : 1;
+      const ang = (Math.PI * 2 * s) / (sCount * 0.5) + ringLayer * 0.25;
+      const rad = areaRadius * (ringLayer === 0 ? 0.65 : 1.05);
+
+      const swordGrp = new THREE.Group();
+      const blade = new THREE.Mesh(
+        new THREE.BoxGeometry(0.14 * scale, 2.4 * scale, 0.05 * scale),
+        new THREE.MeshBasicMaterial({ color: s % 3 === 0 ? c1 : (s % 3 === 1 ? c2 : c3), transparent: true, opacity: 0.96 })
+      );
+      const guard = new THREE.Mesh(
+        new THREE.BoxGeometry(0.45 * scale, 0.10 * scale, 0.12 * scale),
+        new THREE.MeshBasicMaterial({ color: c3, transparent: true, opacity: 0.96 })
+      );
+      guard.position.y = 0.85 * scale;
+      swordGrp.add(blade);
+      swordGrp.add(guard);
+
+      const startY = (3.4 + ringLayer * 1.1) * scale;
+      swordGrp.position.set(Math.cos(ang) * rad, startY, Math.sin(ang) * rad);
+      swordGrp.rotation.z = -Math.cos(ang) * 0.42;
+      swordGrp.rotation.x = Math.sin(ang) * 0.42;
+      root.add(swordGrp);
+      swords.push({ grp: swordGrp, bladeMat: blade.material, guardMat: guard.material, ang, rad, startY });
+    }
+
+    const crossA = new THREE.Mesh(
+      new THREE.RingGeometry(0.4 * scale, 2.2 * scale, 24, 1, -Math.PI * 0.5, Math.PI),
+      new THREE.MeshBasicMaterial({ color: c1, side: THREE.DoubleSide, transparent: true, opacity: 0 })
+    );
+    crossA.position.y = 1.2 * scale;
+    crossA.rotation.z = 0.78;
+    root.add(crossA);
+
+    const crossB = new THREE.Mesh(
+      new THREE.RingGeometry(0.4 * scale, 2.2 * scale, 24, 1, -Math.PI * 0.5, Math.PI),
+      new THREE.MeshBasicMaterial({ color: c2, side: THREE.DoubleSide, transparent: true, opacity: 0 })
+    );
+    crossB.position.y = 1.2 * scale;
+    crossB.rotation.z = -0.78;
+    root.add(crossB);
+
+    return (p, elapsed) => {
+      const fade = p > 0.74 ? Math.max(0, 1 - (p - 0.74) / 0.26) : 1;
+      magicRings.forEach(r => {
+        r.mesh.rotation.z = elapsed * r.speed;
+        r.mesh.material.opacity = fade * 0.92;
+      });
+
+      const diveT = Math.max(0, Math.min(1, (p - 0.16) / 0.28));
+      const easeDive = diveT * diveT;
+      swords.forEach(sw => {
+        const curRad = sw.rad * (1 - easeDive * 0.68);
+        sw.grp.position.set(
+          Math.cos(sw.ang + elapsed * 1.2) * curRad,
+          sw.startY * (1 - easeDive * 0.72) + 0.5 * scale,
+          Math.sin(sw.ang + elapsed * 1.2) * curRad
+        );
+        sw.bladeMat.opacity = fade * 0.96;
+        sw.guardMat.opacity = fade * 0.96;
+      });
+
+      if (p >= 0.4) {
+        const cp = Math.min(1, (p - 0.4) / 0.45);
+        const cOp = Math.sin(cp * Math.PI) * 0.95;
+        crossA.material.opacity = cOp;
+        crossB.material.opacity = cOp;
+        crossA.scale.setScalar(1 + cp * 1.4);
+        crossB.scale.setScalar(1 + cp * 1.4);
+      }
+    };
+  };
+
+  // =========================================================
+  // 18. 統合実行エンジン（防御・聖域・治癒・前方斬撃は術者中心、攻撃系は敵中心）
+  // =========================================================
+  function executeFullMagic3D(game, entity, info) {
+    if (!game?.useWebGL || !game?.scene || !entity?.pos || typeof THREE === 'undefined') return;
+
+    const tier = info?.tier ?? 0;
+    const attrId = info?.theme?.id || 'sword';
+    const c1 = info?.theme?.c1 ?? 0x38bdf8;
+    const c2 = info?.theme?.c2 ?? 0xf472b6;
+    const c3 = info?.theme?.c3 ?? 0xfde047;
+    const scale = 1.25 + tier * 0.45;
+    const duration = 1.35 + tier * 0.25;
+
+    if (attrId === 'aurora_sanctuary' && typeof V9.spawnAuroraSanctuaryField === 'function') {
+      V9.spawnAuroraSanctuaryField(game, entity, info);
+    }
+
+    V9.spawnCasterChantAura(game, entity, info);
+
+    const isSelfCentered = (
+      attrId === 'aegis_shield' ||
+      attrId === 'aurora_sanctuary' ||
+      attrId === 'holy_heal' ||
+      attrId === 'slash_crescent'
+    );
+
+    let targetX = entity.pos.x;
+    let targetZ = entity.pos.z;
+
+    if (!isSelfCentered) {
+      targetX = entity.pos.x + Math.sin(entity.rotY || 0) * 3.0;
+      targetZ = entity.pos.z + Math.cos(entity.rotY || 0) * 3.0;
+      if (Array.isArray(game.monsters)) {
+        let bestDist = 16;
+        game.monsters.forEach(m => {
+          if (!m || m.dead || !m.pos) return;
+          const dist = Math.hypot(m.pos.x - entity.pos.x, m.pos.z - entity.pos.z);
+          if (dist < bestDist) {
+            bestDist = dist;
+            targetX = m.pos.x;
+            targetZ = m.pos.z;
+          }
+        });
+      }
+    }
+
+    const root = new THREE.Group();
+    root.position.set(targetX, 0, targetZ);
+    if (attrId === 'slash_crescent' || attrId === 'aegis_shield') {
+      root.rotation.y = entity.rotY || 0;
+    }
+
+    const halos = [];
+    if (tier >= 1 && attrId !== 'aegis_shield' && attrId !== 'aurora_sanctuary') {
+      for (let h = 0; h < tier + 1; h++) {
+        const halo = new THREE.Mesh(
+          new THREE.TorusGeometry((1.4 + h * 0.38) * scale, 0.085, 10, 32),
+          new THREE.MeshBasicMaterial({ color: h % 2 === 0 ? c2 : c3, transparent: true, opacity: 0.9 })
+        );
+        halo.position.y = 1.55 + h * 0.35;
+        halo.rotation.set(Math.PI * (0.3 + h * 0.2), h * 0.8, h * 0.5);
+        root.add(halo);
+        halos.push({ mesh: halo, rx: 1.8 + h * 0.5, ry: -2.2 - h * 0.4 });
+      }
+    }
+
+    const builder = V9.EFFECT_BUILDERS[attrId] || V9.EFFECT_BUILDERS.sword;
+    const attrTick = builder(root, info, scale);
+
+    const sparks = [];
+    const sparkCount = 14 + tier * 6;
+    const rainbow = [0xf472b6, 0x38bdf8, 0xfde047, 0x34d399, 0xa855f7, 0xf97316];
+    for (let i = 0; i < sparkCount; i++) {
+      const ang = (Math.PI * 2 * i) / sparkCount;
+      const col = tier >= 3 ? rainbow[i % rainbow.length] : (i % 3 === 0 ? c1 : (i % 3 === 1 ? c2 : c3));
+      const sp = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.20 + tier * 0.04, 0),
+        new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.95 })
+      );
+      sp.position.set(0, 0.8 + (i % 4) * 0.3, 0);
+      root.add(sp);
+      sparks.push({
+        mesh: sp,
+        vx: Math.cos(ang) * (3.2 + (i % 3) * 1.3) * scale,
+        vy: (2.6 + (i % 4) * 1.0) * scale,
+        vz: Math.sin(ang) * (3.2 + (i % 3) * 1.3) * scale,
+        startY: 0.8 + (i % 4) * 0.3
+      });
+    }
+
+    V9.register3DAnimation(game.scene, root, duration, (p, elapsed, dt) => {
+      if (attrId === 'aegis_shield' && entity?.pos) {
+        root.position.set(entity.pos.x, 0, entity.pos.z);
+      }
+
+      halos.forEach(h => {
+        h.mesh.rotation.x += dt * h.rx;
+        h.mesh.rotation.y += dt * h.ry;
+        if (p > 0.75) h.mesh.material.opacity = Math.max(0, (1 - (p - 0.75) / 0.25) * 0.9);
+      });
+
+      sparks.forEach(sp => {
+        sp.mesh.position.x = sp.vx * p;
+        sp.mesh.position.z = sp.vz * p;
+        sp.mesh.position.y = Math.max(0.1, sp.startY + sp.vy * p - 3.8 * p * p);
+        sp.mesh.rotation.set(elapsed * 6, elapsed * 5, 0);
+        sp.mesh.material.opacity = Math.max(0, 1 - p * 1.15);
+      });
+
+      if (attrTick) attrTick(p, elapsed, dt);
+    });
+
+    if (!isSelfCentered && game?.pet?.pos) {
+      const px = game.pet.pos.x, pz = game.pet.pos.z;
+      const pGrp = new THREE.Group();
+      const orb = new THREE.Mesh(
+        new THREE.SphereGeometry(0.32, 16, 16),
+        new THREE.MeshBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.96 })
+      );
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(0.48, 0.08, 8, 24),
+        new THREE.MeshBasicMaterial({ color: c3, transparent: true, opacity: 0.92 })
+      );
+      orb.add(ring);
+      pGrp.add(orb);
+      V9.register3DAnimation(game.scene, pGrp, 0.42, (p, elapsed) => {
+        orb.position.set(px + (targetX - px) * p, 0.8 + Math.sin(p * Math.PI) * 1.4, pz + (targetZ - pz) * p);
+        ring.rotation.set(elapsed * 12, elapsed * 10, 0);
+        if (p > 0.75) {
+          orb.scale.setScalar(1 + ((p - 0.75) / 0.25) * 2.2);
+          orb.material.opacity = Math.max(0, 1 - (p - 0.75) / 0.25);
+        }
+      });
+    }
+
+    if (typeof game.shakeTimer === 'number') {
+      game.shakeTimer = Math.max(game.shakeTimer, 0.26 + tier * 0.09);
+    }
   }
 
-  const _faceTexCacheV8 = new Map();
-  function makeHorizontalFaceTexV8(faceStr, bg = '#0f294a', bd = '#38bdf8') {
-    const face = String(faceStr || '(´・ω・`)').trim() || '(´・ω・`)';
-    const key = `${face}|${bg}|${bd}`;
-    if (_faceTexCacheV8.has(key)) return _faceTexCacheV8.get(key);
-    const cv = document.createElement('canvas');
-    cv.width = 256; cv.height = 192;
-    const ctx = cv.getContext('2d');
-    ctx.fillStyle = bg; ctx.fillRect(0, 0, 256, 192);
-    ctx.strokeStyle = bd; ctx.lineWidth = 10; ctx.strokeRect(8, 8, 240, 176);
-    ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    let fs = 44;
-    ctx.font = `900 ${fs}px "Hiragino Sans", "Yu Gothic", sans-serif`;
-    while (ctx.measureText(face).width > 210 && fs > 18) { fs -= 2; ctx.font = `900 ${fs}px "Hiragino Sans", "Yu Gothic", sans-serif`; }
-    ctx.fillText(face, 128, 98);
-    const tex = new THREE.CanvasTexture(cv);
-    tex.needsUpdate = true;
-    _faceTexCacheV8.set(key, tex);
-    return tex;
+  V9.castSkillEffect = function (game, slotIdx = 0) {
+    const info = V9.getSkillInfo(game, slotIdx);
+    executeFullMagic3D(game, game?.player, info);
+    V9.showSpellCardCutin(game, info);
+  };
+
+  V9.previewSkillByObj = function (game, skillObj, tier = 0) {
+    const baseInfo = V9.getSkillInfo(game, skillObj);
+    const lvMap = [1, 10, 50, 100];
+    const tierLabels = ['通常魔法', '✨ 魔法進化Ⅰ【真】', '🔥 魔法進化Ⅱ【極】', '🌈 魔法最終進化【神話スペルカード】'];
+    const simLv = lvMap[tier] || 1;
+    const simMp = (baseInfo.origMp * 5) + (simLv - 1) * 10;
+    const info = {
+      ...baseInfo,
+      skillLv: simLv,
+      mpCost: simMp,
+      tier,
+      tierLabel: tierLabels[tier] || tierLabels[0],
+      evolvedName: baseInfo.theme.names(baseInfo.origName)[tier] || baseInfo.origName
+    };
+    executeFullMagic3D(game, game?.player, info);
+    V9.showSpellCardCutin(game, info);
+  };
+
+  // =========================================================
+  // 19. 武器種別 × 武器グレード（6段階）の超豪華・水平横振り攻撃エフェクト！
+  // =========================================================
+  function getEquippedWeaponProfileV9(game, entity) {
+    const isLocal = (entity === game?.player);
+    const d = isLocal ? (game?.saveData || {}) : (entity || {});
+    let wpnObj = null;
+    let wpnIdx = 0;
+
+    let wList = [];
+    if (typeof WEAPONS !== 'undefined' && WEAPONS) {
+      wList = (Array.isArray(WEAPONS) ? WEAPONS : Object.values(WEAPONS)).filter(w => w && typeof w === 'object');
+    }
+
+    const rawId = d.equippedWeapon ?? d.weaponId ?? d.weapon ?? d.equip?.weapon ?? entity?.weaponId ?? entity?.weapon;
+    if (rawId && typeof rawId === 'object') {
+      wpnObj = rawId;
+      const found = wList.indexOf(wpnObj);
+      if (found >= 0) wpnIdx = found;
+    } else if (rawId !== undefined && rawId !== null && wList.length > 0) {
+      const foundIdx = wList.findIndex(w => String(w.id) === String(rawId) || String(w.name) === String(rawId));
+      if (foundIdx >= 0) {
+        wpnObj = wList[foundIdx];
+        wpnIdx = foundIdx;
+      } else if (typeof rawId === 'number' && wList[rawId]) {
+        wpnObj = wList[rawId];
+        wpnIdx = rawId;
+      }
+    }
+    if (!wpnObj && wList.length > 0) {
+      wpnObj = wList[0];
+      wpnIdx = 0;
+    }
+
+    const wName = String(wpnObj?.name || d.weaponName || 'ブロンズソード');
+    const wDesc = String(wpnObj?.desc || '');
+    const search = `${wName} ${wDesc} ${wpnObj?.attr || wpnObj?.element || ''}`;
+
+    // 武器グレード（0〜5の6段階）をレア度・一覧順位・強化値(+)から自動算出
+    let grade = 0;
+    const rar = String(wpnObj?.rarity || wpnObj?.rank || wpnObj?.grade || '').toUpperCase();
+    if (/LR|MYTH|GOD|神話|創世|アルティメット/.test(rar) || /創世|神話|エクスカリバー|ラグナロク|アルティメット|天叢雲/.test(wName)) {
+      grade = 5;
+    } else if (/UR|LEGEND|伝説|覇王|神剣/.test(rar) || /覇王|神剣|天帝|虚空|聖剣/.test(wName)) {
+      grade = 4;
+    } else if (/SSR|EPIC|英雄|竜/.test(rar) || /竜|英雄|魔剣|雷神|氷帝|炎帝/.test(wName)) {
+      grade = 3;
+    } else if (/SR|RARE|名剣/.test(rar) || /ミスリル|オリハルコン|プラチナ|騎士|名剣/.test(wName)) {
+      grade = 2;
+    } else if (/R|UNCOMMON|鋼|アイアン/.test(rar) || /鋼|アイアン|シルバー|銀|大剣/.test(wName)) {
+      grade = 1;
+    } else if (wList.length > 1) {
+      grade = Math.min(5, Math.floor((wpnIdx / Math.max(1, wList.length - 1)) * 5.4));
+    }
+
+    // 武器強化値（+値）や武器レベルがあればグレード底上げ
+    const plusLv = Number(d.weaponPlus ?? d.weaponEnhance ?? wpnObj?.plus ?? wpnObj?.lv ?? 0);
+    if (plusLv >= 50) grade = 5;
+    else if (plusLv >= 30) grade = Math.max(grade, 4);
+    else if (plusLv >= 15) grade = Math.max(grade, 3);
+    else if (plusLv >= 5) grade = Math.max(grade, 2);
+
+    // 武器種別ごとのカラー＆モチーフ決定
+    let style = { c1: 0x38bdf8, c2: 0xe0f2fe, c3: 0x7dd3fc, shape: 'octa' };
+    if (/炎|火|紅蓮|ブレイズ|フレア|イフリート|太陽|fire|flame|blaze/i.test(search)) {
+      style = { c1: 0xef4444, c2: 0xfacc15, c3: 0xf97316, shape: 'tetra' };
+    } else if (/氷|吹雪|零度|アイス|フロスト|コキュートス|ice|frost|freeze/i.test(search)) {
+      style = { c1: 0x38bdf8, c2: 0xffffff, c3: 0x818cf8, shape: 'octa' };
+    } else if (/雷|電|サンダー|紫電|ライトニング|インドラ|thunder|volt|lightning/i.test(search)) {
+      style = { c1: 0xfacc15, c2: 0xa855f7, c3: 0x38bdf8, shape: 'tetra' };
+    } else if (/風|嵐|疾風|翠嵐|ウィンド|テンペスト|wind|storm/i.test(search)) {
+      style = { c1: 0x34d399, c2: 0xa7f3d0, c3: 0xfde047, shape: 'octa' };
+    } else if (/聖|光|黄金|パラディン|エクスカリバー|天照|holy|light|gold/i.test(search)) {
+      style = { c1: 0xfde047, c2: 0xffffff, c3: 0xf59e0b, shape: 'octa' };
+    } else if (/闇|黒|ダーク|アビス|虚空|ラグナロク|魔剣|dark|void|abyss/i.test(search)) {
+      style = { c1: 0x9333ea, c2: 0xf43f5e, c3: 0x38bdf8, shape: 'dodeca' };
+    } else if (/竜|ドラゴン|ドラグーン|dragon/i.test(search)) {
+      style = { c1: 0xdc2626, c2: 0xfde047, c3: 0xf97316, shape: 'tetra' };
+    } else if (grade >= 5) {
+      style = { c1: 0xf472b6, c2: 0xfde047, c3: 0x38bdf8, shape: 'octa' };
+    }
+
+    return { wName, grade, style };
   }
 
-  const CLASS_TREE_V8 = [
-    { id: 'novice', name: '見習い冒険者', icon: '🗡️', reqLv: 1, cost: 0, fxName: '蒼き光の斬撃波', atk: 1.0, def: 1.0, hp: 1.0, desc: '基本の冒険者クラス。' },
-    { id: 'warrior', name: '重装戦士', icon: '⚔️', reqLv: 15, cost: 500, fxName: '紅蓮の豪快衝撃斬', atk: 1.28, def: 1.22, hp: 1.25, desc: 'Lv.15〜｜真紅のワイドスラッシュ。' },
-    { id: 'spellblade', name: '魔法剣士', icon: '💠', reqLv: 15, cost: 500, fxName: '蒼穹の魔導剣閃', atk: 1.32, def: 1.12, hp: 1.18, desc: 'Lv.15〜｜回転魔法陣付きの蒼い剣閃。' },
-    { id: 'paladin', name: '聖騎士（パラディン）', icon: '🛡️', reqLv: 50, cost: 2500, fxName: '黄金の聖光十字斬', atk: 1.48, def: 1.55, hp: 1.50, desc: 'Lv.50〜｜聖なる十字斬撃を放つ。' },
-    { id: 'arch_spellblade', name: '大賢剣士', icon: '🔮', reqLv: 50, cost: 2500, fxName: '紫電星屑の魔剣波', atk: 1.62, def: 1.32, hp: 1.38, desc: 'Lv.50〜｜多重魔法陣の魔導斬撃波。' },
-    { id: 'ninja', name: '疾風の影忍者', icon: '🌪️', reqLv: 100, cost: 6000, fxName: '翠嵐の三連疾風刃', atk: 1.75, def: 1.40, hp: 1.48, desc: 'Lv.100〜｜三連斬撃波と旋風を起こす。' },
-    { id: 'blade_master', name: '蒼穹の剣聖', icon: '⚡', reqLv: 200, cost: 15000, fxName: '次元断ち・蒼雷クロス斬', atk: 2.08, def: 1.68, hp: 1.78, desc: 'Lv.200〜｜稲妻クロス斬撃。' },
-    { id: 'astral_knight', name: '星詠みの聖剣士', icon: '🌟', reqLv: 200, cost: 15000, fxName: '銀河の星屑プリズム斬', atk: 2.18, def: 1.65, hp: 1.72, desc: 'Lv.200〜｜星屑プリズムバースト。' },
-    { id: 'dragoon', name: '紅蓮の竜騎士', icon: '🐉', reqLv: 350, cost: 35000, fxName: '竜王の業火ブレイブ斬', atk: 2.52, def: 2.08, hp: 2.18, desc: 'Lv.350〜｜紅蓮の炎柱と竜の爪痕。' },
-    { id: 'emperor_blade', name: '覇王・天帝剣神', icon: '👑', reqLv: 550, cost: 80000, fxName: '天帝覇王・黄金螺旋斬', atk: 3.15, def: 2.65, hp: 2.80, desc: 'Lv.550〜｜黄金神環と螺旋斬撃波。' },
-    { id: 'void_overlord', name: '虚空の創世剣帝', icon: '🌌', reqLv: 750, cost: 150000, fxName: 'アビスノヴァ・黒蝕次元斬', atk: 3.65, def: 3.05, hp: 3.20, desc: 'Lv.750〜｜漆黒重力輪とネオン紫リング。' },
-    { id: 'mythic_god', name: '創世神話・アルティメット顔文字神', icon: '🌈', reqLv: 999, cost: 500000, fxName: '創世神話・虹翼天翔ノヴァ斬', atk: 4.50, def: 3.80, hp: 4.00, desc: 'Lv.999〜｜全属性の虹翼天翔ノヴァ斬。' }
-  ];
+  function spawnWeaponHorizontalSlashV9(game, entity) {
+    if (!game?.useWebGL || !game?.scene || !entity?.pos || typeof THREE === 'undefined') return;
 
-  function installV8Core() {
+    const { grade, style } = getEquippedWeaponProfileV9(game, entity);
+    const { c1, c2, c3, shape } = style;
+    const rotY = entity.rotY || 0;
+    const dirX = Math.sin(rotY);
+    const dirZ = Math.cos(rotY);
+
+    // グレードに応じたスケール＆多重度（グレード0〜5）
+    const sc = 1.0 + grade * 0.24;
+    const slashLayers = 1 + grade; // 1重〜6重の水平斬撃アーク
+    const rainbowCols = [0xf472b6, 0x38bdf8, 0xfde047, 0x34d399, 0xa855f7, 0xf97316];
+
+    const root = new THREE.Group();
+    root.position.set(entity.pos.x, 0, entity.pos.z);
+    root.rotation.y = rotY;
+
+    // 1. 剣の横振りに連動して右から左へ薙ぎ払う水平扇形スラッシュ群
+    const arcs = [];
+    for (let i = 0; i < slashLayers; i++) {
+      const col = grade >= 5 ? rainbowCols[i % rainbowCols.length] : (i % 3 === 0 ? c1 : (i % 3 === 1 ? c2 : c3));
+      const rIn = (0.85 + i * 0.22) * sc;
+      const rOut = (1.75 + i * 0.32) * sc;
+      const arcSpan = Math.PI * (0.72 + Math.min(0.45, grade * 0.08));
+      const mat = new THREE.MeshBasicMaterial({
+        color: col,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.96
+      });
+      const mesh = new THREE.Mesh(
+        new THREE.RingGeometry(rIn, rOut, 32, 1, -arcSpan * 0.5, arcSpan),
+        mat
+      );
+      // 水平横振りになるようX軸をほぼ90度倒す（わずかにロール傾きをつけて立体感を演出）
+      mesh.rotation.x = -Math.PI * 0.48 + (i % 2 === 0 ? 0.06 : -0.06);
+      mesh.position.set(0, (1.02 + i * 0.08) * Math.min(1.35, sc), 0.35 * sc);
+      root.add(mesh);
+      arcs.push({ mesh, mat, idx: i });
+    }
+
+    // 2. グレード2以上：前方へ直進する三日月型の飛翔剣気ウェーブ
+    const flyingWaves = [];
+    if (grade >= 2) {
+      const waveCnt = grade >= 4 ? 2 : 1;
+      for (let w = 0; w < waveCnt; w++) {
+        const wMat = new THREE.MeshBasicMaterial({
+          color: w === 0 ? c2 : c1,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.95
+        });
+        const wave = new THREE.Mesh(
+          new THREE.RingGeometry((0.9 + w * 0.35) * sc, (1.65 + w * 0.45) * sc, 24, 1, -Math.PI * 0.38, Math.PI * 0.76),
+          wMat
+        );
+        wave.rotation.x = -Math.PI * 0.46;
+        wave.position.set(0, (1.1 + w * 0.18), (1.2 + w * 0.4) * sc);
+        root.add(wave);
+        flyingWaves.push({ mesh: wave, mat: wMat, baseZ: (1.2 + w * 0.4) * sc });
+      }
+    }
+
+    // 3. グレード3以上：足元から広がる地面衝撃波リング
+    let groundRing = null;
+    if (grade >= 3) {
+      const gMat = new THREE.MeshBasicMaterial({
+        color: c1,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.88
+      });
+      groundRing = new THREE.Mesh(new THREE.RingGeometry(0.65 * sc, 1.55 * sc, 32), gMat);
+      groundRing.rotation.x = -Math.PI / 2;
+      groundRing.position.set(0, 0.09, 0.9 * sc);
+      root.add(groundRing);
+    }
+
+    // 4. グレード4以上：斜め交差する追加X字斬撃閃光
+    const crossBlades = [];
+    if (grade >= 4) {
+      for (let c = 0; c < 2; c++) {
+        const cMat = new THREE.MeshBasicMaterial({
+          color: c === 0 ? c2 : c3,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.92
+        });
+        const cb = new THREE.Mesh(
+          new THREE.RingGeometry(0.95 * sc, 1.85 * sc, 24, 1, -Math.PI * 0.35, Math.PI * 0.7),
+          cMat
+        );
+        cb.rotation.x = -Math.PI * 0.32;
+        cb.rotation.y = (c === 0 ? 0.35 : -0.35);
+        cb.position.set(0, 1.25, 1.15 * sc);
+        root.add(cb);
+        crossBlades.push({ mesh: cb, mat: cMat });
+      }
+    }
+
+    // 5. グレード5（LR・神話級）：連動して飛ぶ光剣ビット
+    const spiritSwords = [];
+    if (grade >= 5) {
+      for (let s = 0; s < 4; s++) {
+        const side = s % 2 === 0 ? 1 : -1;
+        const lane = Math.floor(s / 2) + 1;
+        const sMat = new THREE.MeshBasicMaterial({
+          color: rainbowCols[s % rainbowCols.length],
+          transparent: true,
+          opacity: 0.96
+        });
+        const bit = new THREE.Mesh(new THREE.BoxGeometry(0.14 * sc, 0.08 * sc, 1.8 * sc), sMat);
+        bit.position.set(side * (1.2 + lane * 0.7) * sc, 1.15 + lane * 0.2, 0.6);
+        root.add(bit);
+        spiritSwords.push({ mesh: bit, mat: sMat });
+      }
+    }
+
+    // 6. 武器属性パーティクル飛散（グレード1以上で発生、グレードが上がるほど増量）
+    const particles = [];
+    const pCnt = grade === 0 ? 4 : (8 + grade * 5);
+    for (let i = 0; i < pCnt; i++) {
+      const ang = -Math.PI * 0.45 + (Math.PI * 0.9 * i) / Math.max(1, pCnt - 1);
+      const col = grade >= 5 ? rainbowCols[i % rainbowCols.length] : (i % 2 === 0 ? c1 : c2);
+      const geo = shape === 'tetra'
+        ? new THREE.TetrahedronGeometry(0.14 + grade * 0.025, 0)
+        : (shape === 'dodeca' ? new THREE.DodecahedronGeometry(0.13 + grade * 0.025, 0) : new THREE.OctahedronGeometry(0.14 + grade * 0.025, 0));
+      const pMat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.95 });
+      const pt = new THREE.Mesh(geo, pMat);
+      pt.position.set(Math.sin(ang) * 1.1 * sc, 1.05, Math.cos(ang) * 1.1 * sc);
+      root.add(pt);
+      particles.push({
+        mesh: pt,
+        mat: pMat,
+        vx: Math.sin(ang) * (2.8 + (i % 3) * 0.9) * sc,
+        vy: (1.2 + (i % 3) * 0.7),
+        vz: Math.cos(ang) * (3.2 + (i % 3) * 1.0) * sc,
+        sx: Math.sin(ang) * 1.1 * sc,
+        sz: Math.cos(ang) * 1.1 * sc
+      });
+    }
+
+    const duration = 0.34 + grade * 0.035;
+    V9.register3DAnimation(game.scene, root, duration, (p, elapsed) => {
+      // 術者の移動に追従
+      if (entity?.pos) {
+        root.position.set(entity.pos.x, 0, entity.pos.z);
+      }
+
+      // 横振り軌道（右から左へ高速スウィープ）
+      const sweepZ = -1.1 + Math.sin(Math.min(1, p * 1.35) * Math.PI * 0.5) * 2.2;
+      arcs.forEach(a => {
+        a.mesh.rotation.z = sweepZ - a.idx * 0.14;
+        a.mesh.scale.setScalar(1 + p * (0.28 + grade * 0.05));
+        a.mat.opacity = Math.max(0, (1 - p) * 0.96);
+      });
+
+      flyingWaves.forEach(fw => {
+        fw.mesh.position.z = fw.baseZ + p * (4.5 + grade * 0.8) * sc;
+        fw.mesh.scale.setScalar(1 + p * 0.35);
+        fw.mat.opacity = Math.max(0, (1 - p) * 0.95);
+      });
+
+      if (groundRing) {
+        groundRing.scale.setScalar(1 + p * (1.8 + grade * 0.35));
+        groundRing.material.opacity = Math.max(0, (1 - p) * 0.88);
+      }
+
+      crossBlades.forEach(cb => {
+        cb.mesh.scale.setScalar(1 + p * 0.45);
+        cb.mat.opacity = Math.max(0, (1 - p) * 0.92);
+      });
+
+      spiritSwords.forEach(ss => {
+        ss.mesh.position.z = 0.6 + p * 6.8 * sc;
+        ss.mat.opacity = Math.max(0, (1 - p) * 0.96);
+      });
+
+      particles.forEach(pt => {
+        pt.mesh.position.x = pt.sx + pt.vx * p;
+        pt.mesh.position.z = pt.sz + pt.vz * p;
+        pt.mesh.position.y = Math.max(0.1, 1.05 + pt.vy * p - 2.6 * p * p);
+        pt.mesh.rotation.set(elapsed * 9, elapsed * 7, 0);
+        pt.mat.opacity = Math.max(0, (1 - p) * 0.95);
+      });
+    });
+
+    // 高グレード武器（SSR以上）の攻撃時は気持ちいいカメラ微振動を付与
+    if (grade >= 3 && entity === game.player && typeof game.shakeTimer === 'number') {
+      game.shakeTimer = Math.max(game.shakeTimer, 0.08 + (grade - 3) * 0.05);
+    }
+  }
+
+  function hookGameV9() {
     if (typeof KaomojiMMORPG === 'undefined') {
-      setTimeout(installV8Core, 100);
+      setTimeout(hookGameV9, 100);
       return;
     }
-
     const P = KaomojiMMORPG.prototype;
-    if (P._v8CoreInstalled) return;
-    P._v8CoreInstalled = true;
+    if (P._v9Hooked) return;
+    P._v9Hooked = true;
 
-    P.alignAvatarFaceStrictly = function () {};
-
-    Object.assign(P, {
-      // =========================================================
-      // A. 左上のMP（126/126など）と内部MPの完全同期（ズレ撲滅）
-      // =========================================================
-      syncPlayerMpCompletelyV8() {
-        const d = this.saveData;
-        if (!d) return;
-
-        // getPlayerStats() が返す本当の最大MP（装備・パッシブ込み）を取得
-        let realMaxMp = Number(d.maxMp || this.player?.maxMp || 100);
-        if (typeof this.getPlayerStats === 'function') {
-          const st = this.getPlayerStats();
-          if (st && typeof st.maxMp === 'number' && st.maxMp > 0) {
-            realMaxMp = Math.floor(st.maxMp);
-          }
-        }
-
-        // 初回ロード時、元の saveData.maxMp が 50 でキャップされていたら新 maxMp に合わせて引き上げる
-        if (!this._v8MpBootSynced) {
-          this._v8MpBootSynced = true;
-          const oldMax = Number(d.maxMp || realMaxMp);
-          if (oldMax > 0 && realMaxMp > oldMax && typeof d.mp === 'number') {
-            const ratio = Math.min(1, Math.max(0, d.mp / oldMax));
-            d.mp = Math.round(realMaxMp * ratio);
-          }
-        }
-
-        d.maxMp = realMaxMp;
-        if (this.player) {
-          this.player.maxMp = realMaxMp;
-          if (typeof d.mp === 'number') {
-            if (d.mp > realMaxMp) d.mp = realMaxMp;
-            this.player.mp = d.mp;
-          } else if (typeof this.player.mp === 'number') {
-            d.mp = Math.min(realMaxMp, this.player.mp);
-          }
-        }
-      },
-
-      // =========================================================
-      // B. ワープゾーン一本化（ステージ選択できるワープだけ残す）
-      // =========================================================
-      updateSingleStageWarpAndHudV8() {
-        if (!this.scene || !this.player?.pos) return;
-
-        if (Array.isArray(this._v8WarpBeacons)) {
-          this._v8WarpBeacons.forEach(b => { if (b?.grp) this.scene.remove(b.grp); });
-          this._v8WarpBeacons = [];
-        }
-        const toRemove = [];
-        this.scene.children.forEach(ch => {
-          if (ch.userData?.isV8WarpBeacon) toRemove.push(ch);
-        });
-        toRemove.forEach(ch => this.scene.remove(ch));
-
-        let stageWarpPos = null;
-        const rawPortals = this.portals || this.zonePortals || this.warpGates || this.currentZone?.portals;
-        if (Array.isArray(rawPortals) && rawPortals.length > 0) {
-          const p0 = rawPortals[0];
-          const wx = p0?.pos?.x ?? p0?.position?.x ?? p0?.x;
-          const wz = p0?.pos?.z ?? p0?.position?.z ?? p0?.z;
-          if (typeof wx === 'number' && typeof wz === 'number') stageWarpPos = { x: wx, z: wz };
-        }
-        if (!stageWarpPos && this.warpPortal) {
-          const wx = this.warpPortal.pos?.x ?? this.warpPortal.position?.x ?? this.warpPortal.x;
-          const wz = this.warpPortal.pos?.z ?? this.warpPortal.position?.z ?? this.warpPortal.z;
-          if (typeof wx === 'number' && typeof wz === 'number') stageWarpPos = { x: wx, z: wz };
-        }
-        if (!stageWarpPos) {
-          this.scene.traverse(obj => {
-            if (stageWarpPos) return;
-            if (obj.userData?.isPortal || obj.userData?.isWarp || /portal|warp|gate/i.test(obj.name || '')) {
-              stageWarpPos = { x: obj.position.x, z: obj.position.z };
-            }
-          });
-        }
-
-        let hud = document.getElementById('kmj-warp-compass-hud');
-        if (!hud) {
-          hud = document.createElement('div');
-          hud.id = 'kmj-warp-compass-hud';
-          document.body.appendChild(hud);
-        }
-
-        const px = this.player.pos.x;
-        const pz = this.player.pos.z;
-        const arrows = ['⬆️', '↗️', '➡️', '↘️', '⬇️', '↙️', '⬅️', '↖️'];
-
-        let warpPillHtml = '';
-        if (stageWarpPos) {
-          const dx = stageWarpPos.x - px;
-          const dz = stageWarpPos.z - pz;
-          const dist = Math.round(Math.hypot(dx, dz));
-          const deg = (Math.atan2(dx, -dz) * 180 / Math.PI + 360) % 360;
-          const arrow = arrows[Math.round(deg / 45) % 8];
-          warpPillHtml = `<div class="kmj-warp-pill" id="kmj-single-warp-nav"><span>🌀 ステージ選択ワープ</span><span style="color:#fde047;">${arrow} ${dist}m</span></div>`;
-        } else {
-          warpPillHtml = `<div class="kmj-warp-pill" id="kmj-single-warp-nav"><span>🌀 ステージ選択を開く</span></div>`;
-        }
-
-        const fullHtml = `${warpPillHtml}<button type="button" id="kmj-open-studio-hud-btn" class="kmj-studio-launch-btn">🎬 魔法スタジオ (全14種)</button>`;
-        if (hud._lastHtml !== fullHtml) {
-          hud._lastHtml = fullHtml;
-          hud.innerHTML = fullHtml;
-
-          const navEl = hud.querySelector('#kmj-single-warp-nav');
-          if (navEl) {
-            navEl.onclick = () => {
-              if (stageWarpPos) {
-                this.player.pos.x = stageWarpPos.x;
-                this.player.pos.z = stageWarpPos.z + 2.2;
-                this.showAlertBanner?.('🌀 ステージ選択ワープゾーンの前に移動しました！', 1600);
-              } else {
-                const stageBtn = Array.from(document.querySelectorAll('button')).find(b => (b.textContent || '').includes('ステージ'));
-                stageBtn?.click();
-              }
-            };
-          }
-
-          const stBtn = hud.querySelector('#kmj-open-studio-hud-btn');
-          if (stBtn) {
-            stBtn.onclick = () => {
-              if (window.KMJ_SKILL_FX_V9?.openStudioModal) {
-                window.KMJ_SKILL_FX_V9.openStudioModal(this);
-              }
-            };
-          }
-        }
-      },
-
-      // =========================================================
-      // C. 顔修正 ＋ キャラ右手の剣2本持ちバグ完全撲滅（player.group対応）
-      // =========================================================
-      fixFacesAndWeaponsV8() {
-        if (typeof THREE === 'undefined') return;
-        const d = this.saveData || {};
-
-        if (typeof WEAPONS !== 'undefined' && WEAPONS) {
-          (Array.isArray(WEAPONS) ? WEAPONS : Object.values(WEAPONS)).forEach(w => {
-            if (!w || typeof w !== 'object') return;
-            if (typeof w.name === 'string') {
-              w.name = w.name.replace(/（魔導杖）/g, '').replace(/杖|ロッド|スタッフ/g, '剣');
-            }
-          });
-        }
-
-        const fixCube = (grp, faceStr, bg, bd) => {
-          if (!grp) return;
-          let body = null, maxV = 0;
-          const oldFaces = [];
-          grp.children.forEach(ch => {
-            if (!ch.isMesh || !ch.geometry) return;
-            const gt = ch.geometry.type || '', pm = ch.geometry.parameters || {};
-            if (gt === 'BoxGeometry') {
-              const v = (pm.width || 1) * (pm.height || 1) * (pm.depth || 1);
-              if (v > maxV && (pm.depth || 0) >= 0.35) { maxV = v; body = ch; }
-              else if ((pm.depth || 1) <= 0.15) oldFaces.push(ch);
-            } else if (gt === 'PlaneGeometry' || ch.material?.map?.image) {
-              oldFaces.push(ch);
-            }
-          });
-          if (!body) return;
-          const pm = body.geometry.parameters || {};
-          const bw = (pm.width || 1) * (body.scale?.x || 1);
-          const bh = (pm.height || 1) * (body.scale?.y || 1);
-          const bdZ = (pm.depth || 1) * (body.scale?.z || 1);
-          const frontZ = body.position.z + bdZ * 0.5;
-
-          const tex = makeHorizontalFaceTexV8(faceStr, bg, bd);
-          let fm = oldFaces[0];
-          if (!fm) {
-            fm = new THREE.Mesh(new THREE.PlaneGeometry(bw * 0.78, bh * 0.56), new THREE.MeshBasicMaterial({ map: tex }));
-            grp.add(fm);
-          } else {
-            fm.geometry = new THREE.PlaneGeometry(bw * 0.78, bh * 0.56);
-            fm.material = new THREE.MeshBasicMaterial({ map: tex, side: THREE.FrontSide });
-          }
-          fm.position.set(body.position.x, body.position.y + bh * 0.02, frontZ + 0.026);
-          fm.rotation.set(0, 0, 0);
-          fm.scale.set(1, 1, 1);
-          for (let i = 1; i < oldFaces.length; i++) grp.remove(oldFaces[i]);
-        };
-
-        // キャラの右手に剣が2本重なる現象を完全に防ぐ（player.group の中身を直接検査）
-        const cleanExtraWeapons = (grp) => {
-          if (!grp) return;
-          // 1) グループや名前付き武器が複数ある場合
-          const namedWpns = grp.children.filter(c => /sword|weapon|blade|wpn|katana|staff/i.test(c.name || ''));
-          if (namedWpns.length > 1) {
-            for (let i = 0; i < namedWpns.length - 1; i++) grp.remove(namedWpns[i]);
-          }
-          // 2) 名前なしメッシュとして右手側（x >= 0.35）に縦長の剣（高さ > 幅*2）が複数生えている場合
-          const bladeMeshes = grp.children.filter(c => {
-            if (!c.isMesh || !c.geometry) return false;
-            const pm = c.geometry.parameters || {};
-            const h = (pm.height || 0) * (c.scale?.y || 1);
-            const w = (pm.width || 1) * (c.scale?.x || 1);
-            return c.position.x >= 0.32 && h >= 0.55 && h > w * 2.2;
-          });
-          if (bladeMeshes.length > 1) {
-            // 最後の1本だけ残し、重複した刀身＋その近くの柄パーツを削除
-            const keep = bladeMeshes[bladeMeshes.length - 1];
-            for (let i = 0; i < bladeMeshes.length - 1; i++) {
-              const dup = bladeMeshes[i];
-              const dupX = dup.position.x;
-              // 同じX座標付近にある柄・鍔パーツも一緒に削除
-              const parts = grp.children.filter(c => c !== keep && c.isMesh && Math.abs(c.position.x - dupX) < 0.08 && c.position.x >= 0.30);
-              parts.forEach(p => grp.remove(p));
-            }
-          }
-        };
-
-        if (this.player?.group) {
-          fixCube(this.player.group, d.kaomoji || d.face || this.player.kaomoji || '(´・ω・`)', '#0f294a', '#38bdf8');
-          cleanExtraWeapons(this.player.group);
-        }
-
-        if (Array.isArray(this.npcs)) {
-          this.npcs.forEach(n => { if (n?.group) fixCube(n.group, n.kaomoji || n.face || '(^o^)/', '#1e293b', '#fbbf24'); });
-        }
-
-        const petGrp = this.pet?.group || this.pet?.mesh;
-        if (petGrp) {
-          let frontZ = 0.42, centerY = 0.62, r = 0.45;
-          const pFaces = [];
-          petGrp.traverse(o => {
-            if (!o.isMesh || !o.geometry) return;
-            const gt = o.geometry.type || '', pm = o.geometry.parameters || {};
-            if (o.material?.map?.image || gt === 'PlaneGeometry') pFaces.push(o);
-            else if (gt === 'SphereGeometry') {
-              r = (pm.radius || 0.45) * (o.scale?.z || 1);
-              frontZ = Math.max(frontZ, o.position.z + r);
-              centerY = o.position.y;
-            } else if (gt === 'BoxGeometry' && (pm.depth || 0) >= 0.35) {
-              r = (pm.depth * 0.5) * (o.scale?.z || 1);
-              frontZ = Math.max(frontZ, o.position.z + r);
-              centerY = o.position.y;
-            }
-          });
-          const pInfo = typeof this.getMyPetSyncInfo === 'function' ? this.getMyPetSyncInfo() : null;
-          const pTex = makeHorizontalFaceTexV8(pInfo?.kaomoji || this.pet?.kaomoji || '(・ω・)', '#0c4a6e', '#7dd3fc');
-          let pf = pFaces[0];
-          if (!pf) {
-            pf = new THREE.Mesh(new THREE.PlaneGeometry(r * 1.15, r * 0.85), new THREE.MeshBasicMaterial({ map: pTex }));
-            petGrp.add(pf);
-          } else {
-            pf.geometry = new THREE.PlaneGeometry(r * 1.15, r * 0.85);
-            pf.material = new THREE.MeshBasicMaterial({ map: pTex, side: THREE.FrontSide });
-          }
-          pf.position.set(0, centerY, frontZ + 0.065);
-          pf.rotation.set(0, 0, 0);
-          pf.scale.set(1, 1, 1);
-        }
-      },
-
-      // =========================================================
-      // D. 全14種スキル MP消費（元MP×5 + 1Lv毎+10）＆スキル一覧UI完全同期
-      // =========================================================
-      getSkillDataV8(slotOrSkill = 0) {
-        if (window.KMJ_SKILL_FX_V9?.getSkillInfo) {
-          return window.KMJ_SKILL_FX_V9.getSkillInfo(this, slotOrSkill);
-        }
-        const d = this.saveData || {};
-        let slotIdx = typeof slotOrSkill === 'number' ? slotOrSkill : 0;
-        let raw = null;
-        let skillLv = 1;
-
-        if (typeof slotOrSkill === 'object' && slotOrSkill !== null) {
-          raw = slotOrSkill;
-          const sid = String(raw.id || raw.skillId || '');
-          skillLv = Math.max(1, Number(d.skillLevels?.[sid] ?? d.skillLvs?.[sid] ?? raw.lv ?? raw.level ?? 1));
-        } else if (typeof this.resolveSkillMeta === 'function') {
-          const meta = this.resolveSkillMeta(slotIdx);
-          if (meta) {
-            skillLv = Math.max(1, Number(meta.skillLv || 1));
-            if (typeof SKILLS !== 'undefined' && SKILLS) {
-              const list = Array.isArray(SKILLS) ? SKILLS : Object.values(SKILLS);
-              raw = list.find(s => s && (String(s.id) === String(meta.skillId) || String(s.skillId) === String(meta.skillId))) || list[slotIdx] || null;
-            }
-          }
-        }
-
-        const defOrig = [9, 14, 12, 16, 26, 22, 20, 24, 28, 30, 32, 35, 40, 50][slotIdx] || 16;
-        if (raw && raw._origMpV8 === undefined) {
-          const cur = Number(raw.mpCost ?? raw.mp ?? raw.costMp ?? 0);
-          raw._origMpV8 = cur > 0 ? cur : defOrig;
-        }
-        const origMp = raw?._origMpV8 || defOrig;
-        const mpCost = (origMp * 5) + (skillLv - 1) * 10;
-        return { raw, slotIdx, skillLv, origMp, mpCost, evolvedName: raw?.name || `スキル${slotIdx + 1}` };
-      },
-
-      syncAllSkillsV8() {
-        if (window.KMJ_SKILL_FX_V9?.syncAllSkills) {
-          window.KMJ_SKILL_FX_V9.syncAllSkills(this);
-          return;
-        }
-        if (typeof SKILLS !== 'undefined' && SKILLS) {
-          (Array.isArray(SKILLS) ? SKILLS : Object.values(SKILLS)).forEach(sk => {
-            if (!sk || typeof sk !== 'object') return;
-            const info = this.getSkillDataV8(sk);
-            if ('mpCost' in sk) sk.mpCost = info.mpCost;
-            if ('mp' in sk) sk.mp = info.mpCost;
-            if ('costMp' in sk) sk.costMp = info.mpCost;
-          });
-        }
-      },
-
-      // =========================================================
-      // E. 格上1.5倍・全称号＆実績パッシブ・ペット火力・12クラス
-      // =========================================================
-      normalizeHigherLevelMonstersV8() {
-        if (!Array.isArray(this.monsters)) return;
-        const pLv = Math.max(1, Number(this.saveData?.lv ?? this.saveData?.level ?? this.player?.lv ?? 1));
-        this.monsters.forEach(m => {
-          if (!m || m.dead) return;
-          const mLv = Math.max(1, Number(m.lv ?? m.level ?? 1));
-          const diff = Math.max(0, mLv - pLv);
-          if (!m._rawNameV8 && typeof m.name === 'string') m._rawNameV8 = m.name.replace(/^【格上】\s*/g, '');
-          if (m._rawNameV8) m.name = diff > 0 ? `【格上】${m._rawNameV8}` : m._rawNameV8;
-          if (!m._rawCapV8) {
-            m._rawCapV8 = true;
-            m._rAtk = Math.max(1, Number(m.atk) || 10);
-            m._rHp = Math.max(10, Number(m.maxHp || m.hp) || 30);
-            m._rExp = Math.max(1, Number(m.exp || m.expReward) || 10);
-            m._rGold = Math.max(1, Number(m.gold || m.goldReward) || 5);
-          }
-          const mult = 1 + 1.5 * diff;
-          m.atk = Math.floor(m._rAtk * mult);
-          const nHp = Math.floor(m._rHp * mult);
-          if (m.maxHp !== nHp) {
-            const ratio = m.maxHp > 0 ? Math.min(1, Math.max(0, (Number(m.hp) || 0) / m.maxHp)) : 1;
-            m.maxHp = nHp;
-            if (typeof m.hp === 'number') m.hp = Math.max(1, Math.round(nHp * ratio));
-          }
-          if ('exp' in m) m.exp = Math.floor(m._rExp * mult);
-          if ('expReward' in m) m.expReward = Math.floor(m._rExp * mult);
-          if ('gold' in m) m.gold = Math.floor(m._rGold * mult);
-          if ('goldReward' in m) m.goldReward = Math.floor(m._rGold * mult);
-        });
-      },
-
-      getAllPassivesV8() {
-        const d = this.saveData || {};
-        const countOwned = (gVar, keys) => {
-          const list = (typeof gVar !== 'undefined' && gVar) ? (Array.isArray(gVar) ? gVar : Object.values(gVar)) : [];
-          const set = new Set();
-          keys.forEach(k => {
-            const v = d[k];
-            if (Array.isArray(v)) v.forEach(x => { if (typeof x === 'string') set.add(x); else if (x?.unlocked || x?.earned || x?.completed) set.add(String(x.id || x.name || '')); });
-            else if (v && typeof v === 'object') Object.entries(v).forEach(([id, val]) => { if (val === true || val?.unlocked || val?.earned || val?.completed) set.add(id); });
-          });
-          ['equippedTitle', 'currentTitle', 'activeTitle', 'title', 'titleId'].forEach(tk => { if (typeof d[tk] === 'string' && d[tk] && d[tk] !== 'none') set.add(d[tk]); });
-          let u = 0;
-          if (list.length > 0) {
-            list.forEach((it, idx) => {
-              const id = String(it.id || it.titleId || it.achId || `i_${idx}`);
-              if (it.unlocked || it.earned || it.completed || set.has(id) || set.has(String(it.name || ''))) u++;
-            });
-            return { u, t: list.length };
-          }
-          return { u: Math.max(set.size, 1), t: Math.max(set.size, 1) };
-        };
-        const ttl = countOwned(typeof TITLES !== 'undefined' ? TITLES : null, ['titles', 'unlockedTitles', 'earnedTitles', 'titleUnlocked']);
-        const ach = countOwned(typeof ACHIEVEMENTS !== 'undefined' ? ACHIEVEMENTS : null, ['achievements', 'unlockedAchievements', 'earnedAchievements', 'achUnlocked']);
-        return {
-          ttl, ach,
-          statPct: ttl.u * 0.04 + ach.u * 0.03,
-          hpPct: ttl.u * 0.05 + ach.u * 0.04,
-          rewardPct: ttl.u * 0.05 + ach.u * 0.04
-        };
-      },
-
-      syncPetPowerV8() {
-        if (!this.pet) return;
-        const st = typeof this.getPlayerStats === 'function' ? (this.getPlayerStats() || {}) : {};
-        const ref = Math.max(10, Number(st.atk ?? this.saveData?.atk ?? 15), Number(st.matk ?? st.mAtk ?? 0));
-        const pInfo = typeof this.getMyPetSyncInfo === 'function' ? this.getMyPetSyncInfo() : null;
-        const pLv = Math.max(1, Number(pInfo?.lv || this.pet.lv || 1));
-        const pAtk = Math.floor(ref * (0.75 + Math.min(1.5, (pLv - 1) * 0.015)));
-        this.pet.atk = pAtk; this.pet.attack = pAtk; this.pet.power = pAtk; this.pet.dmg = pAtk;
-      },
-
-      getCurrentClassV8() {
-        const raw = String(this.saveData?.evolutionId ?? this.saveData?.classId ?? 'novice');
-        return CLASS_TREE_V8.find(c => c.id === raw) || CLASS_TREE_V8[0];
+    const origVis = P.triggerAttackVisual;
+    P.triggerAttackVisual = function (entity, isSkill = false, skillInfo = null) {
+      if (!isSkill && entity) {
+        entity.attackAnimTimer = 0.36;
+        entity.attackIsSkill = false;
+        spawnWeaponHorizontalSlashV9(this, entity);
+        return;
       }
-    });
+      if (typeof origVis === 'function') {
+        return origVis.call(this, entity, isSkill, skillInfo);
+      }
+    };
 
-    ['getSkillMpCost', 'calcSkillMpCost', 'getSkillCost'].forEach(fn => {
-      if (typeof P[fn] === 'function') P[fn] = function (s) { return this.getSkillDataV8(s).mpCost; };
-    });
-
-    if (typeof P.useSkillSlot === 'function' && !P._v8SkillHooked) {
-      const origUse = P.useSkillSlot;
-      P.useSkillSlot = function (slotIdx) {
-        this.syncPlayerMpCompletelyV8();
-        this.syncAllSkillsV8();
-        const d = this.saveData;
-        const info = this.getSkillDataV8(slotIdx);
-        const curCd = (this.player?.skillCds?.[slotIdx] ?? this.skillCds?.[slotIdx] ?? 0);
-        const mpBefore = Number(d?.mp ?? this.player?.mp ?? 0);
-
-        if (curCd <= 0.05 && !this._debugInfiniteMode && mpBefore < info.mpCost) {
-          this.showAlertBanner?.(`💧 MP不足！（必要MP: ${info.mpCost} / 現在: ${Math.floor(mpBefore)}）`, 1400);
-          return;
-        }
-        const res = origUse.call(this, slotIdx);
-        const cdAfter = (this.player?.skillCds?.[slotIdx] ?? this.skillCds?.[slotIdx] ?? 0);
-        if (curCd <= 0.05 && cdAfter > 0.05) {
-          if (!this._debugInfiniteMode) {
-            const nextMp = Math.max(0, mpBefore - info.mpCost);
-            if (d && typeof d.mp === 'number') d.mp = nextMp;
-            if (this.player && typeof this.player.mp === 'number') this.player.mp = nextMp;
-          }
-          if (window.KMJ_SKILL_FX_V9?.castSkillEffect) {
-            window.KMJ_SKILL_FX_V9.castSkillEffect(this, slotIdx);
-          }
-        }
-        return res;
+    if (typeof P.syncSkillDescriptionsAndEffects === 'function') {
+      const origSync = P.syncSkillDescriptionsAndEffects;
+      P.syncSkillDescriptionsAndEffects = function () {
+        V9.syncAllSkills(this);
+        origSync.call(this);
+        V9.syncAllSkills(this);
       };
-      P._v8SkillHooked = true;
-    }
-
-    if (typeof P.getPlayerStats === 'function' && !P._v8StatsHooked) {
-      const origSt = P.getPlayerStats;
-      P.getPlayerStats = function () {
-        const st = origSt.call(this);
-        if (!st) return st;
-        const cls = this.getCurrentClassV8();
-        const pas = this.getAllPassivesV8();
-        if (typeof st.atk === 'number') st.atk = Math.floor(st.atk * cls.atk * (1 + pas.statPct));
-        if (typeof st.matk === 'number') st.matk = Math.floor(st.matk * cls.atk * (1 + pas.statPct));
-        if (typeof st.def === 'number') st.def = Math.floor(st.def * cls.def * (1 + pas.statPct));
-        if (typeof st.maxHp === 'number') st.maxHp = Math.floor(st.maxHp * cls.hp * (1 + pas.hpPct));
-        if (typeof st.maxMp === 'number') st.maxMp = Math.floor(st.maxMp * (1 + pas.hpPct * 0.5));
-        return st;
-      };
-      P._v8StatsHooked = true;
-    }
-
-    if (typeof P.renderModalContent === 'function' && !P._v8ModalHooked) {
-      const origMd = P.renderModalContent;
-      P.renderModalContent = function () {
-        this.syncPlayerMpCompletelyV8();
-        this.syncAllSkillsV8();
-        origMd.call(this);
-        this.syncAllSkillsV8();
-        const body = document.getElementById('modal-body');
-        if (!body) return;
-        const tab = String(this.activeTab || '').toLowerCase();
-        const txt = body.textContent || '';
-        const d = this.saveData || {};
-        const pLv = Math.max(1, Number(d.lv ?? d.level ?? 1));
-        const gold = Number(d.gold ?? d.coins ?? 0);
-
-        if (/stat|evo|job|class/.test(tab)) {
-          const cur = this.getCurrentClassV8();
-          if (!Array.isArray(d.unlockedClassesClean)) d.unlockedClassesClean = ['novice'];
-          const cards = CLASS_TREE_V8.map(c => {
-            const isC = cur.id === c.id, isU = c.cost <= 0 || d.unlockedClassesClean.includes(c.id);
-            const okLv = pLv >= c.reqLv || this._debugInfiniteMode;
-            const lbl = isC ? '✅ 選択中' : (isU ? '🔄 切替(無料)' : (!okLv ? `🔒 Lv.${c.reqLv}` : `✨ 解放(${c.cost.toLocaleString()}G)`));
-            return `<div style="background:#1e293b;border:1px solid ${isC ? '#34d399' : '#334155'};border-radius:7px;padding:6px;">
-              <div style="font-size:11px;font-weight:900;color:#fff;">${c.icon} ${c.name}</div>
-              <div style="font-size:9px;color:#f472b6;">${c.fxName}</div>
-              <button type="button" class="v8-cls-btn" data-id="${c.id}" ${isC || (!isU && !okLv) ? 'disabled' : ''} style="margin-top:4px;width:100%;background:${isC ? '#059669' : '#0284c7'};border:none;color:#fff;border-radius:5px;padding:4px;font-size:10px;font-weight:900;">${lbl}</button>
-            </div>`;
-          }).join('');
-          body.insertAdjacentHTML('afterbegin', `<div class="card-box" style="margin-bottom:8px;border-color:#38bdf8;"><b style="color:#7dd3fc;font-size:11px;">⚜️ Lv.999 クラス進化（現在: ${cur.name}）</b><div style="display:grid;grid-template-columns:repeat(2,1fr);gap:5px;margin-top:5px;max-height:210px;overflow-y:auto;">${cards}</div></div>`);
-          body.querySelectorAll('.v8-cls-btn').forEach(b => b.onclick = () => {
-            const c = CLASS_TREE_V8.find(x => x.id === b.dataset.id);
-            if (!c) return;
-            if (!d.unlockedClassesClean.includes(c.id) && c.cost > 0) {
-              if (gold < c.cost) { this.showAlertBanner?.('💰 ゴールド不足！', 1400); return; }
-              d.gold = gold - c.cost; if ('coins' in d) d.coins = d.gold;
-              d.unlockedClassesClean.push(c.id);
-            }
-            d.evolutionId = c.id; d.classId = c.id;
-            this.saveGame?.(false); this.renderModalContent();
-          });
-        }
-
-        if (/ach|title|trophy/.test(tab) || /称号|実績/.test(txt)) {
-          const pas = this.getAllPassivesV8();
-          body.querySelectorAll('button').forEach(btn => {
-            if (/装備|装着|セット/.test(btn.textContent || '')) {
-              btn.textContent = '✨ 常時パッシブ発動中'; btn.disabled = true; btn.style.background = '#065f46';
-            }
-          });
-          body.insertAdjacentHTML('afterbegin', `<div class="card-box" style="margin-bottom:8px;border-color:#fbbf24;background:rgba(30,27,75,0.95);"><b style="color:#fde047;font-size:11.5px;">👑 全称号＆全実績 常時パッシブ発動中（装備不要）</b><div style="font-size:10px;color:#fff;margin-top:2px;">全ステ <b style="color:#4ade80;">+${Math.round(pas.statPct * 100)}%</b> / 最大HP <b style="color:#38bdf8;">+${Math.round(pas.hpPct * 100)}%</b> / 報酬 <b style="color:#fbbf24;">+${Math.round(pas.rewardPct * 100)}%</b></div></div>`);
-        }
-
-        window.KMJ_SKILL_FX_V9?.injectSkillPreviewUI?.(this, body, tab);
-      };
-      P._v8ModalHooked = true;
-    }
-
-    if (typeof P.updateRemotePlayers === 'function' && !P._v8LoopHooked) {
-      const origLoop = P.updateRemotePlayers;
-      P.updateRemotePlayers = function (dt) {
-        this.syncPlayerMpCompletelyV8();
-        origLoop.call(this, dt);
-        this.syncPlayerMpCompletelyV8();
-        installChatDragAndResizeHandles();
-        this.updateSingleStageWarpAndHudV8();
-        this.fixFacesAndWeaponsV8();
-        this.syncAllSkillsV8();
-        this.syncPetPowerV8();
-        this.normalizeHigherLevelMonstersV8();
-        window.KMJ_SKILL_FX_V9?.updateSanctuaryFields?.(this, dt);
-      };
-      P._v8LoopHooked = true;
     }
 
     setTimeout(() => {
-      const g = window.game;
-      if (g) {
-        g.syncPlayerMpCompletelyV8();
-        installChatDragAndResizeHandles();
-        g.updateSingleStageWarpAndHudV8();
-        g.fixFacesAndWeaponsV8();
-        g.syncAllSkillsV8();
-        g.syncPetPowerV8();
+      if (window.game) {
+        V9.syncAllSkills(window.game);
+        window.game.showAlertBanner?.('✨ MP上限成長＆自動回復・魔法系クラス削除・武器別＆グレード別横振り斬撃完了！', 2600);
       }
-    }, 300);
+    }, 350);
   }
 
-  installV8Core();
-  document.addEventListener('click', () => {
-    setTimeout(() => {
-      setupThreatControlsV8();
-      window.game?.syncPlayerMpCompletelyV8?.();
-      window.game?.syncAllSkillsV8?.();
-    }, 40);
-  }, true);
-  setTimeout(setupThreatControlsV8, 300);
+  hookGameV9();
 })();
-// ▲▲▲ ここまで【game8.js 完全版 v106】 ▲▲▲
+// ▲▲▲ ここまで【スキルエフェクト専用 game9.js 3/3】 ▲▲▲
