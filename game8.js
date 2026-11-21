@@ -762,3 +762,220 @@
   setTimeout(patchDOMTextsAndAchievementsV52, 400);
 })();
 // ▲▲▲ ここまで【追加パッチ】 ▲▲▲
+// ▼▼▼ ここから【追加パッチ】フィールド脅威ランク即時見た目反映＆一括増減ボタン ▼▼▼
+(() => {
+  'use strict';
+
+  const THREAT_MIN = 1;
+  const THREAT_MAX = 999;
+
+  // 現在の脅威ランクを取得
+  function getCurrentThreatValueV53(inst) {
+    const d = inst?.saveData || {};
+    const keys = ['threatRank', 'fieldThreatRank', 'threat', 'threatLevel', 'threatLv', 'danger'];
+    for (const k of keys) {
+      if (typeof d[k] === 'number' && !Number.isNaN(d[k])) return Math.max(THREAT_MIN, Math.min(THREAT_MAX, Math.floor(d[k])));
+    }
+    for (const k of keys) {
+      if (typeof inst?.[k] === 'number' && !Number.isNaN(inst[k])) return Math.max(THREAT_MIN, Math.min(THREAT_MAX, Math.floor(inst[k])));
+    }
+    return 1;
+  }
+
+  // DOM上の「フィールド脅威ランク: +〇〇 / 999」と「+〇〇% 増加します」をフレーム待ちなしで即時書き換え
+  function updateThreatCardDOMImmediateV53(val) {
+    const safeVal = Math.max(THREAT_MIN, Math.min(THREAT_MAX, Math.floor(val)));
+    const pct = safeVal * 25;
+
+    const card = findFieldThreatCardV53();
+    if (card) {
+      const walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT, null);
+      let node;
+      while ((node = walker.nextNode())) {
+        const txt = node.nodeValue || '';
+        if (/フィールド脅威ランク|脅威ランク/.test(txt)) {
+          node.nodeValue = txt.replace(/([+-]?\d+)\s*\/\s*\d+/, `+${safeVal} / ${THREAT_MAX}`);
+        } else if (/^\s*[+-]?\d+\s*\/\s*\d+\s*$/.test(txt)) {
+          node.nodeValue = `+${safeVal} / ${THREAT_MAX}`;
+        } else if (/ドロップ率が/.test(txt) || /\+\d+%\s*増加/.test(txt)) {
+          node.nodeValue = txt.replace(/[+-]?\d+%/, `+${pct}%`);
+        }
+      }
+    }
+
+    // 画面内の他箇所にある脅威ランク表記も即時同期
+    document.querySelectorAll('span, div, p, b, strong').forEach(el => {
+      if (el.children.length > 0) return;
+      const t = el.textContent || '';
+      if (t.includes('フィールド脅威ランク:')) {
+        el.textContent = `🔥 フィールド脅威ランク: +${safeVal} / ${THREAT_MAX}`;
+      } else if (t.includes('敵の強さとEXP/Gドロップ率が')) {
+        el.textContent = `敵の強さとEXP/Gドロップ率が +${pct}% 増加します`;
+      }
+    });
+  }
+
+  // 「フィールド脅威ランク」カード要素を取得
+  function findFieldThreatCardV53() {
+    const allDivs = document.querySelectorAll('div');
+    for (const div of allDivs) {
+      const txt = div.textContent || '';
+      if (txt.includes('フィールド脅威ランク') && txt.includes('EXP/Gドロップ率')) {
+        // 一番内側のカードコンテナを特定
+        if (div.querySelectorAll('div').length <= 6) {
+          return div;
+        }
+      }
+    }
+    return null;
+  }
+
+  // 脅威ランクを即座に変更し、見た目・HUD・敵ステータスをすべて即時反映
+  function applyThreatRankImmediatelyV53(nextRaw) {
+    const inst = window.__kmjInstance || window.game || window.app || window.mmorpg;
+    const nextVal = Math.max(THREAT_MIN, Math.min(THREAT_MAX, Math.floor(Number(nextRaw) || 1)));
+
+    // 1. まず画面の見た目を0msで即時更新（体感を最優先）
+    updateThreatCardDOMImmediateV53(nextVal);
+
+    if (!inst) return;
+    const d = inst.saveData;
+    const keys = ['threatRank', 'fieldThreatRank', 'threat', 'threatLevel', 'threatLv', 'danger'];
+    if (d) {
+      let wrote = false;
+      keys.forEach(k => {
+        if (typeof d[k] === 'number') {
+          d[k] = nextVal;
+          wrote = true;
+        }
+      });
+      if (!wrote) d.threatRank = nextVal;
+    }
+    keys.forEach(k => {
+      if (typeof inst[k] === 'number') inst[k] = nextVal;
+    });
+    inst._lastThreatBeforeV52 = nextVal;
+
+    // 2. 既存のHUD更新・敵スケーリング・セーブを即時実行
+    try { inst.forceThreatCap999V50?.(); } catch (e) {}
+    try { inst.refreshAllHUD?.(); } catch (e) {}
+    // refreshAllHUD後に古い表記で上書きされないよう再度即時反映
+    updateThreatCardDOMImmediateV53(nextVal);
+
+    // 3. フィールドに出現中の敵も新しい脅威ランクに合わせて即更新
+    try {
+      if (Array.isArray(inst.monsters) && inst.monsters.length > 0) {
+        if (typeof inst.spawnMonsters === 'function' && !inst._inBattleLock) {
+          inst.spawnMonsters();
+        }
+        inst.normalizeMonsterHigherLevelScalingV50?.();
+        inst.applyKakueTagAndScalingV52?.();
+      }
+    } catch (e) {}
+
+    try { inst.saveGame?.(false); } catch (e) {}
+  }
+
+  // 一括操作ボタンバー（MIN / -100 / -10 / -1 / +1 / +10 / +100 / MAX / 数値指定）を注入
+  function injectThreatQuickControlsV53() {
+    const card = findFieldThreatCardV53();
+    if (!card) return;
+
+    const inst = window.__kmjInstance || window.game || window.app || window.mmorpg;
+    const curVal = getCurrentThreatValueV53(inst);
+    updateThreatCardDOMImmediateV53(curVal);
+
+    // 既存の -1 / +1 ボタンも即時更新フックに差し替え
+    card.querySelectorAll('button:not(.kmj-v53-qbtn)').forEach(btn => {
+      if (btn.dataset.v53Hooked) return;
+      const t = (btn.textContent || '').trim();
+      if (t === '-1' || t === '+1') {
+        btn.dataset.v53Hooked = '1';
+        const delta = t === '+1' ? 1 : -1;
+        btn.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const now = getCurrentThreatValueV53(window.__kmjInstance || window.game || window.app || window.mmorpg);
+          applyThreatRankImmediatelyV53(now + delta);
+        };
+      }
+    });
+
+    if (document.getElementById('kmj-v53-threat-quickbar')) return;
+
+    const bar = document.createElement('div');
+    bar.id = 'kmj-v53-threat-quickbar';
+    bar.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;padding-top:7px;border-top:1px solid rgba(148,163,184,0.22);align-items:center;';
+
+    const presets = [
+      { label: 'MIN (1)', mode: 'set', val: 1, bg: '#334155', col: '#e2e8f0' },
+      { label: '-100', mode: 'add', val: -100, bg: '#1e3a8a', col: '#dbeafe' },
+      { label: '-10', mode: 'add', val: -10, bg: '#1d4ed8', col: '#eff6ff' },
+      { label: '+10', mode: 'add', val: 10, bg: '#dc2626', col: '#fef2f2' },
+      { label: '+100', mode: 'add', val: 100, bg: '#b91c1c', col: '#fee2e2' },
+      { label: 'MAX (999)', mode: 'set', val: 999, bg: '#d97706', col: '#fef3c7' },
+      { label: '🎯 数値指定', mode: 'prompt', val: 0, bg: '#059669', col: '#ecfdf5' }
+    ];
+
+    presets.forEach(p => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'kmj-v53-qbtn';
+      b.textContent = p.label;
+      b.style.cssText = `background:${p.bg};color:${p.col};border:none;border-radius:6px;padding:5px 8px;font-size:11px;font-weight:900;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.35);transition:transform 0.06s;`;
+      b.onpointerdown = () => { b.style.transform = 'scale(0.94)'; };
+      b.onpointerup = () => { b.style.transform = 'scale(1)'; };
+      b.onpointerleave = () => { b.style.transform = 'scale(1)'; };
+
+      b.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const g = window.__kmjInstance || window.game || window.app || window.mmorpg;
+        const now = getCurrentThreatValueV53(g);
+        if (p.mode === 'set') {
+          applyThreatRankImmediatelyV53(p.val);
+        } else if (p.mode === 'add') {
+          applyThreatRankImmediatelyV53(now + p.val);
+        } else if (p.mode === 'prompt') {
+          const input = prompt(`設定したい脅威ランクを入力してください（1〜999）\n現在値: ${now}`, String(now));
+          if (input !== null && input.trim() !== '') {
+            const num = Number(input.trim());
+            if (!Number.isNaN(num)) {
+              applyThreatRankImmediatelyV53(num);
+            }
+          }
+        }
+      };
+      bar.appendChild(b);
+    });
+
+    card.appendChild(bar);
+  }
+
+  function installV53ThreatUI() {
+    injectThreatQuickControlsV53();
+
+    if (typeof KaomojiMMORPG !== 'undefined' && !KaomojiMMORPG.prototype._v53Installed) {
+      KaomojiMMORPG.prototype._v53Installed = true;
+      const origHud = KaomojiMMORPG.prototype.refreshAllHUD;
+      if (typeof origHud === 'function') {
+        KaomojiMMORPG.prototype.refreshAllHUD = function (...args) {
+          const res = origHud.apply(this, args);
+          injectThreatQuickControlsV53();
+          return res;
+        };
+      }
+    }
+
+    if (!window._v53Observer) {
+      window._v53Observer = new MutationObserver(() => {
+        injectThreatQuickControlsV53();
+      });
+      window._v53Observer.observe(document.body, { childList: true, subtree: true });
+    }
+  }
+
+  installV53ThreatUI();
+  setTimeout(installV53ThreatUI, 300);
+})();
+// ▲▲▲ ここまで【追加パッチ】 ▲▲▲
