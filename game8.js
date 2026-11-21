@@ -1,4 +1,4 @@
-// ▼▼▼ ここから【game8.js 完全版 v112 + 名前入力追加】剣の水平横振りモーション・武器グレード別(★1〜★6)豪華3D剣＆斬撃エフェクト・デバッグモード切替 ▼▼▼
+// ▼▼▼ ここから【game8.js 完全版 v113】右上歯車メニューに名前入力＆デバッグ切替追加・剣の水平横振りモーション・武器グレード別(★1〜★6)豪華3D剣＆斬撃エフェクト ▼▼▼
 (() => {
   'use strict';
 
@@ -92,7 +92,7 @@
   }
 
   // =========================================================
-  // 2. デバッグモード管理（設定画面のボタン or 左上5回タップで切替）
+  // 2. デバッグモード管理（右上歯車メニュー内ボタン or 左上5回タップで切替）
   // =========================================================
   function isDebugModeActiveV8(game) {
     if (!game) game = window.game;
@@ -118,6 +118,12 @@
       else localStorage.removeItem('kmj_debug_mode');
     } catch (e) {}
     window.game?.updateSingleStageWarpAndHudV8?.();
+    const gearBtn = document.getElementById('kmj-v8-gear-debug-btn');
+    if (gearBtn) {
+      gearBtn.textContent = val ? '🛠️ デバッグモード: ON' : '🛠️ デバッグモード: OFF';
+      gearBtn.style.borderColor = val ? '#34d399' : '#64748b';
+      gearBtn.style.background = val ? '#059669' : '#1e293b';
+    }
     window.game?.showAlertBanner?.(val ? '🛠️ デバッグモード ON（魔法スタジオ解放）' : '🛠️ デバッグモード OFF', 1800);
   }
 
@@ -136,6 +142,112 @@
       }
     }
   }, true);
+
+  // =========================================================
+  // 2.5 右上の歯車（設定）ドロップダウンメニューへの直接注入
+  // =========================================================
+  function injectGearMenuControlsV8() {
+    let gearBox = null;
+    const candidates = document.querySelectorAll('div, section, aside, ul');
+    for (let i = 0; i < candidates.length; i++) {
+      const el = candidates[i];
+      if (el.id === 'modal' || el.id === 'modal-body' || el.closest('#modal')) continue;
+      const txt = el.textContent || '';
+      if (txt.includes('手動セーブ') && txt.includes('完全データ初期化')) {
+        if (!gearBox || gearBox.contains(el)) {
+          gearBox = el;
+        }
+      }
+    }
+    if (!gearBox) return;
+
+    // 画面縦幅が狭い端末でもはみ出さないようスクロール許可
+    gearBox.style.maxHeight = 'calc(100vh - 72px)';
+    gearBox.style.overflowY = 'auto';
+
+    const g = window.game;
+    const d = g?.saveData || {};
+
+    // 1. プレイヤー名入力欄を歯車メニュー内に追加
+    if (!gearBox.querySelector('#kmj-v8-gear-name-box')) {
+      const curName = String(d.playerName || d.name || g?.player?.name || '冒険者');
+      const escName = curName.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+      const nameWrap = document.createElement('div');
+      nameWrap.id = 'kmj-v8-gear-name-box';
+      nameWrap.style.cssText = 'margin-top:6px;padding:6px;border-radius:7px;background:rgba(15,23,42,0.96);border:1px solid #38bdf8;display:flex;flex-direction:column;gap:4px;';
+      nameWrap.innerHTML = `
+        <div style="font-size:10px;font-weight:900;color:#7dd3fc;">✏️ プレイヤー名変更</div>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <input type="text" id="kmj-v8-gear-name-input" value="${escName}" maxlength="20" placeholder="名前を入力" style="flex:1;min-width:0;width:90px;background:#020617;border:1px solid #475569;color:#fff;border-radius:5px;padding:4px 6px;font-size:11px;font-weight:700;outline:none;" />
+          <button type="button" id="kmj-v8-gear-name-save" style="background:#0284c7;border:none;color:#fff;border-radius:5px;padding:4px 8px;font-size:10.5px;font-weight:900;cursor:pointer;white-space:nowrap;">変更</button>
+        </div>
+      `;
+
+      // タッチ・クリックで歯車メニューが閉じてしまうのを防ぐ
+      ['click', 'mousedown', 'touchstart'].forEach(ev => {
+        nameWrap.addEventListener(ev, (e) => e.stopPropagation(), ev === 'touchstart' ? { passive: true } : false);
+      });
+
+      gearBox.appendChild(nameWrap);
+
+      const inp = nameWrap.querySelector('#kmj-v8-gear-name-input');
+      const btn = nameWrap.querySelector('#kmj-v8-gear-name-save');
+      const applyName = () => {
+        const raw = (inp?.value || '').trim();
+        if (!raw) {
+          g?.showAlertBanner?.('⚠️ 名前を入力してください', 1400);
+          return;
+        }
+        if (g?.saveData) {
+          g.saveData.name = raw;
+          g.saveData.playerName = raw;
+        }
+        if (g?.player) g.player.name = raw;
+        g?.updateHUD?.();
+        g?.updateHud?.();
+        g?.saveGame?.(false);
+        g?.showAlertBanner?.(`✅ 名前を「${raw}」に変更しました`, 1600);
+      };
+      if (inp) {
+        inp.addEventListener('keydown', (e) => {
+          e.stopPropagation();
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            applyName();
+          }
+        });
+      }
+      if (btn) {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          applyName();
+        });
+      }
+    }
+
+    // 2. デバッグモード切替ボタンを歯車メニュー内に追加
+    if (!gearBox.querySelector('#kmj-v8-gear-debug-btn')) {
+      const dbgBtn = document.createElement('button');
+      dbgBtn.type = 'button';
+      dbgBtn.id = 'kmj-v8-gear-debug-btn';
+      const syncBtnVisual = () => {
+        const on = isDebugModeActiveV8(window.game);
+        dbgBtn.textContent = on ? '🛠️ デバッグモード: ON' : '🛠️ デバッグモード: OFF';
+        dbgBtn.style.cssText = `margin-top:5px;width:100%;padding:6px 8px;border-radius:6px;border:1px solid ${on ? '#34d399' : '#64748b'};background:${on ? '#059669' : '#1e293b'};color:#fff;font-size:11px;font-weight:900;cursor:pointer;`;
+      };
+      syncBtnVisual();
+      dbgBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDebugModeActiveV8(!isDebugModeActiveV8(window.game));
+        syncBtnVisual();
+      });
+      dbgBtn.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+      gearBox.appendChild(dbgBtn);
+    }
+  }
 
   // =========================================================
   // 3. 右上の邪魔な「オンライン / 合言葉部屋」バーを永久非表示
@@ -166,10 +278,11 @@
   if (!window._v8OnlineObserver && typeof MutationObserver !== 'undefined') {
     window._v8OnlineObserver = new MutationObserver(() => {
       hideTopRightOnlineBarV8();
+      injectGearMenuControlsV8();
     });
     const startObs = () => {
       if (document.body) {
-        window._v8OnlineObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+        window._v8OnlineObserver.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true });
       } else {
         setTimeout(startObs, 100);
       }
@@ -357,6 +470,7 @@
 
   function setupThreatControlsV8() {
     hideTopRightOnlineBarV8();
+    injectGearMenuControlsV8();
     installChatDragAndResizeHandles();
     renderThreatTextV8(getThreatRankV8(window.game));
     let card = null;
@@ -507,14 +621,12 @@
       wList = (Array.isArray(WEAPONS) ? WEAPONS : Object.values(WEAPONS)).filter(w => w && typeof w === 'object');
     }
 
-    // 1. 本体メソッドから取得
     if (typeof game?.getEquippedWeapon === 'function') {
       try { wpnObj = game.getEquippedWeapon(); } catch (e) {}
     } else if (typeof game?.getCurrentWeapon === 'function') {
       try { wpnObj = game.getCurrentWeapon(); } catch (e) {}
     }
 
-    // 2. saveDataのあらゆる候補キーから探索
     if (!wpnObj) {
       const candidateKeys = [
         d.equippedWeapon, d.equipWeapon, d.weaponId, d.weapon,
@@ -549,7 +661,6 @@
       }
     }
 
-    // 3. 所持武器リストの equipped フラグからも探索
     if (!wpnObj) {
       const invSources = [d.weapons, d.ownedWeapons, d.inventory, d.bag];
       for (const src of invSources) {
@@ -577,7 +688,6 @@
     const plusLv = Number(d.weaponPlus ?? d.weaponEnhance ?? wpnObj?.plus ?? wpnObj?.lv ?? 0);
     const search = `${wName} ${wDesc} ${rar} ${wpnObj?.attr || wpnObj?.element || ''}`;
 
-    // グレード（0〜5の6段階：★1〜★6）を判定
     let grade = 0;
     if (/LR|MYTH|GOD|神話|創世|アルティメット/.test(rar) || /創世|神話|エクスカリバー|ラグナロク|アルティメット|天叢雲|神剣/.test(wName)) {
       grade = 5;
@@ -598,7 +708,6 @@
     else if (plusLv >= 15) grade = Math.max(grade, 3);
     else if (plusLv >= 5) grade = Math.max(grade, 2);
 
-    // 属性・カラーテーマ決定
     let colors = { c1: 0x94a3b8, c2: 0xf8fafc, c3: 0xb45309, guard: 0xd97706, aura: 0x38bdf8, shape: 'octa' };
     if (grade === 1) {
       colors = { c1: 0xcbd5e1, c2: 0xffffff, c3: 0x38bdf8, guard: 0xfacc15, aura: 0x38bdf8, shape: 'octa' };
@@ -664,21 +773,18 @@
     const bladeW = 0.15 + grade * 0.025;
     const guardW = 0.36 + grade * 0.09;
 
-    // 1. グリップ（持ち手：原点 0,0,0 が回転軸）
     const handle = addPart(new THREE.Mesh(
       new THREE.BoxGeometry(0.10, 0.34, 0.10),
       new THREE.MeshBasicMaterial({ color: 0x451a03 })
     ));
     handle.position.set(0, 0.02, 0);
 
-    // 2. 柄頭（ポンメル）
     const pommel = addPart(new THREE.Mesh(
       new THREE.OctahedronGeometry(0.09 + grade * 0.015, 0),
       new THREE.MeshBasicMaterial({ color: colors.guard })
     ));
     pommel.position.set(0, -0.17, 0);
 
-    // 3. クロスガード（鍔：グレードが高いほど翼状に豪華になる）
     const guardMain = addPart(new THREE.Mesh(
       new THREE.BoxGeometry(guardW, 0.10 + grade * 0.015, 0.17 + grade * 0.02),
       new THREE.MeshBasicMaterial({ color: colors.guard })
@@ -686,7 +792,6 @@
     guardMain.position.set(0, 0.21, 0);
 
     if (grade >= 2) {
-      // 翼型サイドガード
       [-1, 1].forEach(side => {
         const wing = addPart(new THREE.Mesh(
           new THREE.BoxGeometry(0.18 + grade * 0.03, 0.22 + grade * 0.04, 0.12),
@@ -697,7 +802,6 @@
       });
     }
 
-    // ガード中央の輝石コア（★2以上）
     if (grade >= 1) {
       const gem = addPart(new THREE.Mesh(
         new THREE.OctahedronGeometry(0.08 + grade * 0.02, 0),
@@ -706,21 +810,18 @@
       gem.position.set(0, 0.21, 0.09);
     }
 
-    // 4. メイン刀身
     const blade = addPart(new THREE.Mesh(
       new THREE.BoxGeometry(bladeW, bladeLen, 0.055),
       new THREE.MeshBasicMaterial({ color: colors.c1 })
     ));
     blade.position.set(0, 0.25 + bladeLen * 0.5, 0);
 
-    // 5. 刀身センターの輝きコアライン
     const coreLine = addPart(new THREE.Mesh(
       new THREE.BoxGeometry(bladeW * 0.42, bladeLen * 0.96, 0.072),
       new THREE.MeshBasicMaterial({ color: colors.c2 })
     ));
     coreLine.position.set(0, 0.25 + bladeLen * 0.5, 0);
 
-    // 6. 両サイドのエネルギーブレード（★4以上）
     if (grade >= 3) {
       [-1, 1].forEach(side => {
         const sideEdge = addPart(new THREE.Mesh(
@@ -731,7 +832,6 @@
       });
     }
 
-    // 7. 切っ先（尖った先端）
     const tip = addPart(new THREE.Mesh(
       new THREE.ConeGeometry(bladeW * 0.72, 0.24 + grade * 0.03, 4),
       new THREE.MeshBasicMaterial({ color: colors.c2 })
@@ -739,7 +839,6 @@
     tip.rotation.y = Math.PI * 0.25;
     tip.position.set(0, 0.25 + bladeLen + (0.11 + grade * 0.015), 0);
 
-    // 8. 刀身を囲む回転オーラリング（★4〜★6）
     if (grade >= 3) {
       const ringCnt = grade >= 5 ? 2 : 1;
       for (let r = 0; r < ringCnt; r++) {
@@ -753,7 +852,6 @@
       }
     }
 
-    // 9. 浮遊する2本の連動ミニ光剣ビット（★6 創世神話級限定！）
     if (grade >= 5) {
       [-1, 1].forEach((side, idx) => {
         const bit = addPart(new THREE.Mesh(
@@ -790,7 +888,6 @@
     root.position.set(entity.pos.x, 0, entity.pos.z);
     root.rotation.y = entity.rotY || 0;
 
-    // 1. 多重水平斬撃アーク（グレード0〜5で1重〜6重に進化！）
     const arcs = [];
     const arcLayers = 1 + grade;
     for (let i = 0; i < arcLayers; i++) {
@@ -811,7 +908,6 @@
       arcs.push({ mesh, mat, idx: i });
     }
 
-    // 2. 前方へ直進する三日月真空斬撃波（グレード1以上）
     const waves = [];
     if (grade >= 1) {
       const wCnt = grade >= 4 ? 2 : 1;
@@ -833,7 +929,6 @@
       }
     }
 
-    // 3. 地面衝撃波リング（グレード3以上）
     let groundRing = null;
     if (grade >= 3) {
       const gMat = new THREE.MeshBasicMaterial({ color: c1, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
@@ -843,7 +938,6 @@
       root.add(groundRing);
     }
 
-    // 4. 斜め交差X字閃光（グレード4以上）
     const crossList = [];
     if (grade >= 4) {
       for (let c = 0; c < 2; c++) {
@@ -857,7 +951,6 @@
       }
     }
 
-    // 5. 射出される光剣ビット（グレード5・★6神話級限定）
     const shotBits = [];
     if (grade >= 5) {
       for (let s = 0; s < 4; s++) {
@@ -871,7 +964,6 @@
       }
     }
 
-    // 6. 属性スパーク飛散
     const sparks = [];
     const spCnt = 6 + grade * 5;
     for (let i = 0; i < spCnt; i++) {
@@ -971,25 +1063,22 @@
     }
   }
 
-  // 剣振るモーション＆斬撃エフェクトの確実な起動トリガー
   function triggerSwordSwingAndSlashV8(game, entity) {
     if (!game) game = window.game;
     if (!entity) entity = game?.player;
     if (!entity) return;
 
     const now = performance.now();
-    // 120ms以内の二重発火を防止
     if (entity._v8LastSwingTrigger && now - entity._v8LastSwingTrigger < 120) return;
     entity._v8LastSwingTrigger = now;
 
     entity._v8SwingStart = now;
-    entity._v8SwingDir = entity._v8SwingDir === 1 ? -1 : 1; // 連続攻撃で右→左、左→右と交互に水平斬り！
+    entity._v8SwingDir = entity._v8SwingDir === 1 ? -1 : 1;
 
     const profile = getEquippedWeaponProfileV8(game);
     spawnSwordSlashFxV8(game, entity, profile, entity._v8SwingDir);
   }
 
-  // 画面右下の「攻撃」ボタンのタッチ/クリックを直接フックして絶対に反応させる
   if (!window._v8AttackBtnHooked) {
     window._v8AttackBtnHooked = true;
     const onAttackPress = (e) => {
@@ -997,7 +1086,6 @@
       if (!btn) return;
       const txt = (btn.textContent || '').trim();
       const rect = btn.getBoundingClientRect();
-      // 「攻撃」ボタン、または画面右下の丸いメイン攻撃ボタン
       const isAtkBtn = (
         txt === '攻撃' ||
         (txt.includes('攻撃') && txt.length <= 8) ||
@@ -1024,7 +1112,6 @@
     const rootObj = player.group || player.mesh;
     if (!rootObj) return;
 
-    // 攻撃タイマーや攻撃状態の変化からも自動検知（オート攻撃・キーボード攻撃対応）
     const curCd = Number(player.attackCooldown ?? player.atkCd ?? player.attackTimer ?? 0);
     if (player._v8PrevCd !== undefined && curCd > player._v8PrevCd + 0.05) {
       triggerSwordSwingAndSlashV8(game, player);
@@ -1033,7 +1120,6 @@
 
     rootObj.updateMatrixWorld?.(true);
 
-    // 1. 体のメイン立方体と丸い手の位置を特定
     let bodyMesh = null;
     let maxBodyVol = 0;
     let handSphereX = null;
@@ -1060,7 +1146,6 @@
     const bodyY = bodyMesh ? bodyMesh.position.y : 0.6;
     const bodyW = bodyMesh ? ((bodyMesh.geometry.parameters?.width || 1) * (bodyMesh.scale?.x || 1)) : 1.0;
 
-    // 2. 本体側が自動生成した重複剣メッシュを非表示化
     rootObj.traverse(m => {
       if (!m.isMesh || m === bodyMesh || m.userData?.isV8SwordPart) return;
       if (m.geometry?.type === 'PlaneGeometry' || m.material?.map?.image) return;
@@ -1076,7 +1161,6 @@
       }
     });
 
-    // 3. 装備武器・グレードが変化したら3D剣モデルを即座に再構築！
     const profile = getEquippedWeaponProfileV8(game);
     let swingPivot = rootObj.getObjectByName('V8_LEFT_SWORD_PIVOT');
 
@@ -1094,7 +1178,6 @@
     swingPivot.visible = true;
     swingPivot.position.set(gripX, gripY, gripZ);
 
-    // オーラリング＆光剣ビットの常時アニメーション
     const tSec = now * 0.004;
     if (Array.isArray(swingPivot.userData?.auraRings)) {
       swingPivot.userData.auraRings.forEach(ar => {
@@ -1107,25 +1190,20 @@
       });
     }
 
-    // 4. 水平横振りモーション（performance.now() 基準で確実に380ms間スイング！）
     const swingElapsed = player._v8SwingStart ? (now - player._v8SwingStart) : 9999;
     const swingDuration = 380;
 
     if (swingElapsed >= 0 && swingElapsed < swingDuration) {
       const p = swingElapsed / swingDuration;
       const dir = player._v8SwingDir || 1;
-      // 剣を地面と平行（水平）に倒し、大きく振りかぶって一気に薙ぎ払う！
       swingPivot.rotation.x = Math.PI * 0.49;
       const startAng = dir === 1 ? -1.45 : 1.55;
       const sweepDelta = dir === 1 ? 3.15 : -3.15;
-      // イージング（前半一気に加速して振り切る）
       const ease = 1 - Math.pow(1 - p, 2.4);
       swingPivot.rotation.y = startAng + sweepDelta * ease;
       swingPivot.rotation.z = -0.10;
-      // 振り切り時に少し前に踏み込む
       swingPivot.position.z = gripZ + Math.sin(p * Math.PI) * 0.28;
     } else {
-      // 通常待機中：斜め前に構えて呼吸に合わせて滑らかに揺れる
       swingPivot.rotation.x = 0.30 + Math.sin(tSec) * 0.06;
       swingPivot.rotation.y = Math.cos(tSec * 0.8) * 0.08;
       swingPivot.rotation.z = -0.14 + Math.sin(tSec) * 0.04;
@@ -1168,7 +1246,6 @@
     purgeGlobalMagicClassesV8();
     P.alignAvatarFaceStrictly = function () {};
 
-    // game9.js のスタジオUI注入もデバッグモード限定に制限
     if (window.KMJ_SKILL_FX_V9 && typeof window.KMJ_SKILL_FX_V9.injectSkillPreviewUI === 'function' && !window.KMJ_SKILL_FX_V9._v8DebugGated) {
       const origInject = window.KMJ_SKILL_FX_V9.injectSkillPreviewUI;
       window.KMJ_SKILL_FX_V9.injectSkillPreviewUI = function (game, body, tab) {
@@ -1178,7 +1255,6 @@
       window.KMJ_SKILL_FX_V9._v8DebugGated = true;
     }
 
-    // 通常攻撃系の全メソッドをフックして確実に剣を振る！
     ['attack', 'doAttack', 'performAttack', 'basicAttack', 'normalAttack', 'executeAttack', 'triggerAttackVisual'].forEach(fnName => {
       if (typeof P[fnName] === 'function' && !P[`_v8Hooked_${fnName}`]) {
         const origFn = P[fnName];
@@ -1200,7 +1276,6 @@
     });
 
     Object.assign(P, {
-      // A. 真の最大MP成長（Lv101頭打ち解消）＆ 毎秒スムーズMP自然回復
       updateMpGrowthAndRegenV8(dt = 0.016) {
         const d = this.saveData;
         if (!d) return;
@@ -1259,7 +1334,6 @@
         this._v8LastSaveMp = curMp;
       },
 
-      // B. ワープゾーン一本化（デバッグ限定魔法スタジオHUD）
       updateSingleStageWarpAndHudV8() {
         if (!this.scene || !this.player?.pos) return;
 
@@ -1300,7 +1374,6 @@
         }
       },
 
-      // C. 顔パネル修正＆武器名クリーンアップ
       fixFacesAndWeaponsV8() {
         if (typeof THREE === 'undefined') return;
         const d = this.saveData || {};
@@ -1396,7 +1469,6 @@
         enforceSingleLeftSwordAndHorizontalSwing(this);
       },
 
-      // D. 全14種スキル MP消費（元MP×5 + 1Lv毎+10）
       getSkillDataV8(slotOrSkill = 0) {
         if (window.KMJ_SKILL_FX_V9?.getSkillInfo) {
           return window.KMJ_SKILL_FX_V9.getSkillInfo(this, slotOrSkill);
@@ -1447,7 +1519,6 @@
         }
       },
 
-      // E. 格上1.5倍・全称号＆実績パッシブ・ペット火力・クラス
       normalizeHigherLevelMonstersV8() {
         if (!Array.isArray(this.monsters)) return;
         const pLv = Math.max(1, Number(this.saveData?.lv ?? this.saveData?.level ?? this.player?.lv ?? 1));
@@ -1606,7 +1677,6 @@
           }
         });
 
-        // 武器タブを開いたとき、現在装備中の武器グレード＆斬撃エフェクトプレビュー表示＋装備ボタン検知
         if (/wpn|weapon|equip|forge|smith|item/.test(tab) || /武器|装備|鍛冶/.test(txt)) {
           const prof = getEquippedWeaponProfileV8(this);
           if (!body.querySelector('#kmj-v8-wpn-grade-banner')) {
@@ -1625,7 +1695,6 @@
             };
           }
 
-          // 装備ボタンを押した瞬間に即座に3Dの剣を更新する
           body.querySelectorAll('button').forEach(btn => {
             if (/装備|装着|変更/.test(btn.textContent || '') && !btn.dataset.v8EqHooked) {
               btn.dataset.v8EqHooked = '1';
@@ -1641,7 +1710,6 @@
           });
         }
 
-        // 魔法スタジオは「デバッグモード有効時」のみ表示！
         if (isDebugModeActiveV8(this) && !body.querySelector('#kmj-v8-studio-in-debug')) {
           const count = window.KMJ_SKILL_FX_V9?.getAll14Skills?.(this)?.length || 14;
           body.insertAdjacentHTML('afterbegin', `
@@ -1664,68 +1732,6 @@
             document.getElementById('modal')?.classList?.add('hidden');
             triggerSwordSwingAndSlashV8(this, this.player);
           };
-        }
-
-        // 「設定」画面の最下部にプレイヤー名入力欄＆デバッグモード切替ボタンを配置
-        if (/set|opt|cfg|config|system/.test(tab) || /設定|音量|グラフィック|セーブ/.test(txt)) {
-          if (!body.querySelector('#kmj-v8-player-name-box')) {
-            const curName = String(d.playerName || d.name || this.player?.name || '冒険者');
-            const escName = curName.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            body.insertAdjacentHTML('beforeend', `
-              <div id="kmj-v8-player-name-box" class="card-box" style="margin-top:10px;border:1.5px solid #38bdf8;background:rgba(15,23,42,0.92);display:flex;flex-direction:column;gap:6px;">
-                <div style="font-size:11px;font-weight:900;color:#7dd3fc;">✏️ プレイヤー名設定（現在: <span id="kmj-v8-cur-name-lbl" style="color:#fff;">${escName}</span>）</div>
-                <div style="display:flex;gap:6px;align-items:center;">
-                  <input type="text" id="kmj-v8-player-name-input" value="${escName}" maxlength="20" placeholder="名前を入力（最大20文字）" style="flex:1;min-width:0;background:#0f172a;border:1px solid #475569;color:#fff;border-radius:6px;padding:6px 8px;font-size:12px;font-weight:700;outline:none;" />
-                  <button type="button" id="kmj-v8-player-name-save-btn" style="background:#0284c7;border:none;color:#fff;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:900;cursor:pointer;white-space:nowrap;">変更</button>
-                </div>
-              </div>
-            `);
-            const nameInp = body.querySelector('#kmj-v8-player-name-input');
-            const saveBtn = body.querySelector('#kmj-v8-player-name-save-btn');
-            const applyPlayerName = () => {
-              const raw = (nameInp?.value || '').trim();
-              if (!raw) {
-                this.showAlertBanner?.('⚠️ 名前を入力してください', 1400);
-                return;
-              }
-              if (/debug777/i.test(raw)) return;
-              d.name = raw;
-              d.playerName = raw;
-              if (this.player) this.player.name = raw;
-              const lbl = body.querySelector('#kmj-v8-cur-name-lbl');
-              if (lbl) lbl.textContent = raw;
-              this.updateHUD?.();
-              this.updateHud?.();
-              this.saveGame?.(false);
-              this.showAlertBanner?.(`✅ プレイヤー名を「${raw}」に変更しました`, 1600);
-            };
-            if (nameInp) {
-              nameInp.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  applyPlayerName();
-                }
-              });
-            }
-            if (saveBtn) saveBtn.onclick = applyPlayerName;
-          }
-
-          if (!body.querySelector('#kmj-v8-debug-toggle-box')) {
-            const dbgNow = isDebugModeActiveV8(this);
-            body.insertAdjacentHTML('beforeend', `
-              <div id="kmj-v8-debug-toggle-box" class="card-box" style="margin-top:10px;border:1px dashed #64748b;background:rgba(15,23,42,0.85);display:flex;align-items:center;justify-content:space-between;gap:8px;">
-                <div>
-                  <div style="font-size:11px;font-weight:900;color:#cbd5e1;">🛠️ 開発者デバッグモード（現在: ${dbgNow ? 'ON' : 'OFF'}）</div>
-                  <div style="font-size:9px;color:#94a3b8;">ONにすると右上に「魔法スタジオ」が解放されます（左上Lv表示5回連打でも切替可）</div>
-                </div>
-                <button type="button" id="kmj-v8-toggle-debug-btn" style="background:${dbgNow ? '#059669' : '#334155'};border:1px solid #94a3b8;color:#fff;border-radius:6px;padding:6px 10px;font-size:10.5px;font-weight:900;cursor:pointer;white-space:nowrap;">${dbgNow ? 'ON → OFFにする' : 'OFF → ONにする'}</button>
-              </div>
-            `);
-            body.querySelector('#kmj-v8-toggle-debug-btn').onclick = () => {
-              setDebugModeActiveV8(!isDebugModeActiveV8(this));
-              this.renderModalContent();
-            };
-          }
         }
 
         if (/stat|evo|job|class/.test(tab)) {
@@ -1773,6 +1779,7 @@
       P.updateRemotePlayers = function (dt) {
         origLoop.call(this, dt);
         hideTopRightOnlineBarV8();
+        injectGearMenuControlsV8();
         this.updateMpGrowthAndRegenV8(dt);
         installChatDragAndResizeHandles();
         this.updateSingleStageWarpAndHudV8();
@@ -1789,6 +1796,7 @@
       const g = window.game;
       if (g) {
         hideTopRightOnlineBarV8();
+        injectGearMenuControlsV8();
         purgeGlobalMagicClassesV8();
         g.updateMpGrowthAndRegenV8(0.016);
         installChatDragAndResizeHandles();
@@ -1804,6 +1812,7 @@
   document.addEventListener('click', () => {
     setTimeout(() => {
       hideTopRightOnlineBarV8();
+      injectGearMenuControlsV8();
       setupThreatControlsV8();
       purgeGlobalMagicClassesV8();
       window.game?.updateMpGrowthAndRegenV8?.(0.016);
@@ -1812,4 +1821,4 @@
   }, true);
   setTimeout(setupThreatControlsV8, 300);
 })();
-// ▲▲▲ ここまで【game8.js 完全版 v112 + 名前入力追加】 ▲▲▲
+// ▲▲▲ ここまで【game8.js 完全版 v113】 ▲▲▲
