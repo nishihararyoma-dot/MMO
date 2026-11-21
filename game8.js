@@ -940,3 +940,173 @@
   setTimeout(ensureThreatButtonsSafe, 400);
 })();
 // ▲▲▲ ここまで【フリーズ修正・安全版】 ▲▲▲
+// ▼▼▼ ここから【修正パッチ】右側の-1/+1即時反映＆右上の邪魔なオンライン表示撤去 ▼▼▼
+(() => {
+  'use strict';
+
+  // 1. 右上の邪魔なオンライン表示ピルを即座に撤去（通信機能自体は維持）
+  function removeAnnoyingOnlinePillV54() {
+    document.getElementById('kmj-v45-online-pill')?.remove();
+  }
+  removeAnnoyingOnlinePillV54();
+
+  if (typeof KaomojiMMORPG !== 'undefined') {
+    KaomojiMMORPG.prototype.updateOnlinePillUIv45 = function () {
+      removeAnnoyingOnlinePillV54();
+    };
+    const origEnsureOnline = KaomojiMMORPG.prototype.ensureOnlineSystemV45;
+    if (typeof origEnsureOnline === 'function') {
+      KaomojiMMORPG.prototype.ensureOnlineSystemV45 = function (...args) {
+        const d = this.saveData || {};
+        if (d.onlineMode === undefined) d.onlineMode = true;
+        if (d.onlineMode && typeof this.initMultiplayerMQTT === 'function') {
+          if (!this._mqttClient || !this._mqttClient.connected) {
+            try { this.initMultiplayerMQTT(); } catch (e) {}
+          }
+        }
+        removeAnnoyingOnlinePillV54();
+      };
+    }
+  }
+
+  // 2. 右側の「-1」「+1」ボタンの古いイベントを完全に剥がして即時反映ボタンに差し替え
+  const THREAT_MIN = 1;
+  const THREAT_MAX = 999;
+
+  function getThreatNowV54() {
+    const inst = window.__kmjInstance || window.game || window.app || window.mmorpg;
+    const d = inst?.saveData || {};
+    const keys = ['threatRank', 'fieldThreatRank', 'threat', 'threatLevel', 'threatLv', 'danger'];
+    for (const k of keys) {
+      if (typeof d[k] === 'number' && !Number.isNaN(d[k])) {
+        return Math.max(THREAT_MIN, Math.min(THREAT_MAX, Math.floor(d[k])));
+      }
+    }
+    for (const k of keys) {
+      if (typeof inst?.[k] === 'number' && !Number.isNaN(inst[k])) {
+        return Math.max(THREAT_MIN, Math.min(THREAT_MAX, Math.floor(inst[k])));
+      }
+    }
+    return 1;
+  }
+
+  function renderThreatTextNowV54(val) {
+    const safeVal = Math.max(THREAT_MIN, Math.min(THREAT_MAX, Math.floor(val)));
+    const pct = safeVal * 25;
+    const titleStr = `🔥 フィールド脅威ランク: +${safeVal} / ${THREAT_MAX}`;
+    const descStr = `敵の強さとEXP/Gドロップ率が +${pct}% 増加します`;
+
+    document.querySelectorAll('div, span, p, b, strong').forEach(el => {
+      if (el.children.length > 0) return;
+      const t = el.textContent || '';
+      if (t.includes('フィールド脅威ランク:') && t !== titleStr) {
+        el.textContent = titleStr;
+      } else if (t.includes('敵の強さとEXP/Gドロップ率が') && t !== descStr) {
+        el.textContent = descStr;
+      }
+    });
+  }
+
+  let _v54Debounce = null;
+  function updateThreatNowV54(targetRaw) {
+    const inst = window.__kmjInstance || window.game || window.app || window.mmorpg;
+    const nextVal = Math.max(THREAT_MIN, Math.min(THREAT_MAX, Math.floor(Number(targetRaw) || 1)));
+
+    // 見た目を0msで即時更新
+    renderThreatTextNowV54(nextVal);
+
+    if (!inst) return;
+    const d = inst.saveData;
+    const keys = ['threatRank', 'fieldThreatRank', 'threat', 'threatLevel', 'threatLv', 'danger'];
+    if (d) {
+      let wrote = false;
+      keys.forEach(k => {
+        if (typeof d[k] === 'number') {
+          d[k] = nextVal;
+          wrote = true;
+        }
+      });
+      if (!wrote) d.threatRank = nextVal;
+    }
+    keys.forEach(k => {
+      if (typeof inst[k] === 'number') inst[k] = nextVal;
+    });
+    inst._lastThreatBeforeV52 = nextVal;
+
+    clearTimeout(_v54Debounce);
+    _v54Debounce = setTimeout(() => {
+      try {
+        if (Array.isArray(inst.monsters) && inst.monsters.length > 0) {
+          if (typeof inst.spawnMonsters === 'function' && !inst._inBattleLock) {
+            inst.spawnMonsters();
+          }
+          inst.normalizeMonsterHigherLevelScalingV50?.();
+          inst.applyKakueTagAndScalingV52?.();
+        }
+        inst.saveGame?.(false);
+        renderThreatTextNowV54(nextVal);
+      } catch (e) {}
+    }, 100);
+  }
+
+  function rebindRightSidePlusMinusV54() {
+    removeAnnoyingOnlinePillV54();
+    renderThreatTextNowV54(getThreatNowV54());
+
+    // 「フィールド脅威ランク:」を含むカード内の右側 -1 / +1 ボタンを探して完全置換
+    const allEls = document.querySelectorAll('div, span, p, b');
+    let card = null;
+    for (const el of allEls) {
+      if (el.children.length === 0 && (el.textContent || '').includes('フィールド脅威ランク:')) {
+        let p = el.parentElement;
+        while (p && p !== document.body) {
+          if ((p.textContent || '').includes('EXP/Gドロップ率')) {
+            card = p;
+            break;
+          }
+          p = p.parentElement;
+        }
+        if (card) break;
+      }
+    }
+    if (!card) return;
+
+    card.querySelectorAll('button').forEach(btn => {
+      const label = (btn.textContent || '').trim();
+      if ((label === '-1' || label === '+1') && !btn.dataset.v54Replaced) {
+        const delta = label === '+1' ? 1 : -1;
+        // cloneNodeで元のonclickやaddEventListenerを完全に除去
+        const freshBtn = btn.cloneNode(true);
+        freshBtn.removeAttribute('onclick');
+        freshBtn.dataset.v54Replaced = '1';
+        freshBtn.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          updateThreatNowV54(getThreatNowV54() + delta);
+        };
+        btn.replaceWith(freshBtn);
+      }
+    });
+  }
+
+  // HUD再描画時も正しい脅威ランク表示とピル非表示を維持
+  if (typeof KaomojiMMORPG !== 'undefined' && !KaomojiMMORPG.prototype._v54HudHooked) {
+    KaomojiMMORPG.prototype._v54HudHooked = true;
+    const origHud = KaomojiMMORPG.prototype.refreshAllHUD;
+    if (typeof origHud === 'function') {
+      KaomojiMMORPG.prototype.refreshAllHUD = function (...args) {
+        const res = origHud.apply(this, args);
+        rebindRightSidePlusMinusV54();
+        return res;
+      };
+    }
+  }
+
+  document.addEventListener('click', () => {
+    setTimeout(rebindRightSidePlusMinusV54, 40);
+  }, true);
+
+  setTimeout(rebindRightSidePlusMinusV54, 250);
+  setTimeout(rebindRightSidePlusMinusV54, 800);
+})();
+// ▲▲▲ ここまで【修正パッチ】 ▲▲▲
