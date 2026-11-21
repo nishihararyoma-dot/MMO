@@ -22,8 +22,17 @@
 
   // ゲームインスタンス取得＆自動生成ヘルパー
 // 【修正】本体が作る前に勝手に new KaomojiMMORPG() しない！
-  function getOrCreateGameInstance() {
-    const inst = window.__kmjInstance || window.game || window.app || window.mmorpg || window.gameInstance;
+// 【修正】自動では生成せず、ボタンタップ時（allowCreate = true）だけ本体を生成する
+  function getOrCreateGameInstance(allowCreate = false) {
+    let inst = window.__kmjInstance || window.game || window.app || window.mmorpg || window.gameInstance;
+    if (!inst && allowCreate && typeof window.KaomojiMMORPG === 'function') {
+      try {
+        inst = new window.KaomojiMMORPG();
+        window.game = inst;
+      } catch (e) {
+        console.error(e);
+      }
+    }
     if (inst) window.__kmjInstance = inst;
     return inst || null;
   }
