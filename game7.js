@@ -1,4 +1,4 @@
-// ▼▼▼ ここから game7.js（タイトル画面復旧・ゲーム開始レスキュー・状態異常・実績システム） ▼▼▼
+// ▼▼▼ ここから game7.js（完全版：タイトル復旧・状態異常・実績・Lv.999クラス進化・統合デバッグ＆スキルスタジオ） ▼▼▼
 (() => {
   'use strict';
 
@@ -35,7 +35,341 @@
     return inst;
   }
 
-  // 既存セーブデータの復元または初期データ生成
+  // =========================================================
+  // 0. 統合デバッグ管理＆スキルスタジオ統合UI（debug777・全ゲーム共通入口）
+  // =========================================================
+  function isDebugActiveV7(game) {
+    const g = game || getOrCreateGameInstance();
+    if (g?._debugInfiniteMode === true || g?.debugMode === true || g?.isDebug === true) return true;
+    if (window._kmjDebugUnlocked === true || window.DEBUG_MODE === true) return true;
+    try {
+      if (localStorage.getItem('kmj_debug_mode') === '1') return true;
+      if (/[?&]debug=1/i.test(window.location.search || '')) return true;
+    } catch (e) {}
+    return false;
+  }
+
+  function setDebugActiveV7(enabled, openPanel = false) {
+    const val = !!enabled;
+    const g = getOrCreateGameInstance();
+    window._kmjDebugUnlocked = val;
+    window.DEBUG_MODE = val;
+    if (g) {
+      g._debugInfiniteMode = val;
+      g.debugMode = val;
+      g.isDebug = val;
+    }
+    try {
+      if (val) localStorage.setItem('kmj_debug_mode', '1');
+      else localStorage.removeItem('kmj_debug_mode');
+    } catch (e) {}
+
+    syncDebugHudPillV7();
+    const gearToggleBtn = document.getElementById('kmj-v7-gear-debug-toggle');
+    if (gearToggleBtn) {
+      gearToggleBtn.textContent = val ? '🛠️ デバッグ: ON (スタジオ開く)' : '🛠️ デバッグ: OFF';
+      gearToggleBtn.style.background = val ? 'linear-gradient(90deg,#059669,#0284c7)' : '#1e293b';
+      gearToggleBtn.style.borderColor = val ? '#34d399' : '#64748b';
+    }
+
+    if (val && openPanel) {
+      openUnifiedDebugModalV7();
+    } else {
+      g?.showAlertBanner?.(val ? '🛠️ デバッグモード ON（スキルスタジオ解放）' : '🛠️ デバッグモード OFF', 1800);
+    }
+  }
+
+  function syncDebugHudPillV7() {
+    const on = isDebugActiveV7();
+    let hud = document.getElementById('kmj-v7-debug-hud');
+    if (!on) {
+      if (hud) hud.remove();
+      return;
+    }
+    if (!hud) {
+      hud = document.createElement('div');
+      hud.id = 'kmj-v7-debug-hud';
+      hud.style.cssText = 'position:fixed;top:64px;right:12px;z-index:960;display:flex;gap:5px;pointer-events:auto;';
+      hud.innerHTML = `<button type="button" id="kmj-v7-open-debug-hud" style="background:linear-gradient(90deg,#db2777,#7c3aed);border:1.5px solid #fde047;box-shadow:0 0 14px rgba(236,72,153,0.65);color:#fff;border-radius:999px;padding:5px 12px;font-size:11px;font-weight:900;cursor:pointer;">🛠️ DEBUG / スキルスタジオ</button>`;
+      document.body?.appendChild(hud);
+      hud.querySelector('#kmj-v7-open-debug-hud').onclick = () => openUnifiedDebugModalV7();
+    }
+  }
+
+  function openUnifiedDebugModalV7() {
+    document.getElementById('kmj-v7-debug-modal')?.remove();
+    const g = getOrCreateGameInstance();
+    if (!isDebugActiveV7(g)) {
+      setDebugActiveV7(true, false);
+    }
+
+    const d = g?.saveData || {};
+    const v9 = window.KMJ_SKILL_FX_V9;
+    const allSkills = v9?.getAll14Skills ? v9.getAll14Skills(g) : [];
+
+    const skillRowsHtml = allSkills.length > 0
+      ? allSkills.map((sk, idx) => {
+          const info = v9.getSkillInfo(g, sk);
+          const icon = sk.icon || '✨';
+          return `
+            <div style="background:rgba(15,23,42,0.92);border:1px solid #38bdf8;border-radius:8px;padding:7px;margin-bottom:6px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
+                <div style="font-size:11.5px;font-weight:900;color:#fff;">${idx + 1}. ${icon} ${info.origName}</div>
+                <span style="font-size:9.5px;font-weight:900;color:#fde047;">${info.theme.label}</span>
+              </div>
+              <div style="font-size:9px;color:#93c5fd;margin:2px 0 5px;">
+                現在Lv.${info.skillLv}（消費MP: ${info.mpCost} ／ 素MP${info.origMp}×5 + 1Lv毎+10）
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;">
+                <button type="button" class="v7-dbg-cast-skill" data-idx="${idx}" data-tier="0" style="background:#334155;color:#fff;border:none;border-radius:5px;padding:5px 2px;font-size:9.5px;font-weight:900;cursor:pointer;">Lv.1 通常</button>
+                <button type="button" class="v7-dbg-cast-skill" data-idx="${idx}" data-tier="1" style="background:#0284c7;color:#fff;border:none;border-radius:5px;padding:5px 2px;font-size:9.5px;font-weight:900;cursor:pointer;">Lv.10【真】</button>
+                <button type="button" class="v7-dbg-cast-skill" data-idx="${idx}" data-tier="2" style="background:#d97706;color:#fff;border:none;border-radius:5px;padding:5px 2px;font-size:9.5px;font-weight:900;cursor:pointer;">Lv.50【極】</button>
+                <button type="button" class="v7-dbg-cast-skill" data-idx="${idx}" data-tier="3" style="background:linear-gradient(90deg,#db2777,#7c3aed);color:#fde047;border:none;border-radius:5px;padding:5px 2px;font-size:9.5px;font-weight:900;cursor:pointer;">Lv.100【神】</button>
+              </div>
+            </div>
+          `;
+        }).join('')
+      : `<div style="font-size:11px;color:#fca5a5;padding:8px;">⚠️ スキルデータ(game9.js)読み込み待機中です。</div>`;
+
+    const wrap = document.createElement('div');
+    wrap.id = 'kmj-v7-debug-modal';
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:9980;background:rgba(2,6,23,0.82);display:flex;align-items:center;justify-content:center;padding:10px;backdrop-filter:blur(4px);';
+
+    wrap.innerHTML = `
+      <div style="width:100%;max-width:520px;max-height:88vh;overflow-y:auto;background:linear-gradient(160deg,#0f172a,#1e1b4b);border:2px solid #f472b6;border-radius:14px;padding:13px;box-shadow:0 0 36px rgba(236,72,153,0.6);color:#f8fafc;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <b style="font-size:14px;color:#fde047;">🛠️ 統合デバッグ＆スキルスタジオ (debug777)</b>
+          <button type="button" id="kmj-v7-dbg-close" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:900;cursor:pointer;">✕ 閉じる</button>
+        </div>
+
+        <div style="background:rgba(30,41,59,0.9);border:1px solid #34d399;border-radius:9px;padding:8px;margin-bottom:8px;">
+          <div style="font-size:11px;font-weight:900;color:#6ee7b7;margin-bottom:6px;">⚡ デバッグクイック操作（MP無限・CT0・条件無視）</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:6px;">
+            <button type="button" id="v7-dbg-lv999" style="background:#0284c7;color:#fff;border:none;border-radius:6px;padding:6px 4px;font-size:10px;font-weight:900;cursor:pointer;">🆙 Lv.999にする</button>
+            <button type="button" id="v7-dbg-gold" style="background:#d97706;color:#fff;border:none;border-radius:6px;padding:6px 4px;font-size:10px;font-weight:900;cursor:pointer;">💰 +100万G追加</button>
+            <button type="button" id="v7-dbg-heal" style="background:#059669;color:#fff;border:none;border-radius:6px;padding:6px 4px;font-size:10px;font-weight:900;cursor:pointer;">💖 HP/MP全回復</button>
+            <button type="button" id="v7-dbg-skill100" style="background:#7c3aed;color:#fff;border:none;border-radius:6px;padding:6px 4px;font-size:10px;font-weight:900;cursor:pointer;">🌈 全スキルLv.100</button>
+            <button type="button" id="v7-dbg-sword-fx" style="background:#2563eb;color:#fff;border:none;border-radius:6px;padding:6px 4px;font-size:10px;font-weight:900;cursor:pointer;">⚔️ 剣横振りテスト</button>
+            <button type="button" id="v7-dbg-off" style="background:#475569;color:#f8fafc;border:none;border-radius:6px;padding:6px 4px;font-size:10px;font-weight:900;cursor:pointer;">📴 デバッグOFF</button>
+          </div>
+          <div style="font-size:9.5px;color:#cbd5e1;">
+            現在Lv.${d.lv ?? 1} / 💰${Number(d.gold ?? 0).toLocaleString()}G / 脅威ランク +${d.threatRank ?? 1}
+          </div>
+        </div>
+
+        <div style="font-size:12px;font-weight:900;color:#f9a8d4;margin:6px 0 4px;">
+          🎬 全${allSkills.length}種スキル 個別進化スタジオ（Lv.1〜Lv.100【神】）
+        </div>
+        <div style="font-size:9.5px;color:#fde047;margin-bottom:7px;">
+          ※ ボタンを押すと画面が閉じて、選択した進化段階（通常 / 【真】 / 【極】 / 【神】）の3D演出＆カットインを即再生します！
+        </div>
+        ${skillRowsHtml}
+      </div>
+    `;
+
+    document.body.appendChild(wrap);
+
+    wrap.querySelector('#kmj-v7-dbg-close').onclick = () => wrap.remove();
+    wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.remove(); });
+
+    wrap.querySelector('#v7-dbg-lv999').onclick = () => {
+      if (g?.saveData) {
+        g.saveData.lv = 999;
+        g.saveData.level = 999;
+      }
+      if (g?.player) g.player.lv = 999;
+      g?.updateMpGrowthAndRegenV8?.(0.016);
+      g?.refreshAllHUD?.();
+      g?.saveGame?.(false);
+      g?.showAlertBanner?.('🆙 プレイヤーLvを 999 に設定しました！', 1600);
+      openUnifiedDebugModalV7();
+    };
+
+    wrap.querySelector('#v7-dbg-gold').onclick = () => {
+      if (g?.saveData) {
+        g.saveData.gold = (Number(g.saveData.gold) || 0) + 1000000;
+        if ('coins' in g.saveData) g.saveData.coins = g.saveData.gold;
+      }
+      g?.refreshAllHUD?.();
+      g?.saveGame?.(false);
+      g?.showAlertBanner?.('💰 1,000,000G を追加しました！', 1600);
+      openUnifiedDebugModalV7();
+    };
+
+    wrap.querySelector('#v7-dbg-heal').onclick = () => {
+      g?.updateMpGrowthAndRegenV8?.(0.016);
+      const st = typeof g?.getPlayerStats === 'function' ? g.getPlayerStats() : {};
+      const mHp = Math.max(Number(st?.maxHp || 0), Number(g?.saveData?.maxHp || 100));
+      const mMp = Math.max(Number(st?.maxMp || 0), Number(g?.saveData?.maxMp || 100));
+      if (g?.saveData) { g.saveData.hp = mHp; g.saveData.mp = mMp; }
+      if (g?.player) { g.player.hp = mHp; g.player.mp = mMp; }
+      g?.refreshAllHUD?.();
+      g?.showAlertBanner?.('💖 HP/MPを全回復しました！', 1500);
+    };
+
+    wrap.querySelector('#v7-dbg-skill100').onclick = () => {
+      if (g?.saveData) {
+        if (!g.saveData.skillLevels) g.saveData.skillLevels = {};
+        if (!g.saveData.skillLvs) g.saveData.skillLvs = {};
+        allSkills.forEach((sk, i) => {
+          const sid = String(sk.id || sk.skillId || `sk_${i + 1}`);
+          g.saveData.skillLevels[sid] = 100;
+          g.saveData.skillLvs[sid] = 100;
+          sk.lv = 100;
+          sk.level = 100;
+        });
+      }
+      v9?.syncAllSkills?.(g);
+      g?.saveGame?.(false);
+      g?.showAlertBanner?.('🌈 全スキルを Lv.100【神】に進化させました！', 1800);
+      openUnifiedDebugModalV7();
+    };
+
+    wrap.querySelector('#v7-dbg-sword-fx').onclick = () => {
+      wrap.remove();
+      setTimeout(() => {
+        if (typeof window.triggerSwordSwingAndSlashV8 === 'function') {
+          window.triggerSwordSwingAndSlashV8(g, g?.player);
+        } else {
+          g?.triggerAttackVisual?.(g?.player, false);
+        }
+      }, 60);
+    };
+
+    wrap.querySelector('#v7-dbg-off').onclick = () => {
+      wrap.remove();
+      setDebugActiveV7(false, false);
+    };
+
+    wrap.querySelectorAll('.v7-dbg-cast-skill').forEach(btn => {
+      btn.onclick = () => {
+        const idx = Number(btn.dataset.idx);
+        const tier = Number(btn.dataset.tier);
+        const sk = allSkills[idx];
+        wrap.remove();
+        setTimeout(() => {
+          v9?.previewSkillByObj?.(g, sk, tier);
+        }, 80);
+      };
+    });
+  }
+
+  window.KMJ_DEBUG = {
+    isActive: isDebugActiveV7,
+    setActive: setDebugActiveV7,
+    openModal: openUnifiedDebugModalV7
+  };
+
+  if (!window._v7DebugCodeListenerBound) {
+    window._v7DebugCodeListenerBound = true;
+    document.addEventListener('input', (e) => {
+      const el = e.target;
+      if (!el || typeof el.value !== 'string') return;
+      if (/debug777/i.test(el.value.trim())) {
+        el.value = el.value.replace(/debug777/ig, '').trim();
+        setDebugActiveV7(true, true);
+      }
+    }, true);
+
+    let _tapCnt = 0, _lastTap = 0;
+    document.addEventListener('click', (e) => {
+      if (e.clientX < 240 && e.clientY < 110) {
+        const now = performance.now();
+        _tapCnt = (now - _lastTap < 650) ? (_tapCnt + 1) : 1;
+        _lastTap = now;
+        if (_tapCnt >= 5) {
+          _tapCnt = 0;
+          setDebugActiveV7(true, true);
+        }
+      }
+    }, true);
+  }
+
+  function injectGearMenuV7() {
+    let gearBox = null;
+    const candidates = document.querySelectorAll('div, section, aside, ul');
+    for (let i = 0; i < candidates.length; i++) {
+      const el = candidates[i];
+      if (el.id === 'modal' || el.id === 'modal-body' || el.closest('#modal')) continue;
+      const txt = el.textContent || '';
+      if (txt.includes('手動セーブ') && txt.includes('完全データ初期化')) {
+        if (!gearBox || gearBox.contains(el)) gearBox = el;
+      }
+    }
+    if (!gearBox) return;
+
+    gearBox.style.maxHeight = 'calc(100vh - 72px)';
+    gearBox.style.overflowY = 'auto';
+
+    const g = getOrCreateGameInstance();
+    const d = g?.saveData || {};
+
+    if (!gearBox.querySelector('#kmj-v7-gear-debug-toggle')) {
+      const dbgBtn = document.createElement('button');
+      dbgBtn.type = 'button';
+      dbgBtn.id = 'kmj-v7-gear-debug-toggle';
+      const on = isDebugActiveV7(g);
+      dbgBtn.textContent = on ? '🛠️ デバッグ: ON (スタジオ開く)' : '🛠️ デバッグ: OFF';
+      dbgBtn.style.cssText = `margin-top:6px;width:100%;padding:7px 8px;border-radius:6px;border:1.5px solid ${on ? '#34d399' : '#64748b'};background:${on ? 'linear-gradient(90deg,#059669,#0284c7)' : '#1e293b'};color:#fff;font-size:11px;font-weight:900;cursor:pointer;`;
+      dbgBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isDebugActiveV7(g)) {
+          openUnifiedDebugModalV7();
+        } else {
+          setDebugActiveV7(true, true);
+        }
+      });
+      dbgBtn.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+      gearBox.appendChild(dbgBtn);
+    }
+
+    if (!gearBox.querySelector('#kmj-v7-gear-name-box')) {
+      const curName = String(d.playerName || d.name || g?.player?.name || '冒険者');
+      const escName = curName.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const nameWrap = document.createElement('div');
+      nameWrap.id = 'kmj-v7-gear-name-box';
+      nameWrap.style.cssText = 'margin-top:6px;padding:6px;border-radius:7px;background:rgba(15,23,42,0.96);border:1px solid #38bdf8;display:flex;flex-direction:column;gap:4px;';
+      nameWrap.innerHTML = `
+        <div style="font-size:10px;font-weight:900;color:#7dd3fc;">✏️ プレイヤー名 / コード入力</div>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <input type="text" id="kmj-v7-gear-name-input" value="${escName}" maxlength="20" placeholder="名前 or debug777" style="flex:1;min-width:0;width:90px;background:#020617;border:1px solid #475569;color:#fff;border-radius:5px;padding:4px 6px;font-size:11px;font-weight:700;outline:none;" />
+          <button type="button" id="kmj-v7-gear-name-save" style="background:#0284c7;border:none;color:#fff;border-radius:5px;padding:4px 8px;font-size:10.5px;font-weight:900;cursor:pointer;white-space:nowrap;">決定</button>
+        </div>
+      `;
+      ['click', 'mousedown', 'touchstart'].forEach(ev => {
+        nameWrap.addEventListener(ev, (e) => e.stopPropagation(), ev === 'touchstart' ? { passive: true } : false);
+      });
+      gearBox.appendChild(nameWrap);
+
+      const inp = nameWrap.querySelector('#kmj-v7-gear-name-input');
+      const btn = nameWrap.querySelector('#kmj-v7-gear-name-save');
+      const applyInput = () => {
+        const raw = (inp?.value || '').trim();
+        if (!raw) return;
+        if (/debug777/i.test(raw)) {
+          inp.value = String(d.playerName || d.name || '冒険者');
+          setDebugActiveV7(true, true);
+          return;
+        }
+        if (g?.saveData) { g.saveData.name = raw; g.saveData.playerName = raw; }
+        if (g?.player) g.player.name = raw;
+        g?.updateHUD?.();
+        g?.updateHud?.();
+        g?.saveGame?.(false);
+        g?.showAlertBanner?.(`✅ 名前を「${raw}」に変更しました`, 1600);
+      };
+      inp?.addEventListener('keydown', (e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') { e.preventDefault(); applyInput(); }
+      });
+      btn?.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); applyInput(); });
+    }
+  }
+
+  // =========================================================
+  // 1. 既存セーブデータの復元または初期データ生成・タイトル復旧
+  // =========================================================
   function ensureSaveDataReady(inst) {
     if (!inst) return null;
     let saveKey = 'kaomoji_fantasy_3d_save';
@@ -103,13 +437,11 @@
     return inst.saveData;
   }
 
-  // タイトル画面の要素特定
   function findTitleOverlay() {
     const candidates = [...document.querySelectorAll('div, section, dialog')];
     for (const el of candidates) {
       const txt = el.textContent || '';
       if (txt.includes('顔文字ファンタジー3D') && txt.includes('冒険を始める')) {
-        // 一番外側のオーバーレイコンテナを返す
         let box = el;
         while (box.parentElement && box.parentElement !== document.body) {
           const st = getComputedStyle(box.parentElement);
@@ -125,7 +457,6 @@
     return null;
   }
 
-  // 「データ準備中...」を「データ準備完了！」へ更新
   function markTitleDataReady() {
     const inst = getOrCreateGameInstance();
     if (inst) ensureSaveDataReady(inst);
@@ -139,7 +470,6 @@
     });
   }
 
-  // ゲーム本編を確実に開始させるレスキュー処理
   function launchGameSafely(forceNew = false) {
     const inst = getOrCreateGameInstance();
     if (!inst) return;
@@ -152,14 +482,12 @@
     }
     ensureSaveDataReady(inst);
 
-    // タイトル画面を閉じる
     const overlay = findTitleOverlay();
     if (overlay) {
       overlay.style.display = 'none';
       overlay.classList.add('hidden');
     }
 
-    // 既存の開始メソッドがあれば順に呼び出し
     const startMethods = ['startGame', 'beginGame', 'enterWorld', 'enterGame', 'start', 'play'];
     let started = false;
     for (const mName of startMethods) {
@@ -174,7 +502,6 @@
       }
     }
 
-    // 初期化・描画・ループが未起動なら安全に起動
     if (!started || !inst._v7LoopStarted) {
       try {
         if (!inst._initCalledV7 && typeof inst.init === 'function') {
@@ -191,7 +518,6 @@
         inst.refreshAllHUD?.();
       } catch (e) {}
 
-      // メインループが回っていなければフォールバックループを開始
       if (!inst._loopRunning && !inst._v7LoopStarted && typeof inst.update === 'function') {
         inst._v7LoopStarted = true;
         let lastT = performance.now();
@@ -211,7 +537,6 @@
     }
   }
 
-  // タイトル画面のボタンクリックを確実に動作させる
   function bindTitleRescueButtons() {
     if (window._v7TitleButtonsBound) return;
     window._v7TitleButtonsBound = true;
@@ -221,7 +546,6 @@
       if (!btn) return;
       const txt = (btn.textContent || '').trim();
 
-      // 1. 「冒険を始める（続きから）」
       if (txt.includes('冒険を始める')) {
         markTitleDataReady();
         setTimeout(() => {
@@ -232,7 +556,6 @@
         }, 120);
       }
 
-      // 2. 「完全初期化して新規開始」
       if (txt.includes('完全初期化して新規開始')) {
         setTimeout(() => {
           const overlay = findTitleOverlay();
@@ -244,7 +567,6 @@
         }, 120);
       }
 
-      // 3. 「オフライン / オンライン」切替
       if (txt.includes('オフライン') || txt.includes('オンライン')) {
         const before = txt;
         setTimeout(() => {
@@ -258,7 +580,6 @@
         }, 90);
       }
 
-      // 4. 「パスワード: OFF / ON」切替
       if (txt.includes('パスワード:')) {
         const before = txt;
         setTimeout(() => {
@@ -284,7 +605,9 @@
     }, true);
   }
 
-  // KaomojiMMORPG への安全フック＆状態異常・実績システム
+  // =========================================================
+  // 2. 状態異常・自動実績システム
+  // =========================================================
   if (typeof KaomojiMMORPG !== 'undefined') {
     Object.assign(KaomojiMMORPG.prototype, {
       applyElementalStatusToMonstersV7(skillCategory = 'slash', skillLv = 1) {
@@ -396,7 +719,6 @@
         this._v7Installed = true;
         const proto = KaomojiMMORPG.prototype;
 
-        // インスタンス捕捉＆安全実行ラッパー
         ['init', 'refreshAllHUD', 'update'].forEach(fn => {
           if (typeof proto[fn] === 'function' && !proto[`_v7Safe_${fn}`]) {
             const orig = proto[fn];
@@ -467,12 +789,14 @@
     KaomojiMMORPG.prototype.installV7Hooks();
   }
 
-  // 起動直後にタイトル画面の「データ準備中...」を自動解除＆ボタン復旧
   bindTitleRescueButtons();
   setTimeout(markTitleDataReady, 300);
   setTimeout(markTitleDataReady, 1000);
 })();
-// ▼▼▼ ここから【前編】Lv.999クラス進化・クラス別3D攻撃エフェクト・驚異度上限開放 ▼▼▼
+
+// =========================================================
+// 3. 【前編】Lv.999クラス進化・クラス別3D攻撃エフェクト・驚異度上限開放
+// =========================================================
 (() => {
   'use strict';
 
@@ -623,7 +947,6 @@
     }
   ];
 
-  // スタイル注入（クラスカード・オンラインHUD・ペット火力バッジ用）
   if (!document.getElementById('kmj-v45-style')) {
     const st = document.createElement('style');
     st.id = 'kmj-v45-style';
@@ -647,10 +970,9 @@
     proto._v45CoreInstalled = true;
 
     Object.assign(proto, {
-      // 1. 驚異度（脅威度）上限の復旧＆9999開放（既存の高い驚威度を絶対に下げない）
       enforceThreatAndLevelCapsV45() {
         const MAX_LV = 999;
-        const MAX_THREAT = 9999; // 驚威度上限が下がっていた問題を解消し9999まで開放
+        const MAX_THREAT = 9999;
 
         try {
           ['MAX_LV', 'MAX_LEVEL', 'LEVEL_CAP', 'MAX_PLAYER_LV', 'MAX_SKILL_LV'].forEach(k => {
@@ -671,7 +993,6 @@
           });
         }
 
-        // UI上の脅威度入力欄・スライダー・上限表記を自動開放
         document.querySelectorAll('input[type="range"], input[type="number"]').forEach(inp => {
           const hint = `${inp.id || ''} ${inp.name || ''} ${inp.className || ''}`.toLowerCase();
           if (/threat|danger|rank|脅威|驚異/.test(hint)) {
@@ -680,7 +1001,6 @@
         });
       },
 
-      // 2. Lv.999クラス進化ツリー取得＆現在クラス判定
       getClassEvolutionTreeV45() {
         return CLASS_EVOLUTION_TREE_V45;
       },
@@ -761,7 +1081,6 @@
         );
       },
 
-      // 3. クラスごとに変化する専用3D攻撃エフェクトエンジン
       spawnClassBasicAttackEffectV45(entity, isLocal = false, evoIdOverride = null) {
         if (!this.useWebGL || !this.scene || !entity?.pos || typeof THREE === 'undefined') return;
         const cls = this.getCurrentClassDefV45(isLocal ? null : (evoIdOverride || entity.evolutionId));
@@ -770,7 +1089,6 @@
         const dirX = Math.sin(rotY);
         const dirZ = Math.cos(rotY);
 
-        // 魔道士・賢者・神官・創世魔導王クラスは「クラス専用3D魔法弾」を発射
         if (cls.weaponType === 'staff') {
           if (!this._v22MagicShots) this._v22MagicShots = [];
           const paletteMap = {
@@ -815,7 +1133,6 @@
           return;
         }
 
-        // 剣士・戦士・聖騎士・忍者・剣聖・竜騎士・天帝・創世神クラスの「クラス専用3D斬撃エフェクト」
         if (!this._slashEffects) this._slashEffects = [];
         const slashConfigs = {
           novice_slash: { c1: 0x38bdf8, c2: 0xe0f2fe, scale: 1.0, arcs: 2, wave: false, cross: false, sparks: 2, col: null },
@@ -842,7 +1159,6 @@
           sGrp.add(arc);
         }
 
-        // 聖騎士・剣聖・天帝・創世神クラスの交差クロス斬撃
         if (scfg.cross) {
           const vArc = new THREE.Mesh(
             new THREE.RingGeometry(0.8 * scfg.scale, 1.85 * scfg.scale, 24, 1, -Math.PI * 0.45, Math.PI * 0.9),
@@ -853,7 +1169,6 @@
           sGrp.add(vArc);
         }
 
-        // 地面衝撃リング
         if (scfg.wave) {
           const gRing = new THREE.Mesh(
             new THREE.RingGeometry(0.6 * scfg.scale, 1.8 * scfg.scale, 26),
@@ -864,7 +1179,6 @@
           sGrp.add(gRing);
         }
 
-        // 創世神話・天帝クラス専用の立体神環
         if (style === 'mythic_genesis' || style === 'emperor_gold') {
           const halo = new THREE.Mesh(
             new THREE.TorusGeometry(1.5 * scfg.scale, 0.09, 8, 28),
@@ -884,7 +1198,6 @@
           vz: dirZ * (4.0 + scfg.scale * 2.2)
         });
 
-        // クラス固有カラーの飛び散る粒子（星屑・炎・雷・花びら）
         const rainbow = [0xf472b6, 0x38bdf8, 0xfde047, 0x34d399, 0xa855f7];
         for (let i = 0; i < scfg.sparks; i++) {
           const ang = rotY + ((i / Math.max(1, scfg.sparks - 1)) - 0.5) * 1.45;
@@ -908,8 +1221,10 @@
 
   installV45Core();
 })();
-// ▲▲▲ ここまで【前編】 ▲▲▲
-// ▼▼▼ ここから【後編】ペット火力のプレイヤー完全参照化・オンライン完全復活・Lv.999クラス選択UI ▼▼▼
+
+// =========================================================
+// 4. 【後編】ペット火力プレイヤー参照化・オンライン復旧・Lv.999クラス選択UI
+// =========================================================
 (() => {
   'use strict';
 
@@ -924,7 +1239,6 @@
     proto._v45Part2Installed = true;
 
     Object.assign(proto, {
-      // 1. ペット火力のプレイヤー完全参照化（プレイヤーのATK/MATK・クラス倍率・実績バフ・ペット装備をリアルタイム参照）
       calcPetAttackPowerV45() {
         const st = typeof this.getPlayerStats === 'function' ? (this.getPlayerStats() || {}) : {};
         const d = this.saveData || {};
@@ -937,7 +1251,6 @@
         const eqId = petInfo?.equipId || 'none';
         const petEq = typeof this.getPetEquipDef === 'function' ? this.getPetEquipDef(eqId) : { atkPct: 0 };
 
-        // プレイヤー火力の 75% を基準に、ペットLvとペット装備ボーナスを乗算（プレイヤー成長と完全連動）
         const mult = 0.75 + Math.min(1.25, (petLv - 1) * 0.015) + (Number(petEq?.atkPct) || 0);
         return Math.max(5, Math.floor(playerRefPower * mult));
       },
@@ -955,10 +1268,8 @@
         }
       },
 
-      // 2. オンラインマルチプレイの完全復活＆右上ステータスHUD
       ensureOnlineSystemV45() {
         const d = this.saveData || {};
-        // 明示的にオフライン設定にされていない限りオンライン接続を有効化
         if (d.onlineMode === undefined) d.onlineMode = true;
 
         if (d.onlineMode && typeof this.initMultiplayerMQTT === 'function') {
@@ -1012,7 +1323,6 @@
         }
       },
 
-      // 3. 「進化・転職」タブ（Lv.999までの12クラス進化＆いつでも自由選択UI）＋「ペット」タブ火力表示
       renderV45ClassAndPetPanels() {
         const d = this.saveData || {};
         const curGold = Number(d.gold ?? d.coins ?? d.money ?? 0);
@@ -1021,10 +1331,8 @@
         const tree = typeof this.getClassEvolutionTreeV45 === 'function' ? this.getClassEvolutionTreeV45() : [];
         if (!Array.isArray(d.unlockedClassesV45)) d.unlockedClassesV45 = ['novice'];
 
-        // A. 進化・転職タブのクラス進化ツリーUI
         const evoContainer = document.querySelector('#tab-evolution, #panel-evolution, #evolution-panel, [data-tab-panel="evolution"], [data-panel="evolution"]');
         if (evoContainer && tree.length > 0) {
-          // 旧v40の職業ボックスがあれば置き換え
           document.getElementById('kmj-gold-role-box-v40')?.remove();
           let clsBox = document.getElementById('kmj-class-tree-box-v45');
           if (!clsBox) {
@@ -1099,7 +1407,6 @@
           }
         }
 
-        // B. ペットタブに「プレイヤー参照の相棒実効火力カード」を表示
         const petContainer = document.querySelector('#tab-pet, #tab-pets, #panel-pet, #pet-panel, [data-tab-panel="pet"], [data-tab-panel="pets"]');
         if (petContainer) {
           let atkCard = document.getElementById('kmj-v45-pet-atk-card');
@@ -1126,12 +1433,10 @@
         }
       },
 
-      // 4. 全メソッドへの統合フック（クラス倍率・クラス別攻撃エフェクト・驚異度上限維持・ペット火力同期・オンライン維持）
       installV45MasterHooks() {
         if (this._v45MasterHooked) return;
         this._v45MasterHooked = true;
 
-        // ステータス計算に現在クラスの倍率を反映
         if (typeof proto.getPlayerStats === 'function' && !proto._v45StatsWrapped) {
           const origStats = proto.getPlayerStats;
           proto.getPlayerStats = function (...args) {
@@ -1149,7 +1454,6 @@
           proto._v45StatsWrapped = true;
         }
 
-        // 攻撃エフェクトを「クラス別3Dエフェクト」に差し替え
         if (typeof proto.triggerAttackVisual === 'function' && !proto._v45AtkVisWrapped) {
           const origVis = proto.triggerAttackVisual;
           proto.triggerAttackVisual = function (entity, isSkill = false, skillInfo = null) {
@@ -1165,7 +1469,6 @@
           proto._v45AtkVisWrapped = true;
         }
 
-        // 通信パケットに現在クラスIDを常に含める
         if (typeof proto.broadcastPlayerPacket === 'function' && !proto._v45BcastWrapped) {
           const origBcast = proto.broadcastPlayerPacket;
           proto.broadcastPlayerPacket = function (type = 'sync', extra = {}) {
@@ -1180,7 +1483,6 @@
           proto._v45BcastWrapped = true;
         }
 
-        // HUD更新時にクラスツリー・ペット火力カード・驚異度上限・オンライン表示を同期
         if (typeof proto.refreshAllHUD === 'function' && !proto._v45HudWrapped) {
           const origHud = proto.refreshAllHUD;
           proto.refreshAllHUD = function (...args) {
@@ -1194,7 +1496,6 @@
           proto._v45HudWrapped = true;
         }
 
-        // フレーム更新ループで驚異度上限・ペット火力・オンライン接続を常時維持
         if (typeof proto.update === 'function' && !proto._v45UpdateWrapped) {
           const origUpdate = proto.update;
           proto.update = function (dt = 0.016, ...rest) {
@@ -1214,7 +1515,6 @@
 
     proto.installV45MasterHooks();
 
-    // すでに起動済みのインスタンスにも即座に適用
     setTimeout(() => {
       const inst = window.__kmjInstance || window.game || window.app || window.mmorpg;
       if (inst) {
@@ -1228,6 +1528,32 @@
   }
 
   installV45Part2();
+
+  if (!window._v7GearObserver && typeof MutationObserver !== 'undefined') {
+    window._v7GearObserver = new MutationObserver(() => {
+      injectGearMenuV7();
+      syncDebugHudPillV7();
+    });
+    const startObs = () => {
+      if (document.body) {
+        window._v7GearObserver.observe(document.body, { childList: true, subtree: true });
+      } else {
+        setTimeout(startObs, 100);
+      }
+    };
+    startObs();
+  }
+
+  document.addEventListener('click', () => {
+    setTimeout(() => {
+      injectGearMenuV7();
+      syncDebugHudPillV7();
+    }, 40);
+  }, true);
+
+  setTimeout(() => {
+    injectGearMenuV7();
+    syncDebugHudPillV7();
+  }, 300);
 })();
-// ▲▲▲ ここまで【後編】 ▲▲▲
 // ▲▲▲ ここまで game7.js ▲▲▲
