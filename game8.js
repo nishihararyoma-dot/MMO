@@ -1308,21 +1308,6 @@
       proto._v8UpdateWrapped = true;
     }
 
-    // HUD更新（脅威度バー・チャット移動リサイズ・実績パッシブカード・全14種スキルMP同期）
-    if (typeof proto.refreshAllHUD === 'function' && !proto._v8HudWrapped) {
-      const origHud = proto.refreshAllHUD;
-      proto.refreshAllHUD = function (...args) {
-        this.syncAchievementPassiveBuffsV40();
-        const res = origHud.apply(this, args);
-        ensureThreatRankBarV8(this);
-        enhanceChatWindowV8();
-        renderAchievementPassiveCardV8(this);
-        window.KMJ_SKILL_FX_V9?.syncAllSkills?.(this);
-        return res;
-      };
-      proto._v8HudWrapped = true;
-    }
-  }
 // HUD更新（0.4秒以内の連続DOM走査を防止して超軽量化）
     if (typeof proto.refreshAllHUD === 'function' && !proto._v8HudWrapped) {
       const origHud = proto.refreshAllHUD;
@@ -1342,6 +1327,7 @@
       };
       proto._v8HudWrapped = true;
     }
+  }
   installV8Core();
   window.updateMpGrowthAndRegenV8 = function (dt = 0.016) {
     const inst = window.__kmjInstance || window.game;
