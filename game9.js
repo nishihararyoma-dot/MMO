@@ -1,4 +1,4 @@
-// ▼▼▼ ここから【スキルエフェクト専用 game9.js 1/3】全14種スキル完全対応・MP5倍＆1Lv毎+10同期・スペルカードカットイン・全14種魔法エフェクトスタジオUI ▼▼▼
+// ▼▼▼ ここから【スキルエフェクト専用 game9.js 1/3】全14種スキル個別進化派生・スキル一覧MP完全同期・神域イージス防御進化・極光の聖域マルチ持続回復＆バフ ▼▼▼
 (() => {
   'use strict';
 
@@ -83,7 +83,7 @@
   }
 
   // =========================================================
-  // 2. 属性別＋進化段階別リッチ・シンセサイザー効果音
+  // 2. 属性別リッチ・シンセサイザー効果音
   // =========================================================
   function playMagicAudioV9(attrId = 'sword', tier = 0) {
     try {
@@ -95,17 +95,20 @@
 
       const now = ctx.currentTime;
       const presets = {
-        fire:    { wave: 'sawtooth', base: 145, sweep: 48,   notes: [330, 440, 587.33, 880] },
-        ice:     { wave: 'sine',     base: 1080, sweep: 1620, notes: [1046.5, 1318.5, 1568, 2093] },
-        thunder: { wave: 'square',   base: 240, sweep: 85,   notes: [440, 659.25, 987.77, 1480] },
-        wind:    { wave: 'triangle', base: 440, sweep: 820,  notes: [523.25, 659.25, 783.99, 1174.66] },
-        water:   { wave: 'sine',     base: 290, sweep: 540,  notes: [392, 523.25, 659.25, 987.77] },
-        earth:   { wave: 'sawtooth', base: 92,  sweep: 38,   notes: [196, 261.63, 329.63, 493.88] },
-        holy:    { wave: 'sine',     base: 660, sweep: 1020, notes: [659.25, 830.61, 987.77, 1318.51, 1661.22] },
-        dark:    { wave: 'sawtooth', base: 108, sweep: 34,   notes: [220, 277.18, 329.63, 466.16] },
-        poison:  { wave: 'triangle', base: 185, sweep: 125,  notes: [293.66, 349.23, 466.16, 622.25] },
-        star:    { wave: 'sine',     base: 880, sweep: 1360, notes: [783.99, 987.77, 1174.66, 1567.98, 2093] },
-        sword:   { wave: 'triangle', base: 520, sweep: 900,  notes: [523.25, 659.25, 783.99, 1046.5, 1567.98] }
+        aegis_shield:     { wave: 'triangle', base: 420,  sweep: 880,  notes: [523.25, 659.25, 783.99, 1046.5, 1318.5] },
+        aurora_sanctuary: { wave: 'sine',     base: 587,  sweep: 1174, notes: [587.33, 739.99, 880, 1174.66, 1480] },
+        slash_crescent:   { wave: 'sawtooth', base: 680,  sweep: 220,  notes: [659.25, 880, 1174.66, 1567.98] },
+        fire:             { wave: 'sawtooth', base: 145,  sweep: 48,   notes: [330, 440, 587.33, 880] },
+        ice:              { wave: 'sine',     base: 1080, sweep: 1620, notes: [1046.5, 1318.5, 1568, 2093] },
+        thunder:          { wave: 'square',   base: 240,  sweep: 85,   notes: [440, 659.25, 987.77, 1480] },
+        wind:             { wave: 'triangle', base: 440,  sweep: 820,  notes: [523.25, 659.25, 783.99, 1174.66] },
+        water:            { wave: 'sine',     base: 290,  sweep: 540,  notes: [392, 523.25, 659.25, 987.77] },
+        earth:            { wave: 'sawtooth', base: 92,   sweep: 38,   notes: [196, 261.63, 329.63, 493.88] },
+        holy_heal:        { wave: 'sine',     base: 660,  sweep: 1020, notes: [659.25, 830.61, 987.77, 1318.51, 1661.22] },
+        dark:             { wave: 'sawtooth', base: 108,  sweep: 34,   notes: [220, 277.18, 329.63, 466.16] },
+        poison:           { wave: 'triangle', base: 185,  sweep: 125,  notes: [293.66, 349.23, 466.16, 622.25] },
+        star:             { wave: 'sine',     base: 880,  sweep: 1360, notes: [783.99, 987.77, 1174.66, 1567.98, 2093] },
+        sword:            { wave: 'triangle', base: 520,  sweep: 900,  notes: [523.25, 659.25, 783.99, 1046.5, 1567.98] }
       };
       const cfg = presets[attrId] || presets.sword;
 
@@ -144,107 +147,204 @@
   }
 
   // =========================================================
-  // 3. 全11属性テーマ＆進化技名システム
+  // 3. 全14種スキル完全個別派生マッピング（被りゼロ・進化名＆属性完全分離）
   // =========================================================
-  const MAGIC_ATTRIBUTES_V9 = [
+  const SKILL_DERIVATION_PROFILES_V9 = [
     {
-      id: 'ice', label: '❄️ 氷華・氷柱魔法',
-      desc: '地面の下からクリスタル氷柱が波紋状に次々と生え、進化で本数・太さ・高さが激増！',
-      match: /氷|アイス|ブリザード|吹雪|零度|霜|freeze|ice|blizzard/i,
+      id: 'aegis_shield',
+      label: '🛡️ 神域防御・絶対聖盾魔法',
+      match: /イージス|神域|盾|シールド|バリア|守護|鉄壁|aegis|shield|guard/i,
+      cardType: '守護結界スペル',
+      c1: 0x38bdf8, c2: 0xfde047, c3: 0xffffff,
+      bgGrad: 'linear-gradient(135deg, rgba(12,74,110,0.98), rgba(29,78,216,0.94))',
+      names: (b) => [
+        b,
+        `【真】絶対防壁・金剛聖盾`,
+        `【極】不落城塞盾「アイギス・フォートレス」`,
+        `【神話奥義】創世不滅神盾「神域イージス・ゼロ」`
+      ]
+    },
+    {
+      id: 'aurora_sanctuary',
+      label: '🌈 極光の聖域（持続HP/MP回復＆マルチバフ領域）',
+      match: /極光|聖域|オーロラ|サンクチュアリ|領域|sanctuary|aurora|field/i,
+      cardType: '聖域展開スペル',
+      c1: 0x34d399, c2: 0xf472b6, c3: 0xfde047,
+      bgGrad: 'linear-gradient(135deg, rgba(6,95,70,0.98), rgba(124,58,237,0.94))',
+      names: (b) => [
+        b,
+        `【真】極光祝福の聖域・改`,
+        `【極】天界聖域陣「オーロラ・エリュシオン」`,
+        `【神話奥義】創世楽園領域「極光の聖域・アルカディア」`
+      ]
+    },
+    {
+      id: 'slash_crescent',
+      label: '⚔️ 烈空・三日月真空斬',
+      match: /烈空|三日月|真空波|一閃|slash|crescent/i,
+      cardType: '疾風剣技スペル',
+      c1: 0x38bdf8, c2: 0xe0f2fe, c3: 0x60a5fa,
+      bgGrad: 'linear-gradient(135deg, rgba(15,23,42,0.97), rgba(2,132,199,0.93))',
+      names: (b) => [
+        b,
+        `【真】蒼穹烈空・双月斬`,
+        `【極】次元裂断「真空三日月・無双閃」`,
+        `【神話奥義】天翔斬空神技「蒼穹烈空・次元断罪斬」`
+      ]
+    },
+    {
+      id: 'wind',
+      label: '🌪️ 旋風円舞・螺旋竜巻魔法',
+      match: /旋風|円舞|風|嵐|ウィンド|トルネード|wind|storm|tornado/i,
+      cardType: '翠嵐スペル',
+      c1: 0x34d399, c2: 0xa7f3d0, c3: 0xfde047,
+      bgGrad: 'linear-gradient(135deg, rgba(6,78,59,0.97), rgba(16,185,129,0.93))',
+      names: (b) => [
+        b,
+        `【真】翠嵐烈風・${b}`,
+        `【極】風神天舞符「テンペスト・${b}」`,
+        `【神話奥義】天空神話「シルフィード・無尽真空覇王陣」`
+      ]
+    },
+    {
+      id: 'earth',
+      label: '🪨 破邪の衝撃・巨岩隆起魔法',
+      match: /破邪|衝撃|地|岩|土|地震|クエイク|砕|earth|rock|quake/i,
+      cardType: '大地金剛スペル',
+      c1: 0xd97706, c2: 0xfbbf24, c3: 0x92400e,
+      bgGrad: 'linear-gradient(135deg, rgba(120,53,15,0.97), rgba(180,83,9,0.93))',
+      names: (b) => [
+        b,
+        `【真】剛岩破邪・${b}`,
+        `【極】地母神符「ガイア・クラッシュ・${b}」`,
+        `【神話奥義】星砕神話「タイタン・天地開闢金剛砕」`
+      ]
+    },
+    {
+      id: 'holy_heal',
+      label: '💖 聖光の癒し・天照光輪魔法',
+      match: /癒し|ヒール|回復|光|聖|祈り|祝福|天照|ハート|holy|heal|light|bless/i,
+      cardType: '聖光治癒スペル',
+      c1: 0xfde047, c2: 0xffffff, c3: 0xf472b6,
+      bgGrad: 'linear-gradient(135deg, rgba(133,77,14,0.97), rgba(217,119,6,0.93))',
+      names: (b) => [
+        b,
+        `【真】聖光煌めき・${b}`,
+        `【極】天照聖域符「セイクリッド・${b}」`,
+        `【神話奥義】創世聖典「セラフィム・無限光輪の奇跡」`
+      ]
+    },
+    {
+      id: 'fire',
+      label: '🔥 星屑メテオ・紅蓮隕石爆炎魔法',
+      match: /メテオ|炎|火|ファイア|ブレイズ|紅蓮|爆発|業火|flame|fire|meteor/i,
+      cardType: '紅蓮隕石スペル',
+      c1: 0xef4444, c2: 0xfacc15, c3: 0xf97316,
+      bgGrad: 'linear-gradient(135deg, rgba(127,29,29,0.97), rgba(234,88,12,0.93))',
+      names: (b) => [
+        b,
+        `【真】紅蓮爆炎・${b}`,
+        `【極】竜王焦熱符「インフェルノ・${b}」`,
+        `【神話奥義】創世業火「プロミネンス・アルティメットメテオ」`
+      ]
+    },
+    {
+      id: 'ice',
+      label: '❄️ 絶対零度・氷華氷柱魔法',
+      match: /絶対零度|氷|アイス|ブリザード|吹雪|零度|霜|freeze|ice|blizzard/i,
       cardType: '氷華スペル',
       c1: 0x38bdf8, c2: 0xe0f2fe, c3: 0x818cf8,
       bgGrad: 'linear-gradient(135deg, rgba(12,74,110,0.97), rgba(37,99,235,0.93))',
-      names: (b) => [b, `【真】氷晶零度・${b}`, `【極】絶対零度符「コキュートス・${b}」`, `【神話奥義】銀世界神話「エターナル・ダイヤモンドダスト」`]
+      names: (b) => [
+        b,
+        `【真】氷晶零度・${b}`,
+        `【極】絶対零度符「コキュートス・${b}」`,
+        `【神話奥義】銀世界神話「エターナル・ダイヤモンドダスト」`
+      ]
     },
     {
-      id: 'fire', label: '🔥 紅蓮・隕石爆炎魔法',
-      desc: 'マグマ魔法陣の上空から巨大メテオ群が落下し、着弾で火柱と溶岩リングが炸裂！',
-      match: /炎|火|ファイア|ブレイズ|紅蓮|メテオ|爆発|業火|flame|fire|meteor/i,
-      cardType: '紅蓮スペル',
-      c1: 0xef4444, c2: 0xfacc15, c3: 0xf97316,
-      bgGrad: 'linear-gradient(135deg, rgba(127,29,29,0.97), rgba(234,88,12,0.93))',
-      names: (b) => [b, `【真】紅蓮爆炎・${b}`, `【極】竜王焦熱符「インフェルノ・${b}」`, `【神話奥義】創世業火「プロミネンス・アルティメットノヴァ」`]
-    },
-    {
-      id: 'thunder', label: '⚡ 紫電・天罰落雷魔法',
-      desc: '上空の雷雲リングから分岐するジグザグ稲妻が連打され、電磁ドームがスパーク！',
+      id: 'thunder',
+      label: '⚡ 紫電・天罰落雷魔法',
       match: /雷|電|サンダー|ライトニング|スパーク|雷鳴|thunder|lightning|volt/i,
       cardType: '紫電スペル',
       c1: 0xfacc15, c2: 0xa855f7, c3: 0x38bdf8,
       bgGrad: 'linear-gradient(135deg, rgba(88,28,135,0.97), rgba(202,138,4,0.93))',
-      names: (b) => [b, `【真】紫電一閃・${b}`, `【極】雷神降臨符「タケミカヅチ・${b}」`, `【神話奥義】天罰神雷「インドラ・オーバーロードサンダー」`]
+      names: (b) => [
+        b,
+        `【真】紫電一閃・${b}`,
+        `【極】雷神降臨符「タケミカヅチ・${b}」`,
+        `【神話奥義】天罰神雷「インドラ・オーバーロードサンダー」`
+      ]
     },
     {
-      id: 'wind', label: '🌪️ 翠嵐・螺旋竜巻魔法',
-      desc: '多重螺旋トルネードが天へ昇り、周囲を真空カマイタチの刃が高速公転する！',
-      match: /風|疾風|嵐|ウィンド|トルネード|旋風|烈風|wind|gale|storm/i,
-      cardType: '翠嵐スペル',
-      c1: 0x34d399, c2: 0xa7f3d0, c3: 0xfde047,
-      bgGrad: 'linear-gradient(135deg, rgba(6,78,59,0.97), rgba(16,185,129,0.93))',
-      names: (b) => [b, `【真】翠嵐烈風・${b}`, `【極】風神天舞符「テンペスト・${b}」`, `【神話奥義】天空神話「シルフィード・無尽真空覇王斬」`]
-    },
-    {
-      id: 'water', label: '🌊 蒼海・大渦潮水柱魔法',
-      desc: '回転する大渦潮から何本もの高圧ウォーターガイザーが噴き上がり大津波が広がる！',
+      id: 'water',
+      label: '🌊 蒼海・大渦潮水柱魔法',
       match: /水|海|波|津波|アクア|水流|渦|aqua|water|wave|ocean/i,
       cardType: '蒼海スペル',
       c1: 0x0284c7, c2: 0x7dd3fc, c3: 0x2dd4bf,
       bgGrad: 'linear-gradient(135deg, rgba(7,89,133,0.97), rgba(13,148,136,0.93))',
-      names: (b) => [b, `【真】蒼海激流・${b}`, `【極】海神怒涛符「リヴァイアサン・${b}」`, `【神話奥義】深淵海神「ポセイドン・創世大津波ノヴァ」`]
+      names: (b) => [
+        b,
+        `【真】蒼海激流・${b}`,
+        `【極】海神怒涛符「リヴァイアサン・${b}」`,
+        `【神話奥義】深淵海神「ポセイドン・創世大津波ノヴァ」`
+      ]
     },
     {
-      id: 'earth', label: '🪨 大地・巨岩隆起魔法',
-      desc: '地割れ魔法陣とともに巨大な岩柱が地面から突き出し、砕け散る！',
-      match: /地|岩|土|地震|クエイク|砕|earth|rock|quake/i,
-      cardType: '大地スペル',
-      c1: 0xd97706, c2: 0xfbbf24, c3: 0x92400e,
-      bgGrad: 'linear-gradient(135deg, rgba(120,53,15,0.97), rgba(180,83,9,0.93))',
-      names: (b) => [b, `【真】剛岩砕破・${b}`, `【極】地母神符「ガイア・クラッシュ・${b}」`, `【神話奥義】星砕神話「タイタン・天地開闢メテオストライク」`]
-    },
-    {
-      id: 'holy', label: '✨ 聖光・天照光輪魔法',
-      desc: '天空の光の柱と回転する黄金の天使輪が展開し、聖なる羽根が舞い降りる！',
-      match: /光|聖|ホーリー|ヒール|回復|祈り|祝福|天照|ハート|愛|holy|light|heal|bless|heart|love/i,
-      cardType: '聖光スペル',
-      c1: 0xfde047, c2: 0xffffff, c3: 0xf472b6,
-      bgGrad: 'linear-gradient(135deg, rgba(133,77,14,0.97), rgba(217,119,6,0.93))',
-      names: (b) => [b, `【真】聖光煌めき・${b}`, `【極】天照聖域符「セイクリッド・${b}」`, `【神話奥義】創世聖典「セラフィム・無限光輪の奇跡」`]
-    },
-    {
-      id: 'dark', label: '🌌 黒蝕・ブラックホール魔法',
-      desc: '漆黒のブラックホールが周囲の星屑を吸い込み、最後に超新星爆発を起こす！',
-      match: /闇|黒|ダーク|シャドウ|アビス|ブラックホール|dark|void|shadow|abyss/i,
+      id: 'dark',
+      label: '🌌 黒蝕・ブラックホール魔法',
+      match: /闇|黒|ダーク|シャドウ|アビス|ブラックホール|虚空|dark|void|shadow|abyss/i,
       cardType: '黒蝕スペル',
       c1: 0x9333ea, c2: 0xf43f5e, c3: 0x38bdf8,
       bgGrad: 'linear-gradient(135deg, rgba(30,27,75,0.98), rgba(126,34,206,0.93))',
-      names: (b) => [b, `【真】黒蝕冥界・${b}`, `【極】虚空崩壊符「アビスノヴァ・${b}」`, `【神話奥義】終焉神話「ラグナロク・次元黒蝕シンギュラリティ」`]
+      names: (b) => [
+        b,
+        `【真】黒蝕冥界・${b}`,
+        `【極】虚空崩壊符「アビスノヴァ・${b}」`,
+        `【神話奥義】終焉神話「ラグナロク・次元黒蝕シンギュラリティ」`
+      ]
     },
     {
-      id: 'poison', label: '☠️ 呪詛・魔界瘴気魔法',
-      desc: '魔界の魔法陣から猛毒オーブと呪いの鎖リングが湧き上がる！',
+      id: 'poison',
+      label: '☠️ 呪詛・魔界瘴気魔法',
       match: /毒|呪|ポイズン|ヴェノム|カース|瘴気|poison|venom|curse/i,
       cardType: '呪詛スペル',
       c1: 0xa855f7, c2: 0x4ade80, c3: 0xf43f5e,
       bgGrad: 'linear-gradient(135deg, rgba(59,7,100,0.97), rgba(21,128,61,0.93))',
-      names: (b) => [b, `【真】猛毒瘴気・${b}`, `【極】魔界呪詛符「ベリアル・${b}」`, `【神話奥義】混沌神話「ヒュドラ・無間地獄の瘴気陣」`]
+      names: (b) => [
+        b,
+        `【真】猛毒瘴気・${b}`,
+        `【極】魔界呪詛符「ベリアル・${b}」`,
+        `【神話奥義】混沌神話「ヒュドラ・無間地獄の瘴気陣」`
+      ]
     },
     {
-      id: 'star', label: '🌟 星屑・銀河流星魔法',
-      desc: '銀河スパイラルから流星群が降り注ぎ、プリズムの星屑爆発を起こす！',
+      id: 'star',
+      label: '🌟 星屑・銀河流星魔法',
       match: /星|宇宙|銀河|スター|コメット|ノヴァ|コスモ|虹|star|comet|nova|cosmos|rainbow/i,
       cardType: '星屑スペル',
       c1: 0xf472b6, c2: 0xfde047, c3: 0x38bdf8,
       bgGrad: 'linear-gradient(135deg, rgba(49,46,129,0.97), rgba(219,39,119,0.93))',
-      names: (b) => [b, `【真】星屑流星・${b}`, `【極】銀河星霊符「スターダスト・${b}」`, `【神話奥義】宇宙創世「ビッグバン・ギャラクシーノヴァ」`]
+      names: (b) => [
+        b,
+        `【真】星屑流星・${b}`,
+        `【極】銀河星霊符「スターダスト・${b}」`,
+        `【神話奥義】宇宙創世「ビッグバン・ギャラクシーノヴァ」`
+      ]
     },
     {
-      id: 'sword', label: '⚔️ 秘剣・無限光剣陣',
-      desc: '空中に無数の光の剣が出現・整列して一斉に突き刺さり、十字斬撃波が炸裂！',
-      match: /.*/,
+      id: 'sword',
+      label: '🗡️ 秘剣・無限光剣陣',
+      match: /剣|刃|刀|乱舞|百花|sword|blade/i,
       cardType: '秘剣スペル',
       c1: 0x38bdf8, c2: 0xf472b6, c3: 0xfde047,
       bgGrad: 'linear-gradient(135deg, rgba(15,23,42,0.97), rgba(3,105,161,0.93))',
-      names: (b) => [b, `【真】蒼穹剣閃・${b}`, `【極】剣聖奥義符「天翔十字・${b}」`, `【神話奥義】創世剣神「エクスカリバー・虹翼星屑ノヴァ」`]
+      names: (b) => [
+        b,
+        `【真】蒼穹剣閃・${b}`,
+        `【極】剣聖奥義符「天翔十字・${b}」`,
+        `【神話奥義】創世剣神「エクスカリバー・無限光剣陣」`
+      ]
     }
   ];
 
@@ -298,7 +398,192 @@
   requestAnimationFrame(step3DLoopV9);
 
   // =========================================================
-  // 5. スペルカードカットイン表示＆詠唱プレイヤーオーラ
+  // 5. 「極光の聖域」持続フィールド管理（自分＆オンライン他プレイヤー全員に持続HP/MP回復＆バフ）
+  // =========================================================
+  const activeSanctuariesV9 = [];
+
+  function spawnAuroraSanctuaryFieldV9(game, entity, info) {
+    if (!game?.useWebGL || !game?.scene || !entity?.pos || typeof THREE === 'undefined') return;
+    const tier = info?.tier ?? 0;
+    const radius = (4.2 + tier * 1.4); // 進化するほどフィールドが巨大化！
+    const duration = 10.0 + tier * 3.0;  // 10秒〜19秒持続
+
+    const root = new THREE.Group();
+    root.position.set(entity.pos.x, 0, entity.pos.z);
+
+    // 1) 地面のオーロラ魔法陣＆聖域床
+    const floorDisk = new THREE.Mesh(
+      new THREE.CircleGeometry(radius, 40),
+      new THREE.MeshBasicMaterial({ color: 0x34d399, side: THREE.DoubleSide, transparent: true, opacity: 0.24 })
+    );
+    floorDisk.rotation.x = -Math.PI / 2;
+    floorDisk.position.y = 0.04;
+    root.add(floorDisk);
+
+    const rings = [];
+    const ringCount = 2 + tier * 2; // 進化でリング数が激増（2重→4重→6重→8重）
+    const ringCols = [0x34d399, 0xf472b6, 0x38bdf8, 0xfde047];
+    for (let r = 0; r < ringCount; r++) {
+      const rIn = radius * (0.25 + (r / ringCount) * 0.72);
+      const rOut = rIn + 0.14 + tier * 0.03;
+      const segs = r % 3 === 0 ? 6 : (r % 3 === 1 ? 8 : 36);
+      const rm = new THREE.Mesh(
+        new THREE.RingGeometry(rIn, rOut, segs),
+        new THREE.MeshBasicMaterial({ color: ringCols[r % ringCols.length], side: THREE.DoubleSide, transparent: true, opacity: 0.92 })
+      );
+      rm.rotation.x = -Math.PI / 2;
+      rm.position.y = 0.06 + r * 0.02;
+      root.add(rm);
+      rings.push({ mesh: rm, spd: (r % 2 === 0 ? 1 : -1) * (1.5 + r * 0.4) });
+    }
+
+    // 2) 外周に立ち昇る極光のオーロラカーテン（円筒ベール）
+    const curtainH = (2.6 + tier * 1.1);
+    const curtain = new THREE.Mesh(
+      new THREE.CylinderGeometry(radius, radius, curtainH, 36, 1, true),
+      new THREE.MeshBasicMaterial({ color: 0x34d399, side: THREE.DoubleSide, transparent: true, opacity: 0.28 })
+    );
+    curtain.position.y = curtainH * 0.5;
+    root.add(curtain);
+
+    // 進化 tier >= 1 で内側に第2オーロラカーテン（ピンク・ゴールド）を追加！
+    let innerCurtain = null;
+    if (tier >= 1) {
+      innerCurtain = new THREE.Mesh(
+        new THREE.CylinderGeometry(radius * 0.65, radius * 0.65, curtainH * 1.35, 32, 1, true),
+        new THREE.MeshBasicMaterial({ color: tier >= 2 ? 0xfde047 : 0xf472b6, side: THREE.DoubleSide, transparent: true, opacity: 0.24 })
+      );
+      innerCurtain.position.y = curtainH * 0.675;
+      root.add(innerCurtain);
+    }
+
+    // 3) 周囲に浮かぶ聖晶石ピラー＆光の粒子（進化で超豪華に）
+    const crystals = [];
+    const cryCnt = 4 + tier * 4;
+    for (let c = 0; c < cryCnt; c++) {
+      const ang = (Math.PI * 2 * c) / cryCnt;
+      const cry = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.28 + tier * 0.08, 0),
+        new THREE.MeshBasicMaterial({ color: ringCols[c % ringCols.length], transparent: true, opacity: 0.95 })
+      );
+      cry.position.set(Math.cos(ang) * radius, 1.4 + (c % 2) * 0.8, Math.sin(ang) * radius);
+      root.add(cry);
+      crystals.push({ mesh: cry, ang, baseY: 1.4 + (c % 2) * 0.8 });
+    }
+
+    game.scene.add(root);
+    activeSanctuariesV9.push({
+      scene: game.scene,
+      root,
+      x: entity.pos.x,
+      z: entity.pos.z,
+      radius,
+      tier,
+      elapsed: 0,
+      tickAcc: 0,
+      duration,
+      rings,
+      curtain,
+      innerCurtain,
+      crystals,
+      floorDisk
+    });
+
+    game.showAlertBanner?.(`🌈 ${info.evolvedName} 展開！（範囲内の全プレイヤーに持続HP/MP回復＋全バフ）`, 2400);
+  }
+
+  function updateSanctuaryFieldsV9(game, dt) {
+    if (!game || activeSanctuariesV9.length === 0) return;
+    const stepDt = Math.min(0.1, Math.max(0.001, dt || 0.016));
+
+    for (let i = activeSanctuariesV9.length - 1; i >= 0; i--) {
+      const s = activeSanctuariesV9[i];
+      s.elapsed += stepDt;
+      s.tickAcc += stepDt;
+
+      // アニメーション更新
+      const fade = s.elapsed > s.duration - 1.2 ? Math.max(0, (s.duration - s.elapsed) / 1.2) : 1;
+      s.rings.forEach(r => {
+        r.mesh.rotation.z = s.elapsed * r.spd;
+        r.mesh.material.opacity = fade * 0.92;
+      });
+      s.curtain.rotation.y = s.elapsed * 0.8;
+      s.curtain.material.opacity = fade * (0.24 + Math.sin(s.elapsed * 3) * 0.06);
+      if (s.innerCurtain) {
+        s.innerCurtain.rotation.y = -s.elapsed * 1.2;
+        s.innerCurtain.material.opacity = fade * 0.24;
+      }
+      s.floorDisk.material.opacity = fade * 0.22;
+      s.crystals.forEach((cr, idx) => {
+        const a = cr.ang + s.elapsed * 1.1;
+        cr.mesh.position.set(Math.cos(a) * s.radius, cr.baseY + Math.sin(s.elapsed * 3 + idx) * 0.35, Math.sin(a) * s.radius);
+        cr.mesh.rotation.y = s.elapsed * 4;
+        cr.mesh.material.opacity = fade * 0.95;
+      });
+
+      // 1秒ごとにフィールド内の全プレイヤー（自分＋オンライン他プレイヤー）へ持続回復＆バフ適用
+      if (s.tickAcc >= 1.0) {
+        s.tickAcc -= 1.0;
+
+        // 1) ローカルプレイヤー判定
+        if (game.player?.pos && game.saveData) {
+          const distMe = Math.hypot(game.player.pos.x - s.x, game.player.pos.z - s.z);
+          if (distMe <= s.radius) {
+            const maxHp = Number(game.saveData.maxHp || game.player.maxHp || 100);
+            const maxMp = Number(game.saveData.maxMp || game.player.maxMp || 100);
+            const healHp = Math.max(5, Math.floor(maxHp * (0.08 + s.tier * 0.04)));
+            const healMp = Math.max(5, Math.floor(maxMp * (0.10 + s.tier * 0.05)));
+
+            if (typeof game.saveData.hp === 'number') game.saveData.hp = Math.min(maxHp, game.saveData.hp + healHp);
+            if (typeof game.player.hp === 'number') game.player.hp = Math.min(maxHp, game.player.hp + healHp);
+            if (typeof game.saveData.mp === 'number') game.saveData.mp = Math.min(maxMp, game.saveData.mp + healMp);
+            if (typeof game.player.mp === 'number') game.player.mp = Math.min(maxMp, game.player.mp + healMp);
+
+            // 全バフタイマー付与（攻撃・防御・移動速度上昇）
+            game.player.sanctuaryBuffTimer = 2.5;
+            game.player.sanctuaryBuffPower = 1.25 + s.tier * 0.15;
+          }
+        }
+
+        // 2) オンラインの他プレイヤー全員判定（remotePlayers / otherPlayers / players）
+        const remoteLists = [game.remotePlayers, game.otherPlayers, game.players];
+        remoteLists.forEach(col => {
+          if (!col) return;
+          const arr = Array.isArray(col) ? col : (col instanceof Map ? Array.from(col.values()) : Object.values(col));
+          arr.forEach(rp => {
+            if (!rp || rp === game.player || !rp.pos) return;
+            const dRemote = Math.hypot(rp.pos.x - s.x, rp.pos.z - s.z);
+            if (dRemote <= s.radius) {
+              const rMaxHp = Number(rp.maxHp || 100);
+              const rMaxMp = Number(rp.maxMp || 100);
+              if (typeof rp.hp === 'number') rp.hp = Math.min(rMaxHp, rp.hp + Math.floor(rMaxHp * (0.08 + s.tier * 0.04)));
+              if (typeof rp.mp === 'number') rp.mp = Math.min(rMaxMp, rp.mp + Math.floor(rMaxMp * (0.10 + s.tier * 0.05)));
+              rp.sanctuaryBuffTimer = 2.5;
+            }
+          });
+        });
+
+        // オンライン通信メソッドがあれば聖域ヒール同期イベントも送信
+        if (typeof game.broadcastSkillOrHeal === 'function') {
+          try { game.broadcastSkillOrHeal({ type: 'sanctuary_pulse', x: s.x, z: s.z, radius: s.radius, tier: s.tier }); } catch (e) {}
+        }
+      }
+
+      if (s.elapsed >= s.duration) {
+        try {
+          s.scene.remove(s.root);
+          s.root.traverse?.(o => {
+            if (o.geometry) o.geometry.dispose?.();
+            if (o.material) o.material.dispose?.();
+          });
+        } catch (e) {}
+        activeSanctuariesV9.splice(i, 1);
+      }
+    }
+  }
+
+  // =========================================================
+  // 6. スペルカードカットイン＆詠唱オーラ
   // =========================================================
   function showSpellCardCutinV9(game, info) {
     playMagicAudioV9(info.theme.id, info.tier);
@@ -382,17 +667,6 @@
     footRing2.position.y = 0.10;
     grp.add(footRing2);
 
-    const motes = [];
-    for (let i = 0; i < 8 + tier * 4; i++) {
-      const ang = (Math.PI * 2 * i) / (8 + tier * 4);
-      const m = new THREE.Mesh(
-        new THREE.OctahedronGeometry(0.14, 0),
-        new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? c1 : c2, transparent: true, opacity: 0.95 })
-      );
-      grp.add(m);
-      motes.push({ mesh: m, ang });
-    }
-
     register3DAnimationV9(game.scene, grp, 0.75, (p, elapsed) => {
       grp.position.set(entity.pos.x, 0, entity.pos.z);
       footRing1.rotation.z = elapsed * 4;
@@ -400,61 +674,58 @@
       const fade = p > 0.65 ? Math.max(0, 1 - (p - 0.65) / 0.35) : 1;
       footRing1.material.opacity = fade * 0.92;
       footRing2.material.opacity = fade * 0.92;
-      motes.forEach((mt, idx) => {
-        const r = 1.15 - p * 0.3;
-        mt.mesh.position.set(Math.cos(mt.ang + elapsed * 5) * r, 0.2 + p * 2.4 + (idx % 3) * 0.2, Math.sin(mt.ang + elapsed * 5) * r);
-        mt.mesh.material.opacity = fade * 0.95;
-      });
     });
   }
 
   // =========================================================
-  // 6. 公開API（全14種スキル取得・MP5倍＆1Lv毎+10同期・スタジオUI）
+  // 7. 公開API（全14種スキル取得・スキル一覧MP表記完全書き換え・スタジオUI）
   // =========================================================
   window.KMJ_SKILL_FX_V9 = {
-    ATTRIBUTES: MAGIC_ATTRIBUTES_V9,
+    ATTRIBUTES: SKILL_DERIVATION_PROFILES_V9,
     EFFECT_BUILDERS: {},
     register3DAnimation: register3DAnimationV9,
     showSpellCardCutin: showSpellCardCutinV9,
     spawnCasterChantAura: spawnCasterChantAuraV9,
+    spawnAuroraSanctuaryField: spawnAuroraSanctuaryFieldV9,
+    updateSanctuaryFields: updateSanctuaryFieldsV9,
 
-    // ゲーム内に定義された全14種スキルを漏れなく取得
     getAll14Skills(game) {
       let list = [];
       if (typeof SKILLS !== 'undefined' && SKILLS) {
         list = (Array.isArray(SKILLS) ? SKILLS : Object.values(SKILLS)).filter(s => s && typeof s === 'object');
       }
-      // もし14種未満の場合でも14種リストを補完
-      const fallback14 = [
-        { id: 'sk_1', name: 'スラッシュ斬撃', mpCost: 16, icon: '⚔️' },
-        { id: 'sk_2', name: 'ファイアボール', mpCost: 20, icon: '🔥' },
-        { id: 'sk_3', name: 'アイスニードル氷柱', mpCost: 20, icon: '❄️' },
-        { id: 'sk_4', name: 'サンダーボルト落雷', mpCost: 22, icon: '⚡' },
-        { id: 'sk_5', name: 'ウィンドトルネード', mpCost: 22, icon: '🌪️' },
-        { id: 'sk_6', name: 'アクアゲイザー津波', mpCost: 24, icon: '🌊' },
-        { id: 'sk_7', name: 'アースクエイク岩砕', mpCost: 24, icon: '🪨' },
-        { id: 'sk_8', name: 'ホーリーヒール聖光', mpCost: 16, icon: '💖' },
-        { id: 'sk_9', name: 'ダークアビス黒蝕', mpCost: 28, icon: '🌌' },
-        { id: 'sk_10', name: 'ポイズンミスト瘴気', mpCost: 22, icon: '☠️' },
-        { id: 'sk_11', name: 'スターダスト流星群', mpCost: 30, icon: '🌟' },
-        { id: 'sk_12', name: 'メテオストライク業火', mpCost: 35, icon: '☄️' },
-        { id: 'sk_13', name: 'アブソリュート零度吹雪', mpCost: 35, icon: '🧊' },
-        { id: 'sk_14', name: '創世虹翼アルティメットノヴァ', mpCost: 50, icon: '🌈' }
-      ];
-      if (list.length === 0) return fallback14;
+      if (list.length === 0) {
+        return [
+          { id: 'sk_1', name: '烈空斬', mpCost: 9, icon: '⚔️' },
+          { id: 'sk_2', name: '旋風円舞', mpCost: 14, icon: '🌪️' },
+          { id: 'sk_3', name: '破邪の衝撃', mpCost: 12, icon: '🪨' },
+          { id: 'sk_4', name: '聖光の癒し', mpCost: 16, icon: '💖' },
+          { id: 'sk_5', name: '星屑メテオ', mpCost: 26, icon: '☄️' },
+          { id: 'sk_6', name: '絶対零度ノヴァ', mpCost: 22, icon: '❄️' },
+          { id: 'sk_7', name: '神域イージス', mpCost: 24, icon: '🛡️' },
+          { id: 'sk_8', name: '極光の聖域', mpCost: 30, icon: '🌈' },
+          { id: 'sk_9', name: 'サンダーボルト', mpCost: 20, icon: '⚡' },
+          { id: 'sk_10', name: 'アクアゲイザー', mpCost: 22, icon: '🌊' },
+          { id: 'sk_11', name: 'ダークアビス', mpCost: 28, icon: '🌌' },
+          { id: 'sk_12', name: 'ポイズンミスト', mpCost: 18, icon: '☠️' },
+          { id: 'sk_13', name: 'スターダストノヴァ', mpCost: 32, icon: '🌟' },
+          { id: 'sk_14', name: '無限光剣陣', mpCost: 40, icon: '🗡️' }
+        ];
+      }
       return list;
     },
 
     getSkillInfo(game, slotOrSkill = 0) {
       const d = game?.saveData || {};
+      const allList = this.getAll14Skills(game);
       let slotIdx = typeof slotOrSkill === 'number' ? slotOrSkill : 0;
       let rawSkill = null;
       let skillLv = 1;
 
-      const allList = this.getAll14Skills(game);
-
       if (typeof slotOrSkill === 'object' && slotOrSkill !== null) {
         rawSkill = slotOrSkill;
+        const foundIdx = allList.indexOf(rawSkill);
+        if (foundIdx >= 0) slotIdx = foundIdx;
         const sid = String(rawSkill.id || rawSkill.skillId || '');
         skillLv = Math.max(1, Number(d.skillLevels?.[sid] ?? d.skillLvs?.[sid] ?? rawSkill.lv ?? rawSkill.level ?? 1));
       } else {
@@ -468,7 +739,7 @@
         if (!rawSkill) rawSkill = allList[slotIdx] || allList[0];
       }
 
-      const defaultOrig = [20, 26, 22, 16, 30, 18, 24, 28, 32, 35, 40, 45, 50, 60][slotIdx] || 16;
+      const defaultOrig = [9, 14, 12, 16, 26, 22, 24, 30, 20, 22, 28, 18, 32, 40][slotIdx] || 16;
       if (rawSkill && rawSkill._origMpV9 === undefined) {
         const detected = Number(rawSkill.mpCost ?? rawSkill.mp ?? rawSkill.costMp ?? 0);
         rawSkill._origMpV9 = detected > 0 ? detected : defaultOrig;
@@ -478,12 +749,19 @@
       }
 
       const origMp = rawSkill?._origMpV9 || defaultOrig;
-      // 素のMP消費5倍 ＋ 1レベ上がる毎に消費MPが10増加！
+      // 素のMP消費5倍 ＋ 1レベ上がる毎に +10 増加
       const mpCost = (origMp * 5) + (skillLv - 1) * 10;
 
       const origName = rawSkill?._origNameV9 || `秘技・第${slotIdx + 1}の型`;
       const tier = skillLv >= 100 ? 3 : (skillLv >= 50 ? 2 : (skillLv >= 10 ? 1 : 0));
-      const theme = MAGIC_ATTRIBUTES_V9.find(t => t.match.test(`${origName} ${rawSkill?.desc || ''}`)) || MAGIC_ATTRIBUTES_V9[MAGIC_ATTRIBUTES_V9.length - 1];
+
+      // 全14種それぞれが異なる派生プロファイルになるようにマッチング（重複時はインデックスで分散）
+      const searchStr = `${origName} ${rawSkill?.desc || ''}`;
+      let theme = SKILL_DERIVATION_PROFILES_V9.find(t => t.match.test(searchStr));
+      if (!theme) {
+        theme = SKILL_DERIVATION_PROFILES_V9[slotIdx % SKILL_DERIVATION_PROFILES_V9.length];
+      }
+
       const evolvedName = theme.names(origName)[tier] || origName;
       const tierLabels = ['通常魔法', '✨ 魔法進化Ⅰ【真】', '🔥 魔法進化Ⅱ【極】', '🌈 魔法最終進化【神話スペルカード】'];
 
@@ -495,7 +773,7 @@
 
     syncAllSkills(game) {
       const allList = this.getAll14Skills(game);
-      allList.forEach(sk => {
+      allList.forEach((sk, idx) => {
         if (!sk || typeof sk !== 'object') return;
         const info = this.getSkillInfo(game, sk);
         if ('mpCost' in sk) sk.mpCost = info.mpCost;
@@ -504,29 +782,61 @@
         if (typeof sk.name === 'string') sk.name = info.evolvedName;
       });
 
-      // 右下の全スキルボタン（16のまま残っているボタンも含め全スロット）を確実に同期
-      const slotBtns = document.querySelectorAll('.skill-slot-btn, .skill-slot, .skill-btn, [data-skill-slot]');
-      slotBtns.forEach((btn, idx) => {
+      // 1) 右下スロットボタンの消費MP同期
+      document.querySelectorAll('.skill-slot-btn, .skill-slot, .skill-btn, [data-skill-slot]').forEach((btn, idx) => {
         const slot = btn.dataset.skillSlot !== undefined ? Number(btn.dataset.skillSlot) : idx;
         const info = this.getSkillInfo(game, slot);
-        btn.title = `${info.evolvedName} (Lv.${info.skillLv} / 消費MP:${info.mpCost})`;
-
         btn.querySelectorAll('span, div, small, b').forEach(el => {
           if (el.children.length > 0) return;
           const txt = (el.textContent || '').trim();
-          // Lv.表記（Lv.1 等）以外の数値（消費MP）を必ず info.mpCost に更新
           if (/^\d+$/.test(txt) && Number(txt) !== info.mpCost) {
             el.textContent = String(info.mpCost);
           } else if (/^MP\s*\d+$/i.test(txt)) {
             el.textContent = `MP ${info.mpCost}`;
-          } else if (info.origName && txt.includes(info.origName) && txt !== info.evolvedName) {
-            el.textContent = info.evolvedName;
           }
         });
       });
+
+      // 2) スキル一覧モーダル内の「消費MP:9 / CT:2.2s」表記を全件直接書き換え！
+      const modalBody = document.getElementById('modal-body');
+      if (modalBody && modalBody.textContent.includes('消費MP:')) {
+        modalBody.querySelectorAll('div, span, p, small').forEach(el => {
+          if (el.children.length > 0) return;
+          const txt = el.textContent || '';
+          const m = txt.match(/消費MP:\s*(\d+)/);
+          if (!m) return;
+
+          // 親カードからスキル名とLvを特定
+          let card = el.parentElement;
+          while (card && card !== modalBody && !(card.textContent || '').includes('CT:')) {
+            card = card.parentElement;
+          }
+          if (!card) card = el.parentElement;
+          const cardTxt = card ? (card.textContent || '') : '';
+
+          // 一致するスキル定義を検索
+          let matchedSkill = null;
+          for (const sk of allList) {
+            const orig = sk._origNameV9 || sk.name || '';
+            if (orig && (cardTxt.includes(orig) || cardTxt.includes(sk.name))) {
+              matchedSkill = sk;
+              break;
+            }
+          }
+          if (matchedSkill) {
+            const info = this.getSkillInfo(game, matchedSkill);
+            const lvMatch = cardTxt.match(/Lv\.?\s*(\d+)/i);
+            const displayLv = lvMatch ? Math.max(1, Number(lvMatch[1])) : info.skillLv;
+            const correctMp = (info.origMp * 5) + (displayLv - 1) * 10;
+            const replaced = txt.replace(/消費MP:\s*\d+/, `消費MP:${correctMp}`);
+            if (txt !== replaced) {
+              el.textContent = replaced;
+            }
+          }
+        });
+      }
     },
 
-    // 全14種スキル対応の「🎬 魔法エフェクトスタジオ」モーダル
     openStudioModal(game) {
       document.getElementById('kmj-v9-studio-modal')?.remove();
       const wrap = document.createElement('div');
@@ -558,11 +868,11 @@
       wrap.innerHTML = `
         <div class="kmj-v9-studio-card">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-            <b style="font-size:13.5px;color:#f9a8d4;">🎬 全${all14.length}種スキル 魔法エフェクトスタジオ</b>
+            <b style="font-size:13.5px;color:#f9a8d4;">🎬 全${all14.length}種スキル 個別進化スタジオ</b>
             <button type="button" id="kmj-v9-close-studio" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:900;cursor:pointer;">✕ 閉じる</button>
           </div>
           <div style="font-size:10px;color:#fde047;margin-bottom:8px;">
-            ※ 全${all14.length}種のスキルそれぞれで「Lv.1〜Lv.100【神話奥義】」の進化3Dエフェクトを大画面で試し撃ちできます！
+            ※ 全${all14.length}種すべて異なる進化派生＆3D演出！神域イージス（盾）や極光の聖域（持続回復フィールド）も試せます！
           </div>
           ${cards}
         </div>
@@ -587,14 +897,14 @@
     injectSkillPreviewUI(game, body, tab) {
       if (!body) return;
       const txt = body.textContent || '';
-      if (!/skill|magic|art/.test(tab) && !txt.includes('スキル強化')) return;
+      if (!/skill|magic|art/.test(tab) && !txt.includes('スキル強化') && !txt.includes('スキル一覧')) return;
       if (body.querySelector('#kmj-v9-inline-studio-btn')) return;
       const count = this.getAll14Skills(game).length;
       body.insertAdjacentHTML('afterbegin', `
         <div class="card-box" style="margin-bottom:8px;border:1.5px solid #f472b6;background:rgba(30,27,75,0.95);display:flex;align-items:center;justify-content:space-between;gap:8px;">
           <div>
-            <div style="font-size:11px;font-weight:900;color:#f9a8d4;">🎬 全${count}種スキル 魔法エフェクトスタジオ</div>
-            <div style="font-size:9.5px;color:#cbd5e1;">全${count}種のスキルそれぞれでLv進化3D魔法を試せます！</div>
+            <div style="font-size:11px;font-weight:900;color:#f9a8d4;">🎬 全${count}種スキル 個別進化スタジオ</div>
+            <div style="font-size:9.5px;color:#cbd5e1;">全${count}種すべての進化派生・神域イージス(盾)・極光の聖域を試せます！</div>
           </div>
           <button type="button" id="kmj-v9-inline-studio-btn" style="background:linear-gradient(90deg,#ec4899,#8b5cf6);border:none;color:#fff;border-radius:7px;padding:7px 11px;font-size:11px;font-weight:900;cursor:pointer;white-space:nowrap;">⚡ スタジオを開く</button>
         </div>
@@ -604,14 +914,13 @@
   };
 })();
 // ▲▲▲ ここまで【スキルエフェクト専用 game9.js 1/3】 ▲▲▲
-// ▼▼▼ ここから【スキルエフェクト専用 game9.js 2/3】5大元素の超本格3D魔法ビルダー（氷柱波紋隆起・隕石群落下・分岐落雷連打・螺旋竜巻＆真空刃・大渦潮水柱） ▼▼▼
+// ▼▼▼ ここから【スキルエフェクト専用 game9.js 2/3】全14種個別3Dビルダー前半7種（神域イージス聖盾・極光の聖域・烈空三日月斬・氷柱隆起・隕石落下・分岐落雷・螺旋竜巻） ▼▼▼
 (() => {
   'use strict';
 
   const V9 = window.KMJ_SKILL_FX_V9;
   if (!V9 || !V9.EFFECT_BUILDERS) return;
 
-  // 共通ヘルパー：範囲の地面に幾何学魔法陣（六芒星・八芒星・外周ルーンリング）を展開
   function addMagicCircleBase(root, radius, c1, c2, tier, ringsOut) {
     const ringCount = 2 + tier;
     for (let r = 0; r < ringCount; r++) {
@@ -630,11 +939,169 @@
     }
   }
 
+  // 六角形聖盾メッシュを生成する専用ヘルパー
+  function createHexShieldMesh(radius, thickness, color, opacity = 0.85, wireframe = false) {
+    const grp = new THREE.Group();
+    const plate = new THREE.Mesh(
+      new THREE.CylinderGeometry(radius, radius * 0.82, thickness, 6),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity, wireframe })
+    );
+    plate.rotation.x = Math.PI / 2;
+    const frame = new THREE.Mesh(
+      new THREE.RingGeometry(radius * 0.88, radius * 1.04, 6),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: Math.min(1, opacity + 0.12) })
+    );
+    frame.position.z = thickness * 0.55;
+    grp.add(plate);
+    grp.add(frame);
+    return { grp, plateMat: plate.material, frameMat: frame.material };
+  }
+
   // =========================================================
-  // 1. ❄️ 氷華・氷柱魔法（地面の下からクリスタル氷柱が波紋状に次々と生えて進化！）
+  // 1. 🛡️ 神域イージス（防御特化：多重エネルギー聖盾＆六角守護ドーム）
+  // =========================================================
+  V9.EFFECT_BUILDERS.aegis_shield = function (root, info, scale) {
+    const tier = info.tier;
+    const c1 = info.theme.c1; // 0x38bdf8
+    const c2 = info.theme.c2; // 0xfde047
+    const c3 = info.theme.c3; // 0xffffff
+    const areaRadius = (2.1 + tier * 0.65) * scale;
+
+    const magicRings = [];
+    addMagicCircleBase(root, areaRadius, c1, c2, tier, magicRings);
+
+    // 術者の周囲を覆う六角形エネルギー守護ドーム
+    const dome = new THREE.Mesh(
+      new THREE.SphereGeometry(areaRadius * 0.82, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.55),
+      new THREE.MeshBasicMaterial({ color: c1, wireframe: true, transparent: true, opacity: 0.65 })
+    );
+    root.add(dome);
+
+    // 周囲を取り囲んで回転する巨大エネルギー聖盾（進化で 3枚 → 4枚 → 6枚 → 8枚 に増加！）
+    const shields = [];
+    const shieldCount = 3 + tier + (tier >= 2 ? 1 : 0) + (tier >= 3 ? 1 : 0);
+    const orbitR = (1.55 + tier * 0.35) * scale;
+
+    for (let i = 0; i < shieldCount; i++) {
+      const ang = (Math.PI * 2 * i) / shieldCount;
+      const sh = createHexShieldMesh((0.92 + tier * 0.18) * scale, 0.12 * scale, i % 2 === 0 ? c1 : c2, 0.78, false);
+      sh.grp.position.set(Math.cos(ang) * orbitR, (1.35 + tier * 0.15) * scale, Math.sin(ang) * orbitR);
+      sh.grp.lookAt(Math.cos(ang) * (orbitR + 5), (1.35 + tier * 0.15) * scale, Math.sin(ang) * (orbitR + 5));
+      root.add(sh.grp);
+      shields.push({ ...sh, baseAng: ang });
+    }
+
+    // 進化 tier >= 1 では頭上に「不落の黄金守護王冠リング」が展開
+    let crownRing = null;
+    if (tier >= 1) {
+      crownRing = new THREE.Mesh(
+        new THREE.TorusGeometry(orbitR * 0.85, 0.10 * scale, 8, 6),
+        new THREE.MeshBasicMaterial({ color: c2, transparent: true, opacity: 0.95 })
+      );
+      crownRing.rotation.x = Math.PI / 2;
+      crownRing.position.y = (2.6 + tier * 0.3) * scale;
+      root.add(crownRing);
+    }
+
+    return (p, elapsed) => {
+      const fade = p > 0.75 ? Math.max(0, 1 - (p - 0.75) / 0.25) : 1;
+      const pop = Math.min(1, p * 4.5);
+
+      magicRings.forEach(r => {
+        r.mesh.rotation.z = elapsed * r.speed;
+        r.mesh.material.opacity = fade * 0.92;
+      });
+
+      dome.scale.setScalar(pop);
+      dome.rotation.y = elapsed * 1.4;
+      dome.material.opacity = fade * 0.62;
+
+      shields.forEach(sh => {
+        const curAng = sh.baseAng + elapsed * (2.2 + tier * 0.4);
+        const rNow = orbitR * pop;
+        sh.grp.position.set(Math.cos(curAng) * rNow, (1.35 + tier * 0.15) * scale, Math.sin(curAng) * rNow);
+        sh.grp.lookAt(Math.cos(curAng) * (rNow + 5), (1.35 + tier * 0.15) * scale, Math.sin(curAng) * (rNow + 5));
+        sh.plateMat.opacity = fade * 0.78;
+        sh.frameMat.opacity = fade * 0.95;
+      });
+
+      if (crownRing) {
+        crownRing.rotation.z = -elapsed * 3.5;
+        crownRing.scale.setScalar(pop);
+        crownRing.material.opacity = fade * 0.95;
+      }
+    };
+  };
+
+  // =========================================================
+  // 2. 🌈 極光の聖域（展開バースト演出 ※持続フィールド本体は 1/3 で常駐展開）
+  // =========================================================
+  V9.EFFECT_BUILDERS.aurora_sanctuary = function (root, info, scale) {
+    const tier = info.tier;
+    const c1 = info.theme.c1;
+    const c2 = info.theme.c2;
+    const c3 = info.theme.c3;
+    const radius = (2.8 + tier * 0.9) * scale;
+
+    const magicRings = [];
+    addMagicCircleBase(root, radius, c1, c2, tier, magicRings);
+
+    const beam = new THREE.Mesh(
+      new THREE.CylinderGeometry(radius * 0.85, radius, (5.5 + tier * 1.8) * scale, 32, 1, true),
+      new THREE.MeshBasicMaterial({ color: c1, side: THREE.DoubleSide, transparent: true, opacity: 0.45 })
+    );
+    beam.position.y = (2.75 + tier * 0.9) * scale;
+    root.add(beam);
+
+    return (p, elapsed) => {
+      const fade = Math.max(0, 1 - p);
+      magicRings.forEach(r => {
+        r.mesh.rotation.z = elapsed * r.speed;
+        r.mesh.material.opacity = fade * 0.92;
+      });
+      beam.rotation.y = elapsed * 3;
+      beam.scale.set(1 + p * 0.35, 1, 1 + p * 0.35);
+      beam.material.opacity = fade * 0.48;
+    };
+  };
+
+  // =========================================================
+  // 3. ⚔️ 烈空斬（前方へ疾走する三日月真空斬撃波・進化で双月＆次元裂断）
+  // =========================================================
+  V9.EFFECT_BUILDERS.slash_crescent = function (root, info, scale) {
+    const tier = info.tier;
+    const c1 = info.theme.c1;
+    const c2 = info.theme.c2;
+    const c3 = info.theme.c3;
+
+    const waves = [];
+    const waveCount = 1 + tier; // Lv1:1連 → Lv10:2連 → Lv50:3連 → Lv100:4連
+    for (let i = 0; i < waveCount; i++) {
+      const arc = new THREE.Mesh(
+        new THREE.RingGeometry((1.1 + i * 0.35) * scale, (2.3 + i * 0.45) * scale, 28, 1, -Math.PI * 0.42, Math.PI * 0.84),
+        new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? c1 : c2, side: THREE.DoubleSide, transparent: true, opacity: 0.96 })
+      );
+      arc.position.set(0, (1.15 + i * 0.22) * scale, (0.8 + i * 0.4) * scale);
+      arc.rotation.z = (i % 2 === 0 ? 0.32 : -0.32);
+      root.add(arc);
+      waves.push({ mesh: arc, delay: i * 0.08, baseZ: (0.8 + i * 0.4) * scale });
+    }
+
+    return (p) => {
+      waves.forEach(w => {
+        const lp = Math.max(0, Math.min(1, (p - w.delay) / 0.72));
+        w.mesh.position.z = w.baseZ + lp * (7.5 + tier * 2.0) * scale;
+        w.mesh.scale.setScalar(1 + lp * (0.55 + tier * 0.2));
+        w.mesh.material.opacity = lp > 0 ? Math.max(0, (1 - lp) * 0.96) : 0;
+      });
+    };
+  };
+
+  // =========================================================
+  // 4. ❄️ 絶対零度ノヴァ（地面の下からクリスタル氷柱が波紋状に次々と生えて進化！）
   // =========================================================
   V9.EFFECT_BUILDERS.ice = function (root, info, scale) {
-    const tier = info.tier; // 0:通常, 1:真, 2:極, 3:神話
+    const tier = info.tier;
     const c1 = info.theme.c1;
     const c2 = info.theme.c2;
     const c3 = info.theme.c3;
@@ -643,7 +1110,6 @@
     const magicRings = [];
     addMagicCircleBase(root, areaRadius, c1, c2, tier, magicRings);
 
-    // 範囲全体の氷結フロストフィールド
     const frostFloor = new THREE.Mesh(
       new THREE.CircleGeometry(areaRadius, 32),
       new THREE.MeshBasicMaterial({ color: c1, side: THREE.DoubleSide, transparent: true, opacity: 0 })
@@ -652,9 +1118,8 @@
     frostFloor.position.y = 0.03;
     root.add(frostFloor);
 
-    // 地面の下から波紋状に時間差で突き出すクリスタル氷柱群（進化で層数・本数・太さ・高さが激増！）
     const spikes = [];
-    const layerCount = 1 + tier; // Lv1:1重(7本) → Lv10:2重(18本) → Lv50:3重(33本) → Lv100:4重(52本)
+    const layerCount = 1 + tier;
     for (let layer = 0; layer < layerCount; layer++) {
       const countInLayer = 7 + layer * 4;
       const layerRadius = areaRadius * (0.28 + (layer / Math.max(1, layerCount)) * 0.68);
@@ -697,7 +1162,6 @@
       }
     }
 
-    // 進化段階 tier >= 1 で中央から超巨大な「絶対零度の王冠氷柱」が突き出す！
     let giantSpike = null;
     if (tier >= 1) {
       const gh = (3.6 + tier * 1.15) * scale;
@@ -710,32 +1174,13 @@
       root.add(giantSpike);
     }
 
-    // ダイヤモンドダスト結晶パーティクル
-    const flakes = [];
-    const flakeCount = 14 + tier * 8;
-    for (let i = 0; i < flakeCount; i++) {
-      const ang = (Math.PI * 2 * i) / flakeCount;
-      const rad = Math.random() * areaRadius;
-      const fl = new THREE.Mesh(
-        new THREE.OctahedronGeometry(0.15 * scale, 0),
-        new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? c2 : c1, transparent: true, opacity: 0.95 })
-      );
-      const topY = (2.6 + Math.random() * 3.2) * scale;
-      fl.position.set(Math.cos(ang) * rad, topY, Math.sin(ang) * rad);
-      root.add(fl);
-      flakes.push({ mesh: fl, topY, spd: 1.6 + Math.random() * 1.5 });
-    }
-
     return (p, elapsed) => {
       const fade = p > 0.72 ? Math.max(0, 1 - (p - 0.72) / 0.28) : 1;
-
       magicRings.forEach(r => {
         r.mesh.rotation.z = elapsed * r.speed;
         r.mesh.material.opacity = fade * 0.92;
       });
-
       frostFloor.material.opacity = Math.min(0.34, p * 0.85) * fade;
-
       spikes.forEach(sp => {
         const lp = Math.max(0, Math.min(1, (p - sp.delay) / 0.25));
         const easeOut = 1 - Math.pow(1 - lp, 3);
@@ -743,7 +1188,6 @@
         sp.outerMat.opacity = fade * 0.86;
         sp.innerMat.opacity = fade * 0.96;
       });
-
       if (giantSpike) {
         const gp = Math.max(0, Math.min(1, (p - 0.16) / 0.28));
         const easeG = 1 - Math.pow(1 - gp, 3);
@@ -751,17 +1195,11 @@
         giantSpike.rotation.y = elapsed * 2.5;
         giantSpike.material.opacity = fade * 0.95;
       }
-
-      flakes.forEach(fl => {
-        fl.mesh.position.y = Math.max(0.1, fl.topY - p * fl.spd * scale);
-        fl.mesh.rotation.set(elapsed * 4, elapsed * 5, 0);
-        fl.mesh.material.opacity = fade * 0.95;
-      });
     };
   };
 
   // =========================================================
-  // 2. 🔥 紅蓮・隕石爆炎魔法（マグマ魔法陣の上空から巨大メテオ群が連続落下＆大爆発！）
+  // 5. 🔥 星屑メテオ・紅蓮隕石爆炎魔法
   // =========================================================
   V9.EFFECT_BUILDERS.fire = function (root, info, scale) {
     const tier = info.tier;
@@ -773,7 +1211,6 @@
     const magicRings = [];
     addMagicCircleBase(root, areaRadius, c1, c2, tier, magicRings);
 
-    // 進化に応じて落下する隕石の数が激増（1個 → 3個 → 5個 → 7個）
     const meteorCount = 1 + tier * 2;
     const meteors = [];
     for (let i = 0; i < meteorCount; i++) {
@@ -813,7 +1250,6 @@
       });
     }
 
-    // 噴き上がる紅蓮の火柱コーン群
     const pillars = [];
     const pCount = 7 + tier * 4;
     for (let i = 0; i < pCount; i++) {
@@ -831,12 +1267,10 @@
 
     return (p, elapsed) => {
       const fade = p > 0.74 ? Math.max(0, 1 - (p - 0.74) / 0.26) : 1;
-
       magicRings.forEach(r => {
         r.mesh.rotation.z = elapsed * r.speed;
         r.mesh.material.opacity = fade * 0.92;
       });
-
       meteors.forEach(mt => {
         if (p < mt.impactP) {
           const t = p / mt.impactP;
@@ -848,12 +1282,10 @@
           mt.grp.scale.setScalar(1 + exp * (mt.isMain ? 1.85 : 1.25));
           mt.rockMat.opacity = Math.max(0, (1 - exp) * 0.96);
           mt.coreMat.opacity = Math.max(0, (1 - exp) * 0.95);
-
           mt.shock.material.opacity = Math.max(0, (1 - exp) * 0.95);
           mt.shock.scale.setScalar(1 + exp * (mt.isMain ? 4.4 : 2.8));
         }
       });
-
       if (p >= 0.24) {
         const ep = Math.min(1, (p - 0.24) / 0.5);
         const hFactor = Math.sin(ep * Math.PI);
@@ -867,7 +1299,7 @@
   };
 
   // =========================================================
-  // 3. ⚡ 紫電・天罰落雷魔法（上空の雷雲リングから分岐するジグザグ落雷連打＋電撃ドーム！）
+  // 6. ⚡ サンダーボルト・天罰落雷魔法
   // =========================================================
   V9.EFFECT_BUILDERS.thunder = function (root, info, scale) {
     const tier = info.tier;
@@ -923,29 +1355,23 @@
     return (p, elapsed) => {
       const fade = p > 0.72 ? Math.max(0, 1 - (p - 0.72) / 0.28) : 1;
       const strobe = Math.sin(elapsed * 65) > -0.2 ? 1.0 : 0.25;
-
       magicRings.forEach(r => {
         r.mesh.rotation.z = elapsed * r.speed * 1.5;
         r.mesh.material.opacity = fade * 0.92;
       });
-
       skyRing.rotation.z = -elapsed * 5;
       skyRing.material.opacity = fade * 0.9;
-
       bolts.forEach(bt => {
         const on = p >= bt.delay ? 1 : 0;
-        bt.segs.forEach(sg => {
-          sg.material.opacity = on * strobe * fade * 0.96;
-        });
+        bt.segs.forEach(sg => { sg.material.opacity = on * strobe * fade * 0.96; });
       });
-
       dome.rotation.y = elapsed * 6;
       dome.material.opacity = strobe * fade * 0.78;
     };
   };
 
   // =========================================================
-  // 4. 🌪️ 翠嵐・螺旋竜巻魔法（多重螺旋トルネード上昇＋周囲を公転する真空カマイタチの刃！）
+  // 7. 🌪️ 旋風円舞・螺旋竜巻魔法
   // =========================================================
   V9.EFFECT_BUILDERS.wind = function (root, info, scale) {
     const tier = info.tier;
@@ -986,19 +1412,16 @@
 
     return (p, elapsed) => {
       const fade = p > 0.72 ? Math.max(0, 1 - (p - 0.72) / 0.28) : 1;
-
       magicRings.forEach(r => {
         r.mesh.rotation.z = elapsed * r.speed * 1.6;
         r.mesh.material.opacity = fade * 0.92;
       });
-
       tornadoRings.forEach(tr => {
         tr.mesh.rotation.z = elapsed * (12 + tr.idx);
         tr.mesh.position.y = tr.baseY + p * 1.7 * scale;
         tr.mesh.scale.setScalar(1 + p * 0.38);
         tr.mesh.material.opacity = fade * 0.9;
       });
-
       blades.forEach(bl => {
         const curAng = bl.ang + elapsed * 9.5;
         const rad = areaRadius * (0.75 + Math.sin(elapsed * 5) * 0.2);
@@ -1008,9 +1431,35 @@
       });
     };
   };
+})();
+// ▲▲▲ ここまで【スキルエフェクト専用 game9.js 2/3】 ▲▲▲
+// ▼▼▼ ここから【スキルエフェクト専用 game9.js 3/3】後半7種の個別3Dビルダー（大渦潮・巨岩隆起・聖光治癒・ブラックホール・魔界鎖・銀河流星群・無限光剣陣）＆統合実行エンジン ▼▼▼
+(() => {
+  'use strict';
+
+  const V9 = window.KMJ_SKILL_FX_V9;
+  if (!V9 || !V9.EFFECT_BUILDERS) return;
+
+  function addMagicCircleBase(root, radius, c1, c2, tier, ringsOut) {
+    const ringCount = 2 + tier;
+    for (let r = 0; r < ringCount; r++) {
+      const rIn = radius * (0.32 + r * (0.68 / ringCount));
+      const rOut = rIn + 0.14 * (1 + tier * 0.25);
+      const col = r % 2 === 0 ? c1 : c2;
+      const segs = r === 0 ? 6 : (r === 1 ? 8 : 36);
+      const mesh = new THREE.Mesh(
+        new THREE.RingGeometry(rIn, rOut, segs),
+        new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide, transparent: true, opacity: 0.92 })
+      );
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.y = 0.05 + r * 0.025;
+      root.add(mesh);
+      ringsOut.push({ mesh, speed: (r % 2 === 0 ? 1 : -1) * (2.2 + r * 0.7) });
+    }
+  }
 
   // =========================================================
-  // 5. 🌊 蒼海・大渦潮水柱魔法（大渦潮＋複数の高圧ウォーターガイザー＋大津波リング！）
+  // 8. 🌊 アクアゲイザー・大渦潮水柱魔法
   // =========================================================
   V9.EFFECT_BUILDERS.water = function (root, info, scale) {
     const tier = info.tier;
@@ -1055,12 +1504,10 @@
 
     return (p, elapsed) => {
       const fade = p > 0.72 ? Math.max(0, 1 - (p - 0.72) / 0.28) : 1;
-
       magicRings.forEach(r => {
         r.mesh.rotation.z = elapsed * r.speed * 1.4;
         r.mesh.material.opacity = fade * 0.92;
       });
-
       geysers.forEach(gy => {
         const lp = Math.max(0, Math.min(1, (p - gy.delay) / 0.85));
         const hScale = Math.sin(Math.min(1, lp * 1.3) * Math.PI);
@@ -1069,7 +1516,6 @@
         gy.mesh.rotation.y = elapsed * 5;
         gy.mesh.material.opacity = fade * 0.74;
       });
-
       waves.forEach(wv => {
         const lp = Math.max(0, Math.min(1, (p - wv.delay) / 0.7));
         wv.mesh.scale.setScalar(1 + lp * (3.8 + tier * 0.6));
@@ -1077,35 +1523,9 @@
       });
     };
   };
-})();
-// ▲▲▲ ここまで【スキルエフェクト専用 game9.js 2/3】 ▲▲▲
-// ▼▼▼ ここから【スキルエフェクト専用 game9.js 3/3】残り6属性の超本格3D魔法ビルダー（巨岩隆起・天照光輪・ブラックホール吸引爆発・魔界鎖・銀河流星群・無限光剣陣）＆全14種スキル統合実行エンジン ▼▼▼
-(() => {
-  'use strict';
-
-  const V9 = window.KMJ_SKILL_FX_V9;
-  if (!V9 || !V9.EFFECT_BUILDERS) return;
-
-  function addMagicCircleBase(root, radius, c1, c2, tier, ringsOut) {
-    const ringCount = 2 + tier;
-    for (let r = 0; r < ringCount; r++) {
-      const rIn = radius * (0.32 + r * (0.68 / ringCount));
-      const rOut = rIn + 0.14 * (1 + tier * 0.25);
-      const col = r % 2 === 0 ? c1 : c2;
-      const segs = r === 0 ? 6 : (r === 1 ? 8 : 36);
-      const mesh = new THREE.Mesh(
-        new THREE.RingGeometry(rIn, rOut, segs),
-        new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide, transparent: true, opacity: 0.92 })
-      );
-      mesh.rotation.x = -Math.PI / 2;
-      mesh.position.y = 0.05 + r * 0.025;
-      root.add(mesh);
-      ringsOut.push({ mesh, speed: (r % 2 === 0 ? 1 : -1) * (2.2 + r * 0.7) });
-    }
-  }
 
   // =========================================================
-  // 6. 🪨 大地・巨岩隆起魔法（地面の下から巨岩柱群が波紋状に突き出し砕け散る！）
+  // 9. 🪨 破邪の衝撃・巨岩隆起魔法
   // =========================================================
   V9.EFFECT_BUILDERS.earth = function (root, info, scale) {
     const tier = info.tier;
@@ -1161,9 +1581,9 @@
   };
 
   // =========================================================
-  // 7. ✨ 聖光・天照光輪魔法（極太聖光柱＋回転する多重天使輪＋舞い降りる光の羽根！）
+  // 10. 💖 聖光の癒し・天照光輪魔法（イージスとは完全に別の治癒演出）
   // =========================================================
-  V9.EFFECT_BUILDERS.holy = function (root, info, scale) {
+  V9.EFFECT_BUILDERS.holy_heal = function (root, info, scale) {
     const tier = info.tier;
     const c1 = info.theme.c1;
     const c2 = info.theme.c2;
@@ -1244,7 +1664,7 @@
   };
 
   // =========================================================
-  // 8. 🌌 黒蝕・ブラックホール魔法（漆黒球体が周囲を吸引し、最後に超新星爆発！）
+  // 11. 🌌 ダークアビス・ブラックホール魔法
   // =========================================================
   V9.EFFECT_BUILDERS.dark = function (root, info, scale) {
     const tier = info.tier;
@@ -1343,7 +1763,7 @@
   };
 
   // =========================================================
-  // 9. ☠️ 呪詛・魔界瘴気魔法（六芒星陣＋呪いの回転鎖リング＋猛毒バブル湧き上がり！）
+  // 12. ☠️ ポイズンミスト・魔界瘴気魔法
   // =========================================================
   V9.EFFECT_BUILDERS.poison = function (root, info, scale) {
     const tier = info.tier;
@@ -1402,7 +1822,7 @@
   };
 
   // =========================================================
-  // 10. 🌟 星屑・銀河流星魔法（銀河スパイラルから流星群が降り注ぎプリズム爆発！）
+  // 13. 🌟 スターダストノヴァ・銀河流星魔法
   // =========================================================
   V9.EFFECT_BUILDERS.star = function (root, info, scale) {
     const tier = info.tier;
@@ -1445,7 +1865,7 @@
   };
 
   // =========================================================
-  // 11. ⚔️ 秘剣・無限光剣陣（空中に光剣群が円陣展開し、中心へ一斉突き刺さり十字斬撃波！）
+  // 14. 🗡️ 無限光剣陣
   // =========================================================
   V9.EFFECT_BUILDERS.sword = function (root, info, scale) {
     const tier = info.tier;
@@ -1533,12 +1953,10 @@
   };
 
   // =========================================================
-  // 12. 統合実行関数＆全14種スタジオプレビュー＆ペット連携ビーム＆12クラス通常攻撃フック
+  // 15. 統合実行エンジン（防御・聖域系は術者中心、攻撃系は敵中心に自動分岐）
   // =========================================================
   function executeFullMagic3D(game, entity, info) {
     if (!game?.useWebGL || !game?.scene || !entity?.pos || typeof THREE === 'undefined') return;
-
-    V9.spawnCasterChantAura(game, entity, info);
 
     const tier = info?.tier ?? 0;
     const attrId = info?.theme?.id || 'sword';
@@ -1546,28 +1964,53 @@
     const c2 = info?.theme?.c2 ?? 0xf472b6;
     const c3 = info?.theme?.c3 ?? 0xfde047;
     const scale = 1.25 + tier * 0.45;
-    const duration = 1.25 + tier * 0.22;
+    const duration = 1.35 + tier * 0.25;
 
-    let targetX = entity.pos.x + Math.sin(entity.rotY || 0) * 3.0;
-    let targetZ = entity.pos.z + Math.cos(entity.rotY || 0) * 3.0;
-    if (Array.isArray(game.monsters)) {
-      let bestDist = 16;
-      game.monsters.forEach(m => {
-        if (!m || m.dead || !m.pos) return;
-        const dist = Math.hypot(m.pos.x - entity.pos.x, m.pos.z - entity.pos.z);
-        if (dist < bestDist) {
-          bestDist = dist;
-          targetX = m.pos.x;
-          targetZ = m.pos.z;
-        }
-      });
+    // 極光の聖域の場合は、持続回復＆マルチプレイバフフィールドも同時展開！
+    if (attrId === 'aurora_sanctuary' && typeof V9.spawnAuroraSanctuaryField === 'function') {
+      V9.spawnAuroraSanctuaryField(game, entity, info);
+    }
+
+    // 術者自身の足元詠唱魔法陣オーラ
+    V9.spawnCasterChantAura(game, entity, info);
+
+    // 防御・治癒・聖域・前方向け斬撃は術者自身の位置を中心に展開！
+    const isSelfCentered = (
+      attrId === 'aegis_shield' ||
+      attrId === 'aurora_sanctuary' ||
+      attrId === 'holy_heal' ||
+      attrId === 'slash_crescent'
+    );
+
+    let targetX = entity.pos.x;
+    let targetZ = entity.pos.z;
+
+    if (!isSelfCentered) {
+      targetX = entity.pos.x + Math.sin(entity.rotY || 0) * 3.0;
+      targetZ = entity.pos.z + Math.cos(entity.rotY || 0) * 3.0;
+      if (Array.isArray(game.monsters)) {
+        let bestDist = 16;
+        game.monsters.forEach(m => {
+          if (!m || m.dead || !m.pos) return;
+          const dist = Math.hypot(m.pos.x - entity.pos.x, m.pos.z - entity.pos.z);
+          if (dist < bestDist) {
+            bestDist = dist;
+            targetX = m.pos.x;
+            targetZ = m.pos.z;
+          }
+        });
+      }
     }
 
     const root = new THREE.Group();
     root.position.set(targetX, 0, targetZ);
+    if (attrId === 'slash_crescent' || attrId === 'aegis_shield') {
+      root.rotation.y = entity.rotY || 0;
+    }
 
+    // 進化段階 tier >= 1 の立体交差トーラス神環（イージスと聖域は専用フォルム優先のため除外）
     const halos = [];
-    if (tier >= 1) {
+    if (tier >= 1 && attrId !== 'aegis_shield' && attrId !== 'aurora_sanctuary') {
       for (let h = 0; h < tier + 1; h++) {
         const halo = new THREE.Mesh(
           new THREE.TorusGeometry((1.4 + h * 0.38) * scale, 0.085, 10, 32),
@@ -1584,27 +2027,32 @@
     const attrTick = builder(root, info, scale);
 
     const sparks = [];
-    const sparkCount = 16 + tier * 8;
+    const sparkCount = 14 + tier * 6;
     const rainbow = [0xf472b6, 0x38bdf8, 0xfde047, 0x34d399, 0xa855f7, 0xf97316];
     for (let i = 0; i < sparkCount; i++) {
       const ang = (Math.PI * 2 * i) / sparkCount;
       const col = tier >= 3 ? rainbow[i % rainbow.length] : (i % 3 === 0 ? c1 : (i % 3 === 1 ? c2 : c3));
       const sp = new THREE.Mesh(
-        new THREE.OctahedronGeometry(0.22 + tier * 0.05, 0),
+        new THREE.OctahedronGeometry(0.20 + tier * 0.04, 0),
         new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.95 })
       );
       sp.position.set(0, 0.8 + (i % 4) * 0.3, 0);
       root.add(sp);
       sparks.push({
         mesh: sp,
-        vx: Math.cos(ang) * (3.5 + (i % 3) * 1.4) * scale,
-        vy: (2.8 + (i % 4) * 1.1) * scale,
-        vz: Math.sin(ang) * (3.5 + (i % 3) * 1.4) * scale,
+        vx: Math.cos(ang) * (3.2 + (i % 3) * 1.3) * scale,
+        vy: (2.6 + (i % 4) * 1.0) * scale,
+        vz: Math.sin(ang) * (3.2 + (i % 3) * 1.3) * scale,
         startY: 0.8 + (i % 4) * 0.3
       });
     }
 
     V9.register3DAnimation(game.scene, root, duration, (p, elapsed, dt) => {
+      // 防御・聖域系は移動中の術者にも追従させる
+      if (attrId === 'aegis_shield' && entity?.pos) {
+        root.position.set(entity.pos.x, 0, entity.pos.z);
+      }
+
       halos.forEach(h => {
         h.mesh.rotation.x += dt * h.rx;
         h.mesh.rotation.y += dt * h.ry;
@@ -1622,7 +2070,8 @@
       if (attrTick) attrTick(p, elapsed, dt);
     });
 
-    if (game?.pet?.pos) {
+    // 攻撃系スキルの場合のみペット連携追撃ビームを発射
+    if (!isSelfCentered && game?.pet?.pos) {
       const px = game.pet.pos.x, pz = game.pet.pos.z;
       const pGrp = new THREE.Group();
       const orb = new THREE.Mesh(
@@ -1646,7 +2095,7 @@
     }
 
     if (typeof game.shakeTimer === 'number') {
-      game.shakeTimer = Math.max(game.shakeTimer, 0.28 + tier * 0.10);
+      game.shakeTimer = Math.max(game.shakeTimer, 0.26 + tier * 0.09);
     }
   }
 
@@ -1656,7 +2105,6 @@
     V9.showSpellCardCutin(game, info);
   };
 
-  // 全14種スキルスタジオからの単体・進化段階別プレビュー実行
   V9.previewSkillByObj = function (game, skillObj, tier = 0) {
     const baseInfo = V9.getSkillInfo(game, skillObj);
     const lvMap = [1, 10, 50, 100];
@@ -1670,25 +2118,6 @@
       tier,
       tierLabel: tierLabels[tier] || tierLabels[0],
       evolvedName: baseInfo.theme.names(baseInfo.origName)[tier] || baseInfo.origName
-    };
-    executeFullMagic3D(game, game?.player, info);
-    V9.showSpellCardCutin(game, info);
-  };
-
-  V9.previewCustomEffect = function (game, attrId = 'ice', tier = 3) {
-    const theme = V9.ATTRIBUTES.find(a => a.id === attrId) || V9.ATTRIBUTES[0];
-    const lvMap = [1, 10, 50, 100];
-    const tierLabels = ['通常魔法', '✨ 魔法進化Ⅰ【真】', '🔥 魔法進化Ⅱ【極】', '🌈 魔法最終進化【神話スペルカード】'];
-    const baseName = `${theme.label.replace(/^[^\s]+\s*/, '')}`;
-    const info = {
-      slotIdx: 0,
-      skillLv: lvMap[tier] || 100,
-      mpCost: 100,
-      origName: baseName,
-      evolvedName: theme.names(baseName)[tier] || baseName,
-      tier,
-      tierLabel: tierLabels[tier] || tierLabels[3],
-      theme
     };
     executeFullMagic3D(game, game?.player, info);
     V9.showSpellCardCutin(game, info);
@@ -1800,7 +2229,7 @@
     setTimeout(() => {
       if (window.game) {
         V9.syncAllSkills(window.game);
-        window.game.showAlertBanner?.('✨ 全14種スキルエフェクト専用 engine (game9.js v105) 起動完了！', 2200);
+        window.game.showAlertBanner?.('✨ 全14種スキル個別進化＆極光の聖域・神域イージス実装完了！', 2200);
       }
     }, 350);
   }
@@ -1808,125 +2237,3 @@
   hookGameV9();
 })();
 // ▲▲▲ ここまで【スキルエフェクト専用 game9.js 3/3】 ▲▲▲
-// ▼▼▼ 根幹オーバーライドパッチ（MP完全同期・剣2本バグ撲滅・イージス専用化） ▼▼▼
-(() => {
-  'use strict';
-  
-  const V9 = window.KMJ_SKILL_FX_V9;
-  if (!V9) return;
-
-  // 1. イージス専用化 ＆ 聖光の癒し（holy属性）の修復
-  // holy属性は元の「game9.js 2/3」で定義した光柱＆天使の輪エフェクトに戻ります。
-  
-  // イージス専用のシールドエフェクトビルダーを新規追加
-  V9.EFFECT_BUILDERS.aegis_shield = function(root, info, scale) {
-    const tier = info.tier;
-    const shieldGrp = new THREE.Group();
-    shieldGrp.position.set(0, 1.2 * scale, 1.8 * scale); // キャラクターの前方に配置
-    
-    const shieldMesh = new THREE.Mesh(
-      new THREE.CylinderGeometry(1.6 * scale, 1.6 * scale, 0.15 * scale, 8, 1, false, 0, Math.PI),
-      new THREE.MeshBasicMaterial({ color: 0xfde047, transparent: true, opacity: 0.7, side: THREE.DoubleSide, wireframe: tier < 2 })
-    );
-    shieldMesh.rotation.x = Math.PI / 2;
-    shieldGrp.add(shieldMesh);
-    
-    if (tier >= 1) { // 進化したら内側に白い光の盾を追加
-      const innerShield = new THREE.Mesh(
-        new THREE.PlaneGeometry(2.4 * scale, 2.4 * scale),
-        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 })
-      );
-      shieldGrp.add(innerShield);
-    }
-    root.add(shieldGrp);
-    
-    return (p) => {
-      const fade = p > 0.8 ? (1 - p) * 5 : 1;
-      shieldGrp.scale.setScalar(Math.min(1, p * 3));
-      shieldGrp.children.forEach(c => {
-         if(c.material) c.material.opacity = fade * (c === shieldMesh ? 0.7 : 0.9);
-      });
-    };
-  };
-
-  // 実行直前にスキル名をチェックし、「イージス」が含まれていれば専用エフェクトにすり替える
-  const origGetSkillInfo = V9.getSkillInfo;
-  V9.getSkillInfo = function(game, slotIdx) {
-    const info = origGetSkillInfo(game, slotIdx);
-    if (info && info.origName && (info.origName.includes('イージス') || info.origName.includes('神域'))) {
-       info.theme.id = 'aegis_shield'; // 強制的に専用エフェクトを適用
-       // 進化段階に合わせて名前も盾っぽく変更
-       const tierNames = ["神域イージス", "絶対防壁【聖盾】", "神聖城郭【アイギス】", "🌈 創世神盾【神域イージス・ゼロ】"];
-       info.evolvedName = tierNames[info.tier] || tierNames[0];
-    }
-    return info;
-  };
-
-
-  // 2. MP表記と剣2本バグの「常時監視ループ」（非同期ロード対策）
-  setInterval(() => {
-    const game = window.game;
-    if (!game) return;
-
-    // --- A. 左上プレイヤーMPの強制上書き ---
-    if (game.player && game.player.mp !== undefined) {
-      const mpTextEl = document.getElementById('player-mp-text') || document.querySelector('.player-mp-text');
-      if (mpTextEl) {
-         const expectedText = `${Math.floor(game.player.mp)} / ${game.player.maxMp}`;
-         if (mpTextEl.textContent !== expectedText) {
-            mpTextEl.textContent = expectedText;
-         }
-      }
-    }
-
-    // --- B. スキルUIの消費MP表記と実際の消費MPを強制上書き ---
-    if (game.skills && game.saveData && game.saveData.skills) {
-      document.querySelectorAll('.skill-card').forEach(card => {
-        const titleEl = card.querySelector('.skill-title');
-        const mpEl = card.querySelector('.skill-mp');
-        if (!titleEl || !mpEl) return;
-        
-        const baseNameMatch = titleEl.textContent.trim().match(/^([^\sLv]+)/);
-        if (baseNameMatch) {
-          const baseName = baseNameMatch[1];
-          const skillDef = game.skills.find(s => s.name.includes(baseName));
-          if (skillDef) {
-            const currentLv = game.saveData.skills[skillDef.id] || 0;
-            if (currentLv > 0) {
-              // 新計算式（元MP×5 ＋ (Lv-1)×10）
-              const newMp = (skillDef.mpCost * 5) + (currentLv - 1) * 10;
-              
-              // 実際のゲーム内データも書き換える（実際の消費量を同期）
-              if (skillDef.currentMpCost !== newMp) {
-                skillDef.currentMpCost = newMp;
-              }
-
-              // 画像[cite: 3] の「消費MP: ◯ / CT: ◯s」の形式を維持して置換
-              const currentText = mpEl.textContent;
-              const updatedText = currentText.replace(/消費MP:\s*\d+/, `消費MP:${newMp}`);
-              if (currentText !== updatedText) {
-                mpEl.textContent = updatedText;
-              }
-            }
-          }
-        }
-      });
-    }
-
-    // --- C. 剣2本持ちバグの監視・自動削除 ---
-    if (game.player && game.player.mesh) {
-      // 武器モデル（weapon_group 等）を探す
-      const weapons = game.player.mesh.children.filter(c => c.name === 'weapon_group' || (c.name && c.name.includes('weapon')));
-      if (weapons.length > 1) {
-        // 複数存在する場合は、最後に追加されたもの（最新の武器）だけ残して他を消す
-        for (let i = 0; i < weapons.length - 1; i++) {
-          game.player.mesh.remove(weapons[i]);
-          if (weapons[i].geometry) weapons[i].geometry.dispose();
-          if (weapons[i].material) weapons[i].material.dispose();
-        }
-      }
-    }
-  }, 200); // 0.2秒ごとに監視して自動修正（動作は非常に軽く負荷はかかりません）
-
-})();
-// ▲▲▲ 根幹オーバーライドパッチ ここまで ▲▲▲
