@@ -21,18 +21,11 @@
   });
 
   // ゲームインスタンス取得＆自動生成ヘルパー
+// 【修正】本体が作る前に勝手に new KaomojiMMORPG() しない！
   function getOrCreateGameInstance() {
-    let inst = window.__kmjInstance || window.game || window.app || window.mmorpg || window.gameInstance;
-    if (!inst && typeof KaomojiMMORPG === 'function') {
-      try {
-        inst = new KaomojiMMORPG();
-        window.game = window.__kmjInstance = inst;
-      } catch (e) {
-        console.error('[game7] KaomojiMMORPG生成エラー:', e);
-      }
-    }
+    const inst = window.__kmjInstance || window.game || window.app || window.mmorpg || window.gameInstance;
     if (inst) window.__kmjInstance = inst;
-    return inst;
+    return inst || null;
   }
 
   // =========================================================
@@ -1529,31 +1522,23 @@
 
   installV45Part2();
 
-  if (!window._v7GearObserver && typeof MutationObserver !== 'undefined') {
-    window._v7GearObserver = new MutationObserver(() => {
-      injectGearMenuV7();
-      syncDebugHudPillV7();
-    });
-    const startObs = () => {
-      if (document.body) {
-        window._v7GearObserver.observe(document.body, { childList: true, subtree: true });
-      } else {
-        setTimeout(startObs, 100);
-      }
-    };
-    startObs();
-  }
-
+  // 【修正】激重の MutationObserver を廃止し、画面タップ時だけ 0.3秒間隔制限付きで実行
+  let _lastGearCheckV7 = 0;
   document.addEventListener('click', () => {
+    const now = performance.now();
+    if (now - _lastGearCheckV7 < 300) return;
+    _lastGearCheckV7 = now;
     setTimeout(() => {
       injectGearMenuV7();
       syncDebugHudPillV7();
-    }, 40);
+    }, 50);
   }, true);
 
-  setTimeout(() => {
-    injectGearMenuV7();
-    syncDebugHudPillV7();
-  }, 300);
+  // 本体のデータ準備完了後にHUDだけ同期（フライング起動はしない）
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      syncDebugHudPillV7();
+    }, 800);
+  });
 })();
 // ▲▲▲ ここまで game7.js ▲▲▲
