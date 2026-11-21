@@ -439,28 +439,32 @@
     return inst.saveData;
   }
 
-  function findTitleOverlay() {
-    const candidates = [...document.querySelectorAll('div, section, dialog')];
-    for (const el of candidates) {
-      const txt = el.textContent || '';
-      if (txt.includes('顔文字ファンタジー3D') && txt.includes('冒険を始める')) {
-        let box = el;
-        while (box.parentElement && box.parentElement !== document.body) {
-          const st = getComputedStyle(box.parentElement);
-          if (st.position === 'fixed' || st.position === 'absolute') {
-            box = box.parentElement;
-            break;
-          }
-          box = box.parentElement;
+function unblockTitleOverlay() {
+    const overlay = findTitleOverlay();
+    if (overlay) {
+      overlay.style.zIndex = '950';
+      overlay.style.pointerEvents = 'auto';
+      overlay.querySelectorAll('button, input').forEach(el => {
+        el.style.pointerEvents = 'auto';
+      });
+    }
+
+    // 「冒険を始める」ボタンの中央をタップした時に当たる要素を調べ、邪魔な透明膜を透過にする
+    const startBtn = Array.from(document.querySelectorAll('button')).find(b => (b.textContent || '').includes('冒険を始める'));
+    if (startBtn) {
+      const r = startBtn.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) {
+        for (let i = 0; i < 5; i++) {
+          const topEl = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          if (!topEl || topEl === startBtn || startBtn.contains(topEl)) break;
+          topEl.style.pointerEvents = 'none';
         }
-        return box;
       }
     }
-    return null;
   }
 
   function markTitleDataReady() {
-    const inst = getOrCreateGameInstance();
+    const inst = getOrCreateGameInstance(false);
     if (inst) ensureSaveDataReady(inst);
 
     document.querySelectorAll('div, span, p').forEach(el => {
@@ -470,76 +474,13 @@
         el.style.fontWeight = '900';
       }
     });
+
+    unblockTitleOverlay();
   }
 
   function launchGameSafely(forceNew = false) {
-    const inst = getOrCreateGameInstance();
+    const inst = getOrCreateGameInstance(true);
     if (!inst) return;
-
-    if (forceNew) {
-      try {
-        localStorage.removeItem(inst._saveStorageKeyV7 || 'kaomoji_fantasy_3d_save');
-      } catch (e) {}
-      inst.saveData = null;
-    }
-    ensureSaveDataReady(inst);
-
-    const overlay = findTitleOverlay();
-    if (overlay) {
-      overlay.style.display = 'none';
-      overlay.classList.add('hidden');
-    }
-
-    const startMethods = ['startGame', 'beginGame', 'enterWorld', 'enterGame', 'start', 'play'];
-    let started = false;
-    for (const mName of startMethods) {
-      if (typeof inst[mName] === 'function') {
-        try {
-          inst[mName]();
-          started = true;
-          break;
-        } catch (e) {
-          console.warn(`[game7] ${mName} 呼び出しスキップ:`, e);
-        }
-      }
-    }
-
-    if (!started || !inst._v7LoopStarted) {
-      try {
-        if (!inst._initCalledV7 && typeof inst.init === 'function') {
-          inst._initCalledV7 = true;
-          inst.init();
-        }
-      } catch (e) {
-        console.warn('[game7] init補完:', e);
-      }
-
-      try {
-        inst.buildPlayerEntity?.();
-        inst.spawnMonsters?.();
-        inst.refreshAllHUD?.();
-      } catch (e) {}
-
-      if (!inst._loopRunning && !inst._v7LoopStarted && typeof inst.update === 'function') {
-        inst._v7LoopStarted = true;
-        let lastT = performance.now();
-        const tick = (now) => {
-          const dt = Math.min(0.1, Math.max(0.001, (now - lastT) * 0.001));
-          lastT = now;
-          try {
-            inst.update(dt);
-            if (inst.renderer && inst.scene && inst.camera) {
-              inst.renderer.render(inst.scene, inst.camera);
-            }
-          } catch (e) {}
-          requestAnimationFrame(tick);
-        };
-        requestAnimationFrame(tick);
-      }
-    }
-  }
-window.injectGearMenuV7 = injectGearMenuV7;
-  window.syncDebugHudPillV7 = syncDebugHudPillV7;
   function bindTitleRescueButtons() {
     if (window._v7TitleButtonsBound) return;
     window._v7TitleButtonsBound = true;
