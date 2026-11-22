@@ -1,4 +1,4 @@
-// ▼▼▼ ここから【スキルエフェクト専用 game9.js 1/2】CSS・シンセ音・全18種プロファイル・3Dループ・極光の聖域・前半3Dビルダー(1〜10) ▼▼▼
+// ▼▼▼ ここから【スキルエフェクト専用 game9.js 1/2】CSS・シンセ音・全18種プロファイル・3Dループ・極光の聖域・超豪華前半3Dビルダー(1〜10) ▼▼▼
 (() => {
   'use strict';
 
@@ -151,12 +151,14 @@
   }
 
   // =========================================================
-  // 3. 全18種の進化プロファイル（全進化名に元のスキル名 ${b} を保持して名前被りを完全防止）
+  // 3. 全18種の進化プロファイル（攻撃系 / 非攻撃サポート系を明確に区別）
   // =========================================================
   const SKILL_DERIVATION_PROFILES_V9 = [
     {
       id: 'warcry_aura',
-      label: '🔥 覇王の咆哮・闘気覚醒オーラ',
+      isNonAttack: true,
+      supportType: 'buff',
+      label: '🔥 覇王の咆哮・闘気覚醒オーラ【バフ】',
       match: /覇王|咆哮|闘気|覚醒|鼓舞|戦意|怒り|バーサク|warcry|fury|rage|buff/i,
       cardType: '闘気覚醒スペル',
       c1: 0xf97316, c2: 0xfde047, c3: 0xef4444,
@@ -170,8 +172,10 @@
     },
     {
       id: 'aegis_shield',
-      label: '🛡️ 神域防御・絶対聖盾魔法',
-      match: /イージス|神域|盾|シールド|バリア|守護|鉄壁|aegis|shield|guard/i,
+      isNonAttack: true,
+      supportType: 'shield',
+      label: '🛡️ 神域防御・絶対聖盾魔法【防御】',
+      match: /イージス|神域|盾|シールド|バリア|守護|鉄壁|aegis|shield|guard|barrier/i,
       cardType: '守護結界スペル',
       c1: 0x38bdf8, c2: 0xfde047, c3: 0xffffff,
       bgGrad: 'linear-gradient(135deg, rgba(12,74,110,0.98), rgba(29,78,216,0.94))',
@@ -184,7 +188,9 @@
     },
     {
       id: 'aurora_sanctuary',
-      label: '🌈 極光の聖域（持続HP/MP回復＆マルチバフ領域）',
+      isNonAttack: true,
+      supportType: 'sanctuary',
+      label: '🌈 極光の聖域（持続HP/MP回復＆マルチバフ領域）【聖域】',
       match: /極光|聖域|オーロラ|サンクチュアリ|領域|sanctuary|aurora|field/i,
       cardType: '聖域展開スペル',
       c1: 0x34d399, c2: 0xf472b6, c3: 0xfde047,
@@ -198,6 +204,7 @@
     },
     {
       id: 'slash_crescent',
+      isNonAttack: false,
       label: '⚔️ 烈空・三日月真空斬',
       match: /烈空|三日月|真空波|一閃|slash|crescent/i,
       cardType: '疾風剣技スペル',
@@ -212,6 +219,7 @@
     },
     {
       id: 'fire_meteor',
+      isNonAttack: false,
       label: '☄️ 星屑メテオ・超巨大隕石落下魔法',
       match: /メテオ|隕石|meteor/i,
       cardType: '天隕爆炎スペル',
@@ -226,6 +234,7 @@
     },
     {
       id: 'fire_pillar',
+      isNonAttack: false,
       label: '🔥 紅蓮業火・螺旋炎柱魔法',
       match: /炎柱|螺旋炎|ファイア|業火|紅蓮|fire|inferno/i,
       cardType: '螺旋炎柱スペル',
@@ -240,6 +249,7 @@
     },
     {
       id: 'fire_burst',
+      isNonAttack: false,
       label: '💥 爆炎ファイア・連装火球弾幕魔法',
       match: /爆発|爆炎|ブレイズ|火球|フレア|blaze|flare|burst/i,
       cardType: '爆炎弾幕スペル',
@@ -254,6 +264,7 @@
     },
     {
       id: 'fire_eruption',
+      isNonAttack: false,
       label: '🌋 灼熱ブレイズ・溶岩マグマ噴火魔法',
       match: /炎|火|灼熱|溶岩|マグマ|噴火|flame|magma|lava/i,
       cardType: '灼熱噴火スペル',
@@ -268,6 +279,7 @@
     },
     {
       id: 'ice',
+      isNonAttack: false,
       label: '❄️ 絶対零度・氷華氷柱魔法',
       match: /絶対零度|氷|アイス|ブリザード|吹雪|零度|霜|freeze|ice|blizzard/i,
       cardType: '氷華スペル',
@@ -282,6 +294,7 @@
     },
     {
       id: 'thunder',
+      isNonAttack: false,
       label: '⚡ 紫電・天罰落雷魔法',
       match: /雷|電|サンダー|ライトニング|スパーク|雷鳴|thunder|lightning|volt/i,
       cardType: '紫電スペル',
@@ -296,6 +309,7 @@
     },
     {
       id: 'wind',
+      isNonAttack: false,
       label: '🌪️ 旋風円舞・螺旋竜巻魔法',
       match: /旋風|円舞|風|嵐|ウィンド|トルネード|wind|storm|tornado/i,
       cardType: '翠嵐スペル',
@@ -310,6 +324,7 @@
     },
     {
       id: 'water',
+      isNonAttack: false,
       label: '🌊 蒼海・大渦潮水柱魔法',
       match: /水|海|波|津波|アクア|水流|渦|aqua|water|wave|ocean/i,
       cardType: '蒼海スペル',
@@ -324,6 +339,7 @@
     },
     {
       id: 'earth',
+      isNonAttack: false,
       label: '🪨 破邪の衝撃・巨岩隆起魔法',
       match: /破邪|衝撃|地|岩|土|地震|クエイク|砕|earth|rock|quake/i,
       cardType: '大地金剛スペル',
@@ -338,8 +354,10 @@
     },
     {
       id: 'holy_heal',
-      label: '💖 聖光の癒し・天照光輪魔法',
-      match: /癒し|ヒール|回復|光|聖|祈り|祝福|天照|ハート|holy|heal|light|bless/i,
+      isNonAttack: true,
+      supportType: 'heal',
+      label: '💖 聖光の癒し・天照光輪魔法【回復】',
+      match: /癒し|ヒール|回復|光|聖|祈り|祝福|天照|ハート|cure|holy|heal|light|bless/i,
       cardType: '聖光治癒スペル',
       c1: 0xfde047, c2: 0xffffff, c3: 0xf472b6,
       bgGrad: 'linear-gradient(135deg, rgba(133,77,14,0.97), rgba(217,119,6,0.93))',
@@ -352,6 +370,7 @@
     },
     {
       id: 'dark',
+      isNonAttack: false,
       label: '🌌 黒蝕・ブラックホール魔法',
       match: /闇|黒|ダーク|シャドウ|アビス|ブラックホール|虚空|dark|void|shadow|abyss/i,
       cardType: '黒蝕スペル',
@@ -366,6 +385,7 @@
     },
     {
       id: 'poison',
+      isNonAttack: false,
       label: '☠️ 呪詛・魔界瘴気魔法',
       match: /毒|呪|ポイズン|ヴェノム|カース|瘴気|poison|venom|curse/i,
       cardType: '呪詛スペル',
@@ -380,6 +400,7 @@
     },
     {
       id: 'star',
+      isNonAttack: false,
       label: '🌟 星屑・銀河流星魔法',
       match: /星|宇宙|銀河|スター|コメット|ノヴァ|コスモ|虹|star|comet|nova|cosmos|rainbow/i,
       cardType: '星屑スペル',
@@ -394,6 +415,7 @@
     },
     {
       id: 'sword',
+      isNonAttack: false,
       label: '🗡️ 秘剣・無限光剣陣',
       match: /剣|刃|刀|乱舞|百花|sword|blade/i,
       cardType: '秘剣スペル',
@@ -421,7 +443,6 @@
       const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
       mats.forEach((m) => {
         if (!m || !m.transparent) return;
-        // ブラックホールの漆黒球体コア(0x05020a)以外の半透明光パーツは depthWrite: false で透明抜けを完全防止
         const hex = m.color && typeof m.color.getHex === 'function' ? m.color.getHex() : -1;
         if (hex !== 0x05020a) {
           m.depthWrite = false;
@@ -674,7 +695,7 @@
   };
 
   // =========================================================
-  // 6. 全18種スキル個別3Dエフェクト専用ビルダー（前半 1〜10）
+  // 6. 全18種スキル個別3Dエフェクト専用ビルダー（超豪華前半 1〜10）
   // =========================================================
   const reg = register3DAnimationV9;
 
@@ -688,26 +709,28 @@
   }
 
   const EFFECT_BUILDERS_PART1 = {
-    // 1. 覇王の咆哮
+    // 1. 覇王の咆哮（二重衝撃波＋闘気火柱＋回転王冠リング＋舞い上がる闘気結晶）
     warcry_aura: (scene, caster, target, tier, attr) => {
       const root = new THREE.Group();
       root.position.set(caster.x, 0, caster.z);
 
-      const shock = makeCircleRing(0.4, 1.3 + tier * 0.4, attr.c2, 40);
+      const shock = makeCircleRing(0.4, 1.5 + tier * 0.45, attr.c2, 40);
       shock.position.y = 0.08;
-      root.add(shock);
+      const shock2 = makeCircleRing(0.8, 2.2 + tier * 0.6, attr.c1, 6);
+      shock2.position.y = 0.1;
+      root.add(shock, shock2);
 
       const auraCol = new THREE.Mesh(
-        new THREE.CylinderGeometry(1.1 + tier * 0.35, 1.5 + tier * 0.45, 3.6 + tier * 1.1, 28, 1, true),
-        new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.55 })
+        new THREE.CylinderGeometry(1.2 + tier * 0.35, 1.7 + tier * 0.45, 4.5 + tier * 1.2, 28, 1, true),
+        new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.58 })
       );
-      auraCol.position.y = 1.8;
+      auraCol.position.y = 2.25;
       root.add(auraCol);
 
       const crownRings = [];
-      for (let i = 0; i < 2 + tier; i++) {
+      for (let i = 0; i < 3 + tier; i++) {
         const cr = new THREE.Mesh(
-          new THREE.TorusGeometry(1.2 + i * 0.35, 0.08 + tier * 0.02, 10, 32),
+          new THREE.TorusGeometry(1.3 + i * 0.35, 0.09 + tier * 0.02, 10, 32),
           new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c2 : attr.c3, transparent: true, opacity: 0.95 })
         );
         cr.rotation.x = Math.PI / 2;
@@ -717,109 +740,173 @@
       }
 
       const flames = [];
-      for (let i = 0; i < 12 + tier * 6; i++) {
-        const ang = (Math.PI * 2 * i) / (12 + tier * 6);
-        const rad = 0.9 + (i % 3) * 0.45;
+      for (let i = 0; i < 18 + tier * 8; i++) {
+        const ang = (Math.PI * 2 * i) / (18 + tier * 8);
+        const rad = 0.9 + (i % 3) * 0.5;
         const f = new THREE.Mesh(
-          new THREE.OctahedronGeometry(0.18 + tier * 0.05, 0),
-          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c2 : attr.c1, transparent: true, opacity: 0.95 })
+          new THREE.OctahedronGeometry(0.22 + tier * 0.06, 0),
+          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c2 : attr.c1, transparent: true, opacity: 0.96 })
         );
         f.position.set(Math.cos(ang) * rad, 0.2, Math.sin(ang) * rad);
         root.add(f);
-        flames.push({ mesh: f, ang, rad, spd: 2.5 + (i % 4) * 0.7 });
+        flames.push({ mesh: f, ang, rad, spd: 2.8 + (i % 4) * 0.75 });
       }
 
-      reg(scene, root, 1.2 + tier * 0.25, (p, el) => {
+      reg(scene, root, 1.3 + tier * 0.25, (p, el) => {
         const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
-        shock.scale.setScalar(1 + p * (2.6 + tier * 0.8));
-        shock.material.opacity = fade * 0.9;
+        shock.scale.setScalar(1 + p * (2.8 + tier * 0.85));
+        shock.material.opacity = fade * 0.92;
+        shock2.scale.setScalar(1 + p * (2.2 + tier * 0.7));
+        shock2.rotation.z = el * 3.5;
+        shock2.material.opacity = fade * 0.9;
         auraCol.rotation.y = el * 4.5;
-        auraCol.scale.set(1 + Math.sin(el * 12) * 0.08, 0.4 + p * 0.9, 1 + Math.sin(el * 12) * 0.08);
-        auraCol.material.opacity = fade * 0.55;
+        auraCol.scale.set(1 + Math.sin(el * 12) * 0.1, 0.4 + p * 0.95, 1 + Math.sin(el * 12) * 0.1);
+        auraCol.material.opacity = fade * 0.58;
         crownRings.forEach((cr, idx) => {
-          cr.position.y = (0.4 + idx * 0.55) + p * (2.2 + tier * 0.5);
-          cr.rotation.z = el * (idx % 2 === 0 ? 4 : -4);
+          cr.position.y = (0.4 + idx * 0.55) + p * (2.4 + tier * 0.55);
+          cr.rotation.z = el * (idx % 2 === 0 ? 4.5 : -4.5);
           cr.material.opacity = fade * 0.95;
         });
         flames.forEach((fl, idx) => {
-          const a = fl.ang + el * 3.2;
-          fl.mesh.position.set(Math.cos(a) * fl.rad, (p * fl.spd * 1.6) % 3.6, Math.sin(a) * fl.rad);
+          const a = fl.ang + el * 3.5;
+          fl.mesh.position.set(Math.cos(a) * fl.rad, (p * fl.spd * 1.8) % 4.2, Math.sin(a) * fl.rad);
           fl.mesh.rotation.y = el * 6 + idx;
-          fl.mesh.material.opacity = fade * 0.95;
+          fl.mesh.material.opacity = fade * 0.96;
         });
       });
     },
 
-    // 2. 神域防御・イージスの盾
+    // 2. 神域防御・イージスの盾（ハニカムドーム＋二重回転聖盾リング＋地面守護陣）
     aegis_shield: (scene, caster, target, tier, attr) => {
       const root = new THREE.Group();
       root.position.set(caster.x, 1.1, caster.z);
 
-      const domeR = 1.65 + tier * 0.45;
+      const domeR = 1.75 + tier * 0.48;
       const dome = new THREE.Mesh(
         new THREE.IcosahedronGeometry(domeR, 1),
-        new THREE.MeshBasicMaterial({ color: attr.c1, wireframe: true, transparent: true, opacity: 0.88 })
+        new THREE.MeshBasicMaterial({ color: attr.c1, wireframe: true, transparent: true, opacity: 0.92 })
       );
       root.add(dome);
 
       const innerDome = new THREE.Mesh(
         new THREE.SphereGeometry(domeR * 0.96, 24, 18),
-        new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.25 })
+        new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.28 })
       );
       root.add(innerDome);
 
+      const floorRune = makeCircleRing(domeR * 0.85, domeR * 1.25, attr.c2, 8);
+      floorRune.position.y = -1.02;
+      root.add(floorRune);
+
+      const orbitRing = new THREE.Mesh(
+        new THREE.TorusGeometry(domeR * 1.12, 0.08, 8, 36),
+        new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.94 })
+      );
+      orbitRing.rotation.x = Math.PI / 2 - 0.35;
+      root.add(orbitRing);
+
       const hexPlates = [];
-      const plateCnt = 6 + tier * 3;
+      const plateCnt = 8 + tier * 3;
       for (let i = 0; i < plateCnt; i++) {
         const ang = (Math.PI * 2 * i) / plateCnt;
         const hp = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.45 + tier * 0.1, 0.45 + tier * 0.1, 0.06, 6),
-          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c2 : attr.c1, transparent: true, opacity: 0.72 })
+          new THREE.CylinderGeometry(0.48 + tier * 0.1, 0.48 + tier * 0.1, 0.07, 6),
+          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c2 : attr.c1, transparent: true, opacity: 0.78 })
         );
         hp.rotation.x = Math.PI / 2;
-        hp.position.set(Math.cos(ang) * (domeR + 0.15), (i % 3 - 1) * 0.45, Math.sin(ang) * (domeR + 0.15));
+        hp.position.set(Math.cos(ang) * (domeR + 0.15), (i % 3 - 1) * 0.48, Math.sin(ang) * (domeR + 0.15));
         hp.lookAt(0, hp.position.y, 0);
         hp.rotateX(Math.PI / 2);
         root.add(hp);
-        hexPlates.push({ mesh: hp, ang, yOff: (i % 3 - 1) * 0.45 });
+        hexPlates.push({ mesh: hp, ang, yOff: (i % 3 - 1) * 0.48 });
       }
 
-      reg(scene, root, 1.45 + tier * 0.35, (p, el) => {
+      reg(scene, root, 1.5 + tier * 0.35, (p, el) => {
         const fade = p > 0.75 ? 1 - (p - 0.75) / 0.25 : 1;
         const pop = p < 0.15 ? (p / 0.15) : 1;
         dome.scale.setScalar(pop);
-        dome.rotation.y = el * 1.4;
-        dome.material.opacity = fade * 0.88;
+        dome.rotation.y = el * 1.6;
+        dome.material.opacity = fade * 0.92;
         innerDome.scale.setScalar(pop);
-        innerDome.material.opacity = fade * (0.22 + Math.sin(el * 8) * 0.06);
+        innerDome.material.opacity = fade * (0.24 + Math.sin(el * 8) * 0.06);
+        floorRune.rotation.z = -el * 2.5;
+        floorRune.material.opacity = fade * 0.92;
+        orbitRing.rotation.z = el * 4.0;
+        orbitRing.material.opacity = fade * 0.94;
         hexPlates.forEach((hp) => {
-          const a = hp.ang + el * 1.8;
+          const a = hp.ang + el * 2.0;
           const r = (domeR + 0.15) * pop;
           hp.mesh.position.set(Math.cos(a) * r, hp.yOff, Math.sin(a) * r);
           hp.mesh.lookAt(root.position.x, root.position.y + hp.yOff, root.position.z);
           hp.mesh.rotateX(Math.PI / 2);
-          hp.mesh.material.opacity = fade * 0.75;
+          hp.mesh.material.opacity = fade * 0.78;
         });
       });
     },
 
-    // 3. 極光の聖域（天蓋バースト）
+    // 3. 極光の聖域（超豪華・虹色天蓋光柱＋多重回転魔法陣＋上昇プリズム結晶群）
     aurora_sanctuary: (scene, caster, target, tier, attr) => {
       const root = new THREE.Group();
-      root.position.set(caster.x, 0.1, caster.z);
-      const beam = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.4, 2.5 + tier * 0.8, 12 + tier * 3, 24, 1, true),
-        new THREE.MeshBasicMaterial({ color: attr.c2, side: THREE.DoubleSide, transparent: true, opacity: 0.55 })
+      root.position.set(caster.x, 0.08, caster.z);
+
+      const outerBeam = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.4 + tier * 0.4, 3.4 + tier * 0.9, 14 + tier * 3, 28, 1, true),
+        new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.48 })
       );
-      beam.position.y = 6;
-      root.add(beam);
-      reg(scene, root, 0.9, (p) => {
-        beam.scale.set(1 + p * 1.4, 1, 1 + p * 1.4);
-        beam.material.opacity = (1 - p) * 0.55;
+      outerBeam.position.y = 7;
+
+      const innerBeam = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.6 + tier * 0.2, 1.5 + tier * 0.4, 15 + tier * 3, 24, 1, true),
+        new THREE.MeshBasicMaterial({ color: attr.c2, side: THREE.DoubleSide, transparent: true, opacity: 0.65 })
+      );
+      innerBeam.position.y = 7.5;
+
+      const hexA = makeCircleRing(1.5 + tier * 0.4, 2.4 + tier * 0.6, attr.c3, 6);
+      hexA.position.y = 0.05;
+      const hexB = makeCircleRing(2.6 + tier * 0.6, 3.6 + tier * 0.8, attr.c2, 8);
+      hexB.position.y = 0.08;
+      const shockWave = makeCircleRing(0.5, 1.4, attr.c1, 40);
+      shockWave.position.y = 0.12;
+
+      root.add(outerBeam, innerBeam, hexA, hexB, shockWave);
+
+      const prisms = [];
+      const cols = [attr.c1, attr.c2, attr.c3, 0x38bdf8, 0xffffff];
+      for (let i = 0; i < 20 + tier * 8; i++) {
+        const pm = new THREE.Mesh(
+          new THREE.OctahedronGeometry(0.24 + tier * 0.06, 0),
+          new THREE.MeshBasicMaterial({ color: cols[i % cols.length], transparent: true, opacity: 0.96 })
+        );
+        const ang = (Math.PI * 2 * i) / (20 + tier * 8);
+        const rad = 0.8 + (i % 4) * (0.65 + tier * 0.2);
+        root.add(pm);
+        prisms.push({ mesh: pm, ang, rad, off: (i % 5) * 1.4 });
+      }
+
+      reg(scene, root, 1.25 + tier * 0.2, (p, el) => {
+        const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
+        outerBeam.scale.set(1 + p * 0.6, 1, 1 + p * 0.6);
+        outerBeam.rotation.y = el * 2.5;
+        outerBeam.material.opacity = fade * 0.48;
+        innerBeam.rotation.y = -el * 4.0;
+        innerBeam.material.opacity = fade * 0.65;
+        hexA.rotation.z = el * 3.5;
+        hexA.material.opacity = fade * 0.95;
+        hexB.rotation.z = -el * 2.8;
+        hexB.material.opacity = fade * 0.95;
+        shockWave.scale.setScalar(1 + p * (3.5 + tier * 0.9));
+        shockWave.material.opacity = fade * 0.9;
+        prisms.forEach((pr, idx) => {
+          const a = pr.ang + el * 3.2;
+          const y = (p * 8.5 + pr.off) % 8.5;
+          pr.mesh.position.set(Math.cos(a) * pr.rad, y, Math.sin(a) * pr.rad);
+          pr.mesh.rotation.y = el * 7 + idx;
+          pr.mesh.material.opacity = fade * 0.96;
+        });
       });
     },
 
-    // 4. 烈空・三日月真空斬
+    // 4. 烈空・三日月真空斬（超高速多重三日月真空刃＋軌跡風刃粒子＋着弾クロス衝撃波）
     slash_crescent: (scene, caster, target, tier, attr) => {
       const root = new THREE.Group();
       const dx = target.x - caster.x;
@@ -829,40 +916,52 @@
       root.position.set(caster.x, 1.15, caster.z);
       root.rotation.y = yaw;
 
-      const waveCount = 1 + tier;
+      const waveCount = 2 + tier;
       const waves = [];
       for (let w = 0; w < waveCount; w++) {
         const wg = new THREE.Group();
         const blade = new THREE.Mesh(
-          new THREE.RingGeometry(1.1 + tier * 0.3, 1.85 + tier * 0.45, 28, 1, -Math.PI * 0.42, Math.PI * 0.84),
+          new THREE.RingGeometry(1.1 + tier * 0.3, 2.05 + tier * 0.48, 28, 1, -Math.PI * 0.45, Math.PI * 0.9),
           new THREE.MeshBasicMaterial({ color: w % 2 === 0 ? attr.c1 : attr.c2, side: THREE.DoubleSide, transparent: true, opacity: 0.96 })
         );
         blade.rotation.x = Math.PI / 2;
-        blade.rotation.z = (w - (waveCount - 1) * 0.5) * 0.35;
+        blade.rotation.z = (w - (waveCount - 1) * 0.5) * 0.42;
         wg.add(blade);
 
         const edge = new THREE.Mesh(
-          new THREE.TorusGeometry(1.85 + tier * 0.45, 0.08 + tier * 0.03, 8, 28, Math.PI * 0.84),
+          new THREE.TorusGeometry(2.05 + tier * 0.48, 0.09 + tier * 0.03, 8, 28, Math.PI * 0.9),
           new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95 })
         );
         edge.rotation.x = Math.PI / 2;
-        edge.rotation.z = -Math.PI * 0.42 + (w - (waveCount - 1) * 0.5) * 0.35;
+        edge.rotation.z = -Math.PI * 0.45 + (w - (waveCount - 1) * 0.5) * 0.42;
         wg.add(edge);
 
-        wg.position.z = -w * 0.85;
+        wg.position.z = -w * 0.75;
         root.add(wg);
         waves.push({ grp: wg, blade, edge });
       }
 
-      reg(scene, root, 0.65 + tier * 0.1, (p) => {
-        const travel = p * (dist + 3.0);
+      const impactRing = makeCircleRing(0.5, 2.4 + tier * 0.7, attr.c1, 32);
+      impactRing.position.set(0, -1.05, dist);
+      impactRing.visible = false;
+      root.add(impactRing);
+
+      reg(scene, root, 0.75 + tier * 0.12, (p, el) => {
+        const travel = Math.min(1, p / 0.72) * (dist + 1.5);
         const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
         waves.forEach((wv, idx) => {
-          wv.grp.position.z = travel - idx * 0.9;
-          wv.grp.scale.set(1 + p * 0.55, 1, 1 + p * 0.35);
+          wv.grp.position.z = travel - idx * 0.85;
+          wv.grp.scale.set(1 + p * 0.65, 1, 1 + p * 0.4);
           wv.blade.material.opacity = fade * 0.96;
           wv.edge.material.opacity = fade * 0.95;
         });
+        if (p >= 0.55) {
+          const bp = (p - 0.55) / 0.45;
+          impactRing.visible = true;
+          impactRing.scale.setScalar(0.5 + bp * 1.4);
+          impactRing.rotation.z = el * 6;
+          impactRing.material.opacity = (1 - bp) * 0.95;
+        }
       });
     },
 
@@ -1056,42 +1155,77 @@
       });
     },
 
-    // 8. 灼熱ブレイズ・溶岩マグマ噴火魔法
+    // 8. 灼熱ブレイズ・溶岩マグマ噴火魔法（地割れリング＋中央火柱＋飛び散る灼熱溶岩弾＋熱波）
     fire_eruption: (scene, caster, target, tier, attr) => {
       const root = new THREE.Group();
       root.position.set(target.x, 0, target.z);
-      const rMax = 2.5 + tier * 0.85;
+      const rMax = 2.7 + tier * 0.9;
 
       const lavaPool = new THREE.Mesh(
         new THREE.CircleGeometry(rMax, 32),
-        new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.78 })
+        new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.82 })
       );
       lavaPool.rotation.x = -Math.PI / 2;
       lavaPool.position.y = 0.05;
-      root.add(lavaPool);
+
+      const heatWave = makeCircleRing(rMax * 0.75, rMax * 1.15, attr.c2, 36);
+      heatWave.position.y = 0.09;
+
+      const mainVolcano = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.9 + tier * 0.3, 1.6 + tier * 0.45, 5.8 + tier * 1.8, 22, 1, true),
+        new THREE.MeshBasicMaterial({ color: attr.c2, side: THREE.DoubleSide, transparent: true, opacity: 0.72 })
+      );
+      mainVolcano.position.y = 2.9;
+      root.add(lavaPool, heatWave, mainVolcano);
 
       const geysers = [];
-      for (let i = 0; i < 6 + tier * 4; i++) {
-        const ang = (Math.PI * 2 * i) / (6 + tier * 4);
+      for (let i = 0; i < 8 + tier * 4; i++) {
+        const ang = (Math.PI * 2 * i) / (8 + tier * 4);
         const rad = rMax * (0.25 + (i % 3) * 0.28);
         const g = new THREE.Mesh(
-          new THREE.ConeGeometry(0.35 + tier * 0.08, 3.2 + tier * 1.1, 10),
-          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c2 : attr.c1, transparent: true, opacity: 0.92 })
+          new THREE.ConeGeometry(0.38 + tier * 0.09, 3.6 + tier * 1.2, 10),
+          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c2 : attr.c1, transparent: true, opacity: 0.94 })
         );
-        g.position.set(Math.cos(ang) * rad, 1.5, Math.sin(ang) * rad);
+        g.position.set(Math.cos(ang) * rad, 1.6, Math.sin(ang) * rad);
         root.add(g);
         geysers.push({ mesh: g, phase: i * 0.4 });
       }
 
-      reg(scene, root, 1.15 + tier * 0.2, (p) => {
-        const fade = p > 0.7 ? 1 - (p - 0.7) / 0.3 : 1;
+      const magmaBombs = [];
+      for (let i = 0; i < 16 + tier * 6; i++) {
+        const mb = new THREE.Mesh(
+          new THREE.DodecahedronGeometry(0.24 + tier * 0.06, 0),
+          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c2 : attr.c3, transparent: true, opacity: 0.96 })
+        );
+        const ang = (Math.PI * 2 * i) / (16 + tier * 6);
+        const dist = 1.6 + (i % 4) * (0.85 + tier * 0.25);
+        const peakH = 3.5 + (i % 3) * 1.4 + tier * 0.6;
+        root.add(mb);
+        magmaBombs.push({ mesh: mb, ang, dist, peakH });
+      }
+
+      reg(scene, root, 1.25 + tier * 0.2, (p, el) => {
+        const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
         lavaPool.scale.setScalar(Math.min(1, p * 3.5));
-        lavaPool.material.opacity = fade * 0.78;
+        lavaPool.material.opacity = fade * 0.82;
+        heatWave.scale.setScalar(0.8 + p * 1.35);
+        heatWave.rotation.z = el * 3.5;
+        heatWave.material.opacity = fade * 0.92;
+        mainVolcano.scale.set(1 + Math.sin(el * 16) * 0.12, Math.sin(p * Math.PI), 1 + Math.sin(el * 16) * 0.12);
+        mainVolcano.rotation.y = el * 5;
+        mainVolcano.material.opacity = fade * 0.72;
         geysers.forEach((gy) => {
           const wave = Math.max(0.15, Math.sin(p * Math.PI + gy.phase));
-          gy.mesh.scale.set(1, wave * 1.3, 1);
-          gy.mesh.position.y = wave * (1.8 + tier * 0.5);
-          gy.mesh.material.opacity = fade * 0.92;
+          gy.mesh.scale.set(1, wave * 1.4, 1);
+          gy.mesh.position.y = wave * (2.0 + tier * 0.55);
+          gy.mesh.material.opacity = fade * 0.94;
+        });
+        magmaBombs.forEach((mb, idx) => {
+          const r = mb.dist * p;
+          const y = Math.sin(p * Math.PI) * mb.peakH + 0.2;
+          mb.mesh.position.set(Math.cos(mb.ang) * r, y, Math.sin(mb.ang) * r);
+          mb.mesh.rotation.set(el * 8 + idx, el * 6, 0);
+          mb.mesh.material.opacity = fade * 0.96;
         });
       });
     },
@@ -1193,903 +1327,1129 @@
   window.KMJ_SKILL_FX_V9._makeCircleRing = makeCircleRing;
 })();
 // ▲▲▲ ここまで【スキルエフェクト専用 game9.js 1/2】 ▲▲▲
-// ▼▼▼ ここから【スキルエフェクト専用 game9.js 2/2】後半3Dビルダー(11〜18)・カットイン・baseName同期・魔法スタジオUI・両クラス安全フック・デバッグ連携API ▼▼▼
+// ▼▼▼ ここから【スキルエフェクト専用 game9.js 2/2】超豪華後半3Dビルダー(11〜18)・非攻撃スキル判定ガード・カットイン・魔法進化スタジオUI・本体フック ▼▼▼
 (() => {
   'use strict';
 
-  const FX9 = window.KMJ_SKILL_FX_V9;
-  if (!FX9) return;
+  const V9 = window.KMJ_SKILL_FX_V9;
+  if (!V9) {
+    console.error('[game9.js 2/2] game9.js 1/2 が先に読み込まれていません。');
+    return;
+  }
 
-  const ATTRS = FX9.ATTRIBUTES;
-  const reg = FX9.register3DAnimation;
-  const makeCircleRing = FX9._makeCircleRing || function (rIn, rOut, color, seg = 36) {
-    const m = new THREE.Mesh(
-      new THREE.RingGeometry(rIn, rOut, seg),
-      new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.95, depthWrite: false })
-    );
-    m.rotation.x = -Math.PI / 2;
-    return m;
-  };
+  const reg = V9.register3DAnimation;
+  const makeCircleRing = V9._makeCircleRing;
 
   // =========================================================
-  // 1. 全18種スキル個別3Dエフェクト専用ビルダー（後半 11〜18）
+  // 7. 全18種スキル個別3Dエフェクト専用ビルダー（超豪華後半 11〜18）
   // =========================================================
   const EFFECT_BUILDERS_PART2 = {
-    // 11. 旋風円舞・螺旋竜巻魔法
+    // 11. 旋風円舞・螺旋竜巻魔法（多重竜巻ファンネル＋外周疾風リング＋舞い上がる風刃結晶）
     wind: (scene, caster, target, tier, attr) => {
       const root = new THREE.Group();
       root.position.set(target.x, 0, target.z);
+      const maxR = 2.4 + tier * 0.75;
 
-      const funnels = [];
-      const layers = 5 + tier * 2;
-      for (let i = 0; i < layers; i++) {
-        const r = 0.55 + (i / layers) * (1.8 + tier * 0.5);
-        const torus = new THREE.Mesh(
+      const groundRing = makeCircleRing(0.6, maxR, attr.c1, 36);
+      groundRing.position.y = 0.06;
+      const innerRune = makeCircleRing(0.3, maxR * 0.55, attr.c3, 6);
+      innerRune.position.y = 0.09;
+      root.add(groundRing, innerRune);
+
+      const funnelOuter = new THREE.Mesh(
+        new THREE.CylinderGeometry(maxR * 1.15, 0.45, 6.2 + tier * 1.8, 28, 1, true),
+        new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.46 })
+      );
+      funnelOuter.position.y = 3.1 + tier * 0.9;
+
+      const funnelInner = new THREE.Mesh(
+        new THREE.CylinderGeometry(maxR * 0.65, 0.25, 6.6 + tier * 1.8, 22, 1, true),
+        new THREE.MeshBasicMaterial({ color: attr.c2, side: THREE.DoubleSide, transparent: true, opacity: 0.68 })
+      );
+      funnelInner.position.y = 3.3 + tier * 0.9;
+      root.add(funnelOuter, funnelInner);
+
+      const windRings = [];
+      const rCnt = 6 + tier * 3;
+      for (let i = 0; i < rCnt; i++) {
+        const t = i / rCnt;
+        const r = 0.45 + t * maxR * 0.95;
+        const wr = new THREE.Mesh(
           new THREE.TorusGeometry(r, 0.07 + tier * 0.02, 8, 28),
           new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c1 : attr.c2, transparent: true, opacity: 0.9 })
         );
-        torus.rotation.x = Math.PI / 2 + 0.15;
-        torus.position.y = 0.4 + i * (0.75 + tier * 0.15);
-        root.add(torus);
-        funnels.push(torus);
+        wr.rotation.x = Math.PI / 2;
+        wr.position.y = 0.3 + t * (5.6 + tier * 1.6);
+        root.add(wr);
+        windRings.push({ mesh: wr, baseY: wr.position.y, spd: (i % 2 === 0 ? 1 : -1) * (5 + i * 0.5) });
       }
 
-      reg(scene, root, 1.15 + tier * 0.2, (p, el) => {
-        const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
-        funnels.forEach((fn, idx) => {
-          fn.rotation.z = el * (8 + idx * 1.2);
-          fn.position.x = Math.cos(el * 6 + idx) * 0.28;
-          fn.position.z = Math.sin(el * 6 + idx) * 0.28;
-          fn.material.opacity = fade * 0.9;
-        });
-      });
-    },
-
-    // 12. 蒼海・大渦潮水柱魔法
-    water: (scene, caster, target, tier, attr) => {
-      const root = new THREE.Group();
-      root.position.set(target.x, 0, target.z);
-      const rMax = 2.4 + tier * 0.8;
-
-      const whirl = makeCircleRing(0.4, rMax, attr.c1, 36);
-      whirl.position.y = 0.06;
-      root.add(whirl);
-
-      const spout = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.9 + tier * 0.3, 0.45 + tier * 0.15, 5.5 + tier * 1.8, 24, 1, true),
-        new THREE.MeshBasicMaterial({ color: attr.c2, side: THREE.DoubleSide, transparent: true, opacity: 0.72 })
-      );
-      spout.position.y = 2.75;
-      root.add(spout);
-
-      const bubbles = [];
-      for (let i = 0; i < 14 + tier * 6; i++) {
+      const blades = [];
+      for (let i = 0; i < 16 + tier * 6; i++) {
         const b = new THREE.Mesh(
-          new THREE.SphereGeometry(0.18 + (i % 3) * 0.07, 10, 10),
-          new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.9 })
+          new THREE.TetrahedronGeometry(0.24 + tier * 0.05, 0),
+          new THREE.MeshBasicMaterial({ color: i % 3 === 0 ? attr.c3 : attr.c2, transparent: true, opacity: 0.95 })
         );
         root.add(b);
-        bubbles.push({ mesh: b, ang: (Math.PI * 2 * i) / (14 + tier * 6), rad: 0.7 + (i % 4) * 0.4 });
-      }
-
-      reg(scene, root, 1.15 + tier * 0.2, (p, el) => {
-        const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
-        whirl.rotation.z = -el * 7;
-        whirl.material.opacity = fade * 0.95;
-        spout.rotation.y = el * 6;
-        spout.scale.set(1 + Math.sin(el * 14) * 0.12, Math.sin(p * Math.PI), 1 + Math.sin(el * 14) * 0.12);
-        spout.material.opacity = fade * 0.72;
-        bubbles.forEach((bb, idx) => {
-          const a = bb.ang + el * 5;
-          bb.mesh.position.set(Math.cos(a) * bb.rad, (p * 5.2 + idx * 0.3) % 5.5, Math.sin(a) * bb.rad);
-          bb.mesh.material.opacity = fade * 0.9;
-        });
-      });
-    },
-
-    // 13. 破邪の衝撃・巨岩隆起魔法
-    earth: (scene, caster, target, tier, attr) => {
-      const root = new THREE.Group();
-      root.position.set(target.x, 0, target.z);
-      const rMax = 2.4 + tier * 0.85;
-
-      const quakeRing = makeCircleRing(rMax * 0.75, rMax, attr.c2, 8);
-      quakeRing.position.y = 0.06;
-      root.add(quakeRing);
-
-      const rocks = [];
-      const rockCnt = 6 + tier * 4;
-      for (let i = 0; i < rockCnt; i++) {
-        const ang = (Math.PI * 2 * i) / rockCnt;
-        const rad = i === 0 ? 0 : rMax * (0.35 + (i % 2) * 0.3);
-        const h = (i === 0 ? 2.8 : 1.9) + tier * 0.75;
-        const rk = new THREE.Mesh(
-          new THREE.DodecahedronGeometry(0.65 + tier * 0.18, 0),
-          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c1 : attr.c3, transparent: true, opacity: 0.96 })
-        );
-        rk.scale.set(1, h / 0.8, 1);
-        rk.position.set(Math.cos(ang) * rad, -1.5, Math.sin(ang) * rad);
-        root.add(rk);
-        rocks.push({ mesh: rk, targetY: h * 0.42 });
-      }
-
-      reg(scene, root, 1.15 + tier * 0.2, (p) => {
-        const thrust = Math.min(1, p / 0.22);
-        const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
-        quakeRing.scale.setScalar(0.6 + p * 0.75);
-        quakeRing.material.opacity = fade * 0.95;
-        rocks.forEach((r) => {
-          r.mesh.position.y = -1.5 + (r.targetY + 1.5) * thrust;
-          r.mesh.material.opacity = fade * 0.96;
-        });
-      });
-    },
-
-    // 14. 聖光の癒し・天照光輪魔法
-    holy_heal: (scene, caster, target, tier, attr) => {
-      const root = new THREE.Group();
-      root.position.set(target.x, 0, target.z);
-
-      const beam = new THREE.Mesh(
-        new THREE.CylinderGeometry(1.1 + tier * 0.35, 1.6 + tier * 0.45, 9 + tier * 2, 28, 1, true),
-        new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.45 })
-      );
-      beam.position.y = 4.5;
-      root.add(beam);
-
-      const halo = new THREE.Mesh(
-        new THREE.TorusGeometry(1.3 + tier * 0.4, 0.09, 10, 36),
-        new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.95 })
-      );
-      halo.rotation.x = Math.PI / 2;
-      halo.position.y = 3.2 + tier * 0.5;
-      root.add(halo);
-
-      const motes = [];
-      for (let i = 0; i < 16 + tier * 8; i++) {
-        const m = new THREE.Mesh(
-          new THREE.OctahedronGeometry(0.16 + tier * 0.04, 0),
-          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c1 : attr.c3, transparent: true, opacity: 0.95 })
-        );
-        root.add(m);
-        motes.push({ mesh: m, ang: (Math.PI * 2 * i) / (16 + tier * 8), rad: 0.6 + (i % 4) * 0.35 });
-      }
-
-      reg(scene, root, 1.25 + tier * 0.2, (p, el) => {
-        const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
-        beam.material.opacity = fade * 0.45;
-        halo.rotation.z = el * 3.5;
-        halo.material.opacity = fade * 0.95;
-        motes.forEach((mt, idx) => {
-          const a = mt.ang + el * 2.5;
-          mt.mesh.position.set(Math.cos(a) * mt.rad, (p * 4.5 + idx * 0.25) % 4.5, Math.sin(a) * mt.rad);
-          mt.mesh.material.opacity = fade * 0.95;
-        });
-      });
-    },
-
-    // 15. 黒蝕・ブラックホール魔法
-    dark: (scene, caster, target, tier, attr) => {
-      const root = new THREE.Group();
-      root.position.set(target.x, 1.35 + tier * 0.25, target.z);
-
-      const core = new THREE.Mesh(
-        new THREE.SphereGeometry(0.85 + tier * 0.28, 24, 18),
-        new THREE.MeshBasicMaterial({ color: 0x05020a, transparent: true, opacity: 0.98 })
-      );
-      root.add(core);
-
-      const horizon = new THREE.Mesh(
-        new THREE.SphereGeometry(0.95 + tier * 0.31, 20, 16),
-        new THREE.MeshBasicMaterial({ color: attr.c1, wireframe: true, transparent: true, opacity: 0.92 })
-      );
-      root.add(horizon);
-
-      const disk = new THREE.Mesh(
-        new THREE.RingGeometry(1.1 + tier * 0.3, 2.5 + tier * 0.75, 40),
-        new THREE.MeshBasicMaterial({ color: attr.c2, side: THREE.DoubleSide, transparent: true, opacity: 0.82 })
-      );
-      disk.rotation.x = Math.PI / 2 - 0.32;
-      root.add(disk);
-
-      reg(scene, root, 1.25 + tier * 0.25, (p, el) => {
-        const pulse = p < 0.8 ? 1 : (1 - p) / 0.2;
-        core.scale.setScalar(pulse);
-        horizon.scale.setScalar(pulse);
-        horizon.rotation.y = el * 4;
-        disk.rotation.z = -el * 6;
-        disk.scale.setScalar(pulse);
-      });
-    },
-
-    // 16. 呪詛・魔界瘴気魔法
-    poison: (scene, caster, target, tier, attr) => {
-      const root = new THREE.Group();
-      root.position.set(target.x, 0, target.z);
-      const rMax = 2.3 + tier * 0.75;
-
-      const swamp = new THREE.Mesh(
-        new THREE.CircleGeometry(rMax, 32),
-        new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.68 })
-      );
-      swamp.rotation.x = -Math.PI / 2;
-      swamp.position.y = 0.05;
-      root.add(swamp);
-
-      const bubbles = [];
-      for (let i = 0; i < 14 + tier * 6; i++) {
-        const b = new THREE.Mesh(
-          new THREE.SphereGeometry(0.22 + (i % 3) * 0.08, 12, 10),
-          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c2 : attr.c1, transparent: true, opacity: 0.88 })
-        );
-        root.add(b);
-        bubbles.push({ mesh: b, ang: (Math.PI * 2 * i) / (14 + tier * 6), rad: rMax * (0.2 + (i % 4) * 0.2) });
+        blades.push({ mesh: b, ang: (Math.PI * 2 * i) / (16 + tier * 6), hFrac: (i % 7) / 7 });
       }
 
       reg(scene, root, 1.2 + tier * 0.2, (p, el) => {
         const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
-        swamp.material.opacity = fade * 0.68;
-        bubbles.forEach((bb, idx) => {
-          const y = ((p * 3.5 + idx * 0.4) % 3.2);
-          bb.mesh.position.set(Math.cos(bb.ang) * bb.rad, y, Math.sin(bb.ang) * bb.rad);
-          bb.mesh.scale.setScalar(1 + Math.sin(el * 8 + idx) * 0.25);
-          bb.mesh.material.opacity = fade * 0.88;
+        groundRing.rotation.z = el * 5;
+        groundRing.material.opacity = fade * 0.92;
+        innerRune.rotation.z = -el * 7;
+        innerRune.material.opacity = fade * 0.95;
+        funnelOuter.rotation.y = el * 7;
+        funnelOuter.scale.set(1 + Math.sin(el * 12) * 0.08, Math.min(1, p * 3.5), 1 + Math.sin(el * 12) * 0.08);
+        funnelOuter.material.opacity = fade * 0.46;
+        funnelInner.rotation.y = -el * 10;
+        funnelInner.material.opacity = fade * 0.68;
+        windRings.forEach((wr) => {
+          wr.mesh.rotation.z = el * wr.spd;
+          wr.mesh.position.y = wr.baseY + Math.sin(el * 8 + wr.baseY) * 0.25;
+          wr.mesh.material.opacity = fade * 0.9;
+        });
+        blades.forEach((bl, idx) => {
+          const h = ((bl.hFrac + p * 1.4) % 1) * (6.0 + tier * 1.6);
+          const r = 0.5 + (h / (6.0 + tier * 1.6)) * maxR * 1.1;
+          const a = bl.ang + el * 9;
+          bl.mesh.position.set(Math.cos(a) * r, h, Math.sin(a) * r);
+          bl.mesh.rotation.set(el * 10, el * 8 + idx, 0);
+          bl.mesh.material.opacity = fade * 0.95;
         });
       });
     },
 
-    // 17. 星屑・銀河流星魔法
-    star: (scene, caster, target, tier, attr) => {
+    // 12. 蒼海・大渦潮水柱魔法（大渦潮ディスク＋多重波紋＋噴き上がる水柱＋水沫オーブ）
+    water: (scene, caster, target, tier, attr) => {
       const root = new THREE.Group();
       root.position.set(target.x, 0, target.z);
+      const maxR = 2.6 + tier * 0.85;
 
-      const galaxy = makeCircleRing(0.6, 2.5 + tier * 0.8, attr.c1, 36);
-      galaxy.position.y = 0.08;
-      root.add(galaxy);
+      const whirlpool = new THREE.Mesh(
+        new THREE.CircleGeometry(maxR, 36),
+        new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.72 })
+      );
+      whirlpool.rotation.x = -Math.PI / 2;
+      whirlpool.position.y = 0.05;
+      root.add(whirlpool);
 
-      const stars = [];
-      const cols = [attr.c1, attr.c2, attr.c3, 0xffffff];
-      for (let i = 0; i < 14 + tier * 6; i++) {
-        const st = new THREE.Mesh(
-          new THREE.OctahedronGeometry(0.28 + tier * 0.07, 0),
-          new THREE.MeshBasicMaterial({ color: cols[i % cols.length], transparent: true, opacity: 0.96 })
+      const ripples = [];
+      for (let i = 0; i < 3 + tier; i++) {
+        const rp = makeCircleRing(0.4 + i * 0.3, 0.85 + i * 0.35, i % 2 === 0 ? attr.c2 : attr.c3, 36);
+        rp.position.y = 0.08 + i * 0.02;
+        root.add(rp);
+        ripples.push(rp);
+      }
+
+      const spout = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.95 + tier * 0.35, 1.5 + tier * 0.45, 6.4 + tier * 2.0, 26, 1, true),
+        new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.72 })
+      );
+      spout.position.y = 3.2;
+
+      const innerSpout = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.45 + tier * 0.15, 0.75 + tier * 0.25, 7.0 + tier * 2.0, 20, 1, true),
+        new THREE.MeshBasicMaterial({ color: attr.c2, side: THREE.DoubleSide, transparent: true, opacity: 0.88 })
+      );
+      innerSpout.position.y = 3.5;
+      root.add(spout, innerSpout);
+
+      const droplets = [];
+      for (let i = 0; i < 18 + tier * 8; i++) {
+        const d = new THREE.Mesh(
+          new THREE.SphereGeometry(0.2 + tier * 0.05, 10, 8),
+          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c2 : attr.c3, transparent: true, opacity: 0.94 })
         );
-        const ang = (Math.PI * 2 * i) / (14 + tier * 6);
-        const rad = 0.4 + (i % 4) * (0.55 + tier * 0.15);
-        st.position.set(Math.cos(ang) * rad, 8 + (i % 5) * 1.4, Math.sin(ang) * rad);
-        root.add(st);
-        stars.push({ mesh: st, x: Math.cos(ang) * rad, z: Math.sin(ang) * rad, startY: 8 + (i % 5) * 1.4 });
+        root.add(d);
+        droplets.push({ mesh: d, ang: (Math.PI * 2 * i) / (18 + tier * 8), rad: 0.7 + (i % 4) * 0.55, peak: 3.8 + (i % 3) * 1.4 });
+      }
+
+      reg(scene, root, 1.2 + tier * 0.2, (p, el) => {
+        const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
+        const rise = Math.sin(Math.min(1, p * 1.15) * Math.PI * 0.85);
+        whirlpool.scale.setScalar(Math.min(1, p * 3));
+        whirlpool.material.opacity = fade * 0.72;
+        ripples.forEach((rp, idx) => {
+          const wp = (p * 1.8 + idx * 0.25) % 1;
+          rp.scale.setScalar(0.5 + wp * (maxR * 0.95));
+          rp.material.opacity = fade * (1 - wp) * 0.95;
+        });
+        spout.scale.set(1 + Math.sin(el * 14) * 0.1, rise, 1 + Math.sin(el * 14) * 0.1);
+        spout.rotation.y = el * 5;
+        spout.material.opacity = fade * 0.72;
+        innerSpout.scale.set(1, rise, 1);
+        innerSpout.rotation.y = -el * 7;
+        innerSpout.material.opacity = fade * 0.88;
+        droplets.forEach((dr) => {
+          const a = dr.ang + el * 4;
+          const r = dr.rad + p * 1.3;
+          const y = Math.sin(p * Math.PI) * dr.peak + 0.2;
+          dr.mesh.position.set(Math.cos(a) * r, y, Math.sin(a) * r);
+          dr.mesh.material.opacity = fade * 0.94;
+        });
+      });
+    },
+
+    // 13. 破邪の衝撃・巨岩隆起魔法（亀裂衝撃波＋隆起する巨大岩塊群＋飛散破片＋金剛光輪）
+    earth: (scene, caster, target, tier, attr) => {
+      const root = new THREE.Group();
+      root.position.set(target.x, 0, target.z);
+      const zoneR = 2.6 + tier * 0.85;
+
+      const quakeRing1 = makeCircleRing(zoneR * 0.72, zoneR, attr.c1, 8);
+      quakeRing1.position.y = 0.06;
+      const quakeRing2 = makeCircleRing(0.4, 1.4, attr.c2, 32);
+      quakeRing2.position.y = 0.09;
+      root.add(quakeRing1, quakeRing2);
+
+      const rocks = [];
+      const rockCnt = 7 + tier * 4;
+      for (let i = 0; i < rockCnt; i++) {
+        const isCenter = i === 0;
+        const ang = (Math.PI * 2 * i) / Math.max(1, rockCnt - 1);
+        const rad = isCenter ? 0 : zoneR * (0.35 + (i % 3) * 0.22);
+        const sz = (isCenter ? 1.05 : 0.62) + tier * 0.22;
+
+        const rk = new THREE.Mesh(
+          new THREE.DodecahedronGeometry(sz, 0),
+          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c3 : attr.c1, transparent: true, opacity: 0.96 })
+        );
+        const edge = new THREE.Mesh(
+          new THREE.DodecahedronGeometry(sz * 1.06, 0),
+          new THREE.MeshBasicMaterial({ color: attr.c2, wireframe: true, transparent: true, opacity: 0.9 })
+        );
+        rk.add(edge);
+        rk.position.set(Math.cos(ang) * rad, -sz, Math.sin(ang) * rad);
+        rk.rotation.set(i * 0.7, i * 1.1, i * 0.5);
+        root.add(rk);
+        rocks.push({ mesh: rk, startY: -sz, targetY: sz * (isCenter ? 1.15 : 0.75) });
+      }
+
+      const debris = [];
+      for (let i = 0; i < 14 + tier * 6; i++) {
+        const db = new THREE.Mesh(
+          new THREE.TetrahedronGeometry(0.22 + tier * 0.05, 0),
+          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c2 : attr.c1, transparent: true, opacity: 0.95 })
+        );
+        root.add(db);
+        debris.push({ mesh: db, ang: (Math.PI * 2 * i) / (14 + tier * 6), dist: 1.5 + (i % 4) * 0.7, peak: 3.2 + (i % 3) * 1.1 });
       }
 
       reg(scene, root, 1.15 + tier * 0.2, (p, el) => {
+        const thrust = Math.min(1, p / 0.22);
         const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
-        galaxy.rotation.z = el * 5;
-        galaxy.material.opacity = fade * 0.95;
-        stars.forEach((s) => {
-          const drop = Math.min(1, p * 1.4);
-          s.mesh.position.y = s.startY * (1 - drop) + 0.3;
-          s.mesh.rotation.y = el * 7;
-          s.mesh.material.opacity = fade * 0.96;
+        quakeRing1.rotation.z = el * 2;
+        quakeRing1.material.opacity = fade * 0.95;
+        quakeRing2.scale.setScalar(1 + p * (2.6 + tier * 0.7));
+        quakeRing2.material.opacity = fade * 0.9;
+        rocks.forEach((rk) => {
+          rk.mesh.position.y = rk.startY + (rk.targetY - rk.startY) * thrust;
+          rk.mesh.material.opacity = fade * 0.96;
+        });
+        debris.forEach((db, idx) => {
+          const r = db.dist * p;
+          const y = Math.sin(p * Math.PI) * db.peak + 0.15;
+          db.mesh.position.set(Math.cos(db.ang) * r, y, Math.sin(db.ang) * r);
+          db.mesh.rotation.set(el * 9 + idx, el * 7, 0);
+          db.mesh.material.opacity = fade * 0.95;
         });
       });
     },
 
-    // 18. 秘剣・無限光剣陣
+    // 14. 聖光の癒し・天照光輪魔法（三重回転聖魔法陣＋天降聖光柱＋二重天使光輪＋舞い上がる光の結晶群）
+    holy_heal: (scene, caster, target, tier, attr) => {
+      const root = new THREE.Group();
+      root.position.set(caster.x, 0, caster.z);
+      const zoneR = 2.3 + tier * 0.65;
+
+      const rune1 = makeCircleRing(zoneR * 0.78, zoneR, attr.c1, 6);
+      rune1.position.y = 0.06;
+      const rune2 = makeCircleRing(zoneR * 0.45, zoneR * 0.68, attr.c3, 8);
+      rune2.position.y = 0.09;
+      const healWave = makeCircleRing(0.4, 1.2, attr.c2, 36);
+      healWave.position.y = 0.12;
+      root.add(rune1, rune2, healWave);
+
+      const holyBeam = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.1 + tier * 0.35, 1.9 + tier * 0.55, 12 + tier * 2.5, 28, 1, true),
+        new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.42 })
+      );
+      holyBeam.position.y = 6.0;
+
+      const coreBeam = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.45 + tier * 0.15, 0.8 + tier * 0.25, 13 + tier * 2.5, 22, 1, true),
+        new THREE.MeshBasicMaterial({ color: attr.c2, side: THREE.DoubleSide, transparent: true, opacity: 0.68 })
+      );
+      coreBeam.position.y = 6.5;
+      root.add(holyBeam, coreBeam);
+
+      const halos = [];
+      for (let i = 0; i < 2 + tier; i++) {
+        const hl = new THREE.Mesh(
+          new THREE.TorusGeometry(1.15 + i * 0.35, 0.07 + tier * 0.02, 10, 36),
+          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c1 : attr.c3, transparent: true, opacity: 0.96 })
+        );
+        hl.rotation.x = Math.PI / 2;
+        hl.position.y = 0.4 + i * 0.65;
+        root.add(hl);
+        halos.push(hl);
+      }
+
+      const motes = [];
+      for (let i = 0; i < 22 + tier * 8; i++) {
+        const mt = new THREE.Mesh(
+          new THREE.OctahedronGeometry(0.2 + tier * 0.05, 0),
+          new THREE.MeshBasicMaterial({ color: i % 3 === 0 ? attr.c3 : (i % 2 === 0 ? attr.c1 : attr.c2), transparent: true, opacity: 0.96 })
+        );
+        root.add(mt);
+        motes.push({ mesh: mt, ang: (Math.PI * 2 * i) / (22 + tier * 8), rad: 0.6 + (i % 4) * 0.48, off: (i % 5) * 1.1 });
+      }
+
+      reg(scene, root, 1.3 + tier * 0.22, (p, el) => {
+        const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
+        rune1.rotation.z = el * 3.2;
+        rune1.material.opacity = fade * 0.95;
+        rune2.rotation.z = -el * 4.5;
+        rune2.material.opacity = fade * 0.95;
+        healWave.scale.setScalar(1 + p * (2.8 + tier * 0.75));
+        healWave.material.opacity = fade * 0.9;
+        holyBeam.rotation.y = el * 2.5;
+        holyBeam.material.opacity = fade * 0.42;
+        coreBeam.rotation.y = -el * 4.0;
+        coreBeam.material.opacity = fade * 0.68;
+        halos.forEach((hl, idx) => {
+          hl.position.y = (0.4 + idx * 0.55) + p * (2.6 + tier * 0.5);
+          hl.rotation.z = el * (idx % 2 === 0 ? 4 : -4);
+          hl.material.opacity = fade * 0.96;
+        });
+        motes.forEach((mt, idx) => {
+          const a = mt.ang + el * 3.0;
+          const y = (p * 6.5 + mt.off) % 6.5;
+          mt.mesh.position.set(Math.cos(a) * mt.rad, y, Math.sin(a) * mt.rad);
+          mt.mesh.rotation.y = el * 6 + idx;
+          mt.mesh.material.opacity = fade * 0.96;
+        });
+      });
+    },
+
+    // 15. 黒蝕・ブラックホール魔法（漆黒特異点＋降着円盤＋重力歪みリング＋吸い込まれる闇結晶＋終焉ノヴァ）
+    dark: (scene, caster, target, tier, attr) => {
+      const root = new THREE.Group();
+      root.position.set(target.x, 1.45, target.z);
+      const coreR = 0.85 + tier * 0.28;
+
+      // 漆黒コア（depthWrite有効の特殊黒球）
+      const blackCore = new THREE.Mesh(
+        new THREE.SphereGeometry(coreR, 24, 20),
+        new THREE.MeshBasicMaterial({ color: 0x05020a, transparent: true, opacity: 0.98 })
+      );
+      const eventHorizon = new THREE.Mesh(
+        new THREE.SphereGeometry(coreR * 1.18, 20, 16),
+        new THREE.MeshBasicMaterial({ color: attr.c1, wireframe: true, transparent: true, opacity: 0.92 })
+      );
+      root.add(blackCore, eventHorizon);
+
+      const disk1 = new THREE.Mesh(
+        new THREE.RingGeometry(coreR * 1.25, coreR * 2.8, 40),
+        new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.86 })
+      );
+      disk1.rotation.x = Math.PI / 2 - 0.35;
+
+      const disk2 = new THREE.Mesh(
+        new THREE.RingGeometry(coreR * 1.4, coreR * 2.4, 36),
+        new THREE.MeshBasicMaterial({ color: attr.c2, side: THREE.DoubleSide, transparent: true, opacity: 0.82 })
+      );
+      disk2.rotation.x = Math.PI / 2 + 0.38;
+      root.add(disk1, disk2);
+
+      const floorGravity = makeCircleRing(coreR * 1.5, coreR * 3.1, attr.c3, 8);
+      floorGravity.position.y = -1.38;
+      root.add(floorGravity);
+
+      const shards = [];
+      for (let i = 0; i < 18 + tier * 8; i++) {
+        const sh = new THREE.Mesh(
+          new THREE.OctahedronGeometry(0.2 + tier * 0.05, 0),
+          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c2 : attr.c3, transparent: true, opacity: 0.95 })
+        );
+        root.add(sh);
+        shards.push({ mesh: sh, ang: (Math.PI * 2 * i) / (18 + tier * 8), startR: coreR * 3.4, yOff: ((i % 5) - 2) * 0.45 });
+      }
+
+      const novaBurst = new THREE.Mesh(
+        new THREE.SphereGeometry(coreR * 2.8, 24, 18),
+        new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0 })
+      );
+      root.add(novaBurst);
+
+      reg(scene, root, 1.3 + tier * 0.22, (p, el) => {
+        if (p < 0.72) {
+          const pull = p / 0.72;
+          const pulse = 1 + Math.sin(el * 18) * 0.08;
+          blackCore.scale.setScalar(pulse);
+          eventHorizon.rotation.y = el * 5;
+          eventHorizon.rotation.x = el * 3;
+          disk1.rotation.z = el * 8;
+          disk2.rotation.z = -el * 7;
+          floorGravity.rotation.z = el * 4;
+          shards.forEach((sh) => {
+            const r = sh.startR * (1 - pull * 0.85);
+            const a = sh.ang + el * 9;
+            sh.mesh.position.set(Math.cos(a) * r, sh.yOff * (1 - pull), Math.sin(a) * r);
+            sh.mesh.rotation.y = el * 10;
+          });
+        } else {
+          const bp = (p - 0.72) / 0.28;
+          const fade = 1 - bp;
+          blackCore.scale.setScalar(1 + bp * 1.4);
+          blackCore.material.opacity = fade * 0.98;
+          eventHorizon.material.opacity = fade * 0.92;
+          disk1.scale.setScalar(1 + bp * 1.2);
+          disk1.material.opacity = fade * 0.86;
+          disk2.scale.setScalar(1 + bp * 1.2);
+          disk2.material.opacity = fade * 0.82;
+          floorGravity.material.opacity = fade * 0.9;
+          shards.forEach((sh) => { sh.mesh.visible = false; });
+          novaBurst.scale.setScalar(0.5 + bp * 1.5);
+          novaBurst.material.opacity = fade * 0.85;
+        }
+      });
+    },
+
+    // 16. 呪詛・魔界瘴気魔法（呪印魔法陣＋立ち昇る瘴気柱＋浮遊猛毒バブル＋回転呪詛リング）
+    poison: (scene, caster, target, tier, attr) => {
+      const root = new THREE.Group();
+      root.position.set(target.x, 0, target.z);
+      const zoneR = 2.4 + tier * 0.8;
+
+      const swampDisk = new THREE.Mesh(
+        new THREE.CircleGeometry(zoneR, 36),
+        new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.62 })
+      );
+      swampDisk.rotation.x = -Math.PI / 2;
+      swampDisk.position.y = 0.05;
+
+      const curseRune = makeCircleRing(zoneR * 0.76, zoneR * 1.05, attr.c2, 6);
+      curseRune.position.y = 0.08;
+
+      const miasmaCol = new THREE.Mesh(
+        new THREE.CylinderGeometry(zoneR * 0.75, zoneR * 0.95, 4.6 + tier * 1.4, 24, 1, true),
+        new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.36 })
+      );
+      miasmaCol.position.y = 2.3 + tier * 0.7;
+      root.add(swampDisk, curseRune, miasmaCol);
+
+      const bubbles = [];
+      const bCnt = 16 + tier * 8;
+      for (let i = 0; i < bCnt; i++) {
+        const bb = new THREE.Mesh(
+          new THREE.SphereGeometry(0.24 + (i % 3) * 0.09 + tier * 0.05, 12, 10),
+          new THREE.MeshBasicMaterial({ color: i % 3 === 0 ? attr.c3 : (i % 2 === 0 ? attr.c2 : attr.c1), transparent: true, opacity: 0.9 })
+        );
+        root.add(bb);
+        bubbles.push({
+          mesh: bb,
+          ang: (Math.PI * 2 * i) / bCnt,
+          rad: 0.4 + (i % 4) * (zoneR * 0.22),
+          spd: 2.2 + (i % 3) * 0.8,
+          off: (i % 4) * 0.8
+        });
+      }
+
+      reg(scene, root, 1.25 + tier * 0.2, (p, el) => {
+        const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
+        swampDisk.scale.setScalar(Math.min(1, p * 3.2));
+        swampDisk.material.opacity = fade * 0.62;
+        curseRune.rotation.z = -el * 3.5;
+        curseRune.material.opacity = fade * 0.95;
+        miasmaCol.rotation.y = el * 3;
+        miasmaCol.material.opacity = fade * 0.36;
+        bubbles.forEach((b) => {
+          const a = b.ang + el * 2.5;
+          const y = (p * b.spd * 2.2 + b.off) % (4.2 + tier * 1.2);
+          const sc = 0.8 + Math.sin(el * 10 + b.off) * 0.25;
+          b.mesh.scale.setScalar(sc);
+          b.mesh.position.set(Math.cos(a) * b.rad, y, Math.sin(a) * b.rad);
+          b.mesh.material.opacity = fade * 0.9;
+        });
+      });
+    },
+
+    // 17. 星屑・銀河流星魔法（銀河回転ディスク＋降り注ぐ星屑流星群＋着弾スターバースト）
+    star: (scene, caster, target, tier, attr) => {
+      const root = new THREE.Group();
+      root.position.set(target.x, 0, target.z);
+      const zoneR = 2.6 + tier * 0.85;
+
+      const galaxyRing1 = makeCircleRing(zoneR * 0.72, zoneR, attr.c1, 5);
+      galaxyRing1.position.y = 0.06;
+      const galaxyRing2 = makeCircleRing(zoneR * 0.35, zoneR * 0.65, attr.c3, 36);
+      galaxyRing2.position.y = 0.09;
+      root.add(galaxyRing1, galaxyRing2);
+
+      const stars = [];
+      const starCnt = 5 + tier * 3;
+      const cols = [attr.c1, attr.c2, attr.c3, 0xffffff];
+      for (let i = 0; i < starCnt; i++) {
+        const ang = (Math.PI * 2 * i) / starCnt;
+        const rad = i === 0 ? 0 : zoneR * (0.35 + (i % 3) * 0.22);
+        const tx = Math.cos(ang) * rad;
+        const tz = Math.sin(ang) * rad;
+
+        const sGrp = new THREE.Group();
+        const starCore = new THREE.Mesh(
+          new THREE.OctahedronGeometry(0.42 + tier * 0.12, 0),
+          new THREE.MeshBasicMaterial({ color: cols[i % cols.length], transparent: true, opacity: 0.98 })
+        );
+        const starTail = new THREE.Mesh(
+          new THREE.ConeGeometry(0.32 + tier * 0.08, 3.2 + tier * 0.8, 12, 1, true),
+          new THREE.MeshBasicMaterial({ color: cols[(i + 1) % cols.length], side: THREE.DoubleSide, transparent: true, opacity: 0.75 })
+        );
+        starTail.position.y = 1.6 + tier * 0.4;
+        sGrp.add(starCore, starTail);
+
+        const startH = 11 + (i % 3) * 2.5;
+        sGrp.position.set(tx + 2.2, startH, tz - 1.8);
+        root.add(sGrp);
+        stars.push({ grp: sGrp, tx, tz, startH, delay: (i % 4) * 0.09 });
+      }
+
+      const novaWave = makeCircleRing(0.5, zoneR * 1.15, attr.c2, 40);
+      novaWave.position.y = 0.12;
+      novaWave.visible = false;
+      root.add(novaWave);
+
+      reg(scene, root, 1.2 + tier * 0.2, (p, el) => {
+        const fade = p > 0.74 ? 1 - (p - 0.74) / 0.26 : 1;
+        galaxyRing1.rotation.z = el * 4;
+        galaxyRing1.material.opacity = fade * 0.95;
+        galaxyRing2.rotation.z = -el * 5;
+        galaxyRing2.material.opacity = fade * 0.95;
+
+        let anyHit = false;
+        stars.forEach((st) => {
+          const lp = Math.max(0, Math.min(1, (p - st.delay) / 0.55));
+          if (lp < 1) {
+            const ease = lp * lp;
+            st.grp.position.set(
+              st.tx + (1 - ease) * 2.2,
+              st.startH * (1 - ease) + 0.4,
+              st.tz - (1 - ease) * 1.8
+            );
+            st.grp.rotation.y = el * 10;
+          } else {
+            st.grp.visible = false;
+            anyHit = true;
+          }
+        });
+
+        if (anyHit) {
+          const bp = Math.min(1, Math.max(0, (p - 0.5) / 0.5));
+          novaWave.visible = true;
+          novaWave.scale.setScalar(0.5 + bp * 1.35);
+          novaWave.material.opacity = (1 - bp) * 0.95;
+        }
+      });
+    },
+
+    // 18. 秘剣・無限光剣陣（全周囲展開する光の聖剣群＋回転剣陣魔法陣＋中央への一斉収束突撃＋十字光閃バースト）
     sword: (scene, caster, target, tier, attr) => {
       const root = new THREE.Group();
       root.position.set(target.x, 0, target.z);
+      const arenaR = 2.8 + tier * 0.85;
 
-      const ring = makeCircleRing(0.8, 2.3 + tier * 0.75, attr.c1, 32);
-      ring.position.y = 0.07;
-      root.add(ring);
+      const bladeRune1 = makeCircleRing(arenaR * 0.82, arenaR, attr.c1, 8);
+      bladeRune1.position.y = 0.06;
+      const bladeRune2 = makeCircleRing(0.6, arenaR * 0.55, attr.c3, 6);
+      bladeRune2.position.y = 0.09;
+      root.add(bladeRune1, bladeRune2);
 
-      const blades = [];
-      const bCnt = 6 + tier * 4;
-      for (let i = 0; i < bCnt; i++) {
-        const bGrp = new THREE.Group();
+      const swords = [];
+      const swCnt = 8 + tier * 4;
+      for (let i = 0; i < swCnt; i++) {
+        const ang = (Math.PI * 2 * i) / swCnt;
+        const swGrp = new THREE.Group();
+
         const blade = new THREE.Mesh(
-          new THREE.ConeGeometry(0.16 + tier * 0.04, 2.2 + tier * 0.45, 4),
+          new THREE.ConeGeometry(0.16 + tier * 0.04, 2.1 + tier * 0.5, 4),
           new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c1 : attr.c2, transparent: true, opacity: 0.96 })
         );
-        blade.rotation.x = Math.PI;
+        blade.rotation.x = Math.PI / 2;
+        blade.position.z = 0.55;
+
         const guard = new THREE.Mesh(
-          new THREE.BoxGeometry(0.65 + tier * 0.12, 0.1, 0.18),
+          new THREE.BoxGeometry(0.65 + tier * 0.15, 0.1, 0.14),
           new THREE.MeshBasicMaterial({ color: attr.c3, transparent: true, opacity: 0.96 })
         );
-        guard.position.y = 1.05 + tier * 0.2;
-        bGrp.add(blade, guard);
+        guard.position.z = -0.35;
 
-        const ang = (Math.PI * 2 * i) / bCnt;
-        const rad = i === 0 ? 0 : 0.9 + (i % 2) * (0.7 + tier * 0.25);
-        bGrp.position.set(Math.cos(ang) * rad, 6.5 + (i % 3) * 1.2, Math.sin(ang) * rad);
-        root.add(bGrp);
-        blades.push({ grp: bGrp, blade, guard, startY: 6.5 + (i % 3) * 1.2 });
+        const hilt = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.06, 0.06, 0.55, 8),
+          new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95 })
+        );
+        hilt.rotation.x = Math.PI / 2;
+        hilt.position.z = -0.62;
+
+        swGrp.add(blade, guard, hilt);
+        const startY = 2.4 + (i % 3) * 0.65;
+        swGrp.position.set(Math.cos(ang) * arenaR, startY, Math.sin(ang) * arenaR);
+        swGrp.lookAt(0, 0.9, 0);
+        root.add(swGrp);
+        swords.push({ grp: swGrp, ang, startY });
       }
 
-      reg(scene, root, 1.1 + tier * 0.2, (p, el) => {
-        const slam = Math.min(1, p / 0.28);
-        const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
-        ring.rotation.z = el * 4;
-        ring.material.opacity = fade * 0.95;
-        blades.forEach((b) => {
-          b.grp.position.y = b.startY * (1 - slam) + 1.1;
-          b.blade.material.opacity = fade * 0.96;
-          b.guard.material.opacity = fade * 0.96;
-        });
+      const crossSlash = new THREE.Mesh(
+        new THREE.SphereGeometry(1.7 + tier * 0.55, 18, 14),
+        new THREE.MeshBasicMaterial({ color: attr.c3, transparent: true, opacity: 0 })
+      );
+      crossSlash.position.y = 1.0;
+      root.add(crossSlash);
+
+      reg(scene, root, 1.15 + tier * 0.2, (p, el) => {
+        const fade = p > 0.76 ? 1 - (p - 0.76) / 0.24 : 1;
+        bladeRune1.rotation.z = el * 4;
+        bladeRune1.material.opacity = fade * 0.95;
+        bladeRune2.rotation.z = -el * 5;
+        bladeRune2.material.opacity = fade * 0.95;
+
+        if (p < 0.48) {
+          const spinP = p / 0.48;
+          swords.forEach((sw) => {
+            const a = sw.ang + spinP * Math.PI * 1.5;
+            sw.grp.position.set(Math.cos(a) * arenaR, sw.startY, Math.sin(a) * arenaR);
+            sw.grp.lookAt(root.position.x, root.position.y + 0.9, root.position.z);
+          });
+        } else {
+          const strikeP = Math.min(1, (p - 0.48) / 0.26);
+          const curR = arenaR * (1 - strikeP * 0.92);
+          swords.forEach((sw) => {
+            const a = sw.ang + Math.PI * 1.5;
+            sw.grp.position.set(Math.cos(a) * curR, sw.startY * (1 - strikeP) + 0.85 * strikeP, Math.sin(a) * curR);
+            sw.grp.lookAt(root.position.x, root.position.y + 0.85, root.position.z);
+            sw.grp.children.forEach(c => { c.material.opacity = fade * 0.96; });
+          });
+
+          if (strikeP >= 0.85) {
+            const bp = (p - 0.70) / 0.30;
+            crossSlash.scale.setScalar(0.4 + Math.max(0, bp) * 1.4);
+            crossSlash.material.opacity = fade * 0.85;
+          }
+        }
       });
     }
   };
 
-  Object.assign(FX9.EFFECT_BUILDERS, EFFECT_BUILDERS_PART2);
-  const BUILDERS = FX9.EFFECT_BUILDERS;
-
-  function getGameInstanceV9() {
-    return window.game || window.rpgGame || window._kmjGameInstance || null;
-  }
+  Object.assign(V9.EFFECT_BUILDERS, EFFECT_BUILDERS_PART2);
 
   // =========================================================
-  // 2. スペルカード風カットイン演出
+  // 8. スキル識別・非攻撃系スキル判定・進化状態管理
   // =========================================================
-  function showSpellCardCutinV9(info, casterName = 'HERO') {
-    try {
-      let layer = document.getElementById('kmj-v9-cutin-layer');
-      if (!layer) {
-        layer = document.createElement('div');
-        layer.id = 'kmj-v9-cutin-layer';
-        document.body.appendChild(layer);
-      }
-      layer.innerHTML = '';
+  const TIER_LABELS_V9 = ['通常 ★1', '【真】★2', '【極】★3', '【神】★4'];
+  const TIER_MULTS_V9 = [1.0, 1.5, 2.3, 3.6];
 
-      const attr = info.attr || ATTRS[ATTRS.length - 1];
-      const tier = info.tier ?? 0;
-
-      const flash = document.createElement('div');
-      flash.className = 'kmj-v9-flash';
-      flash.style.background = tier >= 2
-        ? 'radial-gradient(circle, rgba(253,224,71,0.55), rgba(244,114,182,0.25), transparent 75%)'
-        : 'radial-gradient(circle, rgba(56,189,248,0.42), transparent 75%)';
-      layer.appendChild(flash);
-
-      if (tier >= 1) {
-        const lt = document.createElement('div');
-        lt.className = 'kmj-v9-line-top';
-        const lb = document.createElement('div');
-        lb.className = 'kmj-v9-line-bot';
-        layer.appendChild(lt);
-        layer.appendChild(lb);
-      }
-
-      const banner = document.createElement('div');
-      banner.className = 'kmj-v9-banner';
-      banner.style.background = attr.bgGrad;
-      banner.style.borderColor = tier >= 3 ? '#f472b6' : (tier >= 2 ? '#fde047' : '#7dd3fc');
-
-      const stars = '★'.repeat(tier + 1);
-      banner.innerHTML = `
-        <div class="kmj-v9-ring-1"></div>
-        <div class="kmj-v9-ring-2"></div>
-        <div class="kmj-v9-banner-inner">
-          <div class="kmj-v9-avatar">⚡ ${String(casterName || 'HERO').slice(0, 10)}</div>
-          <div>
-            <div style="font-size:11px;font-weight:800;color:#fde047;letter-spacing:0.08em;">
-              ${attr.cardType} ${stars}
-            </div>
-            <div style="font-size:17px;font-weight:900;color:#ffffff;text-shadow:0 2px 10px rgba(0,0,0,0.85);margin-top:2px;">
-              ${info.evolvedName}
-            </div>
-          </div>
-        </div>
-      `;
-      layer.appendChild(banner);
-
-      setTimeout(() => {
-        if (layer && layer.contains(banner)) layer.innerHTML = '';
-      }, 2450);
-    } catch (e) {}
+  function getCustomSkillConfigV9(game) {
+    if (!game?.saveData) return {};
+    if (!game.saveData.skillCustomV9 || typeof game.saveData.skillCustomV9 !== 'object') {
+      game.saveData.skillCustomV9 = {};
+    }
+    return game.saveData.skillCustomV9;
   }
 
-  // =========================================================
-  // 3. スキル属性・進化ランク判定＆元スキル名(baseName)保護同期
-  // =========================================================
-  function stripEvolvedDecorV9(rawName) {
-    let s = String(rawName || '秘技').trim();
-    // すでに進化名で保存されていた場合でも元のスキル名を安全に復元
-    const bracketMatch = s.match(/^【(?:真|極|神)】[^「・]+(?:・([^「」]+)|「(?:[^「」・]+・)?([^「」]+)」)$/);
-    if (bracketMatch) {
-      return (bracketMatch[1] || bracketMatch[2] || s).trim();
-    }
-    return s;
+  function findProfileByIdV9(attrId) {
+    return V9.ATTRIBUTES.find(a => a.id === attrId) || null;
   }
 
-  function ensureBaseNameV9(skill) {
-    if (!skill || typeof skill !== 'object') return stripEvolvedDecorV9(skill);
-    if (!skill.baseName || typeof skill.baseName !== 'string') {
-      skill.baseName = stripEvolvedDecorV9(skill.name || skill.id || '秘技');
+  function inferDefaultProfileV9(rawText) {
+    const txt = String(rawText || '');
+    for (const p of V9.ATTRIBUTES) {
+      if (p.match.test(txt)) return p;
     }
-    return skill.baseName;
+    return findProfileByIdV9('sword') || V9.ATTRIBUTES[0];
   }
 
-  function getCustomSkillMapV9(game) {
-    const g = game || getGameInstanceV9();
-    if (!g?.saveData) return {};
-    if (!g.saveData.customSkillFxV9 || typeof g.saveData.customSkillFxV9 !== 'object') {
-      g.saveData.customSkillFxV9 = {};
+  function isNonAttackSkillObjV9(game, skillObj, info = null) {
+    if (info?.attr?.isNonAttack === true) return true;
+    if (!skillObj && !info) return false;
+
+    const sk = skillObj || {};
+    if (sk.isNonAttack === true || sk.nonAttack === true || sk.noDamage === true) return true;
+    if (sk.isHeal === true || sk.isBuff === true || sk.isShield === true || sk.isSupport === true) return true;
+
+    const typeStr = String(sk.type || sk.category || sk.skillType || sk.kind || '').toLowerCase();
+    if (/heal|buff|shield|guard|support|sanctuary|aura|cure|recovery|回復|防御|補助|バフ|聖域/.test(typeStr)) {
+      return true;
     }
-    return g.saveData.customSkillFxV9;
+
+    const baseText = `${sk._v9BaseName || ''} ${sk.baseName || ''} ${sk.id || ''} ${sk.skillId || ''} ${sk.desc || ''} ${sk.description || ''}`;
+    if (/聖光の癒し|イージス|極光の聖域|覇王の咆哮|ヒール|回復|治癒|守護|鉄壁|バリア|シールド|結界|鼓舞|闘気|覚醒|sanctuary|aegis|warcry|heal|cure|shield|buff/.test(baseText)) {
+      return true;
+    }
+
+    return false;
   }
 
-  function getEvolvedSkillInfoV9(gameOrSkill, maybeSkill) {
-    let game = null;
-    let skill = null;
-    if (maybeSkill !== undefined) {
-      game = gameOrSkill;
-      skill = maybeSkill;
-    } else {
-      skill = gameOrSkill;
-      game = getGameInstanceV9();
+  function getSkillInfoV9(game, skillObj, slotIdx = -1) {
+    const sk = skillObj || {};
+    if (!sk._v9BaseName) {
+      const rawInit = String(sk.baseName || sk.name || sk.title || `スキル${slotIdx >= 0 ? slotIdx + 1 : ''}`);
+      sk._v9BaseName = rawInit
+        .replace(/^【(?:真|極|神)】/, '')
+        .replace(/^(?:覇王闘気|絶対防壁|極光祝福|蒼穹双月|紅蓮天隕|螺旋業火|連装爆炎|地殻灼熱|氷晶零度|紫電一閃|翠嵐烈風|蒼海激流|剛岩破邪|聖光煌めき|黒蝕冥界|猛毒瘴気|星屑流星|蒼穹剣閃)・/, '')
+        .trim() || rawInit;
     }
 
-    const baseName = (skill && typeof skill === 'object')
-      ? ensureBaseNameV9(skill)
-      : stripEvolvedDecorV9(skill || '秘技');
+    const origName = sk._v9BaseName;
+    const sid = String(sk.id || sk.skillId || `slot_${slotIdx}_${origName}`);
+    const customMap = getCustomSkillConfigV9(game);
+    const custom = customMap[sid] || {};
 
-    const customMap = getCustomSkillMapV9(game);
-    const savedCfg = customMap[skill?.id] || customMap[baseName] || null;
+    const d = game?.saveData || {};
+    const lvFromSave = Number(
+      d.skills?.[sid] ?? d.skillLevels?.[sid] ?? d.skillLvs?.[sid] ?? sk.lv ?? sk.level ?? 1
+    );
+    const skillLv = Math.max(1, lvFromSave);
 
-    let attr = null;
-    if (savedCfg?.attrId) {
-      attr = ATTRS.find(a => a.id === savedCfg.attrId) || null;
-    }
-    if (!attr) {
-      attr = ATTRS.find(a => a.match && a.match.test(baseName)) || ATTRS[ATTRS.length - 1];
-    }
+    let autoTier = 0;
+    if (skillLv >= 100) autoTier = 3;
+    else if (skillLv >= 50) autoTier = 2;
+    else if (skillLv >= 10) autoTier = 1;
 
-    const lv = Math.max(1, Number(skill?.lv || skill?.level || 1));
-    const autoTier = lv >= 12 ? 3 : (lv >= 7 ? 2 : (lv >= 3 ? 1 : 0));
-    const tier = savedCfg && typeof savedCfg.tier === 'number'
-      ? Math.max(0, Math.min(3, savedCfg.tier))
+    const tier = (typeof custom.tier === 'number' && custom.tier >= 0 && custom.tier <= 3)
+      ? custom.tier
       : autoTier;
 
-    const nameList = attr.names(baseName);
-    const evolvedName = (savedCfg?.customName && savedCfg.customName.trim())
-      ? savedCfg.customName.trim()
-      : (nameList[tier] || baseName);
+    const attr = (custom.attrId && findProfileByIdV9(custom.attrId))
+      ? findProfileByIdV9(custom.attrId)
+      : inferDefaultProfileV9(`${origName} ${sk.id || ''} ${sk.desc || ''}`);
 
-    const powerMult = 1 + tier * 0.28;
+    const namesArr = attr.names(origName);
+    const evolvedName = namesArr[tier] || origName;
+    const mpCost = Number(sk.mp ?? sk.mpCost ?? sk.cost ?? 10);
+    const powerMult = TIER_MULTS_V9[tier] || 1.0;
+    const isNonAttack = isNonAttackSkillObjV9(game, sk, { attr });
 
     return {
-      baseName,
+      sid,
+      origName,
       evolvedName,
-      attr,
       tier,
-      powerMult
+      tierLabel: TIER_LABELS_V9[tier] || TIER_LABELS_V9[0],
+      attr,
+      theme: { label: attr.label, cardType: attr.cardType },
+      skillLv,
+      mpCost,
+      powerMult,
+      isNonAttack
     };
   }
 
-  function syncAllSkillsV9(gameArg) {
-    const g = gameArg || getGameInstanceV9();
+  function getAllSkillsListV9(game) {
+    const g = game || window.__kmjInstance || window.game || window.app || window.mmorpg;
     if (!g) return [];
-    const lists = [g.saveData?.skills, g.skills, g.player?.skills].filter(Array.isArray);
-    const synced = [];
-    lists.forEach((arr) => {
-      arr.forEach((sk) => {
-        if (!sk || typeof sk !== 'object') return;
-        const info = getEvolvedSkillInfoV9(g, sk);
-        sk.name = info.evolvedName;
-        sk.evolvedName = info.evolvedName;
-        sk.attrId = info.attr.id;
-        sk.tier = info.tier;
-        sk.powerMult = info.powerMult;
-        synced.push(info);
-      });
+    const list = [];
+    const seen = new Set();
+    const pushUnique = (sk) => {
+      if (!sk || typeof sk !== 'object') return;
+      const key = sk.id || sk.skillId || sk._v9BaseName || sk.name;
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      list.push(sk);
+    };
+
+    if (Array.isArray(g.skills)) g.skills.forEach(pushUnique);
+    if (Array.isArray(g.skillSlots)) g.skillSlots.forEach(pushUnique);
+    if (Array.isArray(g.equippedSkills)) g.equippedSkills.forEach(pushUnique);
+    if (typeof SKILLS !== 'undefined') {
+      if (Array.isArray(SKILLS)) SKILLS.forEach(pushUnique);
+      else if (SKILLS && typeof SKILLS === 'object') Object.values(SKILLS).forEach(pushUnique);
+    }
+    return list;
+  }
+
+  function syncAllSkillsV9(game) {
+    const g = game || window.__kmjInstance || window.game || window.app || window.mmorpg;
+    if (!g) return;
+    const all = getAllSkillsListV9(g);
+    all.forEach((sk, idx) => {
+      const info = getSkillInfoV9(g, sk, idx);
+      sk.name = info.evolvedName;
+      if ('title' in sk) sk.title = info.evolvedName;
+      sk._v9PowerMult = info.powerMult;
+      sk._v9AttrId = info.attr.id;
+      sk._v9IsNonAttack = info.isNonAttack;
     });
-    return synced;
+    g.refreshAllHUD?.();
   }
 
   // =========================================================
-  // 4. 3Dスキルエフェクト＆効果音ディスパッチャ
+  // 9. スペルカード風カットイン演出＆非攻撃サポート効果適用
   // =========================================================
-  function triggerCustomSkillEffectV9(game, casterEntity, targetPos, skill) {
-    const g = game || getGameInstanceV9();
-    if (!g) return null;
-    const info = getEvolvedSkillInfoV9(g, skill);
-    const attrId = info.attr.id;
+  function showSpellCardCutinV9(game, info) {
+    if (!info) return;
+    let layer = document.getElementById('kmj-v9-cutin-layer');
+    if (!layer) {
+      layer = document.createElement('div');
+      layer.id = 'kmj-v9-cutin-layer';
+      document.body.appendChild(layer);
+    }
+    layer.innerHTML = '';
 
-    if (skill && typeof skill === 'object') {
-      skill.name = info.evolvedName;
-      skill.evolvedName = info.evolvedName;
+    const kaomoji = String(game?.saveData?.kaomoji || game?.player?.kaomoji || '(・ω・)');
+    const pName = String(game?.saveData?.name || game?.saveData?.playerName || '冒険者');
+    const stars = '★'.repeat(info.tier + 1);
+    const kindBadge = info.isNonAttack ? '🛡️ 補助・回復・結界' : '⚔️ 攻撃スペル';
+
+    layer.innerHTML = `
+      <div class="kmj-v9-flash" style="background:radial-gradient(circle at 75% 20%, rgba(253,224,71,0.38), transparent 70%);"></div>
+      <div class="kmj-v9-line-top"></div>
+      <div class="kmj-v9-line-bot"></div>
+      <div class="kmj-v9-banner" style="background:${info.attr.bgGrad};">
+        <div class="kmj-v9-ring-1"></div>
+        <div class="kmj-v9-ring-2"></div>
+        <div class="kmj-v9-banner-inner">
+          <div class="kmj-v9-avatar">${kaomoji}</div>
+          <div>
+            <div style="font-size:10px;font-weight:900;color:#fde047;letter-spacing:0.06em;">
+              ✦ ${info.attr.cardType}｜${stars}（${kindBadge}）
+            </div>
+            <div style="font-size:15px;font-weight:900;color:#ffffff;text-shadow:0 2px 8px rgba(0,0,0,0.85);margin:2px 0;">
+              ${info.evolvedName}
+            </div>
+            <div style="font-size:10px;color:#e0f2fe;font-weight:800;">
+              術者: ${pName}（Lv.${info.skillLv}）
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    clearTimeout(window._kmjV9CutinTimer);
+    window._kmjV9CutinTimer = setTimeout(() => {
+      if (layer) layer.innerHTML = '';
+    }, 2400);
+  }
+
+  function applyNonAttackSupportEffectV9(game, info) {
+    if (!game || !info?.isNonAttack) return;
+    const p = game.player;
+    const d = game.saveData;
+    const tier = info.tier || 0;
+    const sup = info.attr?.supportType || 'heal';
+
+    if (sup === 'sanctuary') {
+      V9.spawnAuroraSanctuaryField(game, p, info);
+      return;
     }
 
-    FX9._playMagicAudio?.(attrId, info.tier);
+    const st = typeof game.calcDerivedStats === 'function'
+      ? game.calcDerivedStats()
+      : (typeof game.getPlayerStats === 'function' ? game.getPlayerStats() : {});
+    const maxHp = Math.max(Number(st?.maxHp || 0), Number(p?.maxHp || 0), Number(d?.maxHp || 100));
+    const maxMp = Math.max(Number(st?.maxMp || 0), Number(p?.maxMp || 0), Number(d?.maxMp || 100));
 
-    const casterName = casterEntity?.name || g.saveData?.name || 'HERO';
-    showSpellCardCutinV9(info, casterName);
-
-    if (attrId === 'aurora_sanctuary' && typeof FX9.spawnAuroraSanctuaryField === 'function') {
-      FX9.spawnAuroraSanctuaryField(g, casterEntity || g.player, info);
-    }
-
-    if (g.useWebGL && g.scene && typeof THREE !== 'undefined') {
-      const cPos = casterEntity?.pos || g.player?.pos || { x: 0, z: 0 };
-      const yaw = Number(casterEntity?.yaw ?? g.player?.yaw ?? 0);
-      const tPos = targetPos || {
-        x: cPos.x + Math.sin(yaw) * 4.5,
-        z: cPos.z + Math.cos(yaw) * 4.5
-      };
-      const builder = BUILDERS[attrId] || BUILDERS.sword;
-      if (typeof builder === 'function') {
-        try {
-          builder(g.scene, cPos, tPos, info.tier, info.attr);
-        } catch (e) {}
+    if (sup === 'heal') {
+      const healHp = Math.max(15, Math.floor(maxHp * (0.32 + tier * 0.16)));
+      const healMp = Math.max(10, Math.floor(maxMp * (0.15 + tier * 0.08)));
+      if (p && typeof p.hp === 'number') p.hp = Math.min(maxHp, p.hp + healHp);
+      if (d && typeof d.hp === 'number') d.hp = Math.min(maxHp, d.hp + healHp);
+      if (p && typeof p.mp === 'number') p.mp = Math.min(maxMp, p.mp + healMp);
+      if (d && typeof d.mp === 'number') d.mp = Math.min(maxMp, d.mp + healMp);
+      (game.spawnFloatText || game.spawnFloatingText)?.call(game, p?.pos, `💖+${healHp}`, '#fde047');
+      game.showAlertBanner?.(`💖 ${info.evolvedName}！HP +${healHp} / MP +${healMp} 回復`, 1800);
+    } else if (sup === 'shield') {
+      const barrier = Math.max(30, Math.floor(maxHp * (0.45 + tier * 0.25)));
+      if (p) {
+        p.shieldHp = Math.max(Number(p.shieldHp || 0), barrier);
+        p.aegisTimer = 10.0 + tier * 3.0;
+        p.defBuffMult = 1.45 + tier * 0.2;
       }
+      (game.spawnFloatText || game.spawnFloatingText)?.call(game, p?.pos, `🛡️聖盾+${barrier}`, '#38bdf8');
+      game.showAlertBanner?.(`🛡️ ${info.evolvedName}！絶対聖盾（耐久${barrier}＆防御大幅UP）展開！`, 2000);
+    } else if (sup === 'buff') {
+      if (p) {
+        p.warcryTimer = 12.0 + tier * 3.0;
+        p.atkBuffMult = 1.45 + tier * 0.25;
+      }
+      (game.spawnFloatText || game.spawnFloatingText)?.call(game, p?.pos, `🔥闘気覚醒UP!`, '#fb923c');
+      game.showAlertBanner?.(`🔥 ${info.evolvedName}！攻撃・魔力が大幅上昇（${12 + tier * 3}秒）！`, 2000);
+    }
+    game.refreshAllHUD?.();
+  }
+
+  function findTargetPosV9(game, casterPos, rotY) {
+    let best = null;
+    let bestD = 13.0;
+    if (Array.isArray(game?.monsters)) {
+      game.monsters.forEach(m => {
+        if (!m || m.dead || !m.pos) return;
+        const d = Math.hypot(m.pos.x - casterPos.x, m.pos.z - casterPos.z);
+        if (d < bestD) {
+          bestD = d;
+          best = { x: m.pos.x, z: m.pos.z };
+        }
+      });
+    }
+    if (best) return best;
+    return {
+      x: casterPos.x + Math.sin(rotY) * 5.2,
+      z: casterPos.z + Math.cos(rotY) * 5.2
+    };
+  }
+
+  function playSkillEffectV9(game, skillObj, slotIdx = -1, overrideTier = null) {
+    const g = game || window.__kmjInstance || window.game || window.app || window.mmorpg;
+    if (!g) return null;
+
+    const info = getSkillInfoV9(g, skillObj, slotIdx);
+    if (typeof overrideTier === 'number') {
+      info.tier = overrideTier;
+      info.tierLabel = TIER_LABELS_V9[overrideTier] || TIER_LABELS_V9[0];
+      info.evolvedName = info.attr.names(info.origName)[overrideTier] || info.origName;
+      info.powerMult = TIER_MULTS_V9[overrideTier] || 1.0;
+    }
+
+    V9._playMagicAudio(info.attr.id, info.tier);
+    showSpellCardCutinV9(g, info);
+
+    if (info.isNonAttack) {
+      applyNonAttackSupportEffectV9(g, info);
+    }
+
+    if (g.useWebGL && g.scene && g.player?.pos && typeof THREE !== 'undefined') {
+      const caster = { x: g.player.pos.x, z: g.player.pos.z };
+      const target = info.isNonAttack
+        ? caster
+        : findTargetPosV9(g, caster, g.player.rotY || 0);
+      const builder = V9.EFFECT_BUILDERS[info.attr.id] || V9.EFFECT_BUILDERS.sword;
+      builder(g.scene, caster, target, info.tier, info.attr);
     }
 
     return info;
   }
 
   // =========================================================
-  // 5. デバッグスタジオ（game7.js）連携API
+  // 10. 魔法進化スタジオUIモーダル
   // =========================================================
-  function getAll14SkillsV9() {
-    return ATTRS.map(a => ({
-      id: a.id,
-      name: a.label,
-      label: a.label,
-      cardType: a.cardType,
-      defaultName: a.names('秘技')[0]
-    }));
-  }
-
-  function previewSkillByObjV9(skillOrAttrId, attrIdOrGame, tierArg, gameArg) {
-    let g = getGameInstanceV9();
-    let skillObj = null;
-
-    if (typeof skillOrAttrId === 'string') {
-      const foundAttr = ATTRS.find(a => a.id === skillOrAttrId) || ATTRS[0];
-      const tier = typeof attrIdOrGame === 'number' ? attrIdOrGame : (typeof tierArg === 'number' ? tierArg : 2);
-      if (tierArg && typeof tierArg === 'object') g = tierArg;
-      if (gameArg && typeof gameArg === 'object') g = gameArg;
-      const base = foundAttr.label.replace(/^[^\s]+\s*/, '').split('・')[0] || '秘技';
-      skillObj = { id: `preview_${foundAttr.id}`, baseName: base, name: base, lv: tier >= 3 ? 12 : (tier >= 2 ? 7 : (tier >= 1 ? 3 : 1)) };
-      const customMap = getCustomSkillMapV9(g);
-      const prevCfg = customMap[skillObj.id];
-      customMap[skillObj.id] = { attrId: foundAttr.id, tier };
-      const res = triggerCustomSkillEffectV9(g, g?.player, null, skillObj);
-      if (prevCfg) customMap[skillObj.id] = prevCfg;
-      else delete customMap[skillObj.id];
-      return res;
-    }
-
-    if (skillOrAttrId && typeof skillOrAttrId === 'object') {
-      skillObj = skillOrAttrId;
-      if (attrIdOrGame && typeof attrIdOrGame === 'object') {
-        g = attrIdOrGame;
-      } else if (typeof attrIdOrGame === 'string') {
-        if (gameArg && typeof gameArg === 'object') g = gameArg;
-        const key = skillObj.id || ensureBaseNameV9(skillObj);
-        const customMap = getCustomSkillMapV9(g);
-        const prevCfg = customMap[key];
-        customMap[key] = {
-          attrId: attrIdOrGame,
-          tier: typeof tierArg === 'number' ? tierArg : 2
-        };
-        const res = triggerCustomSkillEffectV9(g, g?.player, null, skillObj);
-        if (prevCfg) customMap[key] = prevCfg;
-        else delete customMap[key];
-        return res;
-      }
-      return triggerCustomSkillEffectV9(g, g?.player, null, skillObj);
-    }
-    return null;
-  }
-
-  // =========================================================
-  // 6. スキル派生・魔法スタジオUIモーダル
-  // =========================================================
-  function openMagicStudioModalV9(game) {
-    const g = game || getGameInstanceV9();
-    if (!g) return;
-    const old = document.getElementById('kmj-v9-studio-modal');
-    if (old) old.remove();
-
-    syncAllSkillsV9(g);
-
-    const skills = Array.isArray(g.saveData?.skills) && g.saveData.skills.length > 0
-      ? g.saveData.skills
-      : [
-          { id: 'sk_slash', baseName: '烈空・三日月真空斬', name: '烈空・三日月真空斬', lv: 1 },
-          { id: 'sk_fire', baseName: '紅蓮業火・螺旋炎柱', name: '紅蓮業火・螺旋炎柱', lv: 1 },
-          { id: 'sk_ice', baseName: '絶対零度・氷華氷柱', name: '絶対零度・氷華氷柱', lv: 1 },
-          { id: 'sk_aurora', baseName: '極光の聖域', name: '極光の聖域', lv: 1 }
-        ];
-
-    const customMap = getCustomSkillMapV9(g);
+  function openMagicEvolutionStudioV9() {
+    document.getElementById('kmj-v9-studio-modal')?.remove();
+    const g = window.__kmjInstance || window.game || window.app || window.mmorpg;
+    const skills = getAllSkillsListV9(g);
+    const customMap = getCustomSkillConfigV9(g);
 
     const modal = document.createElement('div');
     modal.id = 'kmj-v9-studio-modal';
 
-    const attrOptionsHtml = ATTRS.map(a => `<option value="${a.id}">${a.label}</option>`).join('');
+    const rows = skills.map((sk, idx) => {
+      const info = getSkillInfoV9(g, sk, idx);
+      const opts = V9.ATTRIBUTES.map(a =>
+        `<option value="${a.id}" ${a.id === info.attr.id ? 'selected' : ''}>${a.label}</option>`
+      ).join('');
+      const tierOpts = TIER_LABELS_V9.map((lbl, tIdx) =>
+        `<option value="${tIdx}" ${tIdx === info.tier ? 'selected' : ''}>${lbl}</option>`
+      ).join('');
+      const badge = info.isNonAttack
+        ? '<span style="background:#065f46;color:#6ee7b7;padding:1px 6px;border-radius:4px;font-size:9px;">🛡️非攻撃(回復/結界/バフ)</span>'
+        : '<span style="background:#7f1d1d;color:#fecaca;padding:1px 6px;border-radius:4px;font-size:9px;">⚔️攻撃スキル</span>';
+
+      return `
+        <div style="background:rgba(15,23,42,0.92);border:1px solid #38bdf8;border-radius:9px;padding:8px;margin-bottom:7px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;margin-bottom:4px;">
+            <b style="font-size:12px;color:#fde047;">${idx + 1}. ${info.evolvedName}</b>
+            ${badge}
+          </div>
+          <div style="font-size:9.5px;color:#94a3b8;margin-bottom:5px;">元のスキル: ${info.origName}（Lv.${info.skillLv}）</div>
+          <div style="display:grid;grid-template-columns:1fr auto auto;gap:5px;align-items:center;">
+            <select class="v9-attr-sel" data-sid="${info.sid}" style="background:#020617;color:#fff;border:1px solid #475569;border-radius:6px;padding:4px;font-size:10px;">
+              ${opts}
+            </select>
+            <select class="v9-tier-sel" data-sid="${info.sid}" style="background:#020617;color:#fde047;border:1px solid #475569;border-radius:6px;padding:4px;font-size:10px;font-weight:900;">
+              ${tierOpts}
+            </select>
+            <button type="button" class="v9-test-btn" data-idx="${idx}" style="background:linear-gradient(90deg,#db2777,#7c3aed);color:#fff;border:none;border-radius:6px;padding:5px 9px;font-size:10px;font-weight:900;cursor:pointer;">🎬 試射</button>
+          </div>
+        </div>
+      `;
+    }).join('');
 
     modal.innerHTML = `
       <div class="kmj-v9-studio-card">
-        <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(244,114,182,0.4);padding-bottom:8px;margin-bottom:10px;">
-          <div style="font-size:16px;font-weight:900;color:#fde047;">✨ スキル派生＆魔法エフェクトスタジオ</div>
-          <button id="kmj-v9-studio-close" style="background:#334155;color:#fff;border:none;border-radius:8px;padding:4px 10px;font-weight:800;cursor:pointer;">✕</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <b style="font-size:14px;color:#fde047;">✨ 魔法進化＆スペルエフェクトスタジオ</b>
+          <button type="button" id="kmj-v9-studio-close" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:900;cursor:pointer;">✕ 閉じる</button>
         </div>
-        <div style="font-size:12px;color:#cbd5e1;margin-bottom:10px;">
-          各スキルの「属性エフェクト」と「進化ランク（通常〜神話）」を自由にカスタマイズ・即座に試射できます。
+        <div style="font-size:10px;color:#cbd5e1;margin-bottom:8px;">
+          ※ 回復・聖盾・聖域・咆哮スキルは<b>非攻撃判定</b>として保護され、敵への誤攻撃が発生しません。
         </div>
-        <div id="kmj-v9-studio-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+        ${rows || '<div style="color:#fca5a5;font-size:11px;">スキルデータが見つかりません。</div>'}
       </div>
     `;
+
     document.body.appendChild(modal);
+    modal.querySelector('#kmj-v9-studio-close').onclick = () => modal.remove();
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
 
-    const listEl = modal.querySelector('#kmj-v9-studio-list');
-    skills.forEach((sk, idx) => {
-      const base = ensureBaseNameV9(sk);
-      const info = getEvolvedSkillInfoV9(g, sk);
-      const row = document.createElement('div');
-      row.style.cssText = 'background:rgba(15,23,42,0.85);border:1px solid rgba(125,211,252,0.35);border-radius:10px;padding:10px;';
-      row.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:6px;">
-          <span style="font-weight:900;color:#7dd3fc;font-size:13px;">${base} (Lv.${sk.lv || 1})</span>
-          <span class="kmj-v9-preview-name" style="font-size:11px;color:#fde047;font-weight:800;text-align:right;">${info.evolvedName}</span>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 115px;gap:6px;margin-bottom:8px;">
-          <select class="kmj-v9-attr-sel" style="background:#1e293b;color:#fff;border:1px solid #475569;border-radius:6px;padding:5px;font-size:12px;">
-            ${attrOptionsHtml}
-          </select>
-          <select class="kmj-v9-tier-sel" style="background:#1e293b;color:#fde047;border:1px solid #475569;border-radius:6px;padding:5px;font-size:12px;font-weight:800;">
-            <option value="0">★ 通常</option>
-            <option value="1">★★ 【真】進化</option>
-            <option value="2">★★★ 【極】奥義</option>
-            <option value="3">★★★★ 【神】創世</option>
-          </select>
-        </div>
-        <div style="display:flex;gap:6px;justify-content:flex-end;">
-          <button class="kmj-v9-test-btn" style="background:linear-gradient(90deg,#ec4899,#8b5cf6);color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:800;cursor:pointer;">
-            ⚡ エフェクト試射
-          </button>
-          <button class="kmj-v9-save-btn" style="background:#0284c7;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:800;cursor:pointer;">
-            💾 保存
-          </button>
-        </div>
-      `;
-
-      const attrSel = row.querySelector('.kmj-v9-attr-sel');
-      const tierSel = row.querySelector('.kmj-v9-tier-sel');
-      const prevName = row.querySelector('.kmj-v9-preview-name');
-
-      attrSel.value = info.attr.id;
-      tierSel.value = String(info.tier);
-
-      const syncPreview = () => {
-        const key = sk.id || base || `sk_${idx}`;
-        customMap[key] = {
-          attrId: attrSel.value,
-          tier: Number(tierSel.value)
-        };
-        const updated = getEvolvedSkillInfoV9(g, sk);
-        sk.name = updated.evolvedName;
-        prevName.textContent = updated.evolvedName;
-      };
-
-      attrSel.addEventListener('change', syncPreview);
-      tierSel.addEventListener('change', syncPreview);
-
-      row.querySelector('.kmj-v9-test-btn').addEventListener('click', () => {
-        syncPreview();
-        triggerCustomSkillEffectV9(g, g.player, null, sk);
-      });
-
-      row.querySelector('.kmj-v9-save-btn').addEventListener('click', () => {
-        syncPreview();
+    modal.querySelectorAll('.v9-attr-sel').forEach(sel => {
+      sel.onchange = () => {
+        const sid = sel.dataset.sid;
+        if (!customMap[sid]) customMap[sid] = {};
+        customMap[sid].attrId = sel.value;
         syncAllSkillsV9(g);
-        g.renderSkillBar?.();
-        g.updateUI?.();
-        g.saveGame?.();
-        g.showAlertBanner?.(`✨ 「${base}」の魔法派生設定を保存しました！`, 1800);
-      });
-
-      listEl.appendChild(row);
-    });
-
-    modal.querySelector('#kmj-v9-studio-close').addEventListener('click', () => modal.remove());
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) modal.remove();
-    });
-  }
-
-  // 右下配置に調整して右上UI（ミニマップ・ステータス等）との重なりを解消
-  function ensureMagicStudioButtonV9() {
-    if (document.getElementById('kmj-v9-studio-open-btn')) return;
-    const btn = document.createElement('button');
-    btn.id = 'kmj-v9-studio-open-btn';
-    btn.textContent = '✨ 魔法進化';
-    btn.style.cssText = `
-      position: fixed; right: 12px; bottom: 74px; z-index: 9800;
-      background: linear-gradient(135deg, #7e22ce, #db2777);
-      color: #fff; border: 1.5px solid #fde047; border-radius: 999px;
-      padding: 6px 13px; font-size: 12px; font-weight: 900;
-      box-shadow: 0 2px 12px rgba(219,39,119,0.55); cursor: pointer;
-    `;
-    btn.addEventListener('click', () => {
-      const g = getGameInstanceV9();
-      if (g) openMagicStudioModalV9(g);
-    });
-    document.body.appendChild(btn);
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', ensureMagicStudioButtonV9);
-  } else {
-    ensureMagicStudioButtonV9();
-  }
-
-  // =========================================================
-  // 7. 剣クラスのフォールバック横振り3D斬撃エフェクト
-  // =========================================================
-  function spawnWeaponHorizontalSlashV9(game, attacker, comboIndex = 0) {
-    if (!game?.useWebGL || !game?.scene || !attacker?.pos || typeof THREE === 'undefined') return;
-    const root = new THREE.Group();
-    root.position.set(attacker.pos.x, 1.05, attacker.pos.z);
-    root.rotation.y = Number(attacker.yaw || 0);
-
-    const isReverse = comboIndex % 2 === 1;
-    const isFinisher = comboIndex >= 2;
-    const radius = isFinisher ? 2.65 : 2.15;
-    const color = isFinisher ? 0xfde047 : (isReverse ? 0xf472b6 : 0x38bdf8);
-
-    const arc = new THREE.Mesh(
-      new THREE.RingGeometry(radius * 0.45, radius, 28, 1, -Math.PI * 0.45, Math.PI * 0.9),
-      new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.92 })
-    );
-    arc.rotation.x = Math.PI / 2;
-    arc.rotation.z = isReverse ? 0.35 : -0.35;
-    root.add(arc);
-
-    FX9.register3DAnimation(game.scene, root, 0.28, (p) => {
-      const sweep = (isReverse ? -1 : 1) * (p - 0.5) * 1.4;
-      root.rotation.y = Number(attacker.yaw || 0) + sweep;
-      arc.scale.setScalar(0.85 + p * 0.35);
-      arc.material.opacity = (1 - p) * 0.92;
-    });
-  }
-
-  // =========================================================
-  // 8. KaomojiMMORPG / RPGGame 両対応＆二重発火防止安全フック
-  // =========================================================
-  function patchGameClassPrototypeV9(GameClass) {
-    if (!GameClass || !GameClass.prototype) return false;
-    const P = GameClass.prototype;
-    if (P._kmjV9Patched) return true;
-    P._kmjV9Patched = true;
-
-    // 8-1. update フック（極光の聖域フィールド更新＆インスタンス捕捉）
-    const origUpdate = P.update;
-    if (typeof origUpdate === 'function') {
-      P.update = function (dt, ...args) {
-        window._kmjGameInstance = this;
-        if (!this._kmjV9InitialSynced && (this.saveData?.skills || this.skills)) {
-          this._kmjV9InitialSynced = true;
-          try { syncAllSkillsV9(this); } catch (e) {}
-        }
-        const res = origUpdate.call(this, dt, ...args);
-        try {
-          FX9.updateSanctuaryFields?.(this, dt);
-          if (this.player && this.player.sanctuaryBuffTimer > 0) {
-            this.player.sanctuaryBuffTimer = Math.max(0, this.player.sanctuaryBuffTimer - (dt || 0.016));
-          }
-        } catch (e) {}
-        return res;
+        g?.saveGame?.(false);
+        openMagicEvolutionStudioV9();
       };
+    });
+
+    modal.querySelectorAll('.v9-tier-sel').forEach(sel => {
+      sel.onchange = () => {
+        const sid = sel.dataset.sid;
+        if (!customMap[sid]) customMap[sid] = {};
+        customMap[sid].tier = Number(sel.value);
+        syncAllSkillsV9(g);
+        g?.saveGame?.(false);
+        openMagicEvolutionStudioV9();
+      };
+    });
+
+    modal.querySelectorAll('.v9-test-btn').forEach(btn => {
+      btn.onclick = () => {
+        const idx = Number(btn.dataset.idx);
+        const sk = skills[idx];
+        modal.remove();
+        setTimeout(() => playSkillEffectV9(g, sk, idx), 60);
+      };
+    });
+  }
+
+  function ensureStudioButtonV9() {
+    if (document.getElementById('kmj-v9-open-studio-btn')) return;
+    const btn = document.createElement('button');
+    btn.id = 'kmj-v9-open-studio-btn';
+    btn.type = 'button';
+    btn.textContent = '✨ 魔法進化';
+    btn.style.cssText = 'position:fixed;right:12px;bottom:74px;z-index:920;background:linear-gradient(90deg,#7c3aed,#db2777);border:1.5px solid #fde047;color:#fff;border-radius:999px;padding:6px 12px;font-size:11px;font-weight:900;box-shadow:0 4px 14px rgba(219,39,119,0.55);cursor:pointer;';
+    btn.onclick = () => openMagicEvolutionStudioV9();
+    document.body?.appendChild(btn);
+  }
+
+  // =========================================================
+  // 11. 本体フック＆非攻撃スキルのダメージ・状態異常完全ガード
+  // =========================================================
+  function installV9MasterHooks() {
+    const classes = [];
+    if (typeof KaomojiMMORPG !== 'undefined') classes.push(KaomojiMMORPG);
+    if (typeof RPGGame !== 'undefined' && RPGGame !== KaomojiMMORPG) classes.push(RPGGame);
+
+    if (classes.length === 0) {
+      setTimeout(installV9MasterHooks, 150);
+      return;
     }
 
-    // 8-2. スキル発動メソッドフック（KaomojiMMORPG / RPGGame 全メソッド対応＋連鎖呼び出し二重発火防止）
-    const castMethods = ['useSkillSlot', 'executeSingleSkillCast', 'useSkill', 'castSkill', 'executeSkill'];
-    castMethods.forEach((mName) => {
-      if (typeof P[mName] === 'function' && !P[`_kmjV9Orig_${mName}`]) {
-        P[`_kmjV9Orig_${mName}`] = P[mName];
-        P[mName] = function (skillOrIndex, targetArg, ...rest) {
-          window._kmjGameInstance = this;
-          this._kmjV9CastDepth = (this._kmjV9CastDepth || 0) + 1;
-          const isOuterCall = this._kmjV9CastDepth === 1;
+    classes.forEach(Cls => {
+      const proto = Cls.prototype;
+      if (proto._v9MasterInstalled) return;
+      proto._v9MasterInstalled = true;
 
-          try {
-            if (isOuterCall) {
-              let skillObj = null;
-              if (skillOrIndex && typeof skillOrIndex === 'object') {
-                skillObj = skillOrIndex;
-              } else if (typeof skillOrIndex === 'number' || typeof skillOrIndex === 'string') {
-                skillObj = this.saveData?.skills?.[skillOrIndex]
-                  || this.skills?.[skillOrIndex]
-                  || this.skillSlots?.[skillOrIndex]
-                  || (Array.isArray(this.saveData?.skills)
-                    ? this.saveData.skills.find(s => s && (s.id === skillOrIndex || s.baseName === skillOrIndex || s.name === skillOrIndex))
-                    : null);
-              }
+      // 非攻撃スキル実行中フラグの判定ヘルパー
+      proto._isNonAttackCastActiveV9 = function () {
+        return Boolean(this._v9SuppressAttackUntil && performance.now() <= this._v9SuppressAttackUntil);
+      };
 
-              let tPos = null;
-              if (targetArg && typeof targetArg === 'object') {
-                tPos = targetArg.pos || (typeof targetArg.x === 'number' ? targetArg : null);
-              } else if (this.lockedTarget?.pos) {
-                tPos = this.lockedTarget.pos;
-              }
+      // モンスターダメージ関数群をフック（非攻撃スキル実行中は敵への攻撃判定を完全遮断）
+      ['damageMonster', 'applySkillDamage', 'hitMonster', 'applyMagicProjectileHitDamageV40'].forEach(dmgFn => {
+        if (typeof proto[dmgFn] === 'function' && !proto[`_v9Guard_${dmgFn}`]) {
+          const origDmg = proto[dmgFn];
+          proto[dmgFn] = function (...args) {
+            if (this._isNonAttackCastActiveV9()) {
+              return 0;
+            }
+            return origDmg.apply(this, args);
+          };
+          proto[`_v9Guard_${dmgFn}`] = true;
+        }
+      });
 
-              if (skillObj) {
-                try {
-                  triggerCustomSkillEffectV9(this, this.player, tPos, skillObj);
-                } catch (e) {}
-              }
+      // game7.js の状態異常付与フック（非攻撃スキル実行中は敵へ状態異常を付与しない）
+      if (typeof proto.applyElementalStatusToMonstersV7 === 'function' && !proto._v9Guard_status) {
+        const origStatus = proto.applyElementalStatusToMonstersV7;
+        proto.applyElementalStatusToMonstersV7 = function (...args) {
+          if (this._isNonAttackCastActiveV9()) return;
+          return origStatus.apply(this, args);
+        };
+        proto._v9Guard_status = true;
+      }
+
+      // スキル発動フック（多重発火防止＋非攻撃スキルガード＋3D演出再生）
+      ['useSkillSlot', 'executeSingleSkillCast', 'useSkill', 'castSkill'].forEach(fn => {
+        if (typeof proto[fn] === 'function' && !proto[`_v9Hook_${fn}`]) {
+          const orig = proto[fn];
+          proto[fn] = function (slotOrId, ...rest) {
+            const now = performance.now();
+            if (this._v9LastCastStamp && (now - this._v9LastCastStamp) < 85) {
+              return orig.apply(this, [slotOrId, ...rest]);
+            }
+            this._v9LastCastStamp = now;
+
+            const all = getAllSkillsListV9(this);
+            let slotIdx = typeof slotOrId === 'number' ? slotOrId : -1;
+            let sk = slotIdx >= 0
+              ? (this.skillSlots?.[slotIdx] || this.equippedSkills?.[slotIdx] || all[slotIdx])
+              : all.find(s => s.id === slotOrId || s.skillId === slotOrId || s.name === slotOrId);
+            if (slotIdx < 0 && sk) slotIdx = all.indexOf(sk);
+
+            const preInfo = sk ? getSkillInfoV9(this, sk, slotIdx) : null;
+            if (preInfo?.isNonAttack) {
+              // 本体処理中の攻撃判定・AoEダメージ・状態異常を220ms完全に遮断
+              this._v9SuppressAttackUntil = performance.now() + 220;
             }
 
-            return P[`_kmjV9Orig_${mName}`].call(this, skillOrIndex, targetArg, ...rest);
-          } finally {
-            this._kmjV9CastDepth = Math.max(0, (this._kmjV9CastDepth || 1) - 1);
-          }
+            const res = orig.apply(this, [slotOrId, ...rest]);
+
+            if (res !== false && sk) {
+              playSkillEffectV9(this, sk, slotIdx);
+            }
+            return res;
+          };
+          proto[`_v9Hook_${fn}`] = true;
+        }
+      });
+
+      // updateループに「極光の聖域」持続回復・バフ更新を統合
+      if (typeof proto.update === 'function' && !proto._v9UpdateWrapped) {
+        const origUpdate = proto.update;
+        proto.update = function (dt = 0.016, ...rest) {
+          const res = origUpdate.apply(this, [dt, ...rest]);
+          try {
+            V9.updateSanctuaryFields(this, dt);
+          } catch (e) {}
+          return res;
         };
+        proto._v9UpdateWrapped = true;
       }
     });
-
-    // 8-3. 通常攻撃ビジュアルルーター統合（剣3連横振り・杖魔法弾を壊さずに共存させる）
-    const origTriggerAttackVisual = P.triggerAttackVisual;
-    P.triggerAttackVisual = function (attacker, comboIndex = 0, ...rest) {
-      window._kmjGameInstance = this;
-      const targetEntity = attacker || this.player;
-
-      if (typeof window.routeBasicAttackVisualV7 === 'function') {
-        const handled = window.routeBasicAttackVisualV7(this, targetEntity, comboIndex, ...rest);
-        if (handled !== false) return handled;
-      }
-
-      if (typeof origTriggerAttackVisual === 'function') {
-        return origTriggerAttackVisual.call(this, attacker, comboIndex, ...rest);
-      }
-
-      const cls = String(
-        targetEntity?.classId ||
-        targetEntity?.jobId ||
-        this.saveData?.classId ||
-        this.saveData?.job ||
-        ''
-      ).toLowerCase();
-      const isStaff = /staff|wand|mage|wizard|sorcerer|witch|cleric|priest|杖|魔導|魔法|僧侶/.test(cls);
-      if (!isStaff) {
-        spawnWeaponHorizontalSlashV9(this, targetEntity, comboIndex);
-      }
-    };
-
-    return true;
   }
 
-  function patchAllGameClassesV9() {
-    let patchedAny = false;
-    if (typeof KaomojiMMORPG !== 'undefined') {
-      patchedAny = patchGameClassPrototypeV9(KaomojiMMORPG) || patchedAny;
-    }
-    if (typeof RPGGame !== 'undefined') {
-      patchedAny = patchGameClassPrototypeV9(RPGGame) || patchedAny;
-    }
-    return patchedAny;
-  }
+  // 公開API（game7.js 統合デバッグスタジオ等から参照）
+  Object.assign(V9, {
+    getAll14Skills: getAllSkillsListV9,
+    getSkillInfo: getSkillInfoV9,
+    syncAllSkills: syncAllSkillsV9,
+    openStudio: openMagicEvolutionStudioV9,
+    previewSkillByObj: (game, sk, tier) => playSkillEffectV9(game, sk, -1, tier)
+  });
 
-  if (!patchAllGameClassesV9()) {
-    let retries = 0;
-    const timer = setInterval(() => {
-      retries++;
-      if (patchAllGameClassesV9() || retries > 40) clearInterval(timer);
-    }, 150);
-  }
+  installV9MasterHooks();
 
-  // 外部・デバッグスタジオ連携公開API
-  FX9.showSpellCardCutin = showSpellCardCutinV9;
-  FX9.getEvolvedSkillInfo = getEvolvedSkillInfoV9;
-  FX9.getSkillInfo = getEvolvedSkillInfoV9;
-  FX9.triggerCustomSkillEffect = triggerCustomSkillEffectV9;
-  FX9.openMagicStudioModal = openMagicStudioModalV9;
-  FX9.spawnWeaponHorizontalSlash = spawnWeaponHorizontalSlashV9;
-  FX9.getAll14Skills = getAll14SkillsV9;
-  FX9.getAllSkills = getAll14SkillsV9;
-  FX9.previewSkillByObj = previewSkillByObjV9;
-  FX9.syncAllSkills = syncAllSkillsV9;
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      ensureStudioButtonV9();
+      syncAllSkillsV9();
+    }, 600);
+  });
+  setTimeout(() => {
+    ensureStudioButtonV9();
+    syncAllSkillsV9();
+  }, 500);
 })();
 // ▲▲▲ ここまで【スキルエフェクト専用 game9.js 2/2】 ▲▲▲
