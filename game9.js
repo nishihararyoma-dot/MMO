@@ -1,4 +1,4 @@
-// ▼▼▼ ここから【スキルエフェクト専用 game9.js（超軽量・高速化版）1/2】CSS・シンセ音・全18種プロファイル・共有キャッシュ＆オンデマンド3Dループ・極光の聖域・前半3Dビルダー(1〜10) ▼▼▼
+// ▼▼▼ ここから【スキルエフェクト専用 game9.js（無限再帰＆毎フレームエラー完全修正・爆速版）】 ▼▼▼
 (() => {
   'use strict';
 
@@ -23,7 +23,7 @@
       }
       @keyframes kmjV9SpinCW { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
       @keyframes kmjV9SpinCCW { 0% { transform: rotate(360deg); } 100% { transform: rotate(0deg); } }
-      @keyframes kmjV9FlashFade { 0% { opacity: 0.45; } 100% { opacity: 0; } }
+      @keyframes kmjV9FlashFade { 0% { opacity: 0.4; } 100% { opacity: 0; } }
 
       #kmj-v9-cutin-layer {
         position: fixed; inset: 0; pointer-events: none; z-index: 9999; overflow: hidden;
@@ -31,36 +31,36 @@
       .kmj-v9-flash {
         position: absolute; inset: 0;
         will-change: opacity;
-        animation: kmjV9FlashFade 0.4s ease-out forwards;
+        animation: kmjV9FlashFade 0.35s ease-out forwards;
       }
       .kmj-v9-line-top, .kmj-v9-line-bot {
         position: absolute; left: 0; right: 0; height: 2px;
         background: linear-gradient(90deg, transparent, #fde047, #f472b6, #38bdf8, transparent);
         will-change: transform, opacity;
-        animation: kmjV9LineSweep 2.1s ease-out forwards;
+        animation: kmjV9LineSweep 2.0s ease-out forwards;
       }
       .kmj-v9-line-top { top: 12.2%; }
       .kmj-v9-line-bot { top: 24.8%; }
 
       .kmj-v9-banner {
-        position: absolute; right: 14px; top: 13.2%; min-width: 300px; max-width: 92vw;
-        padding: 12px 24px 12px 18px; border-radius: 12px; border: 2px solid #fde047;
-        box-shadow: 0 4px 18px rgba(250, 204, 21, 0.55);
+        position: absolute; right: 14px; top: 13.2%; min-width: 290px; max-width: 92vw;
+        padding: 11px 22px 11px 16px; border-radius: 12px; border: 2px solid #fde047;
+        box-shadow: 0 4px 14px rgba(250, 204, 21, 0.45);
         display: flex; align-items: center; gap: 12px;
         will-change: transform, opacity;
-        animation: kmjV9CutinSlide 2.15s cubic-bezier(0.16, 1, 0.3, 1) forwards; overflow: hidden;
+        animation: kmjV9CutinSlide 2.05s cubic-bezier(0.16, 1, 0.3, 1) forwards; overflow: hidden;
       }
       .kmj-v9-banner-inner {
         transform: skewX(15deg); display: flex; align-items: center; gap: 12px; position: relative; z-index: 2;
       }
       .kmj-v9-ring-1 {
-        position: absolute; right: -28px; top: -38px; width: 144px; height: 144px;
+        position: absolute; right: -28px; top: -38px; width: 140px; height: 140px;
         border: 2px dashed rgba(255, 255, 255, 0.45); border-radius: 50%;
         will-change: transform;
         animation: kmjV9SpinCW 6s linear infinite; z-index: 1;
       }
       .kmj-v9-ring-2 {
-        position: absolute; right: -12px; top: -22px; width: 114px; height: 114px;
+        position: absolute; right: -12px; top: -22px; width: 110px; height: 110px;
         border: 2px solid rgba(253, 224, 71, 0.55); border-radius: 50%;
         will-change: transform;
         animation: kmjV9SpinCCW 4s linear infinite; z-index: 1;
@@ -93,7 +93,7 @@
   function playMagicAudioV9(attrId = 'sword', tier = 0) {
     try {
       const stamp = performance.now();
-      if (stamp - _lastAudioStampV9 < 70) return;
+      if (stamp - _lastAudioStampV9 < 90) return;
       _lastAudioStampV9 = stamp;
 
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -129,15 +129,15 @@
       const impGain = ctx.createGain();
       impOsc.type = cfg.wave;
       impOsc.frequency.setValueAtTime(cfg.base, now);
-      impOsc.frequency.exponentialRampToValueAtTime(Math.max(30, cfg.sweep), now + 0.35);
+      impOsc.frequency.exponentialRampToValueAtTime(Math.max(30, cfg.sweep), now + 0.34);
       impGain.gain.setValueAtTime(0.08, now);
-      impGain.gain.exponentialRampToValueAtTime(0.001, now + 0.37);
+      impGain.gain.exponentialRampToValueAtTime(0.001, now + 0.36);
       impOsc.connect(impGain);
       impGain.connect(ctx.destination);
       impOsc.start(now);
-      impOsc.stop(now + 0.39);
+      impOsc.stop(now + 0.38);
 
-      const count = Math.min(cfg.notes.length, 2 + tier, 4);
+      const count = Math.min(cfg.notes.length, 2 + tier, 3);
       for (let i = 0; i < count; i++) {
         const freq = cfg.notes[i];
         const osc = ctx.createOscillator();
@@ -145,16 +145,16 @@
         osc.type = tier >= 2 ? 'triangle' : 'sine';
         const t0 = now + i * 0.04;
         osc.frequency.setValueAtTime(freq, t0);
-        osc.frequency.exponentialRampToValueAtTime(freq * 1.02, t0 + 0.34);
+        osc.frequency.exponentialRampToValueAtTime(freq * 1.02, t0 + 0.32);
 
         gain.gain.setValueAtTime(0.001, t0);
         gain.gain.linearRampToValueAtTime(0.055, t0 + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0008, t0 + 0.38);
+        gain.gain.exponentialRampToValueAtTime(0.0008, t0 + 0.35);
 
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.start(t0);
-        osc.stop(t0 + 0.40);
+        osc.stop(t0 + 0.37);
       }
     } catch (e) {}
   }
@@ -454,29 +454,28 @@
     return _geoCacheV9[key];
   }
 
-  // 汎用単位ジオメトリ（スケール変換で全スキル共通再利用）
   function unitGeoV9(type) {
     switch (type) {
-      case 'octa':   return getCachedGeoV9('unit_octa',   () => new THREE.OctahedronGeometry(1, 0));
-      case 'tetra':  return getCachedGeoV9('unit_tetra',  () => new THREE.TetrahedronGeometry(1, 0));
-      case 'dodeca': return getCachedGeoV9('unit_dodeca', () => new THREE.DodecahedronGeometry(1, 0));
-      case 'icosa':  return getCachedGeoV9('unit_icosa',  () => new THREE.IcosahedronGeometry(1, 1));
-      case 'sphere': return getCachedGeoV9('unit_sphere', () => new THREE.SphereGeometry(1, 14, 10));
-      case 'box':    return getCachedGeoV9('unit_box',    () => new THREE.BoxGeometry(1, 1, 1));
-      case 'cone8':  return getCachedGeoV9('unit_cone8',  () => new THREE.ConeGeometry(1, 1, 8));
-      case 'cone4':  return getCachedGeoV9('unit_cone4',  () => new THREE.ConeGeometry(1, 1, 4));
-      case 'cone6':  return getCachedGeoV9('unit_cone6',  () => new THREE.ConeGeometry(1, 1, 6));
-      case 'cone10open': return getCachedGeoV9('unit_cone10open', () => new THREE.ConeGeometry(1, 1, 10, 1, true));
-      case 'cyl16open':  return getCachedGeoV9('unit_cyl16open',  () => new THREE.CylinderGeometry(1, 1, 1, 16, 1, true));
-      case 'cyl8':   return getCachedGeoV9('unit_cyl8',   () => new THREE.CylinderGeometry(1, 1, 1, 8));
-      case 'cyl6':   return getCachedGeoV9('unit_cyl6',   () => new THREE.CylinderGeometry(1, 1, 1, 6));
-      case 'circle24': return getCachedGeoV9('unit_circle24', () => new THREE.CircleGeometry(1, 24));
-      default:       return getCachedGeoV9('unit_octa',   () => new THREE.OctahedronGeometry(1, 0));
+      case 'octa':       return getCachedGeoV9('unit_octa',       () => new THREE.OctahedronGeometry(1, 0));
+      case 'tetra':      return getCachedGeoV9('unit_tetra',      () => new THREE.TetrahedronGeometry(1, 0));
+      case 'dodeca':     return getCachedGeoV9('unit_dodeca',     () => new THREE.DodecahedronGeometry(1, 0));
+      case 'icosa':      return getCachedGeoV9('unit_icosa',      () => new THREE.IcosahedronGeometry(1, 1));
+      case 'sphere':     return getCachedGeoV9('unit_sphere',     () => new THREE.SphereGeometry(1, 10, 8));
+      case 'box':        return getCachedGeoV9('unit_box',        () => new THREE.BoxGeometry(1, 1, 1));
+      case 'cone8':      return getCachedGeoV9('unit_cone8',      () => new THREE.ConeGeometry(1, 1, 8));
+      case 'cone4':      return getCachedGeoV9('unit_cone4',      () => new THREE.ConeGeometry(1, 1, 4));
+      case 'cone6':      return getCachedGeoV9('unit_cone6',      () => new THREE.ConeGeometry(1, 1, 6));
+      case 'cone10open': return getCachedGeoV9('unit_cone10open', () => new THREE.ConeGeometry(1, 1, 8, 1, true));
+      case 'cyl16open':  return getCachedGeoV9('unit_cyl16open',  () => new THREE.CylinderGeometry(1, 1, 1, 12, 1, true));
+      case 'cyl8':       return getCachedGeoV9('unit_cyl8',       () => new THREE.CylinderGeometry(1, 1, 1, 8));
+      case 'cyl6':       return getCachedGeoV9('unit_cyl6',       () => new THREE.CylinderGeometry(1, 1, 1, 6));
+      case 'circle24':   return getCachedGeoV9('unit_circle24',   () => new THREE.CircleGeometry(1, 20));
+      default:           return getCachedGeoV9('unit_octa',       () => new THREE.OctahedronGeometry(1, 0));
     }
   }
 
-  function makeCircleRing(rIn, rOut, color, seg = 24) {
-    const optSeg = seg > 24 ? 24 : seg;
+  function makeCircleRing(rIn, rOut, color, seg = 20) {
+    const optSeg = seg > 20 ? 20 : seg;
     const ratio = Math.max(0.05, Math.min(0.95, rIn / Math.max(0.01, rOut)));
     const key = `ring_${ratio.toFixed(2)}_${optSeg}`;
     const geo = getCachedGeoV9(key, () => new THREE.RingGeometry(ratio, 1.0, optSeg));
@@ -512,7 +511,7 @@
   }
 
   const activeAnimsV9 = [];
-  const MAX_ACTIVE_ANIMS_V9 = 8;
+  const MAX_ACTIVE_ANIMS_V9 = 5;
   let _loopRunningV9 = false;
   let _lastFrameV9 = 0;
 
@@ -565,7 +564,6 @@
   function register3DAnimationV9(scene, rootGroup, duration, onTick) {
     if (!scene || !rootGroup) return;
 
-    // 同時再生数上限を超えたら最古のエフェクトを即座に片付け
     while (activeAnimsV9.length >= MAX_ACTIVE_ANIMS_V9) {
       const oldest = activeAnimsV9.shift();
       if (oldest) disposeGroupSafeV9(oldest.scene, oldest.group);
@@ -581,7 +579,6 @@
       onTick
     });
 
-    // エフェクト発生時のみアニメーションループを起動
     if (!_loopRunningV9) {
       _loopRunningV9 = true;
       _lastFrameV9 = performance.now();
@@ -590,7 +587,7 @@
   }
 
   // =========================================================
-  // 5. 「極光の聖域」持続フィールド管理（同時展開上限2個＋軽量化）
+  // 5. 「極光の聖域」持続フィールド管理（同時展開上限2個＋超軽量化）
   // =========================================================
   const activeSanctuariesV9 = [];
   const MAX_SANCTUARIES_V9 = 2;
@@ -601,7 +598,6 @@
     const radius = (4.2 + tier * 1.4);
     const duration = 10.0 + tier * 3.0;
 
-    // 同時設置上限（3個目を出したら一番古い聖域を自動消去）
     while (activeSanctuariesV9.length >= MAX_SANCTUARIES_V9) {
       const oldS = activeSanctuariesV9.shift();
       if (oldS) disposeGroupSafeV9(oldS.scene, oldS.root);
@@ -620,12 +616,12 @@
     root.add(floorDisk);
 
     const rings = [];
-    const ringCount = 2 + tier;
+    const ringCount = 2 + Math.min(2, tier);
     const ringCols = [0x34d399, 0xf472b6, 0x38bdf8, 0xfde047];
     for (let r = 0; r < ringCount; r++) {
       const rIn = radius * (0.28 + (r / ringCount) * 0.68);
       const rOut = rIn + 0.16 + tier * 0.03;
-      const segs = r % 3 === 0 ? 6 : (r % 3 === 1 ? 8 : 24);
+      const segs = r % 3 === 0 ? 6 : (r % 3 === 1 ? 8 : 20);
       const rm = makeCircleRing(rIn, rOut, ringCols[r % ringCols.length], segs);
       rm.position.y = 0.06 + r * 0.02;
       root.add(rm);
@@ -653,12 +649,12 @@
     }
 
     const crystals = [];
-    const cryCnt = 4 + tier * 2;
+    const cryCnt = 4 + tier;
     const cryMats = [
       new THREE.MeshBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.95, depthWrite: false }),
       new THREE.MeshBasicMaterial({ color: 0xf472b6, transparent: true, opacity: 0.95, depthWrite: false })
     ];
-    const crySize = 0.32 + tier * 0.08;
+    const crySize = 0.34 + tier * 0.08;
     for (let c = 0; c < cryCnt; c++) {
       const ang = (Math.PI * 2 * c) / cryCnt;
       const cry = new THREE.Mesh(unitGeoV9('octa'), cryMats[c % 2]);
@@ -755,11 +751,12 @@
         }
 
         const remoteLists = [game.remotePlayers, game.otherPlayers, game.players];
-        remoteLists.forEach(col => {
-          if (!col) return;
-          const arr = Array.isArray(col) ? col : (col instanceof Map ? Array.from(col.values()) : Object.values(col));
-          arr.forEach(rp => {
-            if (!rp || rp === game.player || !rp.pos) return;
+        for (let c = 0; c < remoteLists.length; c++) {
+          const col = remoteLists[c];
+          if (!col) continue;
+          const iter = Array.isArray(col) ? col : (col instanceof Map ? col.values() : Object.values(col));
+          for (const rp of iter) {
+            if (!rp || rp === game.player || !rp.pos) continue;
             const dRemote = Math.hypot(rp.pos.x - s.x, rp.pos.z - s.z);
             if (dRemote <= s.radius) {
               const rMaxHp = Math.max(Number(rp.maxHp || 100), Number(rp.hp || 100));
@@ -768,8 +765,8 @@
               if (typeof rp.mp === 'number') rp.mp = Math.min(rMaxMp, Math.max(rp.mp, rp.mp + Math.floor(rMaxMp * (0.10 + s.tier * 0.05))));
               rp.sanctuaryBuffTimer = 2.5;
             }
-          });
-        });
+          }
+        }
 
         if (typeof game.broadcastSkillOrHeal === 'function') {
           try { game.broadcastSkillOrHeal({ type: 'sanctuary_pulse', x: s.x, z: s.z, radius: s.radius, tier: s.tier }); } catch (e) {}
@@ -783,28 +780,19 @@
     }
   }
 
-  window.KMJ_SKILL_FX_V9 = {
-    ATTRIBUTES: SKILL_DERIVATION_PROFILES_V9,
-    EFFECT_BUILDERS: {},
-    register3DAnimation: register3DAnimationV9,
-    spawnAuroraSanctuaryField: spawnAuroraSanctuaryFieldV9,
-    updateSanctuaryFields: updateSanctuaryFieldsV9,
-    _playMagicAudio: playMagicAudioV9
-  };
-
   // =========================================================
-  // 6. 全18種スキル個別3Dエフェクト専用ビルダー（軽量・高迫力前半 1〜10）
+  // 6. 全18種スキル個別3Dエフェクト専用ビルダー（軽量・高迫力 1〜18）
   // =========================================================
   const reg = register3DAnimationV9;
 
-  const EFFECT_BUILDERS_PART1 = {
-    // 1. 覇王の咆哮（二重衝撃波＋闘気火柱＋回転王冠リング＋舞い上がる闘気結晶）
+  const EFFECT_BUILDERS_V9 = {
+    // 1. 覇王の咆哮
     warcry_aura: (scene, caster, target, tier, attr) => {
       const root = new THREE.Group();
       root.position.set(caster.x, 0, caster.z);
 
       const shockBase = 1.5 + tier * 0.45;
-      const shock = makeCircleRing(0.4, shockBase, attr.c2, 24);
+      const shock = makeCircleRing(0.4, shockBase, attr.c2, 20);
       shock.position.y = 0.08;
       const shock2Base = 2.2 + tier * 0.6;
       const shock2 = makeCircleRing(0.8, shock2Base, attr.c1, 6);
@@ -830,7 +818,7 @@
       for (let i = 0; i < crCnt; i++) {
         const r = 1.3 + i * 0.38;
         const tube = 0.09 + tier * 0.02;
-        const crGeo = getCachedGeoV9(`torus_${r.toFixed(2)}_${tube.toFixed(2)}`, () => new THREE.TorusGeometry(r, tube, 6, 20));
+        const crGeo = getCachedGeoV9(`torus_${r.toFixed(2)}_${tube.toFixed(2)}`, () => new THREE.TorusGeometry(r, tube, 6, 18));
         const cr = new THREE.Mesh(crGeo, crMats[i % 2]);
         cr.rotation.x = Math.PI / 2;
         cr.position.y = 0.5 + i * 0.65;
@@ -839,23 +827,19 @@
       }
 
       const flames = [];
-      const fCnt = 8 + tier * 3;
-      const fMats = [
-        new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.96 }),
-        new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.96 })
-      ];
-      const fSz = 0.28 + tier * 0.07;
+      const fCnt = 6 + tier * 2;
+      const fSz = 0.32 + tier * 0.07;
       for (let i = 0; i < fCnt; i++) {
         const ang = (Math.PI * 2 * i) / fCnt;
         const rad = 0.9 + (i % 3) * 0.5;
-        const f = new THREE.Mesh(unitGeoV9('octa'), fMats[i % 2]);
+        const f = new THREE.Mesh(unitGeoV9('octa'), crMats[i % 2]);
         f.scale.setScalar(fSz);
         f.position.set(Math.cos(ang) * rad, 0.2, Math.sin(ang) * rad);
         root.add(f);
         flames.push({ mesh: f, ang, rad, spd: 2.8 + (i % 4) * 0.75 });
       }
 
-      reg(scene, root, 1.3 + tier * 0.25, (p, el) => {
+      reg(scene, root, 1.2 + tier * 0.2, (p, el) => {
         const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
         const s1 = shockBase * (1 + p * (2.8 + tier * 0.85));
         shock.scale.set(s1, s1, 1);
@@ -873,7 +857,6 @@
           cr.position.y = (0.4 + idx * 0.55) + p * (2.4 + tier * 0.55);
           cr.rotation.z = el * (idx % 2 === 0 ? 4.5 : -4.5);
         });
-        fMats.forEach(m => { m.opacity = fade * 0.96; });
         flames.forEach((fl, idx) => {
           const a = fl.ang + el * 3.5;
           fl.mesh.position.set(Math.cos(a) * fl.rad, (p * fl.spd * 1.8) % 4.2, Math.sin(a) * fl.rad);
@@ -882,7 +865,7 @@
       });
     },
 
-    // 2. 神域防御・イージスの盾（ハニカムドーム＋二重回転聖盾リング＋地面守護陣）
+    // 2. 神域防御・イージスの盾
     aegis_shield: (scene, caster, target, tier, attr) => {
       const root = new THREE.Group();
       root.position.set(caster.x, 1.1, caster.z);
@@ -904,7 +887,7 @@
       floorRune.position.y = -1.02;
       root.add(floorRune);
 
-      const orbitGeo = getCachedGeoV9(`torus_aegis_${tier}`, () => new THREE.TorusGeometry(domeR * 1.12, 0.08, 6, 24));
+      const orbitGeo = getCachedGeoV9(`torus_aegis_${tier}`, () => new THREE.TorusGeometry(domeR * 1.12, 0.08, 6, 20));
       const orbitRing = new THREE.Mesh(
         orbitGeo,
         new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.94 })
@@ -930,7 +913,7 @@
         hexPlates.push({ mesh: hp, ang, yOff: (i % 3 - 1) * 0.48 });
       }
 
-      reg(scene, root, 1.5 + tier * 0.35, (p, el) => {
+      reg(scene, root, 1.35 + tier * 0.25, (p, el) => {
         const fade = p > 0.75 ? 1 - (p - 0.75) / 0.25 : 1;
         const pop = p < 0.15 ? (p / 0.15) : 1;
         dome.scale.setScalar(domeR * pop);
@@ -953,7 +936,7 @@
       });
     },
 
-    // 3. 極光の聖域（虹色天蓋光柱＋多重回転魔法陣＋上昇プリズム結晶群）
+    // 3. 極光の聖域
     aurora_sanctuary: (scene, caster, target, tier, attr) => {
       const root = new THREE.Group();
       root.position.set(caster.x, 0.08, caster.z);
@@ -980,7 +963,7 @@
       hexA.position.y = 0.05;
       const hexB = makeCircleRing(2.6 + tier * 0.6, 3.6 + tier * 0.8, attr.c2, 8);
       hexB.position.y = 0.08;
-      const shockWave = makeCircleRing(0.5, 1.4, attr.c1, 24);
+      const shockWave = makeCircleRing(0.5, 1.4, attr.c1, 20);
       shockWave.position.y = 0.12;
 
       root.add(outerBeam, innerBeam, hexA, hexB, shockWave);
@@ -988,8 +971,8 @@
       const prisms = [];
       const cols = [attr.c1, attr.c2, attr.c3, 0x38bdf8];
       const pMats = cols.map(c => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.96 }));
-      const pCnt = 9 + tier * 3;
-      const pSz = 0.30 + tier * 0.07;
+      const pCnt = 7 + tier * 2;
+      const pSz = 0.34 + tier * 0.07;
       for (let i = 0; i < pCnt; i++) {
         const pm = new THREE.Mesh(unitGeoV9('octa'), pMats[i % pMats.length]);
         pm.scale.setScalar(pSz);
@@ -999,7 +982,7 @@
         prisms.push({ mesh: pm, ang, rad, off: (i % 5) * 1.4 });
       }
 
-      reg(scene, root, 1.25 + tier * 0.2, (p, el) => {
+      reg(scene, root, 1.15 + tier * 0.18, (p, el) => {
         const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
         const ow = outerR * (1 + p * 0.6);
         outerBeam.scale.set(ow, outerH, ow);
@@ -1024,7 +1007,7 @@
       });
     },
 
-    // 4. 烈空・三日月真空斬（超高速多重三日月真空刃＋着弾クロス衝撃波）
+    // 4. 烈空・三日月真空斬
     slash_crescent: (scene, caster, target, tier, attr) => {
       const root = new THREE.Group();
       const dx = target.x - caster.x;
@@ -1038,8 +1021,8 @@
       const waves = [];
       const bIn = 1.1 + tier * 0.3;
       const bOut = 2.05 + tier * 0.48;
-      const bladeGeo = getCachedGeoV9(`crescent_blade_${tier}`, () => new THREE.RingGeometry(bIn, bOut, 20, 1, -Math.PI * 0.45, Math.PI * 0.9));
-      const edgeGeo = getCachedGeoV9(`crescent_edge_${tier}`, () => new THREE.TorusGeometry(bOut, 0.09 + tier * 0.03, 6, 20, Math.PI * 0.9));
+      const bladeGeo = getCachedGeoV9(`crescent_blade_${tier}`, () => new THREE.RingGeometry(bIn, bOut, 18, 1, -Math.PI * 0.45, Math.PI * 0.9));
+      const edgeGeo = getCachedGeoV9(`crescent_edge_${tier}`, () => new THREE.TorusGeometry(bOut, 0.09 + tier * 0.03, 6, 18, Math.PI * 0.9));
       const bladeMats = [
         new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.96 }),
         new THREE.MeshBasicMaterial({ color: attr.c2, side: THREE.DoubleSide, transparent: true, opacity: 0.96 })
@@ -1064,12 +1047,12 @@
       }
 
       const impR = 2.4 + tier * 0.7;
-      const impactRing = makeCircleRing(0.5, impR, attr.c1, 24);
+      const impactRing = makeCircleRing(0.5, impR, attr.c1, 20);
       impactRing.position.set(0, -1.05, dist);
       impactRing.visible = false;
       root.add(impactRing);
 
-      reg(scene, root, 0.75 + tier * 0.12, (p, el) => {
+      reg(scene, root, 0.72 + tier * 0.1, (p, el) => {
         const travel = Math.min(1, p / 0.72) * (dist + 1.5);
         const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
         bladeMats.forEach(m => { m.opacity = fade * 0.96; });
@@ -1095,7 +1078,7 @@
       root.position.set(target.x, 0, target.z);
 
       const zoneR = 2.6 + tier * 0.95;
-      const ring = makeCircleRing(zoneR * 0.82, zoneR, attr.c2, 24);
+      const ring = makeCircleRing(zoneR * 0.82, zoneR, attr.c2, 20);
       ring.position.y = 0.06;
       root.add(ring);
 
@@ -1133,7 +1116,7 @@
       blastSphere.position.y = 0.5;
       root.add(blastSphere);
 
-      reg(scene, root, 1.25 + tier * 0.2, (p, el) => {
+      reg(scene, root, 1.15 + tier * 0.18, (p, el) => {
         ring.rotation.z = el * 3.5;
         let maxImpact = 0;
         meteors.forEach((mt) => {
@@ -1168,7 +1151,7 @@
       root.position.set(target.x, 0, target.z);
 
       const baseR = 1.6 + tier * 0.55;
-      const magicRing = makeCircleRing(baseR * 0.75, baseR, attr.c1, 24);
+      const magicRing = makeCircleRing(baseR * 0.75, baseR, attr.c1, 20);
       magicRing.position.y = 0.06;
       root.add(magicRing);
 
@@ -1188,12 +1171,12 @@
       root.add(innerCore);
 
       const spirals = [];
-      const orbCnt = 8 + tier * 3;
+      const orbCnt = 6 + tier * 2;
       const orbMats = [
         new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.95 }),
         new THREE.MeshBasicMaterial({ color: attr.c3, transparent: true, opacity: 0.95 })
       ];
-      const orbSz = 0.30 + tier * 0.07;
+      const orbSz = 0.34 + tier * 0.07;
       for (let i = 0; i < orbCnt; i++) {
         const orb = new THREE.Mesh(unitGeoV9('octa'), orbMats[i % 2]);
         orb.scale.setScalar(orbSz);
@@ -1201,7 +1184,7 @@
         spirals.push({ mesh: orb, phase: (Math.PI * 2 * i) / orbCnt, hOff: (i / orbCnt) * 7.5 });
       }
 
-      reg(scene, root, 1.15 + tier * 0.2, (p, el) => {
+      reg(scene, root, 1.1 + tier * 0.18, (p, el) => {
         const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
         const grow = Math.min(1, p * 4.5);
         magicRing.rotation.z = el * 4;
@@ -1264,7 +1247,7 @@
       boom.position.set(target.x, 1.0, target.z);
       root.add(boom);
 
-      reg(scene, root, 0.95 + tier * 0.15, (p, el) => {
+      reg(scene, root, 0.9 + tier * 0.14, (p, el) => {
         if (p < 0.65) {
           const fp = p / 0.65;
           fireballs.forEach((f) => {
@@ -1284,7 +1267,7 @@
       });
     },
 
-    // 8. 灼熱ブレイズ・溶岩マグマ噴火魔法（地割れリング＋中央火柱＋飛び散る灼熱溶岩弾＋熱波）
+    // 8. 灼熱ブレイズ・溶岩マグマ噴火魔法
     fire_eruption: (scene, caster, target, tier, attr) => {
       const root = new THREE.Group();
       root.position.set(target.x, 0, target.z);
@@ -1297,7 +1280,7 @@
       lavaPool.rotation.x = -Math.PI / 2;
       lavaPool.position.y = 0.05;
 
-      const heatWave = makeCircleRing(rMax * 0.75, rMax * 1.15, attr.c2, 24);
+      const heatWave = makeCircleRing(rMax * 0.75, rMax * 1.15, attr.c2, 20);
       heatWave.position.y = 0.09;
 
       const vR = 1.25 + tier * 0.35;
@@ -1310,12 +1293,12 @@
       root.add(lavaPool, heatWave, mainVolcano);
 
       const geysers = [];
-      const gyCnt = 5 + tier * 2;
+      const gyCnt = 4 + tier * 2;
       const gyMats = [
         new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.94 }),
         new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.94 })
       ];
-      const gyR = 0.42 + tier * 0.09;
+      const gyR = 0.45 + tier * 0.09;
       const gyH = 3.6 + tier * 1.2;
       for (let i = 0; i < gyCnt; i++) {
         const ang = (Math.PI * 2 * i) / gyCnt;
@@ -1328,14 +1311,10 @@
       }
 
       const magmaBombs = [];
-      const mbCnt = 8 + tier * 3;
-      const mbMats = [
-        new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.96 }),
-        new THREE.MeshBasicMaterial({ color: attr.c3, transparent: true, opacity: 0.96 })
-      ];
-      const mbSz = 0.28 + tier * 0.07;
+      const mbCnt = 6 + tier * 2;
+      const mbSz = 0.32 + tier * 0.07;
       for (let i = 0; i < mbCnt; i++) {
-        const mb = new THREE.Mesh(unitGeoV9('dodeca'), mbMats[i % 2]);
+        const mb = new THREE.Mesh(unitGeoV9('dodeca'), gyMats[i % 2]);
         mb.scale.setScalar(mbSz);
         const ang = (Math.PI * 2 * i) / mbCnt;
         const dist = 1.6 + (i % 4) * (0.85 + tier * 0.25);
@@ -1344,7 +1323,7 @@
         magmaBombs.push({ mesh: mb, ang, dist, peakH });
       }
 
-      reg(scene, root, 1.25 + tier * 0.2, (p, el) => {
+      reg(scene, root, 1.15 + tier * 0.18, (p, el) => {
         const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
         const lpSc = rMax * Math.min(1, p * 3.5);
         lavaPool.scale.set(lpSc, lpSc, 1);
@@ -1363,7 +1342,6 @@
           gy.mesh.scale.set(gyR, gyH * wave * 1.4, gyR);
           gy.mesh.position.y = wave * (2.0 + tier * 0.55);
         });
-        mbMats.forEach(m => { m.opacity = fade * 0.96; });
         magmaBombs.forEach((mb, idx) => {
           const r = mb.dist * p;
           const y = Math.sin(p * Math.PI) * mb.peakH + 0.2;
@@ -1384,7 +1362,7 @@
       root.add(hexRing);
 
       const spikes = [];
-      const spikeCnt = 6 + tier * 3;
+      const spikeCnt = 6 + tier * 2;
       const spMats = [
         new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.9 }),
         new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.9 })
@@ -1394,7 +1372,7 @@
         const ang = (Math.PI * 2 * i) / Math.max(1, spikeCnt - 1);
         const rad = isCenter ? 0 : zoneR * (0.35 + (i % 3) * 0.22);
         const h = (isCenter ? 3.8 : 2.3) + tier * 0.9;
-        const w = (isCenter ? 0.65 : 0.38) + tier * 0.1;
+        const w = (isCenter ? 0.65 : 0.40) + tier * 0.1;
 
         const sp = new THREE.Mesh(unitGeoV9('cone6'), spMats[i % 2]);
         sp.scale.set(w, h, w);
@@ -1407,7 +1385,7 @@
         spikes.push({ mesh: sp, targetY: h * 0.46, startY: -h * 0.5 });
       }
 
-      reg(scene, root, 1.15 + tier * 0.2, (p, el) => {
+      reg(scene, root, 1.1 + tier * 0.18, (p, el) => {
         const thrust = Math.min(1, p / 0.24);
         const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
         hexRing.rotation.z = el * 2.2;
@@ -1434,14 +1412,14 @@
         const ox = b === 0 ? 0 : Math.cos((Math.PI * 2 * b) / boltCount) * (1.2 + tier * 0.35);
         const oz = b === 0 ? 0 : Math.sin((Math.PI * 2 * b) / boltCount) * (1.2 + tier * 0.35);
         const bGrp = new THREE.Group();
-        const segs = 6;
+        const segs = 5;
         let curX = ox;
         let curZ = oz;
         for (let s = 0; s < segs; s++) {
           const nextX = s === segs - 1 ? ox : ox + (Math.random() - 0.5) * 1.5;
           const nextZ = s === segs - 1 ? oz : oz + (Math.random() - 0.5) * 1.5;
-          const segH = 2.1 + tier * 0.35;
-          const segR = 0.16 + tier * 0.04;
+          const segH = 2.4 + tier * 0.4;
+          const segR = 0.18 + tier * 0.04;
           const segMesh = new THREE.Mesh(unitGeoV9('cyl8'), bMats[s % 2]);
           segMesh.scale.set(segR, segH, segR);
           segMesh.position.set((curX + nextX) * 0.5, (segs - s - 0.5) * segH, (curZ + nextZ) * 0.5);
@@ -1456,11 +1434,11 @@
       }
 
       const srR = 2.3 + tier * 0.85;
-      const shockRing = makeCircleRing(0.5, srR, attr.c1, 24);
+      const shockRing = makeCircleRing(0.5, srR, attr.c1, 20);
       shockRing.position.y = 0.08;
       root.add(shockRing);
 
-      reg(scene, root, 0.85 + tier * 0.15, (p, el) => {
+      reg(scene, root, 0.8 + tier * 0.14, (p, el) => {
         const fade = 1 - p;
         bMats.forEach(m => { m.opacity = fade; });
         bolts.forEach((bg, idx) => {
@@ -1470,41 +1448,15 @@
         shockRing.scale.set(sc, sc, 1);
         shockRing.material.opacity = fade;
       });
-    }
-  };
+    },
 
-  Object.assign(window.KMJ_SKILL_FX_V9.EFFECT_BUILDERS, EFFECT_BUILDERS_PART1);
-  window.KMJ_SKILL_FX_V9._makeCircleRing = makeCircleRing;
-  window.KMJ_SKILL_FX_V9._unitGeo = unitGeoV9;
-  window.KMJ_SKILL_FX_V9._getCachedGeo = getCachedGeoV9;
-})();
-// ▲▲▲ ここまで【スキルエフェクト専用 game9.js（超軽量・高速化版）1/2】 ▲▲▲
-// ▼▼▼ ここから【スキルエフェクト専用 game9.js（超軽量・高速化版）2/2】後半3Dビルダー(11〜18)・非攻撃スキル判定ガード・カットイン・魔法進化スタジオUI・本体フック ▼▼▼
-(() => {
-  'use strict';
-
-  const V9 = window.KMJ_SKILL_FX_V9;
-  if (!V9) {
-    console.error('[game9.js 2/2] game9.js 1/2 が先に読み込まれていません。');
-    return;
-  }
-
-  const reg = V9.register3DAnimation;
-  const makeCircleRing = V9._makeCircleRing;
-  const unitGeoV9 = V9._unitGeo;
-  const getCachedGeoV9 = V9._getCachedGeo;
-
-  // =========================================================
-  // 7. 全18種スキル個別3Dエフェクト専用ビルダー（軽量・高迫力後半 11〜18）
-  // =========================================================
-  const EFFECT_BUILDERS_PART2 = {
-    // 11. 旋風円舞・螺旋竜巻魔法（多重竜巻ファンネル＋外周疾風リング＋舞い上がる風刃結晶）
+    // 11. 旋風円舞・螺旋竜巻魔法
     wind: (scene, caster, target, tier, attr) => {
       const root = new THREE.Group();
       root.position.set(target.x, 0, target.z);
       const maxR = 2.4 + tier * 0.75;
 
-      const groundRing = makeCircleRing(0.6, maxR, attr.c1, 24);
+      const groundRing = makeCircleRing(0.6, maxR, attr.c1, 20);
       groundRing.position.y = 0.06;
       const innerRune = makeCircleRing(0.3, maxR * 0.55, attr.c3, 6);
       innerRune.position.y = 0.09;
@@ -1526,7 +1478,7 @@
       root.add(funnelOuter, funnelInner);
 
       const windRings = [];
-      const rCnt = 4 + tier * 2;
+      const rCnt = 3 + tier;
       const wrMats = [
         new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.9 }),
         new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.9 })
@@ -1535,7 +1487,7 @@
         const t = i / rCnt;
         const r = 0.45 + t * maxR * 0.95;
         const tube = 0.07 + tier * 0.02;
-        const wrGeo = getCachedGeoV9(`torus_w_${r.toFixed(2)}_${tube.toFixed(2)}`, () => new THREE.TorusGeometry(r, tube, 6, 20));
+        const wrGeo = getCachedGeoV9(`torus_w_${r.toFixed(2)}_${tube.toFixed(2)}`, () => new THREE.TorusGeometry(r, tube, 6, 18));
         const wr = new THREE.Mesh(wrGeo, wrMats[i % 2]);
         wr.rotation.x = Math.PI / 2;
         wr.position.y = 0.3 + t * (5.6 + tier * 1.6);
@@ -1544,20 +1496,16 @@
       }
 
       const blades = [];
-      const bCnt = 8 + tier * 3;
-      const bMats = [
-        new THREE.MeshBasicMaterial({ color: attr.c3, transparent: true, opacity: 0.95 }),
-        new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.95 })
-      ];
-      const bSz = 0.30 + tier * 0.06;
+      const bCnt = 6 + tier * 2;
+      const bSz = 0.34 + tier * 0.06;
       for (let i = 0; i < bCnt; i++) {
-        const b = new THREE.Mesh(unitGeoV9('tetra'), bMats[i % 2]);
+        const b = new THREE.Mesh(unitGeoV9('tetra'), wrMats[i % 2]);
         b.scale.setScalar(bSz);
         root.add(b);
         blades.push({ mesh: b, ang: (Math.PI * 2 * i) / bCnt, hFrac: (i % 7) / 7 });
       }
 
-      reg(scene, root, 1.2 + tier * 0.2, (p, el) => {
+      reg(scene, root, 1.15 + tier * 0.18, (p, el) => {
         const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
         groundRing.rotation.z = el * 5;
         groundRing.material.opacity = fade * 0.92;
@@ -1574,7 +1522,6 @@
           wr.mesh.rotation.z = el * wr.spd;
           wr.mesh.position.y = wr.baseY + Math.sin(el * 8 + wr.baseY) * 0.25;
         });
-        bMats.forEach(m => { m.opacity = fade * 0.95; });
         blades.forEach((bl, idx) => {
           const h = ((bl.hFrac + p * 1.4) % 1) * (6.0 + tier * 1.6);
           const r = 0.5 + (h / (6.0 + tier * 1.6)) * maxR * 1.1;
@@ -1585,7 +1532,7 @@
       });
     },
 
-    // 12. 蒼海・大渦潮水柱魔法（大渦潮ディスク＋多重波紋＋噴き上がる水柱＋水沫オーブ）
+    // 12. 蒼海・大渦潮水柱魔法
     water: (scene, caster, target, tier, attr) => {
       const root = new THREE.Group();
       root.position.set(target.x, 0, target.z);
@@ -1600,9 +1547,9 @@
       root.add(whirlpool);
 
       const ripples = [];
-      const rpCnt = 2 + tier;
+      const rpCnt = 2 + Math.min(2, tier);
       for (let i = 0; i < rpCnt; i++) {
-        const rp = makeCircleRing(0.4 + i * 0.3, 0.85 + i * 0.35, i % 2 === 0 ? attr.c2 : attr.c3, 24);
+        const rp = makeCircleRing(0.4 + i * 0.3, 0.85 + i * 0.35, i % 2 === 0 ? attr.c2 : attr.c3, 20);
         rp.position.y = 0.08 + i * 0.02;
         root.add(rp);
         ripples.push({ mesh: rp, baseR: 0.85 + i * 0.35 });
@@ -1624,12 +1571,12 @@
       root.add(spout, innerSpout);
 
       const droplets = [];
-      const dCnt = 8 + tier * 3;
+      const dCnt = 6 + tier * 2;
       const dMats = [
         new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.94 }),
         new THREE.MeshBasicMaterial({ color: attr.c3, transparent: true, opacity: 0.94 })
       ];
-      const dSz = 0.25 + tier * 0.06;
+      const dSz = 0.28 + tier * 0.06;
       for (let i = 0; i < dCnt; i++) {
         const d = new THREE.Mesh(unitGeoV9('sphere'), dMats[i % 2]);
         d.scale.setScalar(dSz);
@@ -1637,7 +1584,7 @@
         droplets.push({ mesh: d, ang: (Math.PI * 2 * i) / dCnt, rad: 0.7 + (i % 4) * 0.55, peak: 3.8 + (i % 3) * 1.4 });
       }
 
-      reg(scene, root, 1.2 + tier * 0.2, (p, el) => {
+      reg(scene, root, 1.15 + tier * 0.18, (p, el) => {
         const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
         const rise = Math.sin(Math.min(1, p * 1.15) * Math.PI * 0.85);
         const wpSc = maxR * Math.min(1, p * 3);
@@ -1666,7 +1613,7 @@
       });
     },
 
-    // 13. 破邪の衝撃・巨岩隆起魔法（亀裂衝撃波＋隆起する巨大岩塊群＋飛散破片＋金剛光輪）
+    // 13. 破邪の衝撃・巨岩隆起魔法
     earth: (scene, caster, target, tier, attr) => {
       const root = new THREE.Group();
       root.position.set(target.x, 0, target.z);
@@ -1674,12 +1621,12 @@
 
       const quakeRing1 = makeCircleRing(zoneR * 0.72, zoneR, attr.c1, 8);
       quakeRing1.position.y = 0.06;
-      const quakeRing2 = makeCircleRing(0.4, 1.4, attr.c2, 24);
+      const quakeRing2 = makeCircleRing(0.4, 1.4, attr.c2, 20);
       quakeRing2.position.y = 0.09;
       root.add(quakeRing1, quakeRing2);
 
       const rocks = [];
-      const rockCnt = 5 + tier * 2;
+      const rockCnt = 5 + tier;
       const rkMats = [
         new THREE.MeshBasicMaterial({ color: attr.c3, transparent: true, opacity: 0.96 }),
         new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.96 })
@@ -1690,7 +1637,7 @@
         const isCenter = i === 0;
         const ang = (Math.PI * 2 * i) / Math.max(1, rockCnt - 1);
         const rad = isCenter ? 0 : zoneR * (0.35 + (i % 3) * 0.22);
-        const sz = (isCenter ? 1.05 : 0.65) + tier * 0.22;
+        const sz = (isCenter ? 1.05 : 0.68) + tier * 0.22;
 
         const rk = new THREE.Mesh(unitGeoV9('dodeca'), rkMats[i % 2]);
         rk.scale.setScalar(sz);
@@ -1704,20 +1651,16 @@
       }
 
       const debris = [];
-      const dbCnt = 7 + tier * 3;
-      const dbMats = [
-        new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.95 }),
-        new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.95 })
-      ];
-      const dbSz = 0.28 + tier * 0.06;
+      const dbCnt = 6 + tier * 2;
+      const dbSz = 0.30 + tier * 0.06;
       for (let i = 0; i < dbCnt; i++) {
-        const db = new THREE.Mesh(unitGeoV9('tetra'), dbMats[i % 2]);
+        const db = new THREE.Mesh(unitGeoV9('tetra'), rkMats[i % 2]);
         db.scale.setScalar(dbSz);
         root.add(db);
         debris.push({ mesh: db, ang: (Math.PI * 2 * i) / dbCnt, dist: 1.5 + (i % 4) * 0.7, peak: 3.2 + (i % 3) * 1.1 });
       }
 
-      reg(scene, root, 1.15 + tier * 0.2, (p, el) => {
+      reg(scene, root, 1.1 + tier * 0.18, (p, el) => {
         const thrust = Math.min(1, p / 0.22);
         const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
         quakeRing1.rotation.z = el * 2;
@@ -1730,7 +1673,6 @@
         rocks.forEach((rk) => {
           rk.mesh.position.y = rk.startY + (rk.targetY - rk.startY) * thrust;
         });
-        dbMats.forEach(m => { m.opacity = fade * 0.95; });
         debris.forEach((db, idx) => {
           const r = db.dist * p;
           const y = Math.sin(p * Math.PI) * db.peak + 0.15;
@@ -1740,7 +1682,7 @@
       });
     },
 
-    // 14. 聖光の癒し・天照光輪魔法（三重回転聖魔法陣＋天降聖光柱＋二重天使光輪＋舞い上がる光の結晶群）
+    // 14. 聖光の癒し・天照光輪魔法
     holy_heal: (scene, caster, target, tier, attr) => {
       const root = new THREE.Group();
       root.position.set(caster.x, 0, caster.z);
@@ -1750,7 +1692,7 @@
       rune1.position.y = 0.06;
       const rune2 = makeCircleRing(zoneR * 0.45, zoneR * 0.68, attr.c3, 8);
       rune2.position.y = 0.09;
-      const healWave = makeCircleRing(0.4, 1.2, attr.c2, 24);
+      const healWave = makeCircleRing(0.4, 1.2, attr.c2, 20);
       healWave.position.y = 0.12;
       root.add(rune1, rune2, healWave);
 
@@ -1781,7 +1723,7 @@
       for (let i = 0; i < hlCnt; i++) {
         const r = 1.15 + i * 0.35;
         const tube = 0.07 + tier * 0.02;
-        const hlGeo = getCachedGeoV9(`torus_hl_${r.toFixed(2)}_${tube.toFixed(2)}`, () => new THREE.TorusGeometry(r, tube, 6, 24));
+        const hlGeo = getCachedGeoV9(`torus_hl_${r.toFixed(2)}_${tube.toFixed(2)}`, () => new THREE.TorusGeometry(r, tube, 6, 20));
         const hl = new THREE.Mesh(hlGeo, hlMats[i % 2]);
         hl.rotation.x = Math.PI / 2;
         hl.position.y = 0.4 + i * 0.65;
@@ -1790,20 +1732,16 @@
       }
 
       const motes = [];
-      const mtCnt = 9 + tier * 3;
-      const mtMats = [
-        new THREE.MeshBasicMaterial({ color: attr.c3, transparent: true, opacity: 0.96 }),
-        new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.96 })
-      ];
-      const mtSz = 0.26 + tier * 0.06;
+      const mtCnt = 6 + tier * 2;
+      const mtSz = 0.30 + tier * 0.06;
       for (let i = 0; i < mtCnt; i++) {
-        const mt = new THREE.Mesh(unitGeoV9('octa'), mtMats[i % 2]);
+        const mt = new THREE.Mesh(unitGeoV9('octa'), hlMats[i % 2]);
         mt.scale.setScalar(mtSz);
         root.add(mt);
         motes.push({ mesh: mt, ang: (Math.PI * 2 * i) / mtCnt, rad: 0.6 + (i % 4) * 0.48, off: (i % 5) * 1.1 });
       }
 
-      reg(scene, root, 1.3 + tier * 0.22, (p, el) => {
+      reg(scene, root, 1.2 + tier * 0.18, (p, el) => {
         const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
         rune1.rotation.z = el * 3.2;
         rune1.material.opacity = fade * 0.95;
@@ -1821,7 +1759,6 @@
           hl.position.y = (0.4 + idx * 0.55) + p * (2.6 + tier * 0.5);
           hl.rotation.z = el * (idx % 2 === 0 ? 4 : -4);
         });
-        mtMats.forEach(m => { m.opacity = fade * 0.96; });
         motes.forEach((mt, idx) => {
           const a = mt.ang + el * 3.0;
           const y = (p * 6.5 + mt.off) % 6.5;
@@ -1831,7 +1768,7 @@
       });
     },
 
-    // 15. 黒蝕・ブラックホール魔法（漆黒特異点＋降着円盤＋重力歪みリング＋吸い込まれる闇結晶＋終焉ノヴァ）
+    // 15. 黒蝕・ブラックホール魔法
     dark: (scene, caster, target, tier, attr) => {
       const root = new THREE.Group();
       root.position.set(target.x, 1.45, target.z);
@@ -1849,10 +1786,10 @@
       eventHorizon.scale.setScalar(coreR * 1.18);
       root.add(blackCore, eventHorizon);
 
-      const disk1 = makeCircleRing(coreR * 1.25, coreR * 2.8, attr.c1, 24);
+      const disk1 = makeCircleRing(coreR * 1.25, coreR * 2.8, attr.c1, 20);
       disk1.rotation.x = Math.PI / 2 - 0.35;
 
-      const disk2 = makeCircleRing(coreR * 1.4, coreR * 2.4, attr.c2, 24);
+      const disk2 = makeCircleRing(coreR * 1.4, coreR * 2.4, attr.c2, 20);
       disk2.rotation.x = Math.PI / 2 + 0.38;
       root.add(disk1, disk2);
 
@@ -1861,12 +1798,12 @@
       root.add(floorGravity);
 
       const shards = [];
-      const shCnt = 8 + tier * 3;
+      const shCnt = 6 + tier * 2;
       const shMats = [
         new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.95 }),
         new THREE.MeshBasicMaterial({ color: attr.c3, transparent: true, opacity: 0.95 })
       ];
-      const shSz = 0.26 + tier * 0.06;
+      const shSz = 0.30 + tier * 0.06;
       for (let i = 0; i < shCnt; i++) {
         const sh = new THREE.Mesh(unitGeoV9('octa'), shMats[i % 2]);
         sh.scale.setScalar(shSz);
@@ -1880,7 +1817,7 @@
       );
       root.add(novaBurst);
 
-      reg(scene, root, 1.3 + tier * 0.22, (p, el) => {
+      reg(scene, root, 1.2 + tier * 0.18, (p, el) => {
         if (p < 0.72) {
           const pull = p / 0.72;
           const pulse = coreR * (1 + Math.sin(el * 18) * 0.08);
@@ -1916,7 +1853,7 @@
       });
     },
 
-    // 16. 呪詛・魔界瘴気魔法（呪印魔法陣＋立ち昇る瘴気柱＋浮遊猛毒バブル）
+    // 16. 呪詛・魔界瘴気魔法
     poison: (scene, caster, target, tier, attr) => {
       const root = new THREE.Group();
       root.position.set(target.x, 0, target.z);
@@ -1942,15 +1879,14 @@
       root.add(swampDisk, curseRune, miasmaCol);
 
       const bubbles = [];
-      const bCnt = 8 + tier * 3;
+      const bCnt = 6 + tier * 2;
       const bMats = [
         new THREE.MeshBasicMaterial({ color: attr.c3, transparent: true, opacity: 0.9 }),
-        new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.9 }),
-        new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.9 })
+        new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.9 })
       ];
       for (let i = 0; i < bCnt; i++) {
-        const baseSz = 0.28 + (i % 3) * 0.09 + tier * 0.05;
-        const bb = new THREE.Mesh(unitGeoV9('sphere'), bMats[i % 3]);
+        const baseSz = 0.32 + (i % 3) * 0.09 + tier * 0.05;
+        const bb = new THREE.Mesh(unitGeoV9('sphere'), bMats[i % 2]);
         root.add(bb);
         bubbles.push({
           mesh: bb,
@@ -1962,7 +1898,7 @@
         });
       }
 
-      reg(scene, root, 1.25 + tier * 0.2, (p, el) => {
+      reg(scene, root, 1.15 + tier * 0.18, (p, el) => {
         const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
         const sdSc = zoneR * Math.min(1, p * 3.2);
         swampDisk.scale.set(sdSc, sdSc, 1);
@@ -1982,7 +1918,7 @@
       });
     },
 
-    // 17. 星屑・銀河流星魔法（銀河回転ディスク＋降り注ぐ星屑流星群＋着弾スターバースト）
+    // 17. 星屑・銀河流星魔法
     star: (scene, caster, target, tier, attr) => {
       const root = new THREE.Group();
       root.position.set(target.x, 0, target.z);
@@ -1990,16 +1926,16 @@
 
       const galaxyRing1 = makeCircleRing(zoneR * 0.72, zoneR, attr.c1, 5);
       galaxyRing1.position.y = 0.06;
-      const galaxyRing2 = makeCircleRing(zoneR * 0.35, zoneR * 0.65, attr.c3, 24);
+      const galaxyRing2 = makeCircleRing(zoneR * 0.35, zoneR * 0.65, attr.c3, 20);
       galaxyRing2.position.y = 0.09;
       root.add(galaxyRing1, galaxyRing2);
 
       const stars = [];
       const starCnt = 4 + tier * 2;
-      const cols = [attr.c1, attr.c2, attr.c3, 0xffffff];
+      const cols = [attr.c1, attr.c2, attr.c3];
       const stMats = cols.map(c => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.96 }));
-      const coreSz = 0.45 + tier * 0.12;
-      const tailR = 0.34 + tier * 0.08;
+      const coreSz = 0.48 + tier * 0.12;
+      const tailR = 0.36 + tier * 0.08;
       const tailH = 3.2 + tier * 0.8;
 
       for (let i = 0; i < starCnt; i++) {
@@ -2023,12 +1959,12 @@
       }
 
       const nvR = zoneR * 1.15;
-      const novaWave = makeCircleRing(0.5, nvR, attr.c2, 24);
+      const novaWave = makeCircleRing(0.5, nvR, attr.c2, 20);
       novaWave.position.y = 0.12;
       novaWave.visible = false;
       root.add(novaWave);
 
-      reg(scene, root, 1.2 + tier * 0.2, (p, el) => {
+      reg(scene, root, 1.15 + tier * 0.18, (p, el) => {
         const fade = p > 0.74 ? 1 - (p - 0.74) / 0.26 : 1;
         galaxyRing1.rotation.z = el * 4;
         galaxyRing1.material.opacity = fade * 0.95;
@@ -2063,7 +1999,7 @@
       });
     },
 
-    // 18. 秘剣・無限光剣陣（全周囲展開する光の聖剣群＋回転剣陣魔法陣＋中央への一斉収束突撃＋十字光閃バースト）
+    // 18. 秘剣・無限光剣陣
     sword: (scene, caster, target, tier, attr) => {
       const root = new THREE.Group();
       root.position.set(target.x, 0, target.z);
@@ -2076,17 +2012,16 @@
       root.add(bladeRune1, bladeRune2);
 
       const swords = [];
-      const swCnt = 6 + tier * 3;
+      const swCnt = 6 + tier * 2;
       const bMats = [
         new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.96 }),
         new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.96 })
       ];
       const guardMat = new THREE.MeshBasicMaterial({ color: attr.c3, transparent: true, opacity: 0.96 });
-      const hiltMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95 });
 
-      const bR = 0.16 + tier * 0.04;
-      const bL = 2.1 + tier * 0.5;
-      const gW = 0.65 + tier * 0.15;
+      const bR = 0.18 + tier * 0.04;
+      const bL = 2.2 + tier * 0.5;
+      const gW = 0.68 + tier * 0.15;
 
       for (let i = 0; i < swCnt; i++) {
         const ang = (Math.PI * 2 * i) / swCnt;
@@ -2098,15 +2033,10 @@
         blade.position.z = 0.55;
 
         const guard = new THREE.Mesh(unitGeoV9('box'), guardMat);
-        guard.scale.set(gW, 0.1, 0.14);
+        guard.scale.set(gW, 0.12, 0.16);
         guard.position.z = -0.35;
 
-        const hilt = new THREE.Mesh(unitGeoV9('cyl8'), hiltMat);
-        hilt.scale.set(0.06, 0.55, 0.06);
-        hilt.rotation.x = Math.PI / 2;
-        hilt.position.z = -0.62;
-
-        swGrp.add(blade, guard, hilt);
+        swGrp.add(blade, guard);
         const startY = 2.4 + (i % 3) * 0.65;
         swGrp.position.set(Math.cos(ang) * arenaR, startY, Math.sin(ang) * arenaR);
         swGrp.lookAt(0, 0.9, 0);
@@ -2122,7 +2052,7 @@
       crossSlash.position.y = 1.0;
       root.add(crossSlash);
 
-      reg(scene, root, 1.15 + tier * 0.2, (p, el) => {
+      reg(scene, root, 1.1 + tier * 0.18, (p, el) => {
         const fade = p > 0.76 ? 1 - (p - 0.76) / 0.24 : 1;
         bladeRune1.rotation.z = el * 4;
         bladeRune1.material.opacity = fade * 0.95;
@@ -2130,7 +2060,6 @@
         bladeRune2.material.opacity = fade * 0.95;
         bMats.forEach(m => { m.opacity = fade * 0.96; });
         guardMat.opacity = fade * 0.96;
-        hiltMat.opacity = fade * 0.95;
 
         if (p < 0.48) {
           const spinP = p / 0.48;
@@ -2158,13 +2087,12 @@
     }
   };
 
-  Object.assign(V9.EFFECT_BUILDERS, EFFECT_BUILDERS_PART2);
-
   // =========================================================
-  // 8. スキル識別・非攻撃系スキル判定・進化状態管理
+  // 7. スキル識別・非攻撃系スキル判定・進化状態管理（無限再帰完全ガード付き）
   // =========================================================
   const TIER_LABELS_V9 = ['通常 ★1', '【真】★2', '【極】★3', '【神】★4'];
   const TIER_MULTS_V9 = [1.0, 1.5, 2.3, 3.6];
+  let _isSyncingSkillsV9 = false;
 
   function getCustomSkillConfigV9(game) {
     if (!game?.saveData) return {};
@@ -2175,15 +2103,15 @@
   }
 
   function findProfileByIdV9(attrId) {
-    return V9.ATTRIBUTES.find(a => a.id === attrId) || null;
+    return SKILL_DERIVATION_PROFILES_V9.find(a => a.id === attrId) || null;
   }
 
   function inferDefaultProfileV9(rawText) {
     const txt = String(rawText || '');
-    for (const p of V9.ATTRIBUTES) {
+    for (const p of SKILL_DERIVATION_PROFILES_V9) {
       if (p.match.test(txt)) return p;
     }
-    return findProfileByIdV9('sword') || V9.ATTRIBUTES[0];
+    return findProfileByIdV9('sword') || SKILL_DERIVATION_PROFILES_V9[0];
   }
 
   function isNonAttackSkillObjV9(game, skillObj, info = null) {
@@ -2286,22 +2214,44 @@
   }
 
   function syncAllSkillsV9(game) {
+    if (_isSyncingSkillsV9) return;
     const g = game || window.__kmjInstance || window.game || window.app || window.mmorpg;
     if (!g) return;
-    const all = getAllSkillsListV9(g);
-    all.forEach((sk, idx) => {
-      const info = getSkillInfoV9(g, sk, idx);
-      sk.name = info.evolvedName;
-      if ('title' in sk) sk.title = info.evolvedName;
-      sk._v9PowerMult = info.powerMult;
-      sk._v9AttrId = info.attr.id;
-      sk._v9IsNonAttack = info.isNonAttack;
-    });
-    g.refreshAllHUD?.();
+
+    _isSyncingSkillsV9 = true;
+    try {
+      const all = getAllSkillsListV9(g);
+      all.forEach((sk, idx) => {
+        const info = getSkillInfoV9(g, sk, idx);
+        if (sk.name !== info.evolvedName) {
+          sk.name = info.evolvedName;
+        }
+        if ('title' in sk && sk.title !== info.evolvedName) {
+          sk.title = info.evolvedName;
+        }
+        sk._v9PowerMult = info.powerMult;
+        sk._v9AttrId = info.attr.id;
+        sk._v9IsNonAttack = info.isNonAttack;
+      });
+    } finally {
+      _isSyncingSkillsV9 = false;
+    }
+  }
+
+  function safeRefreshHudV9(game) {
+    const g = game || window.__kmjInstance || window.game || window.app || window.mmorpg;
+    if (!g || g._v9InRefreshHUD || typeof g.refreshAllHUD !== 'function') return;
+    g._v9InRefreshHUD = true;
+    try {
+      g.refreshAllHUD();
+    } catch (e) {
+    } finally {
+      g._v9InRefreshHUD = false;
+    }
   }
 
   // =========================================================
-  // 9. スペルカード風カットイン演出＆非攻撃サポート効果適用
+  // 8. スペルカード風カットイン演出＆非攻撃サポート効果適用
   // =========================================================
   function showSpellCardCutinV9(game, info) {
     if (!info) return;
@@ -2311,7 +2261,6 @@
       layer.id = 'kmj-v9-cutin-layer';
       document.body.appendChild(layer);
     }
-    layer.innerHTML = '';
 
     const kaomoji = String(game?.saveData?.kaomoji || game?.player?.kaomoji || '(・ω・)');
     const pName = String(game?.saveData?.name || game?.saveData?.playerName || '冒険者');
@@ -2319,7 +2268,7 @@
     const kindBadge = info.isNonAttack ? '🛡️ 補助・回復・結界' : '⚔️ 攻撃スペル';
 
     layer.innerHTML = `
-      <div class="kmj-v9-flash" style="background:radial-gradient(circle at 75% 20%, rgba(253,224,71,0.32), transparent 68%);"></div>
+      <div class="kmj-v9-flash" style="background:radial-gradient(circle at 75% 20%, rgba(253,224,71,0.3), transparent 68%);"></div>
       <div class="kmj-v9-line-top"></div>
       <div class="kmj-v9-line-bot"></div>
       <div class="kmj-v9-banner" style="background:${info.attr.bgGrad};">
@@ -2345,7 +2294,7 @@
     clearTimeout(window._kmjV9CutinTimer);
     window._kmjV9CutinTimer = setTimeout(() => {
       if (layer) layer.innerHTML = '';
-    }, 2200);
+    }, 2100);
   }
 
   function applyNonAttackSupportEffectV9(game, info) {
@@ -2356,7 +2305,7 @@
     const sup = info.attr?.supportType || 'heal';
 
     if (sup === 'sanctuary') {
-      V9.spawnAuroraSanctuaryField(game, p, info);
+      spawnAuroraSanctuaryFieldV9(game, p, info);
       return;
     }
 
@@ -2392,21 +2341,24 @@
       (game.spawnFloatText || game.spawnFloatingText)?.call(game, p?.pos, `🔥闘気覚醒UP!`, '#fb923c');
       game.showAlertBanner?.(`🔥 ${info.evolvedName}！攻撃・魔力が大幅上昇（${12 + tier * 3}秒）！`, 2000);
     }
-    game.refreshAllHUD?.();
+
+    safeRefreshHudV9(game);
   }
 
   function findTargetPosV9(game, casterPos, rotY) {
     let best = null;
     let bestD = 13.0;
     if (Array.isArray(game?.monsters)) {
-      game.monsters.forEach(m => {
-        if (!m || m.dead || !m.pos) return;
+      const mList = game.monsters;
+      for (let i = 0; i < mList.length; i++) {
+        const m = mList[i];
+        if (!m || m.dead || !m.pos) continue;
         const d = Math.hypot(m.pos.x - casterPos.x, m.pos.z - casterPos.z);
         if (d < bestD) {
           bestD = d;
           best = { x: m.pos.x, z: m.pos.z };
         }
-      });
+      }
     }
     if (best) return best;
     return {
@@ -2427,7 +2379,7 @@
       info.powerMult = TIER_MULTS_V9[overrideTier] || 1.0;
     }
 
-    V9._playMagicAudio(info.attr.id, info.tier);
+    playMagicAudioV9(info.attr.id, info.tier);
     showSpellCardCutinV9(g, info);
 
     if (info.isNonAttack) {
@@ -2439,7 +2391,7 @@
       const target = info.isNonAttack
         ? caster
         : findTargetPosV9(g, caster, g.player.rotY || 0);
-      const builder = V9.EFFECT_BUILDERS[info.attr.id] || V9.EFFECT_BUILDERS.sword;
+      const builder = EFFECT_BUILDERS_V9[info.attr.id] || EFFECT_BUILDERS_V9.sword;
       builder(g.scene, caster, target, info.tier, info.attr);
     }
 
@@ -2447,7 +2399,7 @@
   }
 
   // =========================================================
-  // 10. 魔法進化スタジオUIモーダル
+  // 9. 魔法進化スタジオUIモーダル
   // =========================================================
   function openMagicEvolutionStudioV9() {
     document.getElementById('kmj-v9-studio-modal')?.remove();
@@ -2460,7 +2412,7 @@
 
     const rows = skills.map((sk, idx) => {
       const info = getSkillInfoV9(g, sk, idx);
-      const opts = V9.ATTRIBUTES.map(a =>
+      const opts = SKILL_DERIVATION_PROFILES_V9.map(a =>
         `<option value="${a.id}" ${a.id === info.attr.id ? 'selected' : ''}>${a.label}</option>`
       ).join('');
       const tierOpts = TIER_LABELS_V9.map((lbl, tIdx) =>
@@ -2513,6 +2465,7 @@
         if (!customMap[sid]) customMap[sid] = {};
         customMap[sid].attrId = sel.value;
         syncAllSkillsV9(g);
+        safeRefreshHudV9(g);
         g?.saveGame?.(false);
         openMagicEvolutionStudioV9();
       };
@@ -2524,6 +2477,7 @@
         if (!customMap[sid]) customMap[sid] = {};
         customMap[sid].tier = Number(sel.value);
         syncAllSkillsV9(g);
+        safeRefreshHudV9(g);
         g?.saveGame?.(false);
         openMagicEvolutionStudioV9();
       };
@@ -2551,15 +2505,19 @@
   }
 
   // =========================================================
-  // 11. 本体フック＆非攻撃スキルのダメージ・状態異常完全ガード
+  // 10. 本体フック＆無限再帰・二重発火・非攻撃スキルの完全ガード
   // =========================================================
+  let _hookRetryV9 = 0;
+
   function installV9MasterHooks() {
     const classes = [];
     if (typeof KaomojiMMORPG !== 'undefined') classes.push(KaomojiMMORPG);
     if (typeof RPGGame !== 'undefined' && RPGGame !== KaomojiMMORPG) classes.push(RPGGame);
 
     if (classes.length === 0) {
-      setTimeout(installV9MasterHooks, 150);
+      if (_hookRetryV9++ < 60) {
+        setTimeout(installV9MasterHooks, 150);
+      }
       return;
     }
 
@@ -2567,6 +2525,21 @@
       const proto = Cls.prototype;
       if (proto._v9MasterInstalled) return;
       proto._v9MasterInstalled = true;
+
+      // ★ [game7:refreshAllHUD] Maximum call stack size exceeded の完全防止ガード
+      if (typeof proto.refreshAllHUD === 'function' && !proto._v9Guard_refreshAllHUD) {
+        const origRefreshAllHUD = proto.refreshAllHUD;
+        proto.refreshAllHUD = function (...args) {
+          if (this._v9InRefreshHUD) return;
+          this._v9InRefreshHUD = true;
+          try {
+            return origRefreshAllHUD.apply(this, args);
+          } finally {
+            this._v9InRefreshHUD = false;
+          }
+        };
+        proto._v9Guard_refreshAllHUD = true;
+      }
 
       proto._isNonAttackCastActiveV9 = function () {
         return Boolean(this._v9SuppressAttackUntil && performance.now() <= this._v9SuppressAttackUntil);
@@ -2598,30 +2571,41 @@
         if (typeof proto[fn] === 'function' && !proto[`_v9Hook_${fn}`]) {
           const orig = proto[fn];
           proto[fn] = function (slotOrId, ...rest) {
-            const now = performance.now();
-            if (this._v9LastCastStamp && (now - this._v9LastCastStamp) < 85) {
-              return orig.apply(this, [slotOrId, ...rest]);
+            const isTopLevelCall = !this._v9CastDepth || this._v9CastDepth <= 0;
+            this._v9CastDepth = (this._v9CastDepth || 0) + 1;
+
+            try {
+              if (!isTopLevelCall) {
+                return orig.apply(this, [slotOrId, ...rest]);
+              }
+
+              const now = performance.now();
+              if (this._v9LastCastStamp && (now - this._v9LastCastStamp) < 90) {
+                return orig.apply(this, [slotOrId, ...rest]);
+              }
+              this._v9LastCastStamp = now;
+
+              const all = getAllSkillsListV9(this);
+              let slotIdx = typeof slotOrId === 'number' ? slotOrId : -1;
+              let sk = slotIdx >= 0
+                ? (this.skillSlots?.[slotIdx] || this.equippedSkills?.[slotIdx] || all[slotIdx])
+                : all.find(s => s.id === slotOrId || s.skillId === slotOrId || s.name === slotOrId);
+              if (slotIdx < 0 && sk) slotIdx = all.indexOf(sk);
+
+              const preInfo = sk ? getSkillInfoV9(this, sk, slotIdx) : null;
+              if (preInfo?.isNonAttack) {
+                this._v9SuppressAttackUntil = performance.now() + 220;
+              }
+
+              const res = orig.apply(this, [slotOrId, ...rest]);
+
+              if (res !== false && sk) {
+                playSkillEffectV9(this, sk, slotIdx);
+              }
+              return res;
+            } finally {
+              this._v9CastDepth = Math.max(0, (this._v9CastDepth || 1) - 1);
             }
-            this._v9LastCastStamp = now;
-
-            const all = getAllSkillsListV9(this);
-            let slotIdx = typeof slotOrId === 'number' ? slotOrId : -1;
-            let sk = slotIdx >= 0
-              ? (this.skillSlots?.[slotIdx] || this.equippedSkills?.[slotIdx] || all[slotIdx])
-              : all.find(s => s.id === slotOrId || s.skillId === slotOrId || s.name === slotOrId);
-            if (slotIdx < 0 && sk) slotIdx = all.indexOf(sk);
-
-            const preInfo = sk ? getSkillInfoV9(this, sk, slotIdx) : null;
-            if (preInfo?.isNonAttack) {
-              this._v9SuppressAttackUntil = performance.now() + 220;
-            }
-
-            const res = orig.apply(this, [slotOrId, ...rest]);
-
-            if (res !== false && sk) {
-              playSkillEffectV9(this, sk, slotIdx);
-            }
-            return res;
           };
           proto[`_v9Hook_${fn}`] = true;
         }
@@ -2631,9 +2615,11 @@
         const origUpdate = proto.update;
         proto.update = function (dt = 0.016, ...rest) {
           const res = origUpdate.apply(this, [dt, ...rest]);
-          try {
-            V9.updateSanctuaryFields(this, dt);
-          } catch (e) {}
+          if (activeSanctuariesV9.length > 0) {
+            try {
+              updateSanctuaryFieldsV9(this, dt);
+            } catch (e) {}
+          }
           return res;
         };
         proto._v9UpdateWrapped = true;
@@ -2641,25 +2627,32 @@
     });
   }
 
-  Object.assign(V9, {
+  window.KMJ_SKILL_FX_V9 = {
+    ATTRIBUTES: SKILL_DERIVATION_PROFILES_V9,
+    EFFECT_BUILDERS: EFFECT_BUILDERS_V9,
+    register3DAnimation: register3DAnimationV9,
+    spawnAuroraSanctuaryField: spawnAuroraSanctuaryFieldV9,
+    updateSanctuaryFields: updateSanctuaryFieldsV9,
     getAll14Skills: getAllSkillsListV9,
     getSkillInfo: getSkillInfoV9,
     syncAllSkills: syncAllSkillsV9,
     openStudio: openMagicEvolutionStudioV9,
-    previewSkillByObj: (game, sk, tier) => playSkillEffectV9(game, sk, -1, tier)
-  });
+    previewSkillByObj: (game, sk, tier) => playSkillEffectV9(game, sk, -1, tier),
+    _playMagicAudio: playMagicAudioV9
+  };
 
   installV9MasterHooks();
 
   window.addEventListener('load', () => {
     setTimeout(() => {
       ensureStudioButtonV9();
-      syncAllSkillsV9();
+      syncAllSkillsV9(null);
+      safeRefreshHudV9(null);
     }, 600);
   });
   setTimeout(() => {
     ensureStudioButtonV9();
-    syncAllSkillsV9();
+    syncAllSkillsV9(null);
   }, 500);
 })();
-// ▲▲▲ ここまで【スキルエフェクト専用 game9.js（超軽量・高速化版）2/2】 ▲▲▲
+// ▲▲▲ ここまで【スキルエフェクト専用 game9.js（無限再帰＆毎フレームエラー完全修正・爆速版）】 ▲▲▲
