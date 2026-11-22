@@ -1,4 +1,4 @@
-// ▼▼▼ ここから game7.js（完全版：タイトル復旧・状態異常・実績・Lv.999クラス進化・統合デバッグ＆スキルスタジオ） ▼▼▼
+// ▼▼▼ ここから game7.js 【1/2】（完全版：タイトル復旧・歯車名前変更・統合デバッグ・状態異常・自動実績） ▼▼▼
 (() => {
   'use strict';
 
@@ -6,7 +6,7 @@
   window.MAX_THREAT_CAP_V27 = 999;
   window.SECRET_DEBUG_CODE = 'debug777';
 
-  // iPad Safariでも万が一エラーが起きたら画面左下に小さく通知する安全装置
+  // iPad Safariでも万が一エラーが起きたら画面左下に小さく通知し、ゲーム自体は止めない安全装置
   window.addEventListener('error', (ev) => {
     if (!ev?.message) return;
     let box = document.getElementById('kmj-ipad-err-toast');
@@ -732,7 +732,6 @@
           const aid = String(ach.id || ach.achId || `ach_${idx}`);
           if (d.achievements[aid] === true || d.claimedAchievements.includes(aid) || ach.unlocked) return;
 
-          // 本体の check 関数がある場合はそちらを優先
           let met = false;
           if (typeof ach.check === 'function') {
             try { met = !!ach.check(d); } catch (e) { met = false; }
@@ -845,7 +844,7 @@
   setTimeout(markTitleDataReady, 300);
   setTimeout(markTitleDataReady, 1000);
 })();
-// --- 【1/2】ここまで（この直下に【2/2】を繋げてください） ---
+// --- 【game7.js 1/2】ここまで（この直下に【2/2】を繋げてください） ---
 // =========================================================
 // 3. 【前編】Lv.999クラス進化・クラス別3D攻撃エフェクト・驚異度上限開放
 // =========================================================
@@ -1502,18 +1501,19 @@
         if (this._v45MasterHooked) return;
         this._v45MasterHooked = true;
 
-        // 本体の calcDerivedStats をラップしてクラス倍率を実際の攻撃/魔力/防御/HPへ反映
         if (typeof proto.calcDerivedStats === 'function' && !proto._v45DerivedStatsWrapped) {
           const origDerived = proto.calcDerivedStats;
           proto.calcDerivedStats = function (...args) {
             const st = origDerived.apply(this, args) || {};
-            const cls = this.getCurrentClassDefV45();
-            if (cls && cls.id !== 'novice') {
-              if (typeof st.physAtk === 'number') st.physAtk = Math.max(1, Math.floor(st.physAtk * (cls.atkMult || 1.0)));
-              if (typeof st.magMult === 'number') st.magMult = Number((st.magMult * (cls.matkMult || 1.0)).toFixed(3));
-              if (typeof st.def === 'number') st.def = Math.max(0, Math.floor(st.def * (cls.defMult || 1.0)));
-              if (typeof st.maxHp === 'number') st.maxHp = Math.max(20, Math.floor(st.maxHp * (cls.hpMult || 1.0)));
-            }
+            try {
+              const cls = this.getCurrentClassDefV45();
+              if (cls && cls.id !== 'novice') {
+                if (typeof st.physAtk === 'number') st.physAtk = Math.max(1, Math.floor(st.physAtk * (cls.atkMult || 1.0)));
+                if (typeof st.magMult === 'number') st.magMult = Number((st.magMult * (cls.matkMult || 1.0)).toFixed(3));
+                if (typeof st.def === 'number') st.def = Math.max(0, Math.floor(st.def * (cls.defMult || 1.0)));
+                if (typeof st.maxHp === 'number') st.maxHp = Math.max(20, Math.floor(st.maxHp * (cls.hpMult || 1.0)));
+              }
+            } catch (e) {}
             return st;
           };
           proto._v45DerivedStatsWrapped = true;
@@ -1551,11 +1551,15 @@
         if (typeof proto.refreshAllHUD === 'function' && !proto._v45HudWrapped) {
           const origHud = proto.refreshAllHUD;
           proto.refreshAllHUD = function (...args) {
-            this.enforceThreatAndLevelCapsV45();
-            this.syncPetStatsFromPlayerV45();
+            try {
+              this.enforceThreatAndLevelCapsV45();
+              this.syncPetStatsFromPlayerV45();
+            } catch (e) {}
             const res = origHud.apply(this, args);
-            this.renderV45ClassAndPetPanels();
-            this.ensureOnlineSystemV45();
+            try {
+              this.renderV45ClassAndPetPanels();
+              this.ensureOnlineSystemV45();
+            } catch (e) {}
             return res;
           };
           proto._v45HudWrapped = true;
@@ -1564,13 +1568,17 @@
         if (typeof proto.update === 'function' && !proto._v45UpdateWrapped) {
           const origUpdate = proto.update;
           proto.update = function (dt = 0.016, ...rest) {
-            this.enforceThreatAndLevelCapsV45();
-            this.syncPetStatsFromPlayerV45();
+            try {
+              this.enforceThreatAndLevelCapsV45();
+              this.syncPetStatsFromPlayerV45();
+            } catch (e) {}
             const res = origUpdate.apply(this, [dt, ...rest]);
-            if (!this._v45NetCheckTimer || (performance.now() - this._v45NetCheckTimer) > 2000) {
-              this._v45NetCheckTimer = performance.now();
-              this.ensureOnlineSystemV45();
-            }
+            try {
+              if (!this._v45NetCheckTimer || (performance.now() - this._v45NetCheckTimer) > 2000) {
+                this._v45NetCheckTimer = performance.now();
+                this.ensureOnlineSystemV45();
+              }
+            } catch (e) {}
             return res;
           };
           proto._v45UpdateWrapped = true;
@@ -1594,7 +1602,6 @@
 
   installV45Part2();
 
-  // 画面タップ時だけ 0.3秒間隔制限付きで歯車メニュー・デバッグ表示を更新
   let _lastGearCheckV7 = 0;
   document.addEventListener('click', () => {
     const now = performance.now();
