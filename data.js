@@ -6,7 +6,7 @@
 
 const MAX_PLAYER_LEVEL = 999;
 const REBIRTH_REQ_LEVEL = 80;
-const MAX_THREAT_RANK = 50;
+const MAX_THREAT_RANK = 999;
 
 function formatBigNum(n) {
     const num = Math.floor(Number(n) || 0);
@@ -176,7 +176,7 @@ const ARMORS = {
     arm_abyss: { id: 'arm_abyss', name: '深淵魔王の冥鎧', icon: '😈', hp: 5200, mp: 720, def: 0.42, tierLook: 4, plateColor: 0x581c87, trimColor: 0xf0abfc, capeColor: 0x2e1065, costGold: 25000, costMat: { ice_crystal: 8, abyss_shard: 6 } },
     arm_celest: { id: 'arm_celest', name: '創世神装セラフィム', icon: '👼', hp: 13000, mp: 1500, def: 0.50, tierLook: 5, plateColor: 0xfef08a, trimColor: 0xf43f5e, capeColor: 0xffffff, costGold: 72000, costMat: { abyss_shard: 10, void_star: 6 } }
 };
-
+// --- 【1/2】ここまで（この直下に【2/2】を繋げてください） ---
 const ACCESSORIES = {
     acc_none: { id: 'acc_none', name: 'なし', icon: '➖', desc: '未装備', atkBonus: 0, hpBonus: 0, costGold: 0, costMat: {} },
     acc_vamp_ring: { id: 'acc_vamp_ring', name: '吸血鬼の紅指輪', icon: '💍', desc: '与ダメージの5%HP吸収・攻撃+12%', atkBonus: 0.12, hpBonus: 0.10, lifesteal: 0.05, costGold: 1500, costMat: { goblin_fang: 5 } },
@@ -216,7 +216,9 @@ const SKILLS = {
 };
 
 function getSkillMpCost(sk, lv) {
-    return Math.round(sk.baseMp * (1 + (lv - 1) * 0.08));
+    const baseMp = Math.max(1, Number(sk?.baseMp) || 10);
+    const skillLv = Math.max(1, Number(lv) || 1);
+    return (baseMp * 5) + (skillLv - 1) * 10;
 }
 
 function getSkillEffectStats(sk, lv, st) {
