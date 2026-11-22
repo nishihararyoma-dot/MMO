@@ -1,19 +1,19 @@
-// ▼▼▼ ここから【スキルエフェクト専用 game9.js 1/2】CSS・シンセ音・全18種プロファイル・3Dループ・極光の聖域・超豪華前半3Dビルダー(1〜10) ▼▼▼
+// ▼▼▼ ここから【スキルエフェクト専用 game9.js（超軽量・高速化版）1/2】CSS・シンセ音・全18種プロファイル・共有キャッシュ＆オンデマンド3Dループ・極光の聖域・前半3Dビルダー(1〜10) ▼▼▼
 (() => {
   'use strict';
 
   // =========================================================
-  // 1. スペルカードカットイン＆魔法スタジオCSS
+  // 1. スペルカードカットイン＆魔法スタジオCSS（GPU合成最適化・軽量版）
   // =========================================================
   if (!document.getElementById('kmj-v9-master-css')) {
     const st = document.createElement('style');
     st.id = 'kmj-v9-master-css';
     st.textContent = `
       @keyframes kmjV9CutinSlide {
-        0%   { opacity: 0; transform: translateX(130px) skewX(-15deg) scale(0.86); }
-        11%  { opacity: 1; transform: translateX(0px) skewX(-15deg) scale(1.05); }
-        84%  { opacity: 1; transform: translateX(-12px) skewX(-15deg) scale(1.0); }
-        100% { opacity: 0; transform: translateX(-150px) skewX(-15deg) scale(0.92); }
+        0%   { opacity: 0; transform: translate3d(110px, 0, 0) skewX(-15deg) scale(0.9); }
+        11%  { opacity: 1; transform: translate3d(0, 0, 0) skewX(-15deg) scale(1.03); }
+        84%  { opacity: 1; transform: translate3d(-10px, 0, 0) skewX(-15deg) scale(1.0); }
+        100% { opacity: 0; transform: translate3d(-130px, 0, 0) skewX(-15deg) scale(0.94); }
       }
       @keyframes kmjV9LineSweep {
         0%   { transform: scaleX(0); opacity: 0; }
@@ -23,59 +23,63 @@
       }
       @keyframes kmjV9SpinCW { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
       @keyframes kmjV9SpinCCW { 0% { transform: rotate(360deg); } 100% { transform: rotate(0deg); } }
-      @keyframes kmjV9FlashFade { 0% { opacity: 0.65; } 100% { opacity: 0; } }
+      @keyframes kmjV9FlashFade { 0% { opacity: 0.45; } 100% { opacity: 0; } }
 
       #kmj-v9-cutin-layer {
         position: fixed; inset: 0; pointer-events: none; z-index: 9999; overflow: hidden;
       }
       .kmj-v9-flash {
-        position: absolute; inset: 0; animation: kmjV9FlashFade 0.55s ease-out forwards;
+        position: absolute; inset: 0;
+        will-change: opacity;
+        animation: kmjV9FlashFade 0.4s ease-out forwards;
       }
       .kmj-v9-line-top, .kmj-v9-line-bot {
-        position: absolute; left: 0; right: 0; height: 3px;
+        position: absolute; left: 0; right: 0; height: 2px;
         background: linear-gradient(90deg, transparent, #fde047, #f472b6, #38bdf8, transparent);
-        box-shadow: 0 0 16px #fde047;
-        animation: kmjV9LineSweep 2.3s ease-out forwards;
+        will-change: transform, opacity;
+        animation: kmjV9LineSweep 2.1s ease-out forwards;
       }
       .kmj-v9-line-top { top: 12.2%; }
       .kmj-v9-line-bot { top: 24.8%; }
 
       .kmj-v9-banner {
-        position: absolute; right: 14px; top: 13.2%; min-width: 315px; max-width: 92vw;
-        padding: 13px 26px 13px 20px; border-radius: 12px; border: 2px solid #fde047;
-        box-shadow: 0 0 38px rgba(250, 204, 21, 0.9), inset 0 0 24px rgba(255, 255, 255, 0.32);
-        display: flex; align-items: center; gap: 14px;
-        animation: kmjV9CutinSlide 2.35s cubic-bezier(0.16, 1, 0.3, 1) forwards; overflow: hidden;
+        position: absolute; right: 14px; top: 13.2%; min-width: 300px; max-width: 92vw;
+        padding: 12px 24px 12px 18px; border-radius: 12px; border: 2px solid #fde047;
+        box-shadow: 0 4px 18px rgba(250, 204, 21, 0.55);
+        display: flex; align-items: center; gap: 12px;
+        will-change: transform, opacity;
+        animation: kmjV9CutinSlide 2.15s cubic-bezier(0.16, 1, 0.3, 1) forwards; overflow: hidden;
       }
       .kmj-v9-banner-inner {
-        transform: skewX(15deg); display: flex; align-items: center; gap: 14px; position: relative; z-index: 2;
+        transform: skewX(15deg); display: flex; align-items: center; gap: 12px; position: relative; z-index: 2;
       }
       .kmj-v9-ring-1 {
-        position: absolute; right: -28px; top: -38px; width: 156px; height: 156px;
-        border: 3px dashed rgba(255, 255, 255, 0.55); border-radius: 50%;
-        animation: kmjV9SpinCW 5s linear infinite; z-index: 1;
+        position: absolute; right: -28px; top: -38px; width: 144px; height: 144px;
+        border: 2px dashed rgba(255, 255, 255, 0.45); border-radius: 50%;
+        will-change: transform;
+        animation: kmjV9SpinCW 6s linear infinite; z-index: 1;
       }
       .kmj-v9-ring-2 {
-        position: absolute; right: -12px; top: -22px; width: 124px; height: 124px;
-        border: 2px solid rgba(253, 224, 71, 0.7); border-radius: 50%;
-        animation: kmjV9SpinCCW 3.4s linear infinite; z-index: 1;
+        position: absolute; right: -12px; top: -22px; width: 114px; height: 114px;
+        border: 2px solid rgba(253, 224, 71, 0.55); border-radius: 50%;
+        will-change: transform;
+        animation: kmjV9SpinCCW 4s linear infinite; z-index: 1;
       }
       .kmj-v9-avatar {
         background: rgba(15, 23, 42, 0.95); border: 2px solid #7dd3fc; border-radius: 10px;
-        padding: 8px 11px; font-size: 16px; font-weight: 900; color: #fff; white-space: nowrap;
-        box-shadow: 0 0 18px rgba(56, 189, 248, 0.95);
+        padding: 7px 10px; font-size: 15px; font-weight: 900; color: #fff; white-space: nowrap;
       }
       #kmj-v9-studio-modal {
         position: fixed; inset: 0; z-index: 9950;
-        background: rgba(2, 6, 23, 0.78);
+        background: rgba(2, 6, 23, 0.86);
         display: flex; align-items: center; justify-content: center;
-        padding: 12px; backdrop-filter: blur(4px);
+        padding: 12px;
       }
       .kmj-v9-studio-card {
         width: 100%; max-width: 500px; max-height: 86vh; overflow-y: auto;
         background: linear-gradient(160deg, #0f172a, #1e1b4b);
         border: 2px solid #f472b6; border-radius: 14px; padding: 14px;
-        box-shadow: 0 0 36px rgba(236, 72, 153, 0.55);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
         color: #f8fafc;
       }
     `;
@@ -83,10 +87,15 @@
   }
 
   // =========================================================
-  // 2. 属性別リッチ・シンセサイザー効果音（個別プリセット）
+  // 2. 属性別リッチ・シンセサイザー効果音（連打時の重複発音ガード付き）
   // =========================================================
+  let _lastAudioStampV9 = 0;
   function playMagicAudioV9(attrId = 'sword', tier = 0) {
     try {
+      const stamp = performance.now();
+      if (stamp - _lastAudioStampV9 < 70) return;
+      _lastAudioStampV9 = stamp;
+
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return;
       if (!window._kmjV9AudioCtx) window._kmjV9AudioCtx = new AudioCtx();
@@ -120,32 +129,32 @@
       const impGain = ctx.createGain();
       impOsc.type = cfg.wave;
       impOsc.frequency.setValueAtTime(cfg.base, now);
-      impOsc.frequency.exponentialRampToValueAtTime(Math.max(30, cfg.sweep), now + 0.38);
-      impGain.gain.setValueAtTime(0.085, now);
-      impGain.gain.exponentialRampToValueAtTime(0.001, now + 0.40);
+      impOsc.frequency.exponentialRampToValueAtTime(Math.max(30, cfg.sweep), now + 0.35);
+      impGain.gain.setValueAtTime(0.08, now);
+      impGain.gain.exponentialRampToValueAtTime(0.001, now + 0.37);
       impOsc.connect(impGain);
       impGain.connect(ctx.destination);
       impOsc.start(now);
-      impOsc.stop(now + 0.42);
+      impOsc.stop(now + 0.39);
 
-      const count = Math.min(cfg.notes.length, 2 + tier);
+      const count = Math.min(cfg.notes.length, 2 + tier, 4);
       for (let i = 0; i < count; i++) {
         const freq = cfg.notes[i];
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = tier >= 2 ? 'triangle' : 'sine';
-        const t0 = now + i * 0.042;
+        const t0 = now + i * 0.04;
         osc.frequency.setValueAtTime(freq, t0);
-        osc.frequency.exponentialRampToValueAtTime(freq * 1.025, t0 + 0.38);
+        osc.frequency.exponentialRampToValueAtTime(freq * 1.02, t0 + 0.34);
 
         gain.gain.setValueAtTime(0.001, t0);
-        gain.gain.linearRampToValueAtTime(0.06, t0 + 0.025);
-        gain.gain.exponentialRampToValueAtTime(0.0008, t0 + 0.44);
+        gain.gain.linearRampToValueAtTime(0.055, t0 + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0008, t0 + 0.38);
 
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.start(t0);
-        osc.stop(t0 + 0.46);
+        osc.stop(t0 + 0.40);
       }
     } catch (e) {}
   }
@@ -431,10 +440,81 @@
   ];
 
   // =========================================================
-  // 4. リアルタイム3Dアニメーション管理エンジン（透明抜け防止自動適用）
+  // 4. ジオメトリ共有キャッシュ＆オンデマンド3Dアニメーション管理エンジン
   // =========================================================
+  const _geoCacheV9 = Object.create(null);
+
+  function getCachedGeoV9(key, factory) {
+    if (!_geoCacheV9[key]) {
+      const g = factory();
+      g.userData = g.userData || {};
+      g.userData.isCachedGeo = true;
+      _geoCacheV9[key] = g;
+    }
+    return _geoCacheV9[key];
+  }
+
+  // 汎用単位ジオメトリ（スケール変換で全スキル共通再利用）
+  function unitGeoV9(type) {
+    switch (type) {
+      case 'octa':   return getCachedGeoV9('unit_octa',   () => new THREE.OctahedronGeometry(1, 0));
+      case 'tetra':  return getCachedGeoV9('unit_tetra',  () => new THREE.TetrahedronGeometry(1, 0));
+      case 'dodeca': return getCachedGeoV9('unit_dodeca', () => new THREE.DodecahedronGeometry(1, 0));
+      case 'icosa':  return getCachedGeoV9('unit_icosa',  () => new THREE.IcosahedronGeometry(1, 1));
+      case 'sphere': return getCachedGeoV9('unit_sphere', () => new THREE.SphereGeometry(1, 14, 10));
+      case 'box':    return getCachedGeoV9('unit_box',    () => new THREE.BoxGeometry(1, 1, 1));
+      case 'cone8':  return getCachedGeoV9('unit_cone8',  () => new THREE.ConeGeometry(1, 1, 8));
+      case 'cone4':  return getCachedGeoV9('unit_cone4',  () => new THREE.ConeGeometry(1, 1, 4));
+      case 'cone6':  return getCachedGeoV9('unit_cone6',  () => new THREE.ConeGeometry(1, 1, 6));
+      case 'cone10open': return getCachedGeoV9('unit_cone10open', () => new THREE.ConeGeometry(1, 1, 10, 1, true));
+      case 'cyl16open':  return getCachedGeoV9('unit_cyl16open',  () => new THREE.CylinderGeometry(1, 1, 1, 16, 1, true));
+      case 'cyl8':   return getCachedGeoV9('unit_cyl8',   () => new THREE.CylinderGeometry(1, 1, 1, 8));
+      case 'cyl6':   return getCachedGeoV9('unit_cyl6',   () => new THREE.CylinderGeometry(1, 1, 1, 6));
+      case 'circle24': return getCachedGeoV9('unit_circle24', () => new THREE.CircleGeometry(1, 24));
+      default:       return getCachedGeoV9('unit_octa',   () => new THREE.OctahedronGeometry(1, 0));
+    }
+  }
+
+  function makeCircleRing(rIn, rOut, color, seg = 24) {
+    const optSeg = seg > 24 ? 24 : seg;
+    const ratio = Math.max(0.05, Math.min(0.95, rIn / Math.max(0.01, rOut)));
+    const key = `ring_${ratio.toFixed(2)}_${optSeg}`;
+    const geo = getCachedGeoV9(key, () => new THREE.RingGeometry(ratio, 1.0, optSeg));
+    const m = new THREE.Mesh(
+      geo,
+      new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.95, depthWrite: false })
+    );
+    m.scale.set(rOut, rOut, 1);
+    m.rotation.x = -Math.PI / 2;
+    return m;
+  }
+
+  function disposeGroupSafeV9(scene, rootGroup) {
+    if (!rootGroup) return;
+    try {
+      scene?.remove(rootGroup);
+      const disposedMats = new Set();
+      rootGroup.traverse?.(obj => {
+        if (obj.geometry && !obj.geometry.userData?.isCachedGeo) {
+          obj.geometry.dispose?.();
+        }
+        if (obj.material) {
+          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+          mats.forEach(m => {
+            if (m && !disposedMats.has(m)) {
+              disposedMats.add(m);
+              m.dispose?.();
+            }
+          });
+        }
+      });
+    } catch (e) {}
+  }
+
   const activeAnimsV9 = [];
-  let _lastFrameV9 = performance.now();
+  const MAX_ACTIVE_ANIMS_V9 = 8;
+  let _loopRunningV9 = false;
+  let _lastFrameV9 = 0;
 
   function applyDepthWriteFixV9(rootGroup) {
     if (!rootGroup || typeof rootGroup.traverse !== 'function') return;
@@ -451,20 +531,12 @@
     });
   }
 
-  function register3DAnimationV9(scene, rootGroup, duration, onTick) {
-    if (!scene || !rootGroup) return;
-    applyDepthWriteFixV9(rootGroup);
-    scene.add(rootGroup);
-    activeAnimsV9.push({
-      scene,
-      group: rootGroup,
-      elapsed: 0,
-      duration: Math.max(0.2, duration),
-      onTick
-    });
-  }
-
   function step3DLoopV9() {
+    if (activeAnimsV9.length === 0) {
+      _loopRunningV9 = false;
+      return;
+    }
+
     const now = performance.now();
     const dt = Math.min(0.05, Math.max(0.001, (now - _lastFrameV9) / 1000));
     _lastFrameV9 = now;
@@ -478,27 +550,50 @@
       } catch (e) {}
 
       if (p >= 1) {
-        try {
-          a.scene.remove(a.group);
-          a.group.traverse?.(obj => {
-            if (obj.geometry) obj.geometry.dispose?.();
-            if (obj.material) {
-              if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose?.());
-              else obj.material.dispose?.();
-            }
-          });
-        } catch (e) {}
+        disposeGroupSafeV9(a.scene, a.group);
         activeAnimsV9.splice(i, 1);
       }
     }
-    requestAnimationFrame(step3DLoopV9);
+
+    if (activeAnimsV9.length > 0) {
+      requestAnimationFrame(step3DLoopV9);
+    } else {
+      _loopRunningV9 = false;
+    }
   }
-  requestAnimationFrame(step3DLoopV9);
+
+  function register3DAnimationV9(scene, rootGroup, duration, onTick) {
+    if (!scene || !rootGroup) return;
+
+    // 同時再生数上限を超えたら最古のエフェクトを即座に片付け
+    while (activeAnimsV9.length >= MAX_ACTIVE_ANIMS_V9) {
+      const oldest = activeAnimsV9.shift();
+      if (oldest) disposeGroupSafeV9(oldest.scene, oldest.group);
+    }
+
+    applyDepthWriteFixV9(rootGroup);
+    scene.add(rootGroup);
+    activeAnimsV9.push({
+      scene,
+      group: rootGroup,
+      elapsed: 0,
+      duration: Math.max(0.2, duration),
+      onTick
+    });
+
+    // エフェクト発生時のみアニメーションループを起動
+    if (!_loopRunningV9) {
+      _loopRunningV9 = true;
+      _lastFrameV9 = performance.now();
+      requestAnimationFrame(step3DLoopV9);
+    }
+  }
 
   // =========================================================
-  // 5. 「極光の聖域」持続フィールド管理（calcDerivedStats参照でHP100激減を完全防止）
+  // 5. 「極光の聖域」持続フィールド管理（同時展開上限2個＋軽量化）
   // =========================================================
   const activeSanctuariesV9 = [];
+  const MAX_SANCTUARIES_V9 = 2;
 
   function spawnAuroraSanctuaryFieldV9(game, entity, info) {
     if (!game?.useWebGL || !game?.scene || !entity?.pos || typeof THREE === 'undefined') return;
@@ -506,29 +601,32 @@
     const radius = (4.2 + tier * 1.4);
     const duration = 10.0 + tier * 3.0;
 
+    // 同時設置上限（3個目を出したら一番古い聖域を自動消去）
+    while (activeSanctuariesV9.length >= MAX_SANCTUARIES_V9) {
+      const oldS = activeSanctuariesV9.shift();
+      if (oldS) disposeGroupSafeV9(oldS.scene, oldS.root);
+    }
+
     const root = new THREE.Group();
     root.position.set(entity.pos.x, 0, entity.pos.z);
 
     const floorDisk = new THREE.Mesh(
-      new THREE.CircleGeometry(radius, 40),
+      unitGeoV9('circle24'),
       new THREE.MeshBasicMaterial({ color: 0x34d399, side: THREE.DoubleSide, transparent: true, opacity: 0.24, depthWrite: false })
     );
+    floorDisk.scale.set(radius, radius, 1);
     floorDisk.rotation.x = -Math.PI / 2;
     floorDisk.position.y = 0.04;
     root.add(floorDisk);
 
     const rings = [];
-    const ringCount = 2 + tier * 2;
+    const ringCount = 2 + tier;
     const ringCols = [0x34d399, 0xf472b6, 0x38bdf8, 0xfde047];
     for (let r = 0; r < ringCount; r++) {
-      const rIn = radius * (0.25 + (r / ringCount) * 0.72);
-      const rOut = rIn + 0.14 + tier * 0.03;
-      const segs = r % 3 === 0 ? 6 : (r % 3 === 1 ? 8 : 36);
-      const rm = new THREE.Mesh(
-        new THREE.RingGeometry(rIn, rOut, segs),
-        new THREE.MeshBasicMaterial({ color: ringCols[r % ringCols.length], side: THREE.DoubleSide, transparent: true, opacity: 0.92, depthWrite: false })
-      );
-      rm.rotation.x = -Math.PI / 2;
+      const rIn = radius * (0.28 + (r / ringCount) * 0.68);
+      const rOut = rIn + 0.16 + tier * 0.03;
+      const segs = r % 3 === 0 ? 6 : (r % 3 === 1 ? 8 : 24);
+      const rm = makeCircleRing(rIn, rOut, ringCols[r % ringCols.length], segs);
       rm.position.y = 0.06 + r * 0.02;
       root.add(rm);
       rings.push({ mesh: rm, spd: (r % 2 === 0 ? 1 : -1) * (1.5 + r * 0.4) });
@@ -536,30 +634,35 @@
 
     const curtainH = (2.6 + tier * 1.1);
     const curtain = new THREE.Mesh(
-      new THREE.CylinderGeometry(radius, radius, curtainH, 36, 1, true),
+      unitGeoV9('cyl16open'),
       new THREE.MeshBasicMaterial({ color: 0x34d399, side: THREE.DoubleSide, transparent: true, opacity: 0.28, depthWrite: false })
     );
+    curtain.scale.set(radius, curtainH, radius);
     curtain.position.y = curtainH * 0.5;
     root.add(curtain);
 
     let innerCurtain = null;
     if (tier >= 1) {
       innerCurtain = new THREE.Mesh(
-        new THREE.CylinderGeometry(radius * 0.65, radius * 0.65, curtainH * 1.35, 32, 1, true),
+        unitGeoV9('cyl16open'),
         new THREE.MeshBasicMaterial({ color: tier >= 2 ? 0xfde047 : 0xf472b6, side: THREE.DoubleSide, transparent: true, opacity: 0.24, depthWrite: false })
       );
+      innerCurtain.scale.set(radius * 0.65, curtainH * 1.35, radius * 0.65);
       innerCurtain.position.y = curtainH * 0.675;
       root.add(innerCurtain);
     }
 
     const crystals = [];
-    const cryCnt = 4 + tier * 4;
+    const cryCnt = 4 + tier * 2;
+    const cryMats = [
+      new THREE.MeshBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.95, depthWrite: false }),
+      new THREE.MeshBasicMaterial({ color: 0xf472b6, transparent: true, opacity: 0.95, depthWrite: false })
+    ];
+    const crySize = 0.32 + tier * 0.08;
     for (let c = 0; c < cryCnt; c++) {
       const ang = (Math.PI * 2 * c) / cryCnt;
-      const cry = new THREE.Mesh(
-        new THREE.OctahedronGeometry(0.28 + tier * 0.08, 0),
-        new THREE.MeshBasicMaterial({ color: ringCols[c % ringCols.length], transparent: true, opacity: 0.95, depthWrite: false })
-      );
+      const cry = new THREE.Mesh(unitGeoV9('octa'), cryMats[c % 2]);
+      cry.scale.setScalar(crySize);
       cry.position.set(Math.cos(ang) * radius, 1.4 + (c % 2) * 0.8, Math.sin(ang) * radius);
       root.add(cry);
       crystals.push({ mesh: cry, ang, baseY: 1.4 + (c % 2) * 0.8 });
@@ -580,6 +683,7 @@
       curtain,
       innerCurtain,
       crystals,
+      cryMats,
       floorDisk
     });
 
@@ -607,11 +711,11 @@
         s.innerCurtain.material.opacity = fade * 0.24;
       }
       s.floorDisk.material.opacity = fade * 0.22;
+      s.cryMats.forEach(m => { m.opacity = fade * 0.95; });
       s.crystals.forEach((cr, idx) => {
         const a = cr.ang + s.elapsed * 1.1;
         cr.mesh.position.set(Math.cos(a) * s.radius, cr.baseY + Math.sin(s.elapsed * 3 + idx) * 0.35, Math.sin(a) * s.radius);
         cr.mesh.rotation.y = s.elapsed * 4;
-        cr.mesh.material.opacity = fade * 0.95;
       });
 
       if (s.tickAcc >= 1.0) {
@@ -673,13 +777,7 @@
       }
 
       if (s.elapsed >= s.duration) {
-        try {
-          s.scene.remove(s.root);
-          s.root.traverse?.(o => {
-            if (o.geometry) o.geometry.dispose?.();
-            if (o.material) o.material.dispose?.();
-          });
-        } catch (e) {}
+        disposeGroupSafeV9(s.scene, s.root);
         activeSanctuariesV9.splice(i, 1);
       }
     }
@@ -695,18 +793,9 @@
   };
 
   // =========================================================
-  // 6. 全18種スキル個別3Dエフェクト専用ビルダー（超豪華前半 1〜10）
+  // 6. 全18種スキル個別3Dエフェクト専用ビルダー（軽量・高迫力前半 1〜10）
   // =========================================================
   const reg = register3DAnimationV9;
-
-  function makeCircleRing(rIn, rOut, color, seg = 36) {
-    const m = new THREE.Mesh(
-      new THREE.RingGeometry(rIn, rOut, seg),
-      new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.95, depthWrite: false })
-    );
-    m.rotation.x = -Math.PI / 2;
-    return m;
-  }
 
   const EFFECT_BUILDERS_PART1 = {
     // 1. 覇王の咆哮（二重衝撃波＋闘気火柱＋回転王冠リング＋舞い上がる闘気結晶）
@@ -714,25 +803,35 @@
       const root = new THREE.Group();
       root.position.set(caster.x, 0, caster.z);
 
-      const shock = makeCircleRing(0.4, 1.5 + tier * 0.45, attr.c2, 40);
+      const shockBase = 1.5 + tier * 0.45;
+      const shock = makeCircleRing(0.4, shockBase, attr.c2, 24);
       shock.position.y = 0.08;
-      const shock2 = makeCircleRing(0.8, 2.2 + tier * 0.6, attr.c1, 6);
+      const shock2Base = 2.2 + tier * 0.6;
+      const shock2 = makeCircleRing(0.8, shock2Base, attr.c1, 6);
       shock2.position.y = 0.1;
       root.add(shock, shock2);
 
+      const colRTop = 1.2 + tier * 0.35;
+      const colH = 4.5 + tier * 1.2;
       const auraCol = new THREE.Mesh(
-        new THREE.CylinderGeometry(1.2 + tier * 0.35, 1.7 + tier * 0.45, 4.5 + tier * 1.2, 28, 1, true),
+        unitGeoV9('cyl16open'),
         new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.58 })
       );
-      auraCol.position.y = 2.25;
+      auraCol.scale.set(colRTop, colH, colRTop);
+      auraCol.position.y = colH * 0.5;
       root.add(auraCol);
 
       const crownRings = [];
-      for (let i = 0; i < 3 + tier; i++) {
-        const cr = new THREE.Mesh(
-          new THREE.TorusGeometry(1.3 + i * 0.35, 0.09 + tier * 0.02, 10, 32),
-          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c2 : attr.c3, transparent: true, opacity: 0.95 })
-        );
+      const crCnt = 2 + tier;
+      const crMats = [
+        new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.95 }),
+        new THREE.MeshBasicMaterial({ color: attr.c3, transparent: true, opacity: 0.95 })
+      ];
+      for (let i = 0; i < crCnt; i++) {
+        const r = 1.3 + i * 0.38;
+        const tube = 0.09 + tier * 0.02;
+        const crGeo = getCachedGeoV9(`torus_${r.toFixed(2)}_${tube.toFixed(2)}`, () => new THREE.TorusGeometry(r, tube, 6, 20));
+        const cr = new THREE.Mesh(crGeo, crMats[i % 2]);
         cr.rotation.x = Math.PI / 2;
         cr.position.y = 0.5 + i * 0.65;
         root.add(cr);
@@ -740,13 +839,17 @@
       }
 
       const flames = [];
-      for (let i = 0; i < 18 + tier * 8; i++) {
-        const ang = (Math.PI * 2 * i) / (18 + tier * 8);
+      const fCnt = 8 + tier * 3;
+      const fMats = [
+        new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.96 }),
+        new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.96 })
+      ];
+      const fSz = 0.28 + tier * 0.07;
+      for (let i = 0; i < fCnt; i++) {
+        const ang = (Math.PI * 2 * i) / fCnt;
         const rad = 0.9 + (i % 3) * 0.5;
-        const f = new THREE.Mesh(
-          new THREE.OctahedronGeometry(0.22 + tier * 0.06, 0),
-          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c2 : attr.c1, transparent: true, opacity: 0.96 })
-        );
+        const f = new THREE.Mesh(unitGeoV9('octa'), fMats[i % 2]);
+        f.scale.setScalar(fSz);
         f.position.set(Math.cos(ang) * rad, 0.2, Math.sin(ang) * rad);
         root.add(f);
         flames.push({ mesh: f, ang, rad, spd: 2.8 + (i % 4) * 0.75 });
@@ -754,24 +857,27 @@
 
       reg(scene, root, 1.3 + tier * 0.25, (p, el) => {
         const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
-        shock.scale.setScalar(1 + p * (2.8 + tier * 0.85));
+        const s1 = shockBase * (1 + p * (2.8 + tier * 0.85));
+        shock.scale.set(s1, s1, 1);
         shock.material.opacity = fade * 0.92;
-        shock2.scale.setScalar(1 + p * (2.2 + tier * 0.7));
+        const s2 = shock2Base * (1 + p * (2.2 + tier * 0.7));
+        shock2.scale.set(s2, s2, 1);
         shock2.rotation.z = el * 3.5;
         shock2.material.opacity = fade * 0.9;
         auraCol.rotation.y = el * 4.5;
-        auraCol.scale.set(1 + Math.sin(el * 12) * 0.1, 0.4 + p * 0.95, 1 + Math.sin(el * 12) * 0.1);
+        const cw = colRTop * (1 + Math.sin(el * 12) * 0.1);
+        auraCol.scale.set(cw, colH * (0.4 + p * 0.95), cw);
         auraCol.material.opacity = fade * 0.58;
+        crMats.forEach(m => { m.opacity = fade * 0.95; });
         crownRings.forEach((cr, idx) => {
           cr.position.y = (0.4 + idx * 0.55) + p * (2.4 + tier * 0.55);
           cr.rotation.z = el * (idx % 2 === 0 ? 4.5 : -4.5);
-          cr.material.opacity = fade * 0.95;
         });
+        fMats.forEach(m => { m.opacity = fade * 0.96; });
         flames.forEach((fl, idx) => {
           const a = fl.ang + el * 3.5;
           fl.mesh.position.set(Math.cos(a) * fl.rad, (p * fl.spd * 1.8) % 4.2, Math.sin(a) * fl.rad);
           fl.mesh.rotation.y = el * 6 + idx;
-          fl.mesh.material.opacity = fade * 0.96;
         });
       });
     },
@@ -783,13 +889,13 @@
 
       const domeR = 1.75 + tier * 0.48;
       const dome = new THREE.Mesh(
-        new THREE.IcosahedronGeometry(domeR, 1),
+        unitGeoV9('icosa'),
         new THREE.MeshBasicMaterial({ color: attr.c1, wireframe: true, transparent: true, opacity: 0.92 })
       );
       root.add(dome);
 
       const innerDome = new THREE.Mesh(
-        new THREE.SphereGeometry(domeR * 0.96, 24, 18),
+        unitGeoV9('sphere'),
         new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.28 })
       );
       root.add(innerDome);
@@ -798,22 +904,25 @@
       floorRune.position.y = -1.02;
       root.add(floorRune);
 
+      const orbitGeo = getCachedGeoV9(`torus_aegis_${tier}`, () => new THREE.TorusGeometry(domeR * 1.12, 0.08, 6, 24));
       const orbitRing = new THREE.Mesh(
-        new THREE.TorusGeometry(domeR * 1.12, 0.08, 8, 36),
+        orbitGeo,
         new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.94 })
       );
       orbitRing.rotation.x = Math.PI / 2 - 0.35;
       root.add(orbitRing);
 
       const hexPlates = [];
-      const plateCnt = 8 + tier * 3;
+      const plateCnt = 6 + tier * 2;
+      const pMats = [
+        new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.78 }),
+        new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.78 })
+      ];
+      const pRad = 0.54 + tier * 0.1;
       for (let i = 0; i < plateCnt; i++) {
         const ang = (Math.PI * 2 * i) / plateCnt;
-        const hp = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.48 + tier * 0.1, 0.48 + tier * 0.1, 0.07, 6),
-          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c2 : attr.c1, transparent: true, opacity: 0.78 })
-        );
-        hp.rotation.x = Math.PI / 2;
+        const hp = new THREE.Mesh(unitGeoV9('cyl6'), pMats[i % 2]);
+        hp.scale.set(pRad, 0.07, pRad);
         hp.position.set(Math.cos(ang) * (domeR + 0.15), (i % 3 - 1) * 0.48, Math.sin(ang) * (domeR + 0.15));
         hp.lookAt(0, hp.position.y, 0);
         hp.rotateX(Math.PI / 2);
@@ -824,60 +933,67 @@
       reg(scene, root, 1.5 + tier * 0.35, (p, el) => {
         const fade = p > 0.75 ? 1 - (p - 0.75) / 0.25 : 1;
         const pop = p < 0.15 ? (p / 0.15) : 1;
-        dome.scale.setScalar(pop);
+        dome.scale.setScalar(domeR * pop);
         dome.rotation.y = el * 1.6;
         dome.material.opacity = fade * 0.92;
-        innerDome.scale.setScalar(pop);
+        innerDome.scale.setScalar(domeR * 0.96 * pop);
         innerDome.material.opacity = fade * (0.24 + Math.sin(el * 8) * 0.06);
         floorRune.rotation.z = -el * 2.5;
         floorRune.material.opacity = fade * 0.92;
         orbitRing.rotation.z = el * 4.0;
         orbitRing.material.opacity = fade * 0.94;
+        pMats.forEach(m => { m.opacity = fade * 0.78; });
         hexPlates.forEach((hp) => {
           const a = hp.ang + el * 2.0;
           const r = (domeR + 0.15) * pop;
           hp.mesh.position.set(Math.cos(a) * r, hp.yOff, Math.sin(a) * r);
           hp.mesh.lookAt(root.position.x, root.position.y + hp.yOff, root.position.z);
           hp.mesh.rotateX(Math.PI / 2);
-          hp.mesh.material.opacity = fade * 0.78;
         });
       });
     },
 
-    // 3. 極光の聖域（超豪華・虹色天蓋光柱＋多重回転魔法陣＋上昇プリズム結晶群）
+    // 3. 極光の聖域（虹色天蓋光柱＋多重回転魔法陣＋上昇プリズム結晶群）
     aurora_sanctuary: (scene, caster, target, tier, attr) => {
       const root = new THREE.Group();
       root.position.set(caster.x, 0.08, caster.z);
 
+      const outerR = 2.4 + tier * 0.65;
+      const outerH = 14 + tier * 3;
       const outerBeam = new THREE.Mesh(
-        new THREE.CylinderGeometry(1.4 + tier * 0.4, 3.4 + tier * 0.9, 14 + tier * 3, 28, 1, true),
+        unitGeoV9('cyl16open'),
         new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.48 })
       );
-      outerBeam.position.y = 7;
+      outerBeam.scale.set(outerR, outerH, outerR);
+      outerBeam.position.y = outerH * 0.5;
 
+      const innerR = 1.0 + tier * 0.3;
+      const innerH = 15 + tier * 3;
       const innerBeam = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.6 + tier * 0.2, 1.5 + tier * 0.4, 15 + tier * 3, 24, 1, true),
+        unitGeoV9('cyl16open'),
         new THREE.MeshBasicMaterial({ color: attr.c2, side: THREE.DoubleSide, transparent: true, opacity: 0.65 })
       );
-      innerBeam.position.y = 7.5;
+      innerBeam.scale.set(innerR, innerH, innerR);
+      innerBeam.position.y = innerH * 0.5;
 
       const hexA = makeCircleRing(1.5 + tier * 0.4, 2.4 + tier * 0.6, attr.c3, 6);
       hexA.position.y = 0.05;
       const hexB = makeCircleRing(2.6 + tier * 0.6, 3.6 + tier * 0.8, attr.c2, 8);
       hexB.position.y = 0.08;
-      const shockWave = makeCircleRing(0.5, 1.4, attr.c1, 40);
+      const shockWave = makeCircleRing(0.5, 1.4, attr.c1, 24);
       shockWave.position.y = 0.12;
 
       root.add(outerBeam, innerBeam, hexA, hexB, shockWave);
 
       const prisms = [];
-      const cols = [attr.c1, attr.c2, attr.c3, 0x38bdf8, 0xffffff];
-      for (let i = 0; i < 20 + tier * 8; i++) {
-        const pm = new THREE.Mesh(
-          new THREE.OctahedronGeometry(0.24 + tier * 0.06, 0),
-          new THREE.MeshBasicMaterial({ color: cols[i % cols.length], transparent: true, opacity: 0.96 })
-        );
-        const ang = (Math.PI * 2 * i) / (20 + tier * 8);
+      const cols = [attr.c1, attr.c2, attr.c3, 0x38bdf8];
+      const pMats = cols.map(c => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.96 }));
+      const pCnt = 9 + tier * 3;
+      const pSz = 0.30 + tier * 0.07;
+      for (let i = 0; i < pCnt; i++) {
+        const pm = new THREE.Mesh(unitGeoV9('octa'), pMats[i % pMats.length]);
+        pm.scale.setScalar(pSz);
+        const ang = (Math.PI * 2 * i) / pCnt;
         const rad = 0.8 + (i % 4) * (0.65 + tier * 0.2);
         root.add(pm);
         prisms.push({ mesh: pm, ang, rad, off: (i % 5) * 1.4 });
@@ -885,7 +1001,8 @@
 
       reg(scene, root, 1.25 + tier * 0.2, (p, el) => {
         const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
-        outerBeam.scale.set(1 + p * 0.6, 1, 1 + p * 0.6);
+        const ow = outerR * (1 + p * 0.6);
+        outerBeam.scale.set(ow, outerH, ow);
         outerBeam.rotation.y = el * 2.5;
         outerBeam.material.opacity = fade * 0.48;
         innerBeam.rotation.y = -el * 4.0;
@@ -894,19 +1011,20 @@
         hexA.material.opacity = fade * 0.95;
         hexB.rotation.z = -el * 2.8;
         hexB.material.opacity = fade * 0.95;
-        shockWave.scale.setScalar(1 + p * (3.5 + tier * 0.9));
+        const sw = 1.4 * (1 + p * (3.5 + tier * 0.9));
+        shockWave.scale.set(sw, sw, 1);
         shockWave.material.opacity = fade * 0.9;
+        pMats.forEach(m => { m.opacity = fade * 0.96; });
         prisms.forEach((pr, idx) => {
           const a = pr.ang + el * 3.2;
           const y = (p * 8.5 + pr.off) % 8.5;
           pr.mesh.position.set(Math.cos(a) * pr.rad, y, Math.sin(a) * pr.rad);
           pr.mesh.rotation.y = el * 7 + idx;
-          pr.mesh.material.opacity = fade * 0.96;
         });
       });
     },
 
-    // 4. 烈空・三日月真空斬（超高速多重三日月真空刃＋軌跡風刃粒子＋着弾クロス衝撃波）
+    // 4. 烈空・三日月真空斬（超高速多重三日月真空刃＋着弾クロス衝撃波）
     slash_crescent: (scene, caster, target, tier, attr) => {
       const root = new THREE.Group();
       const dx = target.x - caster.x;
@@ -918,30 +1036,35 @@
 
       const waveCount = 2 + tier;
       const waves = [];
+      const bIn = 1.1 + tier * 0.3;
+      const bOut = 2.05 + tier * 0.48;
+      const bladeGeo = getCachedGeoV9(`crescent_blade_${tier}`, () => new THREE.RingGeometry(bIn, bOut, 20, 1, -Math.PI * 0.45, Math.PI * 0.9));
+      const edgeGeo = getCachedGeoV9(`crescent_edge_${tier}`, () => new THREE.TorusGeometry(bOut, 0.09 + tier * 0.03, 6, 20, Math.PI * 0.9));
+      const bladeMats = [
+        new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.96 }),
+        new THREE.MeshBasicMaterial({ color: attr.c2, side: THREE.DoubleSide, transparent: true, opacity: 0.96 })
+      ];
+      const edgeMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95 });
+
       for (let w = 0; w < waveCount; w++) {
         const wg = new THREE.Group();
-        const blade = new THREE.Mesh(
-          new THREE.RingGeometry(1.1 + tier * 0.3, 2.05 + tier * 0.48, 28, 1, -Math.PI * 0.45, Math.PI * 0.9),
-          new THREE.MeshBasicMaterial({ color: w % 2 === 0 ? attr.c1 : attr.c2, side: THREE.DoubleSide, transparent: true, opacity: 0.96 })
-        );
+        const blade = new THREE.Mesh(bladeGeo, bladeMats[w % 2]);
         blade.rotation.x = Math.PI / 2;
         blade.rotation.z = (w - (waveCount - 1) * 0.5) * 0.42;
         wg.add(blade);
 
-        const edge = new THREE.Mesh(
-          new THREE.TorusGeometry(2.05 + tier * 0.48, 0.09 + tier * 0.03, 8, 28, Math.PI * 0.9),
-          new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95 })
-        );
+        const edge = new THREE.Mesh(edgeGeo, edgeMat);
         edge.rotation.x = Math.PI / 2;
         edge.rotation.z = -Math.PI * 0.45 + (w - (waveCount - 1) * 0.5) * 0.42;
         wg.add(edge);
 
         wg.position.z = -w * 0.75;
         root.add(wg);
-        waves.push({ grp: wg, blade, edge });
+        waves.push(wg);
       }
 
-      const impactRing = makeCircleRing(0.5, 2.4 + tier * 0.7, attr.c1, 32);
+      const impR = 2.4 + tier * 0.7;
+      const impactRing = makeCircleRing(0.5, impR, attr.c1, 24);
       impactRing.position.set(0, -1.05, dist);
       impactRing.visible = false;
       root.add(impactRing);
@@ -949,16 +1072,17 @@
       reg(scene, root, 0.75 + tier * 0.12, (p, el) => {
         const travel = Math.min(1, p / 0.72) * (dist + 1.5);
         const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
-        waves.forEach((wv, idx) => {
-          wv.grp.position.z = travel - idx * 0.85;
-          wv.grp.scale.set(1 + p * 0.65, 1, 1 + p * 0.4);
-          wv.blade.material.opacity = fade * 0.96;
-          wv.edge.material.opacity = fade * 0.95;
+        bladeMats.forEach(m => { m.opacity = fade * 0.96; });
+        edgeMat.opacity = fade * 0.95;
+        waves.forEach((wg, idx) => {
+          wg.position.z = travel - idx * 0.85;
+          wg.scale.set(1 + p * 0.65, 1, 1 + p * 0.4);
         });
         if (p >= 0.55) {
           const bp = (p - 0.55) / 0.45;
           impactRing.visible = true;
-          impactRing.scale.setScalar(0.5 + bp * 1.4);
+          const sc = impR * (0.5 + bp * 1.4);
+          impactRing.scale.set(sc, sc, 1);
           impactRing.rotation.z = el * 6;
           impactRing.material.opacity = (1 - bp) * 0.95;
         }
@@ -971,29 +1095,27 @@
       root.position.set(target.x, 0, target.z);
 
       const zoneR = 2.6 + tier * 0.95;
-      const ring = makeCircleRing(zoneR * 0.82, zoneR, attr.c2, 40);
+      const ring = makeCircleRing(zoneR * 0.82, zoneR, attr.c2, 24);
       ring.position.y = 0.06;
       root.add(ring);
 
       const meteorCount = 1 + tier;
       const meteors = [];
+      const rockMat = new THREE.MeshBasicMaterial({ color: 0x3b0707, transparent: true, opacity: 1 });
+      const glowMat = new THREE.MeshBasicMaterial({ color: attr.c1, wireframe: true, transparent: true, opacity: 0.95 });
+      const tailMat = new THREE.MeshBasicMaterial({ color: attr.c2, side: THREE.DoubleSide, transparent: true, opacity: 0.72 });
+
       for (let m = 0; m < meteorCount; m++) {
         const ox = m === 0 ? 0 : Math.cos((Math.PI * 2 * m) / meteorCount) * (1.5 + tier * 0.4);
         const oz = m === 0 ? 0 : Math.sin((Math.PI * 2 * m) / meteorCount) * (1.5 + tier * 0.4);
         const radius = (m === 0 ? 1.25 : 0.78) + tier * 0.32;
 
-        const rock = new THREE.Mesh(
-          new THREE.DodecahedronGeometry(radius, 1),
-          new THREE.MeshBasicMaterial({ color: 0x3b0707, transparent: true, opacity: 1 })
-        );
-        const lavaGlow = new THREE.Mesh(
-          new THREE.IcosahedronGeometry(radius * 1.14, 1),
-          new THREE.MeshBasicMaterial({ color: attr.c1, wireframe: true, transparent: true, opacity: 0.95 })
-        );
-        const tail = new THREE.Mesh(
-          new THREE.ConeGeometry(radius * 1.1, radius * 4.5, 16, 1, true),
-          new THREE.MeshBasicMaterial({ color: attr.c2, side: THREE.DoubleSide, transparent: true, opacity: 0.72 })
-        );
+        const rock = new THREE.Mesh(unitGeoV9('dodeca'), rockMat);
+        rock.scale.setScalar(radius);
+        const lavaGlow = new THREE.Mesh(unitGeoV9('icosa'), glowMat);
+        lavaGlow.scale.setScalar(radius * 1.14);
+        const tail = new THREE.Mesh(unitGeoV9('cone10open'), tailMat);
+        tail.scale.set(radius * 1.1, radius * 4.5, radius * 1.1);
         tail.position.y = radius * 2.2;
 
         const mGrp = new THREE.Group();
@@ -1005,7 +1127,7 @@
       }
 
       const blastSphere = new THREE.Mesh(
-        new THREE.SphereGeometry(zoneR * 0.95, 24, 18),
+        unitGeoV9('sphere'),
         new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0 })
       );
       blastSphere.position.y = 0.5;
@@ -1031,9 +1153,10 @@
           }
         });
         if (maxImpact > 0) {
-          blastSphere.scale.setScalar(0.3 + maxImpact * 1.45);
+          blastSphere.scale.setScalar(zoneR * 0.95 * (0.3 + maxImpact * 1.45));
           blastSphere.material.opacity = (1 - maxImpact) * 0.85;
-          ring.scale.setScalar(1 + maxImpact * 0.6);
+          const rSc = zoneR * (1 + maxImpact * 0.6);
+          ring.scale.set(rSc, rSc, 1);
           ring.material.opacity = 1 - maxImpact;
         }
       });
@@ -1045,31 +1168,35 @@
       root.position.set(target.x, 0, target.z);
 
       const baseR = 1.6 + tier * 0.55;
-      const magicRing = makeCircleRing(baseR * 0.75, baseR, attr.c1, 32);
+      const magicRing = makeCircleRing(baseR * 0.75, baseR, attr.c1, 24);
       magicRing.position.y = 0.06;
       root.add(magicRing);
 
+      const pH = 7.5 + tier * 2.4;
       const corePillar = new THREE.Mesh(
-        new THREE.CylinderGeometry(baseR * 0.55, baseR * 0.85, 7.5 + tier * 2.4, 24, 1, true),
+        unitGeoV9('cyl16open'),
         new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.78 })
       );
-      corePillar.position.y = 3.75;
+      corePillar.position.y = pH * 0.5;
       root.add(corePillar);
 
       const innerCore = new THREE.Mesh(
-        new THREE.CylinderGeometry(baseR * 0.25, baseR * 0.45, 8.2 + tier * 2.4, 20, 1, true),
+        unitGeoV9('cyl16open'),
         new THREE.MeshBasicMaterial({ color: attr.c2, side: THREE.DoubleSide, transparent: true, opacity: 0.9 })
       );
-      innerCore.position.y = 4.1;
+      innerCore.position.y = (pH + 0.7) * 0.5;
       root.add(innerCore);
 
       const spirals = [];
-      const orbCnt = 16 + tier * 8;
+      const orbCnt = 8 + tier * 3;
+      const orbMats = [
+        new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.95 }),
+        new THREE.MeshBasicMaterial({ color: attr.c3, transparent: true, opacity: 0.95 })
+      ];
+      const orbSz = 0.30 + tier * 0.07;
       for (let i = 0; i < orbCnt; i++) {
-        const orb = new THREE.Mesh(
-          new THREE.OctahedronGeometry(0.24 + tier * 0.06, 0),
-          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c2 : attr.c3, transparent: true, opacity: 0.95 })
-        );
+        const orb = new THREE.Mesh(unitGeoV9('octa'), orbMats[i % 2]);
+        orb.scale.setScalar(orbSz);
         root.add(orb);
         spirals.push({ mesh: orb, phase: (Math.PI * 2 * i) / orbCnt, hOff: (i / orbCnt) * 7.5 });
       }
@@ -1079,18 +1206,19 @@
         const grow = Math.min(1, p * 4.5);
         magicRing.rotation.z = el * 4;
         magicRing.material.opacity = fade * 0.95;
-        corePillar.scale.set(1 + Math.sin(el * 18) * 0.1, grow, 1 + Math.sin(el * 18) * 0.1);
+        const cw = baseR * 0.7 * (1 + Math.sin(el * 18) * 0.1);
+        corePillar.scale.set(cw, pH * grow, cw);
         corePillar.rotation.y = el * 6;
         corePillar.material.opacity = fade * 0.78;
-        innerCore.scale.set(1, grow, 1);
+        innerCore.scale.set(baseR * 0.35, (pH + 0.7) * grow, baseR * 0.35);
         innerCore.rotation.y = -el * 8;
         innerCore.material.opacity = fade * 0.9;
+        orbMats.forEach(m => { m.opacity = fade * 0.95; });
         spirals.forEach((sp) => {
           const a = sp.phase + el * 8.5;
           const y = ((sp.hOff + el * 7.0) % (7.5 + tier * 2.0)) * grow;
           const r = baseR * 0.85 * (1 - y / 12);
           sp.mesh.position.set(Math.cos(a) * r, y, Math.sin(a) * r);
-          sp.mesh.material.opacity = fade * 0.95;
         });
       });
     },
@@ -1100,6 +1228,10 @@
       const root = new THREE.Group();
       const count = 3 + tier * 2;
       const fireballs = [];
+      const fbMat = new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.96 });
+      const shMat = new THREE.MeshBasicMaterial({ color: attr.c1, wireframe: true, transparent: true, opacity: 0.9 });
+      const fbR = 0.44 + tier * 0.1;
+
       for (let i = 0; i < count; i++) {
         const spread = (i - (count - 1) * 0.5) * (0.65 + tier * 0.15);
         const perpX = -(target.z - caster.z);
@@ -1108,14 +1240,10 @@
         const nx = perpX / len;
         const nz = perpZ / len;
 
-        const fb = new THREE.Mesh(
-          new THREE.SphereGeometry(0.42 + tier * 0.1, 16, 12),
-          new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.96 })
-        );
-        const shell = new THREE.Mesh(
-          new THREE.IcosahedronGeometry(0.58 + tier * 0.14, 1),
-          new THREE.MeshBasicMaterial({ color: attr.c1, wireframe: true, transparent: true, opacity: 0.9 })
-        );
+        const fb = new THREE.Mesh(unitGeoV9('sphere'), fbMat);
+        fb.scale.setScalar(fbR);
+        const shell = new THREE.Mesh(unitGeoV9('icosa'), shMat);
+        shell.scale.setScalar(1.35);
         fb.add(shell);
         root.add(fb);
         fireballs.push({
@@ -1128,8 +1256,9 @@
         });
       }
 
+      const boomR = 2.0 + tier * 0.7;
       const boom = new THREE.Mesh(
-        new THREE.SphereGeometry(2.0 + tier * 0.7, 20, 16),
+        unitGeoV9('sphere'),
         new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0 })
       );
       boom.position.set(target.x, 1.0, target.z);
@@ -1149,7 +1278,7 @@
         } else {
           const bp = (p - 0.65) / 0.35;
           fireballs.forEach((f) => { f.mesh.visible = false; });
-          boom.scale.setScalar(0.3 + bp * 1.4);
+          boom.scale.setScalar(boomR * (0.3 + bp * 1.4));
           boom.material.opacity = (1 - bp) * 0.88;
         }
       });
@@ -1162,42 +1291,53 @@
       const rMax = 2.7 + tier * 0.9;
 
       const lavaPool = new THREE.Mesh(
-        new THREE.CircleGeometry(rMax, 32),
+        unitGeoV9('circle24'),
         new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.82 })
       );
       lavaPool.rotation.x = -Math.PI / 2;
       lavaPool.position.y = 0.05;
 
-      const heatWave = makeCircleRing(rMax * 0.75, rMax * 1.15, attr.c2, 36);
+      const heatWave = makeCircleRing(rMax * 0.75, rMax * 1.15, attr.c2, 24);
       heatWave.position.y = 0.09;
 
+      const vR = 1.25 + tier * 0.35;
+      const vH = 5.8 + tier * 1.8;
       const mainVolcano = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.9 + tier * 0.3, 1.6 + tier * 0.45, 5.8 + tier * 1.8, 22, 1, true),
+        unitGeoV9('cyl16open'),
         new THREE.MeshBasicMaterial({ color: attr.c2, side: THREE.DoubleSide, transparent: true, opacity: 0.72 })
       );
-      mainVolcano.position.y = 2.9;
+      mainVolcano.position.y = vH * 0.5;
       root.add(lavaPool, heatWave, mainVolcano);
 
       const geysers = [];
-      for (let i = 0; i < 8 + tier * 4; i++) {
-        const ang = (Math.PI * 2 * i) / (8 + tier * 4);
+      const gyCnt = 5 + tier * 2;
+      const gyMats = [
+        new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.94 }),
+        new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.94 })
+      ];
+      const gyR = 0.42 + tier * 0.09;
+      const gyH = 3.6 + tier * 1.2;
+      for (let i = 0; i < gyCnt; i++) {
+        const ang = (Math.PI * 2 * i) / gyCnt;
         const rad = rMax * (0.25 + (i % 3) * 0.28);
-        const g = new THREE.Mesh(
-          new THREE.ConeGeometry(0.38 + tier * 0.09, 3.6 + tier * 1.2, 10),
-          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c2 : attr.c1, transparent: true, opacity: 0.94 })
-        );
+        const g = new THREE.Mesh(unitGeoV9('cone8'), gyMats[i % 2]);
+        g.scale.set(gyR, gyH, gyR);
         g.position.set(Math.cos(ang) * rad, 1.6, Math.sin(ang) * rad);
         root.add(g);
         geysers.push({ mesh: g, phase: i * 0.4 });
       }
 
       const magmaBombs = [];
-      for (let i = 0; i < 16 + tier * 6; i++) {
-        const mb = new THREE.Mesh(
-          new THREE.DodecahedronGeometry(0.24 + tier * 0.06, 0),
-          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c2 : attr.c3, transparent: true, opacity: 0.96 })
-        );
-        const ang = (Math.PI * 2 * i) / (16 + tier * 6);
+      const mbCnt = 8 + tier * 3;
+      const mbMats = [
+        new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.96 }),
+        new THREE.MeshBasicMaterial({ color: attr.c3, transparent: true, opacity: 0.96 })
+      ];
+      const mbSz = 0.28 + tier * 0.07;
+      for (let i = 0; i < mbCnt; i++) {
+        const mb = new THREE.Mesh(unitGeoV9('dodeca'), mbMats[i % 2]);
+        mb.scale.setScalar(mbSz);
+        const ang = (Math.PI * 2 * i) / mbCnt;
         const dist = 1.6 + (i % 4) * (0.85 + tier * 0.25);
         const peakH = 3.5 + (i % 3) * 1.4 + tier * 0.6;
         root.add(mb);
@@ -1206,26 +1346,29 @@
 
       reg(scene, root, 1.25 + tier * 0.2, (p, el) => {
         const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
-        lavaPool.scale.setScalar(Math.min(1, p * 3.5));
+        const lpSc = rMax * Math.min(1, p * 3.5);
+        lavaPool.scale.set(lpSc, lpSc, 1);
         lavaPool.material.opacity = fade * 0.82;
-        heatWave.scale.setScalar(0.8 + p * 1.35);
+        const hwSc = rMax * 1.15 * (0.8 + p * 1.35);
+        heatWave.scale.set(hwSc, hwSc, 1);
         heatWave.rotation.z = el * 3.5;
         heatWave.material.opacity = fade * 0.92;
-        mainVolcano.scale.set(1 + Math.sin(el * 16) * 0.12, Math.sin(p * Math.PI), 1 + Math.sin(el * 16) * 0.12);
+        const vw = vR * (1 + Math.sin(el * 16) * 0.12);
+        mainVolcano.scale.set(vw, vH * Math.sin(p * Math.PI), vw);
         mainVolcano.rotation.y = el * 5;
         mainVolcano.material.opacity = fade * 0.72;
+        gyMats.forEach(m => { m.opacity = fade * 0.94; });
         geysers.forEach((gy) => {
           const wave = Math.max(0.15, Math.sin(p * Math.PI + gy.phase));
-          gy.mesh.scale.set(1, wave * 1.4, 1);
+          gy.mesh.scale.set(gyR, gyH * wave * 1.4, gyR);
           gy.mesh.position.y = wave * (2.0 + tier * 0.55);
-          gy.mesh.material.opacity = fade * 0.94;
         });
+        mbMats.forEach(m => { m.opacity = fade * 0.96; });
         magmaBombs.forEach((mb, idx) => {
           const r = mb.dist * p;
           const y = Math.sin(p * Math.PI) * mb.peakH + 0.2;
           mb.mesh.position.set(Math.cos(mb.ang) * r, y, Math.sin(mb.ang) * r);
           mb.mesh.rotation.set(el * 8 + idx, el * 6, 0);
-          mb.mesh.material.opacity = fade * 0.96;
         });
       });
     },
@@ -1241,7 +1384,11 @@
       root.add(hexRing);
 
       const spikes = [];
-      const spikeCnt = 7 + tier * 5;
+      const spikeCnt = 6 + tier * 3;
+      const spMats = [
+        new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.9 }),
+        new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.9 })
+      ];
       for (let i = 0; i < spikeCnt; i++) {
         const isCenter = i === 0;
         const ang = (Math.PI * 2 * i) / Math.max(1, spikeCnt - 1);
@@ -1249,10 +1396,8 @@
         const h = (isCenter ? 3.8 : 2.3) + tier * 0.9;
         const w = (isCenter ? 0.65 : 0.38) + tier * 0.1;
 
-        const sp = new THREE.Mesh(
-          new THREE.ConeGeometry(w, h, 6),
-          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c1 : attr.c2, transparent: true, opacity: 0.9 })
-        );
+        const sp = new THREE.Mesh(unitGeoV9('cone6'), spMats[i % 2]);
+        sp.scale.set(w, h, w);
         sp.position.set(Math.cos(ang) * rad, -h * 0.5, Math.sin(ang) * rad);
         if (!isCenter) {
           sp.rotation.z = -Math.cos(ang) * 0.26;
@@ -1267,9 +1412,9 @@
         const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
         hexRing.rotation.z = el * 2.2;
         hexRing.material.opacity = fade * 0.95;
+        spMats.forEach(m => { m.opacity = fade * 0.9; });
         spikes.forEach((s) => {
           s.mesh.position.y = s.startY + (s.targetY - s.startY) * thrust;
-          s.mesh.material.opacity = fade * 0.9;
         });
       });
     },
@@ -1281,21 +1426,24 @@
 
       const bolts = [];
       const boltCount = 1 + tier;
+      const bMats = [
+        new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 1 }),
+        new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 1 })
+      ];
       for (let b = 0; b < boltCount; b++) {
         const ox = b === 0 ? 0 : Math.cos((Math.PI * 2 * b) / boltCount) * (1.2 + tier * 0.35);
         const oz = b === 0 ? 0 : Math.sin((Math.PI * 2 * b) / boltCount) * (1.2 + tier * 0.35);
         const bGrp = new THREE.Group();
-        const segs = 7;
+        const segs = 6;
         let curX = ox;
         let curZ = oz;
         for (let s = 0; s < segs; s++) {
           const nextX = s === segs - 1 ? ox : ox + (Math.random() - 0.5) * 1.5;
           const nextZ = s === segs - 1 ? oz : oz + (Math.random() - 0.5) * 1.5;
-          const segH = 1.9 + tier * 0.3;
-          const segMesh = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.14 + tier * 0.04, 0.18 + tier * 0.04, segH, 8),
-            new THREE.MeshBasicMaterial({ color: s % 2 === 0 ? attr.c1 : attr.c2, transparent: true, opacity: 1 })
-          );
+          const segH = 2.1 + tier * 0.35;
+          const segR = 0.16 + tier * 0.04;
+          const segMesh = new THREE.Mesh(unitGeoV9('cyl8'), bMats[s % 2]);
+          segMesh.scale.set(segR, segH, segR);
           segMesh.position.set((curX + nextX) * 0.5, (segs - s - 0.5) * segH, (curZ + nextZ) * 0.5);
           segMesh.rotation.z = (nextX - curX) * 0.45;
           segMesh.rotation.x = -(nextZ - curZ) * 0.45;
@@ -1307,17 +1455,19 @@
         bolts.push(bGrp);
       }
 
-      const shockRing = makeCircleRing(0.5, 2.3 + tier * 0.85, attr.c1, 32);
+      const srR = 2.3 + tier * 0.85;
+      const shockRing = makeCircleRing(0.5, srR, attr.c1, 24);
       shockRing.position.y = 0.08;
       root.add(shockRing);
 
       reg(scene, root, 0.85 + tier * 0.15, (p, el) => {
         const fade = 1 - p;
+        bMats.forEach(m => { m.opacity = fade; });
         bolts.forEach((bg, idx) => {
           bg.visible = Math.sin(el * 55 + idx) > -0.35;
-          bg.children.forEach(c => { c.material.opacity = fade; });
         });
-        shockRing.scale.setScalar(0.5 + p * 1.4);
+        const sc = srR * (0.5 + p * 1.4);
+        shockRing.scale.set(sc, sc, 1);
         shockRing.material.opacity = fade;
       });
     }
@@ -1325,9 +1475,11 @@
 
   Object.assign(window.KMJ_SKILL_FX_V9.EFFECT_BUILDERS, EFFECT_BUILDERS_PART1);
   window.KMJ_SKILL_FX_V9._makeCircleRing = makeCircleRing;
+  window.KMJ_SKILL_FX_V9._unitGeo = unitGeoV9;
+  window.KMJ_SKILL_FX_V9._getCachedGeo = getCachedGeoV9;
 })();
-// ▲▲▲ ここまで【スキルエフェクト専用 game9.js 1/2】 ▲▲▲
-// ▼▼▼ ここから【スキルエフェクト専用 game9.js 2/2】超豪華後半3Dビルダー(11〜18)・非攻撃スキル判定ガード・カットイン・魔法進化スタジオUI・本体フック ▼▼▼
+// ▲▲▲ ここまで【スキルエフェクト専用 game9.js（超軽量・高速化版）1/2】 ▲▲▲
+// ▼▼▼ ここから【スキルエフェクト専用 game9.js（超軽量・高速化版）2/2】後半3Dビルダー(11〜18)・非攻撃スキル判定ガード・カットイン・魔法進化スタジオUI・本体フック ▼▼▼
 (() => {
   'use strict';
 
@@ -1339,9 +1491,11 @@
 
   const reg = V9.register3DAnimation;
   const makeCircleRing = V9._makeCircleRing;
+  const unitGeoV9 = V9._unitGeo;
+  const getCachedGeoV9 = V9._getCachedGeo;
 
   // =========================================================
-  // 7. 全18種スキル個別3Dエフェクト専用ビルダー（超豪華後半 11〜18）
+  // 7. 全18種スキル個別3Dエフェクト専用ビルダー（軽量・高迫力後半 11〜18）
   // =========================================================
   const EFFECT_BUILDERS_PART2 = {
     // 11. 旋風円舞・螺旋竜巻魔法（多重竜巻ファンネル＋外周疾風リング＋舞い上がる風刃結晶）
@@ -1350,34 +1504,39 @@
       root.position.set(target.x, 0, target.z);
       const maxR = 2.4 + tier * 0.75;
 
-      const groundRing = makeCircleRing(0.6, maxR, attr.c1, 36);
+      const groundRing = makeCircleRing(0.6, maxR, attr.c1, 24);
       groundRing.position.y = 0.06;
       const innerRune = makeCircleRing(0.3, maxR * 0.55, attr.c3, 6);
       innerRune.position.y = 0.09;
       root.add(groundRing, innerRune);
 
+      const fH = 6.2 + tier * 1.8;
       const funnelOuter = new THREE.Mesh(
-        new THREE.CylinderGeometry(maxR * 1.15, 0.45, 6.2 + tier * 1.8, 28, 1, true),
+        unitGeoV9('cyl16open'),
         new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.46 })
       );
-      funnelOuter.position.y = 3.1 + tier * 0.9;
+      funnelOuter.position.y = fH * 0.5;
 
       const funnelInner = new THREE.Mesh(
-        new THREE.CylinderGeometry(maxR * 0.65, 0.25, 6.6 + tier * 1.8, 22, 1, true),
+        unitGeoV9('cyl16open'),
         new THREE.MeshBasicMaterial({ color: attr.c2, side: THREE.DoubleSide, transparent: true, opacity: 0.68 })
       );
-      funnelInner.position.y = 3.3 + tier * 0.9;
+      funnelInner.scale.set(maxR * 0.55, fH + 0.4, maxR * 0.55);
+      funnelInner.position.y = (fH + 0.4) * 0.5;
       root.add(funnelOuter, funnelInner);
 
       const windRings = [];
-      const rCnt = 6 + tier * 3;
+      const rCnt = 4 + tier * 2;
+      const wrMats = [
+        new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.9 }),
+        new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.9 })
+      ];
       for (let i = 0; i < rCnt; i++) {
         const t = i / rCnt;
         const r = 0.45 + t * maxR * 0.95;
-        const wr = new THREE.Mesh(
-          new THREE.TorusGeometry(r, 0.07 + tier * 0.02, 8, 28),
-          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c1 : attr.c2, transparent: true, opacity: 0.9 })
-        );
+        const tube = 0.07 + tier * 0.02;
+        const wrGeo = getCachedGeoV9(`torus_w_${r.toFixed(2)}_${tube.toFixed(2)}`, () => new THREE.TorusGeometry(r, tube, 6, 20));
+        const wr = new THREE.Mesh(wrGeo, wrMats[i % 2]);
         wr.rotation.x = Math.PI / 2;
         wr.position.y = 0.3 + t * (5.6 + tier * 1.6);
         root.add(wr);
@@ -1385,13 +1544,17 @@
       }
 
       const blades = [];
-      for (let i = 0; i < 16 + tier * 6; i++) {
-        const b = new THREE.Mesh(
-          new THREE.TetrahedronGeometry(0.24 + tier * 0.05, 0),
-          new THREE.MeshBasicMaterial({ color: i % 3 === 0 ? attr.c3 : attr.c2, transparent: true, opacity: 0.95 })
-        );
+      const bCnt = 8 + tier * 3;
+      const bMats = [
+        new THREE.MeshBasicMaterial({ color: attr.c3, transparent: true, opacity: 0.95 }),
+        new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.95 })
+      ];
+      const bSz = 0.30 + tier * 0.06;
+      for (let i = 0; i < bCnt; i++) {
+        const b = new THREE.Mesh(unitGeoV9('tetra'), bMats[i % 2]);
+        b.scale.setScalar(bSz);
         root.add(b);
-        blades.push({ mesh: b, ang: (Math.PI * 2 * i) / (16 + tier * 6), hFrac: (i % 7) / 7 });
+        blades.push({ mesh: b, ang: (Math.PI * 2 * i) / bCnt, hFrac: (i % 7) / 7 });
       }
 
       reg(scene, root, 1.2 + tier * 0.2, (p, el) => {
@@ -1400,23 +1563,24 @@
         groundRing.material.opacity = fade * 0.92;
         innerRune.rotation.z = -el * 7;
         innerRune.material.opacity = fade * 0.95;
+        const fw = maxR * 0.85 * (1 + Math.sin(el * 12) * 0.08);
         funnelOuter.rotation.y = el * 7;
-        funnelOuter.scale.set(1 + Math.sin(el * 12) * 0.08, Math.min(1, p * 3.5), 1 + Math.sin(el * 12) * 0.08);
+        funnelOuter.scale.set(fw, fH * Math.min(1, p * 3.5), fw);
         funnelOuter.material.opacity = fade * 0.46;
         funnelInner.rotation.y = -el * 10;
         funnelInner.material.opacity = fade * 0.68;
+        wrMats.forEach(m => { m.opacity = fade * 0.9; });
         windRings.forEach((wr) => {
           wr.mesh.rotation.z = el * wr.spd;
           wr.mesh.position.y = wr.baseY + Math.sin(el * 8 + wr.baseY) * 0.25;
-          wr.mesh.material.opacity = fade * 0.9;
         });
+        bMats.forEach(m => { m.opacity = fade * 0.95; });
         blades.forEach((bl, idx) => {
           const h = ((bl.hFrac + p * 1.4) % 1) * (6.0 + tier * 1.6);
           const r = 0.5 + (h / (6.0 + tier * 1.6)) * maxR * 1.1;
           const a = bl.ang + el * 9;
           bl.mesh.position.set(Math.cos(a) * r, h, Math.sin(a) * r);
           bl.mesh.rotation.set(el * 10, el * 8 + idx, 0);
-          bl.mesh.material.opacity = fade * 0.95;
         });
       });
     },
@@ -1428,7 +1592,7 @@
       const maxR = 2.6 + tier * 0.85;
 
       const whirlpool = new THREE.Mesh(
-        new THREE.CircleGeometry(maxR, 36),
+        unitGeoV9('circle24'),
         new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.72 })
       );
       whirlpool.rotation.x = -Math.PI / 2;
@@ -1436,58 +1600,68 @@
       root.add(whirlpool);
 
       const ripples = [];
-      for (let i = 0; i < 3 + tier; i++) {
-        const rp = makeCircleRing(0.4 + i * 0.3, 0.85 + i * 0.35, i % 2 === 0 ? attr.c2 : attr.c3, 36);
+      const rpCnt = 2 + tier;
+      for (let i = 0; i < rpCnt; i++) {
+        const rp = makeCircleRing(0.4 + i * 0.3, 0.85 + i * 0.35, i % 2 === 0 ? attr.c2 : attr.c3, 24);
         rp.position.y = 0.08 + i * 0.02;
         root.add(rp);
-        ripples.push(rp);
+        ripples.push({ mesh: rp, baseR: 0.85 + i * 0.35 });
       }
 
+      const spR = 1.2 + tier * 0.4;
+      const spH = 6.4 + tier * 2.0;
       const spout = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.95 + tier * 0.35, 1.5 + tier * 0.45, 6.4 + tier * 2.0, 26, 1, true),
+        unitGeoV9('cyl16open'),
         new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.72 })
       );
-      spout.position.y = 3.2;
+      spout.position.y = spH * 0.5;
 
       const innerSpout = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.45 + tier * 0.15, 0.75 + tier * 0.25, 7.0 + tier * 2.0, 20, 1, true),
+        unitGeoV9('cyl16open'),
         new THREE.MeshBasicMaterial({ color: attr.c2, side: THREE.DoubleSide, transparent: true, opacity: 0.88 })
       );
-      innerSpout.position.y = 3.5;
+      innerSpout.position.y = (spH + 0.6) * 0.5;
       root.add(spout, innerSpout);
 
       const droplets = [];
-      for (let i = 0; i < 18 + tier * 8; i++) {
-        const d = new THREE.Mesh(
-          new THREE.SphereGeometry(0.2 + tier * 0.05, 10, 8),
-          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c2 : attr.c3, transparent: true, opacity: 0.94 })
-        );
+      const dCnt = 8 + tier * 3;
+      const dMats = [
+        new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.94 }),
+        new THREE.MeshBasicMaterial({ color: attr.c3, transparent: true, opacity: 0.94 })
+      ];
+      const dSz = 0.25 + tier * 0.06;
+      for (let i = 0; i < dCnt; i++) {
+        const d = new THREE.Mesh(unitGeoV9('sphere'), dMats[i % 2]);
+        d.scale.setScalar(dSz);
         root.add(d);
-        droplets.push({ mesh: d, ang: (Math.PI * 2 * i) / (18 + tier * 8), rad: 0.7 + (i % 4) * 0.55, peak: 3.8 + (i % 3) * 1.4 });
+        droplets.push({ mesh: d, ang: (Math.PI * 2 * i) / dCnt, rad: 0.7 + (i % 4) * 0.55, peak: 3.8 + (i % 3) * 1.4 });
       }
 
       reg(scene, root, 1.2 + tier * 0.2, (p, el) => {
         const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
         const rise = Math.sin(Math.min(1, p * 1.15) * Math.PI * 0.85);
-        whirlpool.scale.setScalar(Math.min(1, p * 3));
+        const wpSc = maxR * Math.min(1, p * 3);
+        whirlpool.scale.set(wpSc, wpSc, 1);
         whirlpool.material.opacity = fade * 0.72;
         ripples.forEach((rp, idx) => {
           const wp = (p * 1.8 + idx * 0.25) % 1;
-          rp.scale.setScalar(0.5 + wp * (maxR * 0.95));
-          rp.material.opacity = fade * (1 - wp) * 0.95;
+          const rSc = rp.baseR * (0.5 + wp * (maxR * 0.95));
+          rp.mesh.scale.set(rSc, rSc, 1);
+          rp.mesh.material.opacity = fade * (1 - wp) * 0.95;
         });
-        spout.scale.set(1 + Math.sin(el * 14) * 0.1, rise, 1 + Math.sin(el * 14) * 0.1);
+        const sw = spR * (1 + Math.sin(el * 14) * 0.1);
+        spout.scale.set(sw, spH * rise, sw);
         spout.rotation.y = el * 5;
         spout.material.opacity = fade * 0.72;
-        innerSpout.scale.set(1, rise, 1);
+        innerSpout.scale.set(spR * 0.5, (spH + 0.6) * rise, spR * 0.5);
         innerSpout.rotation.y = -el * 7;
         innerSpout.material.opacity = fade * 0.88;
+        dMats.forEach(m => { m.opacity = fade * 0.94; });
         droplets.forEach((dr) => {
           const a = dr.ang + el * 4;
           const r = dr.rad + p * 1.3;
           const y = Math.sin(p * Math.PI) * dr.peak + 0.2;
           dr.mesh.position.set(Math.cos(a) * r, y, Math.sin(a) * r);
-          dr.mesh.material.opacity = fade * 0.94;
         });
       });
     },
@@ -1500,26 +1674,28 @@
 
       const quakeRing1 = makeCircleRing(zoneR * 0.72, zoneR, attr.c1, 8);
       quakeRing1.position.y = 0.06;
-      const quakeRing2 = makeCircleRing(0.4, 1.4, attr.c2, 32);
+      const quakeRing2 = makeCircleRing(0.4, 1.4, attr.c2, 24);
       quakeRing2.position.y = 0.09;
       root.add(quakeRing1, quakeRing2);
 
       const rocks = [];
-      const rockCnt = 7 + tier * 4;
+      const rockCnt = 5 + tier * 2;
+      const rkMats = [
+        new THREE.MeshBasicMaterial({ color: attr.c3, transparent: true, opacity: 0.96 }),
+        new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.96 })
+      ];
+      const edgeMat = new THREE.MeshBasicMaterial({ color: attr.c2, wireframe: true, transparent: true, opacity: 0.9 });
+
       for (let i = 0; i < rockCnt; i++) {
         const isCenter = i === 0;
         const ang = (Math.PI * 2 * i) / Math.max(1, rockCnt - 1);
         const rad = isCenter ? 0 : zoneR * (0.35 + (i % 3) * 0.22);
-        const sz = (isCenter ? 1.05 : 0.62) + tier * 0.22;
+        const sz = (isCenter ? 1.05 : 0.65) + tier * 0.22;
 
-        const rk = new THREE.Mesh(
-          new THREE.DodecahedronGeometry(sz, 0),
-          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c3 : attr.c1, transparent: true, opacity: 0.96 })
-        );
-        const edge = new THREE.Mesh(
-          new THREE.DodecahedronGeometry(sz * 1.06, 0),
-          new THREE.MeshBasicMaterial({ color: attr.c2, wireframe: true, transparent: true, opacity: 0.9 })
-        );
+        const rk = new THREE.Mesh(unitGeoV9('dodeca'), rkMats[i % 2]);
+        rk.scale.setScalar(sz);
+        const edge = new THREE.Mesh(unitGeoV9('dodeca'), edgeMat);
+        edge.scale.setScalar(1.06);
         rk.add(edge);
         rk.position.set(Math.cos(ang) * rad, -sz, Math.sin(ang) * rad);
         rk.rotation.set(i * 0.7, i * 1.1, i * 0.5);
@@ -1528,13 +1704,17 @@
       }
 
       const debris = [];
-      for (let i = 0; i < 14 + tier * 6; i++) {
-        const db = new THREE.Mesh(
-          new THREE.TetrahedronGeometry(0.22 + tier * 0.05, 0),
-          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c2 : attr.c1, transparent: true, opacity: 0.95 })
-        );
+      const dbCnt = 7 + tier * 3;
+      const dbMats = [
+        new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.95 }),
+        new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.95 })
+      ];
+      const dbSz = 0.28 + tier * 0.06;
+      for (let i = 0; i < dbCnt; i++) {
+        const db = new THREE.Mesh(unitGeoV9('tetra'), dbMats[i % 2]);
+        db.scale.setScalar(dbSz);
         root.add(db);
-        debris.push({ mesh: db, ang: (Math.PI * 2 * i) / (14 + tier * 6), dist: 1.5 + (i % 4) * 0.7, peak: 3.2 + (i % 3) * 1.1 });
+        debris.push({ mesh: db, ang: (Math.PI * 2 * i) / dbCnt, dist: 1.5 + (i % 4) * 0.7, peak: 3.2 + (i % 3) * 1.1 });
       }
 
       reg(scene, root, 1.15 + tier * 0.2, (p, el) => {
@@ -1542,18 +1722,20 @@
         const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
         quakeRing1.rotation.z = el * 2;
         quakeRing1.material.opacity = fade * 0.95;
-        quakeRing2.scale.setScalar(1 + p * (2.6 + tier * 0.7));
+        const qrSc = 1.4 * (1 + p * (2.6 + tier * 0.7));
+        quakeRing2.scale.set(qrSc, qrSc, 1);
         quakeRing2.material.opacity = fade * 0.9;
+        rkMats.forEach(m => { m.opacity = fade * 0.96; });
+        edgeMat.opacity = fade * 0.9;
         rocks.forEach((rk) => {
           rk.mesh.position.y = rk.startY + (rk.targetY - rk.startY) * thrust;
-          rk.mesh.material.opacity = fade * 0.96;
         });
+        dbMats.forEach(m => { m.opacity = fade * 0.95; });
         debris.forEach((db, idx) => {
           const r = db.dist * p;
           const y = Math.sin(p * Math.PI) * db.peak + 0.15;
           db.mesh.position.set(Math.cos(db.ang) * r, y, Math.sin(db.ang) * r);
           db.mesh.rotation.set(el * 9 + idx, el * 7, 0);
-          db.mesh.material.opacity = fade * 0.95;
         });
       });
     },
@@ -1568,29 +1750,39 @@
       rune1.position.y = 0.06;
       const rune2 = makeCircleRing(zoneR * 0.45, zoneR * 0.68, attr.c3, 8);
       rune2.position.y = 0.09;
-      const healWave = makeCircleRing(0.4, 1.2, attr.c2, 36);
+      const healWave = makeCircleRing(0.4, 1.2, attr.c2, 24);
       healWave.position.y = 0.12;
       root.add(rune1, rune2, healWave);
 
+      const hbR = 1.5 + tier * 0.45;
+      const hbH = 12 + tier * 2.5;
       const holyBeam = new THREE.Mesh(
-        new THREE.CylinderGeometry(1.1 + tier * 0.35, 1.9 + tier * 0.55, 12 + tier * 2.5, 28, 1, true),
+        unitGeoV9('cyl16open'),
         new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.42 })
       );
-      holyBeam.position.y = 6.0;
+      holyBeam.scale.set(hbR, hbH, hbR);
+      holyBeam.position.y = hbH * 0.5;
 
+      const cbR = 0.65 + tier * 0.2;
       const coreBeam = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.45 + tier * 0.15, 0.8 + tier * 0.25, 13 + tier * 2.5, 22, 1, true),
+        unitGeoV9('cyl16open'),
         new THREE.MeshBasicMaterial({ color: attr.c2, side: THREE.DoubleSide, transparent: true, opacity: 0.68 })
       );
-      coreBeam.position.y = 6.5;
+      coreBeam.scale.set(cbR, hbH + 1, cbR);
+      coreBeam.position.y = (hbH + 1) * 0.5;
       root.add(holyBeam, coreBeam);
 
       const halos = [];
-      for (let i = 0; i < 2 + tier; i++) {
-        const hl = new THREE.Mesh(
-          new THREE.TorusGeometry(1.15 + i * 0.35, 0.07 + tier * 0.02, 10, 36),
-          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c1 : attr.c3, transparent: true, opacity: 0.96 })
-        );
+      const hlCnt = 2 + tier;
+      const hlMats = [
+        new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.96 }),
+        new THREE.MeshBasicMaterial({ color: attr.c3, transparent: true, opacity: 0.96 })
+      ];
+      for (let i = 0; i < hlCnt; i++) {
+        const r = 1.15 + i * 0.35;
+        const tube = 0.07 + tier * 0.02;
+        const hlGeo = getCachedGeoV9(`torus_hl_${r.toFixed(2)}_${tube.toFixed(2)}`, () => new THREE.TorusGeometry(r, tube, 6, 24));
+        const hl = new THREE.Mesh(hlGeo, hlMats[i % 2]);
         hl.rotation.x = Math.PI / 2;
         hl.position.y = 0.4 + i * 0.65;
         root.add(hl);
@@ -1598,13 +1790,17 @@
       }
 
       const motes = [];
-      for (let i = 0; i < 22 + tier * 8; i++) {
-        const mt = new THREE.Mesh(
-          new THREE.OctahedronGeometry(0.2 + tier * 0.05, 0),
-          new THREE.MeshBasicMaterial({ color: i % 3 === 0 ? attr.c3 : (i % 2 === 0 ? attr.c1 : attr.c2), transparent: true, opacity: 0.96 })
-        );
+      const mtCnt = 9 + tier * 3;
+      const mtMats = [
+        new THREE.MeshBasicMaterial({ color: attr.c3, transparent: true, opacity: 0.96 }),
+        new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.96 })
+      ];
+      const mtSz = 0.26 + tier * 0.06;
+      for (let i = 0; i < mtCnt; i++) {
+        const mt = new THREE.Mesh(unitGeoV9('octa'), mtMats[i % 2]);
+        mt.scale.setScalar(mtSz);
         root.add(mt);
-        motes.push({ mesh: mt, ang: (Math.PI * 2 * i) / (22 + tier * 8), rad: 0.6 + (i % 4) * 0.48, off: (i % 5) * 1.1 });
+        motes.push({ mesh: mt, ang: (Math.PI * 2 * i) / mtCnt, rad: 0.6 + (i % 4) * 0.48, off: (i % 5) * 1.1 });
       }
 
       reg(scene, root, 1.3 + tier * 0.22, (p, el) => {
@@ -1613,23 +1809,24 @@
         rune1.material.opacity = fade * 0.95;
         rune2.rotation.z = -el * 4.5;
         rune2.material.opacity = fade * 0.95;
-        healWave.scale.setScalar(1 + p * (2.8 + tier * 0.75));
+        const hwSc = 1.2 * (1 + p * (2.8 + tier * 0.75));
+        healWave.scale.set(hwSc, hwSc, 1);
         healWave.material.opacity = fade * 0.9;
         holyBeam.rotation.y = el * 2.5;
         holyBeam.material.opacity = fade * 0.42;
         coreBeam.rotation.y = -el * 4.0;
         coreBeam.material.opacity = fade * 0.68;
+        hlMats.forEach(m => { m.opacity = fade * 0.96; });
         halos.forEach((hl, idx) => {
           hl.position.y = (0.4 + idx * 0.55) + p * (2.6 + tier * 0.5);
           hl.rotation.z = el * (idx % 2 === 0 ? 4 : -4);
-          hl.material.opacity = fade * 0.96;
         });
+        mtMats.forEach(m => { m.opacity = fade * 0.96; });
         motes.forEach((mt, idx) => {
           const a = mt.ang + el * 3.0;
           const y = (p * 6.5 + mt.off) % 6.5;
           mt.mesh.position.set(Math.cos(a) * mt.rad, y, Math.sin(a) * mt.rad);
           mt.mesh.rotation.y = el * 6 + idx;
-          mt.mesh.material.opacity = fade * 0.96;
         });
       });
     },
@@ -1640,27 +1837,22 @@
       root.position.set(target.x, 1.45, target.z);
       const coreR = 0.85 + tier * 0.28;
 
-      // 漆黒コア（depthWrite有効の特殊黒球）
       const blackCore = new THREE.Mesh(
-        new THREE.SphereGeometry(coreR, 24, 20),
+        unitGeoV9('sphere'),
         new THREE.MeshBasicMaterial({ color: 0x05020a, transparent: true, opacity: 0.98 })
       );
+      blackCore.scale.setScalar(coreR);
       const eventHorizon = new THREE.Mesh(
-        new THREE.SphereGeometry(coreR * 1.18, 20, 16),
+        unitGeoV9('icosa'),
         new THREE.MeshBasicMaterial({ color: attr.c1, wireframe: true, transparent: true, opacity: 0.92 })
       );
+      eventHorizon.scale.setScalar(coreR * 1.18);
       root.add(blackCore, eventHorizon);
 
-      const disk1 = new THREE.Mesh(
-        new THREE.RingGeometry(coreR * 1.25, coreR * 2.8, 40),
-        new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.86 })
-      );
+      const disk1 = makeCircleRing(coreR * 1.25, coreR * 2.8, attr.c1, 24);
       disk1.rotation.x = Math.PI / 2 - 0.35;
 
-      const disk2 = new THREE.Mesh(
-        new THREE.RingGeometry(coreR * 1.4, coreR * 2.4, 36),
-        new THREE.MeshBasicMaterial({ color: attr.c2, side: THREE.DoubleSide, transparent: true, opacity: 0.82 })
-      );
+      const disk2 = makeCircleRing(coreR * 1.4, coreR * 2.4, attr.c2, 24);
       disk2.rotation.x = Math.PI / 2 + 0.38;
       root.add(disk1, disk2);
 
@@ -1669,17 +1861,21 @@
       root.add(floorGravity);
 
       const shards = [];
-      for (let i = 0; i < 18 + tier * 8; i++) {
-        const sh = new THREE.Mesh(
-          new THREE.OctahedronGeometry(0.2 + tier * 0.05, 0),
-          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c2 : attr.c3, transparent: true, opacity: 0.95 })
-        );
+      const shCnt = 8 + tier * 3;
+      const shMats = [
+        new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.95 }),
+        new THREE.MeshBasicMaterial({ color: attr.c3, transparent: true, opacity: 0.95 })
+      ];
+      const shSz = 0.26 + tier * 0.06;
+      for (let i = 0; i < shCnt; i++) {
+        const sh = new THREE.Mesh(unitGeoV9('octa'), shMats[i % 2]);
+        sh.scale.setScalar(shSz);
         root.add(sh);
-        shards.push({ mesh: sh, ang: (Math.PI * 2 * i) / (18 + tier * 8), startR: coreR * 3.4, yOff: ((i % 5) - 2) * 0.45 });
+        shards.push({ mesh: sh, ang: (Math.PI * 2 * i) / shCnt, startR: coreR * 3.4, yOff: ((i % 5) - 2) * 0.45 });
       }
 
       const novaBurst = new THREE.Mesh(
-        new THREE.SphereGeometry(coreR * 2.8, 24, 18),
+        unitGeoV9('sphere'),
         new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0 })
       );
       root.add(novaBurst);
@@ -1687,7 +1883,7 @@
       reg(scene, root, 1.3 + tier * 0.22, (p, el) => {
         if (p < 0.72) {
           const pull = p / 0.72;
-          const pulse = 1 + Math.sin(el * 18) * 0.08;
+          const pulse = coreR * (1 + Math.sin(el * 18) * 0.08);
           blackCore.scale.setScalar(pulse);
           eventHorizon.rotation.y = el * 5;
           eventHorizon.rotation.x = el * 3;
@@ -1703,29 +1899,31 @@
         } else {
           const bp = (p - 0.72) / 0.28;
           const fade = 1 - bp;
-          blackCore.scale.setScalar(1 + bp * 1.4);
+          blackCore.scale.setScalar(coreR * (1 + bp * 1.4));
           blackCore.material.opacity = fade * 0.98;
           eventHorizon.material.opacity = fade * 0.92;
-          disk1.scale.setScalar(1 + bp * 1.2);
+          const d1Sc = coreR * 2.8 * (1 + bp * 1.2);
+          disk1.scale.set(d1Sc, d1Sc, 1);
           disk1.material.opacity = fade * 0.86;
-          disk2.scale.setScalar(1 + bp * 1.2);
+          const d2Sc = coreR * 2.4 * (1 + bp * 1.2);
+          disk2.scale.set(d2Sc, d2Sc, 1);
           disk2.material.opacity = fade * 0.82;
           floorGravity.material.opacity = fade * 0.9;
           shards.forEach((sh) => { sh.mesh.visible = false; });
-          novaBurst.scale.setScalar(0.5 + bp * 1.5);
+          novaBurst.scale.setScalar(coreR * 2.8 * (0.5 + bp * 1.5));
           novaBurst.material.opacity = fade * 0.85;
         }
       });
     },
 
-    // 16. 呪詛・魔界瘴気魔法（呪印魔法陣＋立ち昇る瘴気柱＋浮遊猛毒バブル＋回転呪詛リング）
+    // 16. 呪詛・魔界瘴気魔法（呪印魔法陣＋立ち昇る瘴気柱＋浮遊猛毒バブル）
     poison: (scene, caster, target, tier, attr) => {
       const root = new THREE.Group();
       root.position.set(target.x, 0, target.z);
       const zoneR = 2.4 + tier * 0.8;
 
       const swampDisk = new THREE.Mesh(
-        new THREE.CircleGeometry(zoneR, 36),
+        unitGeoV9('circle24'),
         new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.62 })
       );
       swampDisk.rotation.x = -Math.PI / 2;
@@ -1734,23 +1932,29 @@
       const curseRune = makeCircleRing(zoneR * 0.76, zoneR * 1.05, attr.c2, 6);
       curseRune.position.y = 0.08;
 
+      const mH = 4.6 + tier * 1.4;
       const miasmaCol = new THREE.Mesh(
-        new THREE.CylinderGeometry(zoneR * 0.75, zoneR * 0.95, 4.6 + tier * 1.4, 24, 1, true),
+        unitGeoV9('cyl16open'),
         new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.36 })
       );
-      miasmaCol.position.y = 2.3 + tier * 0.7;
+      miasmaCol.scale.set(zoneR * 0.85, mH, zoneR * 0.85);
+      miasmaCol.position.y = mH * 0.5;
       root.add(swampDisk, curseRune, miasmaCol);
 
       const bubbles = [];
-      const bCnt = 16 + tier * 8;
+      const bCnt = 8 + tier * 3;
+      const bMats = [
+        new THREE.MeshBasicMaterial({ color: attr.c3, transparent: true, opacity: 0.9 }),
+        new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.9 }),
+        new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.9 })
+      ];
       for (let i = 0; i < bCnt; i++) {
-        const bb = new THREE.Mesh(
-          new THREE.SphereGeometry(0.24 + (i % 3) * 0.09 + tier * 0.05, 12, 10),
-          new THREE.MeshBasicMaterial({ color: i % 3 === 0 ? attr.c3 : (i % 2 === 0 ? attr.c2 : attr.c1), transparent: true, opacity: 0.9 })
-        );
+        const baseSz = 0.28 + (i % 3) * 0.09 + tier * 0.05;
+        const bb = new THREE.Mesh(unitGeoV9('sphere'), bMats[i % 3]);
         root.add(bb);
         bubbles.push({
           mesh: bb,
+          baseSz,
           ang: (Math.PI * 2 * i) / bCnt,
           rad: 0.4 + (i % 4) * (zoneR * 0.22),
           spd: 2.2 + (i % 3) * 0.8,
@@ -1760,19 +1964,20 @@
 
       reg(scene, root, 1.25 + tier * 0.2, (p, el) => {
         const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
-        swampDisk.scale.setScalar(Math.min(1, p * 3.2));
+        const sdSc = zoneR * Math.min(1, p * 3.2);
+        swampDisk.scale.set(sdSc, sdSc, 1);
         swampDisk.material.opacity = fade * 0.62;
         curseRune.rotation.z = -el * 3.5;
         curseRune.material.opacity = fade * 0.95;
         miasmaCol.rotation.y = el * 3;
         miasmaCol.material.opacity = fade * 0.36;
+        bMats.forEach(m => { m.opacity = fade * 0.9; });
         bubbles.forEach((b) => {
           const a = b.ang + el * 2.5;
           const y = (p * b.spd * 2.2 + b.off) % (4.2 + tier * 1.2);
-          const sc = 0.8 + Math.sin(el * 10 + b.off) * 0.25;
+          const sc = b.baseSz * (0.8 + Math.sin(el * 10 + b.off) * 0.25);
           b.mesh.scale.setScalar(sc);
           b.mesh.position.set(Math.cos(a) * b.rad, y, Math.sin(a) * b.rad);
-          b.mesh.material.opacity = fade * 0.9;
         });
       });
     },
@@ -1785,13 +1990,18 @@
 
       const galaxyRing1 = makeCircleRing(zoneR * 0.72, zoneR, attr.c1, 5);
       galaxyRing1.position.y = 0.06;
-      const galaxyRing2 = makeCircleRing(zoneR * 0.35, zoneR * 0.65, attr.c3, 36);
+      const galaxyRing2 = makeCircleRing(zoneR * 0.35, zoneR * 0.65, attr.c3, 24);
       galaxyRing2.position.y = 0.09;
       root.add(galaxyRing1, galaxyRing2);
 
       const stars = [];
-      const starCnt = 5 + tier * 3;
+      const starCnt = 4 + tier * 2;
       const cols = [attr.c1, attr.c2, attr.c3, 0xffffff];
+      const stMats = cols.map(c => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.96 }));
+      const coreSz = 0.45 + tier * 0.12;
+      const tailR = 0.34 + tier * 0.08;
+      const tailH = 3.2 + tier * 0.8;
+
       for (let i = 0; i < starCnt; i++) {
         const ang = (Math.PI * 2 * i) / starCnt;
         const rad = i === 0 ? 0 : zoneR * (0.35 + (i % 3) * 0.22);
@@ -1799,15 +2009,11 @@
         const tz = Math.sin(ang) * rad;
 
         const sGrp = new THREE.Group();
-        const starCore = new THREE.Mesh(
-          new THREE.OctahedronGeometry(0.42 + tier * 0.12, 0),
-          new THREE.MeshBasicMaterial({ color: cols[i % cols.length], transparent: true, opacity: 0.98 })
-        );
-        const starTail = new THREE.Mesh(
-          new THREE.ConeGeometry(0.32 + tier * 0.08, 3.2 + tier * 0.8, 12, 1, true),
-          new THREE.MeshBasicMaterial({ color: cols[(i + 1) % cols.length], side: THREE.DoubleSide, transparent: true, opacity: 0.75 })
-        );
-        starTail.position.y = 1.6 + tier * 0.4;
+        const starCore = new THREE.Mesh(unitGeoV9('octa'), stMats[i % stMats.length]);
+        starCore.scale.setScalar(coreSz);
+        const starTail = new THREE.Mesh(unitGeoV9('cone10open'), stMats[(i + 1) % stMats.length]);
+        starTail.scale.set(tailR, tailH, tailR);
+        starTail.position.y = tailH * 0.5;
         sGrp.add(starCore, starTail);
 
         const startH = 11 + (i % 3) * 2.5;
@@ -1816,7 +2022,8 @@
         stars.push({ grp: sGrp, tx, tz, startH, delay: (i % 4) * 0.09 });
       }
 
-      const novaWave = makeCircleRing(0.5, zoneR * 1.15, attr.c2, 40);
+      const nvR = zoneR * 1.15;
+      const novaWave = makeCircleRing(0.5, nvR, attr.c2, 24);
       novaWave.position.y = 0.12;
       novaWave.visible = false;
       root.add(novaWave);
@@ -1827,6 +2034,7 @@
         galaxyRing1.material.opacity = fade * 0.95;
         galaxyRing2.rotation.z = -el * 5;
         galaxyRing2.material.opacity = fade * 0.95;
+        stMats.forEach(m => { m.opacity = fade * 0.96; });
 
         let anyHit = false;
         stars.forEach((st) => {
@@ -1848,7 +2056,8 @@
         if (anyHit) {
           const bp = Math.min(1, Math.max(0, (p - 0.5) / 0.5));
           novaWave.visible = true;
-          novaWave.scale.setScalar(0.5 + bp * 1.35);
+          const sc = nvR * (0.5 + bp * 1.35);
+          novaWave.scale.set(sc, sc, 1);
           novaWave.material.opacity = (1 - bp) * 0.95;
         }
       });
@@ -1867,28 +2076,33 @@
       root.add(bladeRune1, bladeRune2);
 
       const swords = [];
-      const swCnt = 8 + tier * 4;
+      const swCnt = 6 + tier * 3;
+      const bMats = [
+        new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.96 }),
+        new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.96 })
+      ];
+      const guardMat = new THREE.MeshBasicMaterial({ color: attr.c3, transparent: true, opacity: 0.96 });
+      const hiltMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95 });
+
+      const bR = 0.16 + tier * 0.04;
+      const bL = 2.1 + tier * 0.5;
+      const gW = 0.65 + tier * 0.15;
+
       for (let i = 0; i < swCnt; i++) {
         const ang = (Math.PI * 2 * i) / swCnt;
         const swGrp = new THREE.Group();
 
-        const blade = new THREE.Mesh(
-          new THREE.ConeGeometry(0.16 + tier * 0.04, 2.1 + tier * 0.5, 4),
-          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? attr.c1 : attr.c2, transparent: true, opacity: 0.96 })
-        );
+        const blade = new THREE.Mesh(unitGeoV9('cone4'), bMats[i % 2]);
+        blade.scale.set(bR, bL, bR);
         blade.rotation.x = Math.PI / 2;
         blade.position.z = 0.55;
 
-        const guard = new THREE.Mesh(
-          new THREE.BoxGeometry(0.65 + tier * 0.15, 0.1, 0.14),
-          new THREE.MeshBasicMaterial({ color: attr.c3, transparent: true, opacity: 0.96 })
-        );
+        const guard = new THREE.Mesh(unitGeoV9('box'), guardMat);
+        guard.scale.set(gW, 0.1, 0.14);
         guard.position.z = -0.35;
 
-        const hilt = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.06, 0.06, 0.55, 8),
-          new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95 })
-        );
+        const hilt = new THREE.Mesh(unitGeoV9('cyl8'), hiltMat);
+        hilt.scale.set(0.06, 0.55, 0.06);
         hilt.rotation.x = Math.PI / 2;
         hilt.position.z = -0.62;
 
@@ -1900,8 +2114,9 @@
         swords.push({ grp: swGrp, ang, startY });
       }
 
+      const csR = 1.7 + tier * 0.55;
       const crossSlash = new THREE.Mesh(
-        new THREE.SphereGeometry(1.7 + tier * 0.55, 18, 14),
+        unitGeoV9('sphere'),
         new THREE.MeshBasicMaterial({ color: attr.c3, transparent: true, opacity: 0 })
       );
       crossSlash.position.y = 1.0;
@@ -1913,6 +2128,9 @@
         bladeRune1.material.opacity = fade * 0.95;
         bladeRune2.rotation.z = -el * 5;
         bladeRune2.material.opacity = fade * 0.95;
+        bMats.forEach(m => { m.opacity = fade * 0.96; });
+        guardMat.opacity = fade * 0.96;
+        hiltMat.opacity = fade * 0.95;
 
         if (p < 0.48) {
           const spinP = p / 0.48;
@@ -1928,12 +2146,11 @@
             const a = sw.ang + Math.PI * 1.5;
             sw.grp.position.set(Math.cos(a) * curR, sw.startY * (1 - strikeP) + 0.85 * strikeP, Math.sin(a) * curR);
             sw.grp.lookAt(root.position.x, root.position.y + 0.85, root.position.z);
-            sw.grp.children.forEach(c => { c.material.opacity = fade * 0.96; });
           });
 
           if (strikeP >= 0.85) {
             const bp = (p - 0.70) / 0.30;
-            crossSlash.scale.setScalar(0.4 + Math.max(0, bp) * 1.4);
+            crossSlash.scale.setScalar(csR * (0.4 + Math.max(0, bp) * 1.4));
             crossSlash.material.opacity = fade * 0.85;
           }
         }
@@ -2102,7 +2319,7 @@
     const kindBadge = info.isNonAttack ? '🛡️ 補助・回復・結界' : '⚔️ 攻撃スペル';
 
     layer.innerHTML = `
-      <div class="kmj-v9-flash" style="background:radial-gradient(circle at 75% 20%, rgba(253,224,71,0.38), transparent 70%);"></div>
+      <div class="kmj-v9-flash" style="background:radial-gradient(circle at 75% 20%, rgba(253,224,71,0.32), transparent 68%);"></div>
       <div class="kmj-v9-line-top"></div>
       <div class="kmj-v9-line-bot"></div>
       <div class="kmj-v9-banner" style="background:${info.attr.bgGrad};">
@@ -2114,7 +2331,7 @@
             <div style="font-size:10px;font-weight:900;color:#fde047;letter-spacing:0.06em;">
               ✦ ${info.attr.cardType}｜${stars}（${kindBadge}）
             </div>
-            <div style="font-size:15px;font-weight:900;color:#ffffff;text-shadow:0 2px 8px rgba(0,0,0,0.85);margin:2px 0;">
+            <div style="font-size:15px;font-weight:900;color:#ffffff;text-shadow:0 2px 6px rgba(0,0,0,0.8);margin:2px 0;">
               ${info.evolvedName}
             </div>
             <div style="font-size:10px;color:#e0f2fe;font-weight:800;">
@@ -2128,7 +2345,7 @@
     clearTimeout(window._kmjV9CutinTimer);
     window._kmjV9CutinTimer = setTimeout(() => {
       if (layer) layer.innerHTML = '';
-    }, 2400);
+    }, 2200);
   }
 
   function applyNonAttackSupportEffectV9(game, info) {
@@ -2328,7 +2545,7 @@
     btn.id = 'kmj-v9-open-studio-btn';
     btn.type = 'button';
     btn.textContent = '✨ 魔法進化';
-    btn.style.cssText = 'position:fixed;right:12px;bottom:74px;z-index:920;background:linear-gradient(90deg,#7c3aed,#db2777);border:1.5px solid #fde047;color:#fff;border-radius:999px;padding:6px 12px;font-size:11px;font-weight:900;box-shadow:0 4px 14px rgba(219,39,119,0.55);cursor:pointer;';
+    btn.style.cssText = 'position:fixed;right:12px;bottom:74px;z-index:920;background:linear-gradient(90deg,#7c3aed,#db2777);border:1.5px solid #fde047;color:#fff;border-radius:999px;padding:6px 12px;font-size:11px;font-weight:900;box-shadow:0 3px 10px rgba(219,39,119,0.45);cursor:pointer;';
     btn.onclick = () => openMagicEvolutionStudioV9();
     document.body?.appendChild(btn);
   }
@@ -2351,12 +2568,10 @@
       if (proto._v9MasterInstalled) return;
       proto._v9MasterInstalled = true;
 
-      // 非攻撃スキル実行中フラグの判定ヘルパー
       proto._isNonAttackCastActiveV9 = function () {
         return Boolean(this._v9SuppressAttackUntil && performance.now() <= this._v9SuppressAttackUntil);
       };
 
-      // モンスターダメージ関数群をフック（非攻撃スキル実行中は敵への攻撃判定を完全遮断）
       ['damageMonster', 'applySkillDamage', 'hitMonster', 'applyMagicProjectileHitDamageV40'].forEach(dmgFn => {
         if (typeof proto[dmgFn] === 'function' && !proto[`_v9Guard_${dmgFn}`]) {
           const origDmg = proto[dmgFn];
@@ -2370,7 +2585,6 @@
         }
       });
 
-      // game7.js の状態異常付与フック（非攻撃スキル実行中は敵へ状態異常を付与しない）
       if (typeof proto.applyElementalStatusToMonstersV7 === 'function' && !proto._v9Guard_status) {
         const origStatus = proto.applyElementalStatusToMonstersV7;
         proto.applyElementalStatusToMonstersV7 = function (...args) {
@@ -2380,7 +2594,6 @@
         proto._v9Guard_status = true;
       }
 
-      // スキル発動フック（多重発火防止＋非攻撃スキルガード＋3D演出再生）
       ['useSkillSlot', 'executeSingleSkillCast', 'useSkill', 'castSkill'].forEach(fn => {
         if (typeof proto[fn] === 'function' && !proto[`_v9Hook_${fn}`]) {
           const orig = proto[fn];
@@ -2400,7 +2613,6 @@
 
             const preInfo = sk ? getSkillInfoV9(this, sk, slotIdx) : null;
             if (preInfo?.isNonAttack) {
-              // 本体処理中の攻撃判定・AoEダメージ・状態異常を220ms完全に遮断
               this._v9SuppressAttackUntil = performance.now() + 220;
             }
 
@@ -2415,7 +2627,6 @@
         }
       });
 
-      // updateループに「極光の聖域」持続回復・バフ更新を統合
       if (typeof proto.update === 'function' && !proto._v9UpdateWrapped) {
         const origUpdate = proto.update;
         proto.update = function (dt = 0.016, ...rest) {
@@ -2430,7 +2641,6 @@
     });
   }
 
-  // 公開API（game7.js 統合デバッグスタジオ等から参照）
   Object.assign(V9, {
     getAll14Skills: getAllSkillsListV9,
     getSkillInfo: getSkillInfoV9,
@@ -2452,4 +2662,4 @@
     syncAllSkillsV9();
   }, 500);
 })();
-// ▲▲▲ ここまで【スキルエフェクト専用 game9.js 2/2】 ▲▲▲
+// ▲▲▲ ここまで【スキルエフェクト専用 game9.js（超軽量・高速化版）2/2】 ▲▲▲
