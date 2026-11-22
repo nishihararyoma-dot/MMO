@@ -2087,8 +2087,8 @@
     }
   };
 
-  // =========================================================
-  // 7. スキル識別・非攻撃系スキル判定・進化状態管理（無限再帰完全ガード付き）
+// =========================================================
+  // 8. スキル識別・非攻撃系スキル判定・進化状態管理（正確解決＆無限再帰ガード版）
   // =========================================================
   const TIER_LABELS_V9 = ['通常 ★1', '【真】★2', '【極】★3', '【神】★4'];
   const TIER_MULTS_V9 = [1.0, 1.5, 2.3, 3.6];
@@ -2103,15 +2103,22 @@
   }
 
   function findProfileByIdV9(attrId) {
-    return SKILL_DERIVATION_PROFILES_V9.find(a => a.id === attrId) || null;
+    return V9.ATTRIBUTES.find(a => a.id === attrId) || null;
   }
 
-  function inferDefaultProfileV9(rawText) {
-    const txt = String(rawText || '');
-    for (const p of SKILL_DERIVATION_PROFILES_V9) {
-      if (p.match.test(txt)) return p;
+  // スキル名・IDを最優先し、説明文（desc）の単語による誤判定を防止
+  function inferDefaultProfileV9(origName, sk = {}) {
+    const primaryTxt = `${origName || ''} ${sk.id || ''} ${sk.skillId || ''}`.trim();
+    for (const p of V9.ATTRIBUTES) {
+      if (p.match.test(primaryTxt)) return p;
     }
-    return findProfileByIdV9('sword') || SKILL_DERIVATION_PROFILES_V9[0];
+    const subTxt = `${sk.desc || ''} ${sk.description || ''}`.trim();
+    if (subTxt) {
+      for (const p of V9.ATTRIBUTES) {
+        if (p.match.test(subTxt)) return p;
+      }
+    }
+    return findProfileByIdV9('sword') || V9.ATTRIBUTES[0];
   }
 
   function isNonAttackSkillObjV9(game, skillObj, info = null) {
@@ -2127,12 +2134,83 @@
       return true;
     }
 
-    const baseText = `${sk._v9BaseName || ''} ${sk.baseName || ''} ${sk.id || ''} ${sk.skillId || ''} ${sk.desc || ''} ${sk.description || ''}`;
+    const baseText = `${sk._v9BaseName || ''} ${sk.baseName || ''} ${sk.id || ''} ${sk.skillId || ''}`;
     if (/聖光の癒し|イージス|極光の聖域|覇王の咆哮|ヒール|回復|治癒|守護|鉄壁|バリア|シールド|結界|鼓舞|闘気|覚醒|sanctuary|aegis|warcry|heal|cure|shield|buff/.test(baseText)) {
       return true;
     }
 
     return false;
+  }
+
+  function getAllSkillsListV9(game) {
+    const g = game || window.__kmjInstance || window._kmjGameInstance || window.game || window.app || window.mmorpg;
+    if (!g) return [];
+    const list = [];
+    const seen = new Set();
+    const pushUnique = (sk) => {
+      if (!sk || typeof sk !== 'object') return;
+      const key = sk.id || sk.skillId || sk._v9BaseName || sk.name;
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      list.push(sk);
+    };
+
+    if (Array.isArray(g.saveData?.skills)) g.saveData.skills.forEach(pushUnique);
+    if (Array.isArray(g.skills)) g.skills.forEach(pushUnique);
+    if (Array.isArray(g.skillSlots)) g.skillSlots.forEach(pushUnique);
+    if (Array.isArray(g.equippedSkills)) g.equippedSkills.forEach(pushUnique);
+    if (typeof SKILLS !== 'undefined') {
+      if (Array.isArray(SKILLS)) SKILLS.forEach(pushUnique);
+      else if (SKILLS && typeof SKILLS === 'object') Object.values(SKILLS).forEach(pushUnique);
+    }
+    return list;
+  }
+
+  // スロット番号・スキルID文字列・スキルオブジェクトのいずれが渡されても正確に解決する
+  function resolveSkillEntryV9(game, skillOrIndex) {
+    const all = getAllSkillsListV9(game);
+    if (!skillOrIndex && skillOrIndex !== 0) return { sk: null, slotIdx: -1 };
+
+    if (typeof skillOrIndex === 'object') {
+      const idx = all.indexOf(skillOrIndex);
+      return { sk: skillOrIndex, slotIdx: idx };
+    }
+
+    let candidate = null;
+    if (typeof skillOrIndex === 'number') {
+      candidate = game?.skillSlots?.[skillOrIndex]
+        ?? game?.equippedSkills?.[skillOrIndex]
+        ?? game?.saveData?.equippedSkills?.[skillOrIndex]
+        ?? (Array.isArray(game?.saveData?.skills) ? game.saveData.skills[skillOrIndex] : null)
+        ?? (Array.isArray(game?.skills) ? game.skills[skillOrIndex] : null)
+        ?? all[skillOrIndex];
+    } else if (typeof skillOrIndex === 'string') {
+      candidate = game?.saveData?.skills?.[skillOrIndex]
+        ?? game?.skills?.[skillOrIndex]
+        ?? skillOrIndex;
+    }
+
+    // 候補が「スキルIDの文字列」だった場合は全スキル一覧からオブジェクトを引く
+    if (typeof candidate === 'string') {
+      const found = all.find(s =>
+        s.id === candidate ||
+        s.skillId === candidate ||
+        s._v9BaseName === candidate ||
+        s.baseName === candidate ||
+        s.name === candidate
+      );
+      if (found) {
+        return { sk: found, slotIdx: all.indexOf(found) };
+      }
+      return { sk: { id: candidate, name: candidate }, slotIdx: typeof skillOrIndex === 'number' ? skillOrIndex : -1 };
+    }
+
+    if (candidate && typeof candidate === 'object') {
+      const idx = typeof skillOrIndex === 'number' ? skillOrIndex : all.indexOf(candidate);
+      return { sk: candidate, slotIdx: idx };
+    }
+
+    return { sk: null, slotIdx: -1 };
   }
 
   function getSkillInfoV9(game, skillObj, slotIdx = -1) {
@@ -2148,11 +2226,16 @@
     const origName = sk._v9BaseName;
     const sid = String(sk.id || sk.skillId || `slot_${slotIdx}_${origName}`);
     const customMap = getCustomSkillConfigV9(game);
-    const custom = customMap[sid] || {};
+    const custom = customMap[sid] || customMap[origName] || {};
 
     const d = game?.saveData || {};
     const lvFromSave = Number(
-      d.skills?.[sid] ?? d.skillLevels?.[sid] ?? d.skillLvs?.[sid] ?? sk.lv ?? sk.level ?? 1
+      (typeof d.skills === 'object' && !Array.isArray(d.skills) ? d.skills[sid] : undefined)
+      ?? d.skillLevels?.[sid]
+      ?? d.skillLvs?.[sid]
+      ?? sk.lv
+      ?? sk.level
+      ?? 1
     );
     const skillLv = Math.max(1, lvFromSave);
 
@@ -2167,7 +2250,7 @@
 
     const attr = (custom.attrId && findProfileByIdV9(custom.attrId))
       ? findProfileByIdV9(custom.attrId)
-      : inferDefaultProfileV9(`${origName} ${sk.id || ''} ${sk.desc || ''}`);
+      : inferDefaultProfileV9(origName, sk);
 
     const namesArr = attr.names(origName);
     const evolvedName = namesArr[tier] || origName;
@@ -2190,68 +2273,46 @@
     };
   }
 
-  function getAllSkillsListV9(game) {
-    const g = game || window.__kmjInstance || window.game || window.app || window.mmorpg;
-    if (!g) return [];
-    const list = [];
-    const seen = new Set();
-    const pushUnique = (sk) => {
-      if (!sk || typeof sk !== 'object') return;
-      const key = sk.id || sk.skillId || sk._v9BaseName || sk.name;
-      if (!key || seen.has(key)) return;
-      seen.add(key);
-      list.push(sk);
-    };
-
-    if (Array.isArray(g.skills)) g.skills.forEach(pushUnique);
-    if (Array.isArray(g.skillSlots)) g.skillSlots.forEach(pushUnique);
-    if (Array.isArray(g.equippedSkills)) g.equippedSkills.forEach(pushUnique);
-    if (typeof SKILLS !== 'undefined') {
-      if (Array.isArray(SKILLS)) SKILLS.forEach(pushUnique);
-      else if (SKILLS && typeof SKILLS === 'object') Object.values(SKILLS).forEach(pushUnique);
-    }
-    return list;
-  }
-
-  function syncAllSkillsV9(game) {
+  // 無限再帰（Maximum call stack size exceeded）完全防止版 syncAllSkillsV9
+  function syncAllSkillsV9(game, allowHudRefresh = false) {
     if (_isSyncingSkillsV9) return;
-    const g = game || window.__kmjInstance || window.game || window.app || window.mmorpg;
+    const g = game || window.__kmjInstance || window._kmjGameInstance || window.game || window.app || window.mmorpg;
     if (!g) return;
 
     _isSyncingSkillsV9 = true;
+    let changed = false;
     try {
       const all = getAllSkillsListV9(g);
       all.forEach((sk, idx) => {
         const info = getSkillInfoV9(g, sk, idx);
         if (sk.name !== info.evolvedName) {
           sk.name = info.evolvedName;
+          changed = true;
         }
         if ('title' in sk && sk.title !== info.evolvedName) {
           sk.title = info.evolvedName;
+          changed = true;
         }
         sk._v9PowerMult = info.powerMult;
         sk._v9AttrId = info.attr.id;
         sk._v9IsNonAttack = info.isNonAttack;
       });
+
+      if (allowHudRefresh && changed && !g._v9InRefreshHUD && typeof g.refreshAllHUD === 'function') {
+        g._v9InRefreshHUD = true;
+        try {
+          g.refreshAllHUD();
+        } finally {
+          g._v9InRefreshHUD = false;
+        }
+      }
     } finally {
       _isSyncingSkillsV9 = false;
     }
   }
 
-  function safeRefreshHudV9(game) {
-    const g = game || window.__kmjInstance || window.game || window.app || window.mmorpg;
-    if (!g || g._v9InRefreshHUD || typeof g.refreshAllHUD !== 'function') return;
-    g._v9InRefreshHUD = true;
-    try {
-      g.refreshAllHUD();
-    } catch (e) {
-    } finally {
-      g._v9InRefreshHUD = false;
-    }
-  }
-
   // =========================================================
-  // 8. スペルカード風カットイン演出＆非攻撃サポート効果適用
+  // 9. スペルカード風カットイン演出＆非攻撃サポート効果適用
   // =========================================================
   function showSpellCardCutinV9(game, info) {
     if (!info) return;
@@ -2305,7 +2366,7 @@
     const sup = info.attr?.supportType || 'heal';
 
     if (sup === 'sanctuary') {
-      spawnAuroraSanctuaryFieldV9(game, p, info);
+      V9.spawnAuroraSanctuaryField(game, p, info);
       return;
     }
 
@@ -2342,10 +2403,27 @@
       game.showAlertBanner?.(`🔥 ${info.evolvedName}！攻撃・魔力が大幅上昇（${12 + tier * 3}秒）！`, 2000);
     }
 
-    safeRefreshHudV9(game);
+    if (!game._v9InRefreshHUD && typeof game.refreshAllHUD === 'function') {
+      game._v9InRefreshHUD = true;
+      try {
+        game.refreshAllHUD();
+      } finally {
+        game._v9InRefreshHUD = false;
+      }
+    }
   }
 
-  function findTargetPosV9(game, casterPos, rotY) {
+  function findTargetPosV9(game, casterPos, rotY, explicitTarget = null) {
+    if (explicitTarget && typeof explicitTarget === 'object') {
+      const p = explicitTarget.pos || explicitTarget;
+      if (typeof p.x === 'number' && typeof p.z === 'number') {
+        return { x: p.x, z: p.z };
+      }
+    }
+    if (game?.lockedTarget && !game.lockedTarget.dead && game.lockedTarget.pos) {
+      return { x: game.lockedTarget.pos.x, z: game.lockedTarget.pos.z };
+    }
+
     let best = null;
     let bestD = 13.0;
     if (Array.isArray(game?.monsters)) {
@@ -2367,8 +2445,8 @@
     };
   }
 
-  function playSkillEffectV9(game, skillObj, slotIdx = -1, overrideTier = null) {
-    const g = game || window.__kmjInstance || window.game || window.app || window.mmorpg;
+  function playSkillEffectV9(game, skillObj, slotIdx = -1, overrideTier = null, explicitTarget = null) {
+    const g = game || window.__kmjInstance || window._kmjGameInstance || window.game || window.app || window.mmorpg;
     if (!g) return null;
 
     const info = getSkillInfoV9(g, skillObj, slotIdx);
@@ -2379,7 +2457,7 @@
       info.powerMult = TIER_MULTS_V9[overrideTier] || 1.0;
     }
 
-    playMagicAudioV9(info.attr.id, info.tier);
+    V9._playMagicAudio(info.attr.id, info.tier);
     showSpellCardCutinV9(g, info);
 
     if (info.isNonAttack) {
@@ -2388,10 +2466,11 @@
 
     if (g.useWebGL && g.scene && g.player?.pos && typeof THREE !== 'undefined') {
       const caster = { x: g.player.pos.x, z: g.player.pos.z };
+      const facing = Number(g.player.yaw ?? g.player.rotY ?? 0);
       const target = info.isNonAttack
         ? caster
-        : findTargetPosV9(g, caster, g.player.rotY || 0);
-      const builder = EFFECT_BUILDERS_V9[info.attr.id] || EFFECT_BUILDERS_V9.sword;
+        : findTargetPosV9(g, caster, facing, explicitTarget);
+      const builder = V9.EFFECT_BUILDERS[info.attr.id] || V9.EFFECT_BUILDERS.sword;
       builder(g.scene, caster, target, info.tier, info.attr);
     }
 
@@ -2399,11 +2478,11 @@
   }
 
   // =========================================================
-  // 9. 魔法進化スタジオUIモーダル
+  // 10. 魔法進化スタジオUIモーダル
   // =========================================================
   function openMagicEvolutionStudioV9() {
     document.getElementById('kmj-v9-studio-modal')?.remove();
-    const g = window.__kmjInstance || window.game || window.app || window.mmorpg;
+    const g = window.__kmjInstance || window._kmjGameInstance || window.game || window.app || window.mmorpg;
     const skills = getAllSkillsListV9(g);
     const customMap = getCustomSkillConfigV9(g);
 
@@ -2412,7 +2491,7 @@
 
     const rows = skills.map((sk, idx) => {
       const info = getSkillInfoV9(g, sk, idx);
-      const opts = SKILL_DERIVATION_PROFILES_V9.map(a =>
+      const opts = V9.ATTRIBUTES.map(a =>
         `<option value="${a.id}" ${a.id === info.attr.id ? 'selected' : ''}>${a.label}</option>`
       ).join('');
       const tierOpts = TIER_LABELS_V9.map((lbl, tIdx) =>
@@ -2464,8 +2543,7 @@
         const sid = sel.dataset.sid;
         if (!customMap[sid]) customMap[sid] = {};
         customMap[sid].attrId = sel.value;
-        syncAllSkillsV9(g);
-        safeRefreshHudV9(g);
+        syncAllSkillsV9(g, true);
         g?.saveGame?.(false);
         openMagicEvolutionStudioV9();
       };
@@ -2476,8 +2554,7 @@
         const sid = sel.dataset.sid;
         if (!customMap[sid]) customMap[sid] = {};
         customMap[sid].tier = Number(sel.value);
-        syncAllSkillsV9(g);
-        safeRefreshHudV9(g);
+        syncAllSkillsV9(g, true);
         g?.saveGame?.(false);
         openMagicEvolutionStudioV9();
       };
@@ -2505,19 +2582,15 @@
   }
 
   // =========================================================
-  // 10. 本体フック＆無限再帰・二重発火・非攻撃スキルの完全ガード
+  // 11. 本体フック＆無限再帰・二重発火・非攻撃スキルの完全ガード
   // =========================================================
-  let _hookRetryV9 = 0;
-
   function installV9MasterHooks() {
     const classes = [];
     if (typeof KaomojiMMORPG !== 'undefined') classes.push(KaomojiMMORPG);
     if (typeof RPGGame !== 'undefined' && RPGGame !== KaomojiMMORPG) classes.push(RPGGame);
 
     if (classes.length === 0) {
-      if (_hookRetryV9++ < 60) {
-        setTimeout(installV9MasterHooks, 150);
-      }
+      setTimeout(installV9MasterHooks, 150);
       return;
     }
 
@@ -2526,7 +2599,6 @@
       if (proto._v9MasterInstalled) return;
       proto._v9MasterInstalled = true;
 
-      // ★ [game7:refreshAllHUD] Maximum call stack size exceeded の完全防止ガード
       if (typeof proto.refreshAllHUD === 'function' && !proto._v9Guard_refreshAllHUD) {
         const origRefreshAllHUD = proto.refreshAllHUD;
         proto.refreshAllHUD = function (...args) {
@@ -2567,40 +2639,35 @@
         proto._v9Guard_status = true;
       }
 
-      ['useSkillSlot', 'executeSingleSkillCast', 'useSkill', 'castSkill'].forEach(fn => {
+      ['useSkillSlot', 'executeSingleSkillCast', 'useSkill', 'castSkill', 'executeSkill'].forEach(fn => {
         if (typeof proto[fn] === 'function' && !proto[`_v9Hook_${fn}`]) {
           const orig = proto[fn];
-          proto[fn] = function (slotOrId, ...rest) {
+          proto[fn] = function (slotOrId, targetArg, ...rest) {
+            window.__kmjInstance = this;
             const isTopLevelCall = !this._v9CastDepth || this._v9CastDepth <= 0;
             this._v9CastDepth = (this._v9CastDepth || 0) + 1;
 
             try {
               if (!isTopLevelCall) {
-                return orig.apply(this, [slotOrId, ...rest]);
+                return orig.apply(this, [slotOrId, targetArg, ...rest]);
               }
 
               const now = performance.now();
               if (this._v9LastCastStamp && (now - this._v9LastCastStamp) < 90) {
-                return orig.apply(this, [slotOrId, ...rest]);
+                return orig.apply(this, [slotOrId, targetArg, ...rest]);
               }
               this._v9LastCastStamp = now;
 
-              const all = getAllSkillsListV9(this);
-              let slotIdx = typeof slotOrId === 'number' ? slotOrId : -1;
-              let sk = slotIdx >= 0
-                ? (this.skillSlots?.[slotIdx] || this.equippedSkills?.[slotIdx] || all[slotIdx])
-                : all.find(s => s.id === slotOrId || s.skillId === slotOrId || s.name === slotOrId);
-              if (slotIdx < 0 && sk) slotIdx = all.indexOf(sk);
-
+              const { sk, slotIdx } = resolveSkillEntryV9(this, slotOrId);
               const preInfo = sk ? getSkillInfoV9(this, sk, slotIdx) : null;
               if (preInfo?.isNonAttack) {
                 this._v9SuppressAttackUntil = performance.now() + 220;
               }
 
-              const res = orig.apply(this, [slotOrId, ...rest]);
+              const res = orig.apply(this, [slotOrId, targetArg, ...rest]);
 
               if (res !== false && sk) {
-                playSkillEffectV9(this, sk, slotIdx);
+                playSkillEffectV9(this, sk, slotIdx, null, targetArg);
               }
               return res;
             } finally {
@@ -2614,10 +2681,11 @@
       if (typeof proto.update === 'function' && !proto._v9UpdateWrapped) {
         const origUpdate = proto.update;
         proto.update = function (dt = 0.016, ...rest) {
+          window.__kmjInstance = this;
           const res = origUpdate.apply(this, [dt, ...rest]);
           if (activeSanctuariesV9.length > 0) {
             try {
-              updateSanctuaryFieldsV9(this, dt);
+              V9.updateSanctuaryFields(this, dt);
             } catch (e) {}
           }
           return res;
@@ -2627,32 +2695,25 @@
     });
   }
 
-  window.KMJ_SKILL_FX_V9 = {
-    ATTRIBUTES: SKILL_DERIVATION_PROFILES_V9,
-    EFFECT_BUILDERS: EFFECT_BUILDERS_V9,
-    register3DAnimation: register3DAnimationV9,
-    spawnAuroraSanctuaryField: spawnAuroraSanctuaryFieldV9,
-    updateSanctuaryFields: updateSanctuaryFieldsV9,
+  Object.assign(V9, {
     getAll14Skills: getAllSkillsListV9,
     getSkillInfo: getSkillInfoV9,
-    syncAllSkills: syncAllSkillsV9,
+    syncAllSkills: (g) => syncAllSkillsV9(g, false),
     openStudio: openMagicEvolutionStudioV9,
-    previewSkillByObj: (game, sk, tier) => playSkillEffectV9(game, sk, -1, tier),
-    _playMagicAudio: playMagicAudioV9
-  };
+    previewSkillByObj: (game, sk, tier) => playSkillEffectV9(game, sk, -1, tier)
+  });
 
   installV9MasterHooks();
 
   window.addEventListener('load', () => {
     setTimeout(() => {
       ensureStudioButtonV9();
-      syncAllSkillsV9(null);
-      safeRefreshHudV9(null);
+      syncAllSkillsV9(null, true);
     }, 600);
   });
   setTimeout(() => {
     ensureStudioButtonV9();
-    syncAllSkillsV9(null);
+    syncAllSkillsV9(null, true);
   }, 500);
 })();
-// ▲▲▲ ここまで【スキルエフェクト専用 game9.js（無限再帰＆毎フレームエラー完全修正・爆速版）】 ▲▲▲
+// ▲▲▲ ここまで【スキルエフェクト専用 game9.js（無限再帰完全修正＆超軽量・爆速版）2/2】 ▲▲▲
