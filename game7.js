@@ -1,4 +1,4 @@
-// ▼▼▼ ここから game7.js （完全版：タイトル復旧・歯車名前変更・統合デバッグ・状態異常・自動実績・杖魔法弾飛翔＆クラス分岐統合） ▼▼▼
+// ▼▼▼ ここから game7.js（完全版：クラス別通常攻撃ルーター・魔法弾飛翔＆命中＆着弾バースト・開始フラグ確実化・左下エラー通知） ▼▼▼
 (() => {
   'use strict';
 
@@ -6,23 +6,40 @@
   window.MAX_THREAT_CAP_V27 = 999;
   window.SECRET_DEBUG_CODE = 'debug777';
 
-  function showErrToastV7(msg) {
-    if (!msg) return;
+  // =========================================================
+  // 0-A. 左下赤トースト エラー通知ヘルパー（エラー握りつぶし防止）
+  // =========================================================
+  function reportKmjRuntimeError(source, err) {
+    const rawMsg = err?.message ? err.message : String(err || 'Unknown Error');
+    const stackLine = (err?.stack || '').split('\n')[1] || '';
+    const locMatch = stackLine.match(/([^/\\()]+\.js:\d+:\d+)/);
+    const loc = locMatch ? ` (${locMatch[1]})` : '';
+    const fullText = `⚠️ [${source}] ${rawMsg}${loc} (タップで閉じる)`;
+
+    console.error(`[KMJ-ERR:${source}]`, err);
+
     let box = document.getElementById('kmj-ipad-err-toast');
     if (!box) {
       box = document.createElement('div');
       box.id = 'kmj-ipad-err-toast';
-      box.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:99999;max-width:90vw;background:rgba(127,29,29,.95);border:1px solid #f87171;color:#fecaca;font-size:10px;padding:6px 10px;border-radius:8px;font-family:monospace;';
+      box.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:99999;max-width:92vw;background:rgba(127,29,29,.96);border:1.5px solid #f87171;color:#fecaca;font-size:10.5px;font-weight:700;padding:6px 10px;border-radius:8px;font-family:monospace;box-shadow:0 4px 16px rgba(0,0,0,0.75);word-break:break-all;cursor:pointer;';
       box.onclick = () => box.remove();
-      document.body?.appendChild(box);
+      (document.body || document.documentElement)?.appendChild(box);
     }
-    box.textContent = `⚠️ ${msg} (タップで閉じる)`;
+    box.textContent = fullText;
   }
+  window.reportKmjRuntimeError = reportKmjRuntimeError;
 
-  // iPad Safariでも万が一エラーが起きたら画面左下に小さく通知し、ゲーム自体は止めない安全装置
   window.addEventListener('error', (ev) => {
     if (!ev?.message) return;
-    showErrToastV7(ev.message);
+    const file = (ev.filename || '').split('/').pop().split('?')[0];
+    const where = file ? `${file}:${ev.lineno || 0}` : 'window';
+    reportKmjRuntimeError(where, ev.error || ev.message);
+  });
+
+  window.addEventListener('unhandledrejection', (ev) => {
+    if (!ev?.reason) return;
+    reportKmjRuntimeError('Promise', ev.reason);
   });
 
   // ゲームインスタンス取得＆自動生成ヘルパー
@@ -35,19 +52,107 @@
           inst = new GameClass();
           window.game = inst;
         } catch (e) {
-          console.error(e);
-          alert('起動エラー: ' + (e && e.message ? e.message : e));
+          reportKmjRuntimeError('起動生成', e);
         }
       } else {
-        alert('エラー: KaomojiMMORPG が見つかりません');
+        reportKmjRuntimeError('起動生成', 'KaomojiMMORPG が見つかりません');
       }
     }
     if (inst) window.__kmjInstance = inst;
     return inst || null;
   }
 
+  // タイトル解除時の開始フラグを確実に有効化
+  function activateGameStartFlagsV7(inst) {
+    const g = inst || getOrCreateGameInstance(false);
+    window.inGame = true;
+    window.isPlaying = true;
+    window.started = true;
+    window.paused = false;
+    if (!g) return;
+    g.inGame = true;
+    g.isPlaying = true;
+    g.started = true;
+    g.isStarted = true;
+    g.gameStarted = true;
+    g.paused = false;
+    g.isPaused = false;
+    if (g.state && typeof g.state === 'object') {
+      g.state.inGame = true;
+      g.state.isPlaying = true;
+      g.state.started = true;
+      g.state.paused = false;
+    }
+  }
+  window.activateGameStartFlagsV7 = activateGameStartFlagsV7;
+
   // =========================================================
-  // 0. 統合デバッグ管理＆スキルスタジオ統合UI（debug777・全ゲーム共通入口）
+  // 0-B. クラス別通常攻撃 統合ルーター（杖＝game7魔法弾 ／ 剣＝game8 3連横振り）
+  // =========================================================
+  const STAFF_CLASS_IDS_V7 = new Set(['mage', 'archmage', 'astral_witch', 'void_overlord']);
+
+  function isStaffClassEntityV7(game, entity) {
+    if (!entity) return false;
+    const isLocal = (entity === game?.player);
+    const d = isLocal ? (game?.saveData || {}) : (entity || {});
+    const rawId = String(
+      entity.evolutionId ?? entity.classId ?? entity.jobId ??
+      d.evolutionId ?? d.classId ?? d.jobId ?? d.job ?? ''
+    ).toLowerCase();
+
+    if (STAFF_CLASS_IDS_V7.has(rawId)) return true;
+
+    if (typeof game?.getCurrentClassDefV45 === 'function') {
+      const cls = game.getCurrentClassDefV45(isLocal ? null : (rawId || null));
+      if (cls?.weaponType === 'staff') return true;
+      if (cls?.weaponType === 'sword') return false;
+    }
+
+    return /mage|archmage|astral_witch|void_overlord|wizard|witch|sage|priest|魔道|大賢者|星詠み|神官|虚空|創世魔導王/.test(rawId);
+  }
+  window.isStaffClassEntityV7 = isStaffClassEntityV7;
+
+  function routeBasicAttackVisualV7(game, entity, isSkill = false, skillInfo = null, origVis = null) {
+    const g = game || getOrCreateGameInstance(false);
+    if (!g) return;
+
+    if (!isSkill && entity) {
+      const now = performance.now();
+      if (entity._lastRoutedAtkVisStamp && (now - entity._lastRoutedAtkVisStamp) < 55) {
+        return;
+      }
+      entity._lastRoutedAtkVisStamp = now;
+
+      const isLocal = (entity === g.player);
+      const isStaff = isStaffClassEntityV7(g, entity);
+
+      if (isStaff) {
+        entity.attackAnimTimer = 0.36;
+        entity.attackIsSkill = false;
+        if (typeof g.spawnClassBasicAttackEffectV45 === 'function') {
+          g.spawnClassBasicAttackEffectV45(entity, isLocal, skillInfo?.evolutionId || entity.evolutionId);
+        }
+        return;
+      } else {
+        if (typeof window.triggerSwordSwingAndSlashV8 === 'function') {
+          window.triggerSwordSwingAndSlashV8(g, entity);
+          return;
+        }
+        entity.attackAnimTimer = 0.36;
+        entity.attackIsSkill = false;
+        g.spawnClassBasicAttackEffectV45?.(entity, isLocal, skillInfo?.evolutionId || entity.evolutionId);
+        return;
+      }
+    }
+
+    if (typeof origVis === 'function') {
+      return origVis.call(g, entity, isSkill, skillInfo);
+    }
+  }
+  window.routeBasicAttackVisualV7 = routeBasicAttackVisualV7;
+
+  // =========================================================
+  // 0-C. 統合デバッグ管理＆スキルスタジオ統合UI（debug777・全ゲーム共通入口）
   // =========================================================
   function isDebugActiveV7(game) {
     const g = game || getOrCreateGameInstance();
@@ -129,7 +234,7 @@
                 <span style="font-size:9.5px;font-weight:900;color:#fde047;">${info.theme.label}</span>
               </div>
               <div style="font-size:9px;color:#93c5fd;margin:2px 0 5px;">
-                現在Lv.${info.skillLv}（消費MP: ${info.mpCost} ／ 素MP${info.origMp}×5 + 1Lv毎+10）
+                現在Lv.${info.skillLv}（消費MP: ${info.mpCost}）
               </div>
               <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;">
                 <button type="button" class="v7-dbg-cast-skill" data-idx="${idx}" data-tier="0" style="background:#334155;color:#fff;border:none;border-radius:5px;padding:5px 2px;font-size:9.5px;font-weight:900;cursor:pointer;">Lv.1 通常</button>
@@ -160,7 +265,7 @@
             <button type="button" id="v7-dbg-gold" style="background:#d97706;color:#fff;border:none;border-radius:6px;padding:6px 4px;font-size:10px;font-weight:900;cursor:pointer;">💰 +100万G追加</button>
             <button type="button" id="v7-dbg-heal" style="background:#059669;color:#fff;border:none;border-radius:6px;padding:6px 4px;font-size:10px;font-weight:900;cursor:pointer;">💖 HP/MP全回復</button>
             <button type="button" id="v7-dbg-skill100" style="background:#7c3aed;color:#fff;border:none;border-radius:6px;padding:6px 4px;font-size:10px;font-weight:900;cursor:pointer;">🌈 全スキルLv.100</button>
-            <button type="button" id="v7-dbg-sword-fx" style="background:#2563eb;color:#fff;border:none;border-radius:6px;padding:6px 4px;font-size:10px;font-weight:900;cursor:pointer;">⚔️ 剣横振りテスト</button>
+            <button type="button" id="v7-dbg-atk-fx" style="background:#2563eb;color:#fff;border:none;border-radius:6px;padding:6px 4px;font-size:10px;font-weight:900;cursor:pointer;">⚔️/🪄 通常攻撃テスト</button>
             <button type="button" id="v7-dbg-off" style="background:#475569;color:#f8fafc;border:none;border-radius:6px;padding:6px 4px;font-size:10px;font-weight:900;cursor:pointer;">📴 デバッグOFF</button>
           </div>
           <div style="font-size:9.5px;color:#cbd5e1;">
@@ -239,14 +344,10 @@
       openUnifiedDebugModalV7();
     };
 
-    wrap.querySelector('#v7-dbg-sword-fx').onclick = () => {
+    wrap.querySelector('#v7-dbg-atk-fx').onclick = () => {
       wrap.remove();
       setTimeout(() => {
-        if (typeof window.triggerSwordSwingAndSlashV8 === 'function') {
-          window.triggerSwordSwingAndSlashV8(g, g?.player);
-        } else {
-          g?.performBasicAttack?.();
-        }
+        routeBasicAttackVisualV7(g, g?.player, false);
       }, 60);
     };
 
@@ -524,15 +625,7 @@
         inst.saveData = null;
       }
       ensureSaveDataReady(inst);
-
-      // 各種開始・移動許可フラグを確実に有効化
-      inst.inGame = true;
-      inst.isPlaying = true;
-      inst.started = true;
-      inst.isStarted = true;
-      inst.inWorld = true;
-      inst.paused = false;
-      inst.isPaused = false;
+      activateGameStartFlagsV7(inst);
 
       const overlay = findTitleOverlay();
       if (overlay) {
@@ -550,6 +643,8 @@
         }
       }
 
+      activateGameStartFlagsV7(inst);
+
       if (!started || !inst._v7LoopStarted) {
         if (!inst._initCalledV7 && typeof inst.init === 'function') {
           inst._initCalledV7 = true;
@@ -558,6 +653,7 @@
         inst.buildPlayerEntity?.();
         inst.spawnMonsters?.();
         inst.refreshAllHUD?.();
+        activateGameStartFlagsV7(inst);
 
         if (!inst._loopRunning && !inst._v7LoopStarted && typeof inst.update === 'function') {
           inst._v7LoopStarted = true;
@@ -570,15 +666,16 @@
               if (inst.renderer && inst.scene && inst.camera) {
                 inst.renderer.render(inst.scene, inst.camera);
               }
-            } catch (e) {}
+            } catch (e) {
+              reportKmjRuntimeError('game7:tick', e);
+            }
             requestAnimationFrame(tick);
           };
           requestAnimationFrame(tick);
         }
       }
     } catch (e) {
-      console.error(e);
-      alert('ゲーム開始時エラー: ' + (e && e.message ? e.message : e));
+      reportKmjRuntimeError('ゲーム開始', e);
     }
   }
 
@@ -593,7 +690,9 @@
 
       if (txt.includes('冒険を始める')) {
         markTitleDataReady();
+        activateGameStartFlagsV7();
         setTimeout(() => {
+          activateGameStartFlagsV7();
           const overlay = findTitleOverlay();
           if (overlay && overlay.style.display !== 'none' && !overlay.classList.contains('hidden')) {
             launchGameSafely(false);
@@ -781,6 +880,19 @@
         this._v7Installed = true;
         const proto = KaomojiMMORPG.prototype;
 
+        ['startGame', 'beginGame', 'enterWorld', 'enterGame', 'start', 'play'].forEach(sFn => {
+          if (typeof proto[sFn] === 'function' && !proto[`_v7Start_${sFn}`]) {
+            const origStart = proto[sFn];
+            proto[sFn] = function (...args) {
+              activateGameStartFlagsV7(this);
+              const res = origStart.apply(this, args);
+              activateGameStartFlagsV7(this);
+              return res;
+            };
+            proto[`_v7Start_${sFn}`] = true;
+          }
+        });
+
         ['init', 'refreshAllHUD', 'update'].forEach(fn => {
           if (typeof proto[fn] === 'function' && !proto[`_v7Safe_${fn}`]) {
             const orig = proto[fn];
@@ -792,13 +904,13 @@
                 if (fn === 'update') {
                   const safeDt = Math.min(0.1, Math.max(0.001, Number(args[0]) || 0.016));
                   this.processMonsterStatusTicksV7(safeDt);
+                  this.updateMagicProjectilesV7?.(safeDt);
                 }
                 return res;
               } catch (err) {
-                console.warn(`[game7 safe-${fn}]`, err);
-                if (!this[`_v7ErrShown_${fn}`]) {
-                  this[`_v7ErrShown_${fn}`] = true;
-                  showErrToastV7(`${fn}: ${err?.message || err}`);
+                if (!this[`_v7ErrLogged_${fn}`]) {
+                  this[`_v7ErrLogged_${fn}`] = true;
+                  reportKmjRuntimeError(`game7:${fn}`, err);
                 }
               }
             };
@@ -864,7 +976,7 @@
 })();
 
 // =========================================================
-// 3. 【前編】Lv.999クラス進化・クラス別3D攻撃エフェクト・驚異度上限開放
+// 3. Lv.999クラス進化・魔法弾の飛翔＆命中＆着弾バースト・驚異度上限開放
 // =========================================================
 (() => {
   'use strict';
@@ -880,7 +992,7 @@
       fxStyle: 'novice_slash',
       fxName: '蒼き光の斬撃波',
       atkMult: 1.0, matkMult: 1.0, defMult: 1.0, hpMult: 1.0,
-      desc: '基本の片手剣クラス。癖のない蒼い斬撃波を放つ。'
+      desc: '基本の片手剣クラス。3連水平横振りで癖のない斬撃を放つ。'
     },
     {
       id: 'warrior',
@@ -892,7 +1004,7 @@
       fxStyle: 'warrior_crimson',
       fxName: '紅蓮の豪快衝撃斬',
       atkMult: 1.28, matkMult: 0.95, defMult: 1.22, hpMult: 1.25,
-      desc: 'Lv.15〜｜真紅のワイドスラッシュと地響き衝撃波で敵を粉砕する。'
+      desc: 'Lv.15〜｜真紅の3連水平スラッシュで敵を粉砕する。'
     },
     {
       id: 'mage',
@@ -904,7 +1016,7 @@
       fxStyle: 'mage_arcane',
       fxName: '蒼穹の魔導星弾',
       atkMult: 0.95, matkMult: 1.35, defMult: 1.08, hpMult: 1.12,
-      desc: 'Lv.15〜｜武器が杖に変化し、回転魔法陣を纏う蒼い魔導弾を放つ。'
+      desc: 'Lv.15〜｜杖クラス。回転魔法陣を纏う蒼い魔導弾を遠距離発射する。'
     },
     {
       id: 'paladin',
@@ -916,7 +1028,7 @@
       fxStyle: 'paladin_holy',
       fxName: '黄金の聖光十字斬',
       atkMult: 1.48, matkMult: 1.25, defMult: 1.55, hpMult: 1.50,
-      desc: 'Lv.50〜｜黄金と白銀が交差する聖なる十字斬撃と光柱を放つ守護騎士。'
+      desc: 'Lv.50〜｜黄金と白銀が交差する聖なる3連斬撃を放つ守護騎士。'
     },
     {
       id: 'archmage',
@@ -928,7 +1040,7 @@
       fxStyle: 'archmage_meteor',
       fxName: '深淵の紫電流星弾',
       atkMult: 1.10, matkMult: 1.68, defMult: 1.28, hpMult: 1.32,
-      desc: 'Lv.50〜｜紫と黄金の多重魔法陣から隕石級の極大魔力弾を撃ち出す。'
+      desc: 'Lv.50〜｜杖クラス。紫と黄金の多重魔法陣から極大魔力弾を撃ち出す。'
     },
     {
       id: 'ninja',
@@ -940,7 +1052,7 @@
       fxStyle: 'ninja_gale',
       fxName: '翠嵐の三連疾風刃',
       atkMult: 1.72, matkMult: 1.35, defMult: 1.38, hpMult: 1.45,
-      desc: 'Lv.100〜｜エメラルドの三連斬撃波と竜巻旋風を巻き起こす神速クラス。'
+      desc: 'Lv.100〜｜エメラルドの3連水平斬撃波を巻き起こす神速クラス。'
     },
     {
       id: 'blade_master',
@@ -952,7 +1064,7 @@
       fxStyle: 'blademaster_thunder',
       fxName: '次元断ち・蒼雷クロス斬',
       atkMult: 2.05, matkMult: 1.45, defMult: 1.65, hpMult: 1.75,
-      desc: 'Lv.200〜｜稲妻を纏う超高速クロス斬撃と雷光スパークが炸裂する。'
+      desc: 'Lv.200〜｜稲妻を纏う超高速3連横振り斬撃が炸裂する。'
     },
     {
       id: 'astral_witch',
@@ -964,7 +1076,7 @@
       fxStyle: 'astral_star',
       fxName: '銀河の星屑プリズム弾',
       atkMult: 1.35, matkMult: 2.25, defMult: 1.62, hpMult: 1.68,
-      desc: 'Lv.200〜｜桜色と黄金の星型魔力弾が着弾時に星屑バーストを起こす。'
+      desc: 'Lv.200〜｜杖クラス。桜色と黄金の星型魔力弾が着弾時に星屑バーストを起こす。'
     },
     {
       id: 'dragoon',
@@ -976,7 +1088,7 @@
       fxStyle: 'dragoon_flame',
       fxName: '竜王の業火ブレイブ斬',
       atkMult: 2.48, matkMult: 1.85, defMult: 2.05, hpMult: 2.15,
-      desc: 'Lv.350〜｜燃え盛る紅蓮の炎柱と竜の爪痕を刻む重撃クラス。'
+      desc: 'Lv.350〜｜燃え盛る紅蓮の3連斬撃で竜の爪痕を刻む重撃クラス。'
     },
     {
       id: 'emperor_blade',
@@ -988,7 +1100,7 @@
       fxStyle: 'emperor_gold',
       fxName: '天帝覇王・黄金螺旋斬',
       atkMult: 3.10, matkMult: 2.30, defMult: 2.60, hpMult: 2.75,
-      desc: 'Lv.550〜｜黄金の立体ジャイロと螺旋斬撃波が周囲一帯を薙ぎ払う。'
+      desc: 'Lv.550〜｜黄金の3連螺旋斬撃波が周囲一帯を薙ぎ払う。'
     },
     {
       id: 'void_overlord',
@@ -1000,7 +1112,7 @@
       fxStyle: 'overlord_void',
       fxName: 'アビスノヴァ・重力崩壊弾',
       atkMult: 2.20, matkMult: 3.45, defMult: 2.55, hpMult: 2.65,
-      desc: 'Lv.750〜｜ブラックホールとネオン紫の多重リングを纏う禁断の魔導弾。'
+      desc: 'Lv.750〜｜杖クラス。ブラックホールとネオン紫の多重リングを纏う禁断の魔導弾。'
     },
     {
       id: 'mythic_god',
@@ -1012,20 +1124,39 @@
       fxStyle: 'mythic_genesis',
       fxName: '創世神話・虹翼天翔ノヴァ斬',
       atkMult: 4.20, matkMult: 4.20, defMult: 3.60, hpMult: 3.80,
-      desc: 'Lv.999到達の最終進化｜全属性の虹色多重魔法陣・立体神環・星屑爆発が同時発動！'
+      desc: 'Lv.999到達の最終進化｜全属性の虹色3連大車輪斬撃が同時発動！'
     }
   ];
 
-  window.isStaffClassV45 = function (game, entity) {
-    const g = game || window.__kmjInstance || window.game;
-    const isLocal = !entity || (entity === g?.player);
-    if (g && typeof g.isStaffClassV45 === 'function') {
-      return g.isStaffClassV45(isLocal ? null : (entity?.evolutionId || entity?.classId || entity?.jobId || ''));
-    }
-    const d = isLocal ? (g?.saveData || {}) : (entity || {});
-    const rawId = String(d.evolutionId ?? d.jobId ?? d.classId ?? entity?.evolutionId ?? '');
-    return /mage|wizard|witch|sage|priest|overlord|staff|魔道|魔導|魔法|賢者|神官|杖/i.test(rawId);
-  };
+  function playMagicShotAudioV7(isHit = false) {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      if (!window._kmjV7AudioCtx) window._kmjV7AudioCtx = new AudioCtx();
+      const ctx = window._kmjV7AudioCtx;
+      if (ctx.state === 'suspended') ctx.resume();
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      if (isHit) {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(640, now);
+        osc.frequency.exponentialRampToValueAtTime(140, now + 0.14);
+        gain.gain.setValueAtTime(0.06, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+      } else {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.exponentialRampToValueAtTime(340, now + 0.13);
+        gain.gain.setValueAtTime(0.045, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+      }
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.16);
+    } catch (e) {}
+  }
 
   if (!document.getElementById('kmj-v45-style')) {
     const st = document.createElement('style');
@@ -1092,7 +1223,7 @@
         );
         const found = CLASS_EVOLUTION_TREE_V45.find(c => c.id === rawId || (rawId === '' && c.id === 'novice'));
         if (found) return found;
-        const isM = /mage|wizard|witch|sage|priest|overlord|staff|魔道|魔導|魔法|賢者|神官|杖/i.test(rawId);
+        const isM = /mage|wizard|witch|sage|priest|魔道|魔導|魔法|賢者|神官/.test(rawId.toLowerCase());
         return {
           id: rawId || 'novice',
           name: rawId || '見習い冒険者',
@@ -1105,10 +1236,6 @@
           atkMult: 1.0, matkMult: 1.0, defMult: 1.0, hpMult: 1.0,
           desc: ''
         };
-      },
-
-      isStaffClassV45(evoIdOverride = null) {
-        return this.getCurrentClassDefV45(evoIdOverride)?.weaponType === 'staff';
       },
 
       selectOrEvolveClassV45(classId, bypassCost = false) {
@@ -1148,7 +1275,6 @@
           this.player.evolutionId = saveId;
           this.player.job = saveId;
           this.player.classId = saveId;
-          this.player._v8SwordSig = '';
         }
 
         this.syncMageWeaponNamesV22?.();
@@ -1161,23 +1287,204 @@
         this.refreshAllHUD?.();
 
         this.showAlertBanner?.(
-          `${cls.icon} クラス「${cls.name}」へ進化・切替！【攻撃エフェクト: ${cls.fxName}】`,
+          `${cls.icon} クラス「${cls.name}」へ進化・切替！【通常攻撃: ${cls.weaponType === 'staff' ? '🪄魔法弾' : '⚔️3連横振り'}】`,
           2400
         );
+      },
+
+      // 着弾バースト3Dエフェクト生成
+      spawnMagicHitBurstV7(x, y, z, cfg) {
+        if (!this.useWebGL || !this.scene || typeof THREE === 'undefined') return;
+        if (!this._v7MagicBursts) this._v7MagicBursts = [];
+
+        const root = new THREE.Group();
+        root.position.set(x, y, z);
+
+        const flashMat = new THREE.MeshBasicMaterial({ color: cfg.core, transparent: true, opacity: 0.96 });
+        const flashSphere = new THREE.Mesh(new THREE.SphereGeometry(0.42 * cfg.size, 14, 14), flashMat);
+        root.add(flashSphere);
+
+        const wave1Mat = new THREE.MeshBasicMaterial({ color: cfg.aura, side: THREE.DoubleSide, transparent: true, opacity: 0.95 });
+        const wave1 = new THREE.Mesh(new THREE.RingGeometry(0.25 * cfg.size, 0.72 * cfg.size, 24), wave1Mat);
+        wave1.rotation.x = -Math.PI / 2;
+        wave1.position.y = -y + 0.12;
+        root.add(wave1);
+
+        const wave2Mat = new THREE.MeshBasicMaterial({ color: cfg.ring, side: THREE.DoubleSide, transparent: true, opacity: 0.92 });
+        const wave2 = new THREE.Mesh(new THREE.RingGeometry(0.30 * cfg.size, 0.65 * cfg.size, 20), wave2Mat);
+        root.add(wave2);
+
+        const shards = [];
+        const sCount = 10;
+        for (let i = 0; i < sCount; i++) {
+          const ang = (Math.PI * 2 * i) / sCount;
+          const elev = ((i % 3) - 1) * 0.45;
+          const sMat = new THREE.MeshBasicMaterial({
+            color: i % 2 === 0 ? cfg.aura : cfg.ring,
+            transparent: true,
+            opacity: 0.96
+          });
+          const shard = new THREE.Mesh(new THREE.OctahedronGeometry(0.18 * cfg.size, 0), sMat);
+          root.add(shard);
+          shards.push({
+            mesh: shard,
+            mat: sMat,
+            vx: Math.cos(ang) * (5.5 + (i % 3) * 1.4),
+            vy: 2.2 + elev * 3.5,
+            vz: Math.sin(ang) * (5.5 + (i % 3) * 1.4)
+          });
+        }
+
+        this.scene.add(root);
+        this._v7MagicBursts.push({
+          root, flashSphere, flashMat, wave1, wave1Mat, wave2, wave2Mat, shards,
+          elapsed: 0, duration: 0.36
+        });
+      },
+
+      // 魔法弾の毎フレーム飛翔・敵命中判定・ダメージ・バースト更新
+      updateMagicProjectilesV7(dt) {
+        if (!this.scene) return;
+
+        if (Array.isArray(this._v22MagicShots) && this._v22MagicShots.length > 0) {
+          for (let i = this._v22MagicShots.length - 1; i >= 0; i--) {
+            const shot = this._v22MagicShots[i];
+            shot.life -= dt;
+
+            if (shot.grp) {
+              shot.grp.position.x += shot.vx * dt;
+              shot.grp.position.z += shot.vz * dt;
+              if (shot.aura) shot.aura.rotation.y += dt * 8.5;
+              if (shot.ring) shot.ring.rotation.z += dt * 11.0;
+              if (shot.ring2) shot.ring2.rotation.y -= dt * 9.0;
+            }
+
+            let hitMonster = null;
+            if (shot.grp && Array.isArray(this.monsters)) {
+              const sx = shot.grp.position.x;
+              const sz = shot.grp.position.z;
+              const shotSize = shot.cfg?.size || 1.0;
+
+              for (let mIdx = 0; mIdx < this.monsters.length; mIdx++) {
+                const m = this.monsters[mIdx];
+                if (!m || m.dead || !m.pos) continue;
+                const mRadius = Math.max(1.35, (Number(m.scale) || 1) * 1.15) * Math.max(1.0, shotSize * 0.92);
+                const dist = Math.hypot(m.pos.x - sx, m.pos.z - sz);
+                if (dist <= mRadius) {
+                  hitMonster = m;
+                  break;
+                }
+              }
+            }
+
+            if (hitMonster) {
+              const hx = shot.grp.position.x;
+              const hy = shot.grp.position.y;
+              const hz = shot.grp.position.z;
+              this.spawnMagicHitBurstV7(hx, hy, hz, shot.cfg || { core: 0xffffff, aura: 0x38bdf8, ring: 0xfde047, size: 1.0 });
+
+              if (shot.isLocal && !shot.hitDone) {
+                shot.hitDone = true;
+                playMagicShotAudioV7(true);
+                const dmg = Math.max(1, Math.floor(Number(shot.magicDmg) || 20));
+                if (typeof this.applyMagicProjectileHitDamageV40 === 'function') {
+                  this.applyMagicProjectileHitDamageV40(hitMonster, dmg);
+                } else if (typeof this.damageMonster === 'function') {
+                  this.damageMonster(hitMonster, dmg, false, '🪄');
+                }
+              }
+              shot.life = 0;
+            }
+
+            if (shot.life <= 0) {
+              try {
+                if (shot.grp) {
+                  this.scene.remove(shot.grp);
+                  shot.grp.traverse?.(o => {
+                    o.geometry?.dispose?.();
+                    o.material?.dispose?.();
+                  });
+                }
+              } catch (e) {}
+              this._v22MagicShots.splice(i, 1);
+            }
+          }
+        }
+
+        if (Array.isArray(this._v7MagicBursts) && this._v7MagicBursts.length > 0) {
+          for (let i = this._v7MagicBursts.length - 1; i >= 0; i--) {
+            const b = this._v7MagicBursts[i];
+            b.elapsed += dt;
+            const p = Math.min(1, b.elapsed / b.duration);
+
+            b.flashSphere.scale.setScalar(1 + p * 2.4);
+            b.flashMat.opacity = Math.max(0, (1 - p) * 0.96);
+
+            b.wave1.scale.setScalar(1 + p * 3.8);
+            b.wave1Mat.opacity = Math.max(0, (1 - p) * 0.95);
+
+            b.wave2.scale.setScalar(1 + p * 3.1);
+            b.wave2.rotation.z = b.elapsed * 9;
+            b.wave2Mat.opacity = Math.max(0, (1 - p) * 0.92);
+
+            b.shards.forEach(s => {
+              s.mesh.position.set(s.vx * p, s.vy * p - 3.2 * p * p, s.vz * p);
+              s.mesh.rotation.set(b.elapsed * 10, b.elapsed * 8, 0);
+              s.mat.opacity = Math.max(0, (1 - p) * 0.96);
+            });
+
+            if (p >= 1) {
+              try {
+                this.scene.remove(b.root);
+                b.root.traverse?.(o => {
+                  o.geometry?.dispose?.();
+                  o.material?.dispose?.();
+                });
+              } catch (e) {}
+              this._v7MagicBursts.splice(i, 1);
+            }
+          }
+        }
       },
 
       spawnClassBasicAttackEffectV45(entity, isLocal = false, evoIdOverride = null) {
         if (!this.useWebGL || !this.scene || !entity?.pos || typeof THREE === 'undefined') return;
         const cls = this.getCurrentClassDefV45(isLocal ? null : (evoIdOverride || entity.evolutionId));
         const style = cls.fxStyle || 'novice_slash';
-        const rotY = entity.rotY || 0;
-        const dirX = Math.sin(rotY);
-        const dirZ = Math.cos(rotY);
+        let rotY = entity.rotY || 0;
 
+        // 杖クラスの場合は魔法弾を生成して飛翔＆命中ループへ登録
         if (cls.weaponType === 'staff') {
           if (!this._v22MagicShots) this._v22MagicShots = [];
+
+          // 前方付近の敵へわずかにホーミング補正して命中率を安定化
+          if (isLocal && Array.isArray(this.monsters)) {
+            let bestDist = 14.0;
+            let bestAng = rotY;
+            this.monsters.forEach(m => {
+              if (!m || m.dead || !m.pos) return;
+              const dx = m.pos.x - entity.pos.x;
+              const dz = m.pos.z - entity.pos.z;
+              const dist = Math.hypot(dx, dz);
+              if (dist < bestDist) {
+                const angToM = Math.atan2(dx, dz);
+                let diff = angToM - rotY;
+                while (diff > Math.PI) diff -= Math.PI * 2;
+                while (diff < -Math.PI) diff += Math.PI * 2;
+                if (Math.abs(diff) <= 0.75) {
+                  bestDist = dist;
+                  bestAng = angToM;
+                }
+              }
+            });
+            rotY = bestAng;
+          }
+
+          const dirX = Math.sin(rotY);
+          const dirZ = Math.cos(rotY);
+
           const paletteMap = {
-            mage_arcane: { core: 0xffffff, aura: 0x38bdf8, ring: 0x60a5fa, size: 1.0 },
+            mage_arcane: { core: 0xffffff, aura: 0x38bdf8, ring: 0x60a5fa, size: 1.05 },
             archmage_meteor: { core: 0xfef08a, aura: 0xa855f7, ring: 0xf97316, size: 1.38 },
             astral_star: { core: 0xffffff, aura: 0xf472b6, ring: 0xfde047, size: 1.52 },
             overlord_void: { core: 0x090d16, aura: 0x9333ea, ring: 0xf43f5e, size: 1.85 }
@@ -1189,14 +1496,15 @@
             new THREE.SphereGeometry(0.30 * cfg.size, 14, 14),
             new THREE.MeshBasicMaterial({ color: cfg.core })
           );
-          const auraMat = new THREE.MeshBasicMaterial({ color: cfg.aura, transparent: true, opacity: 0.82 });
+          const auraMat = new THREE.MeshBasicMaterial({ color: cfg.aura, transparent: true, opacity: 0.85 });
           const aura = new THREE.Mesh(new THREE.OctahedronGeometry(0.48 * cfg.size, 0), auraMat);
           const ringMat = new THREE.MeshBasicMaterial({ color: cfg.ring, side: THREE.DoubleSide, transparent: true, opacity: 0.94 });
           const ring = new THREE.Mesh(new THREE.TorusGeometry(0.52 * cfg.size, 0.06 * cfg.size, 8, 22), ringMat);
           grp.add(core, aura, ring);
 
+          let ring2 = null;
           if (style === 'overlord_void' || style === 'astral_star') {
-            const ring2 = new THREE.Mesh(
+            ring2 = new THREE.Mesh(
               new THREE.TorusGeometry(0.72 * cfg.size, 0.045, 8, 22),
               new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.85 })
             );
@@ -1207,6 +1515,8 @@
           grp.position.set(entity.pos.x + dirX * 1.15, 1.25, entity.pos.z + dirZ * 1.15);
           grp.rotation.y = rotY;
           this.scene.add(grp);
+
+          if (isLocal) playMagicShotAudioV7(false);
 
           let magicDmg = 20;
           if (isLocal) {
@@ -1219,9 +1529,7 @@
           }
 
           this._v22MagicShots.push({
-            grp, aura, ring, auraMat, ringMat,
-            color: cfg.aura,
-            size: cfg.size,
+            grp, aura, ring, ring2, auraMat, ringMat, cfg,
             vx: dirX * 22.0, vz: dirZ * 22.0,
             life: 0.65, maxLife: 0.65,
             isLocal, magicDmg, hitDone: false
@@ -1229,191 +1537,10 @@
           return;
         }
 
-        if (!this._slashEffects) this._slashEffects = [];
-        const slashConfigs = {
-          novice_slash: { c1: 0x38bdf8, c2: 0xe0f2fe, scale: 1.0, arcs: 2, wave: false, cross: false, sparks: 2, col: null },
-          warrior_crimson: { c1: 0xef4444, c2: 0xf97316, scale: 1.32, arcs: 2, wave: true, cross: false, sparks: 4, col: 0xf97316 },
-          paladin_holy: { c1: 0xfde047, c2: 0xffffff, scale: 1.45, arcs: 2, wave: true, cross: true, sparks: 6, col: 0xfef08a },
-          ninja_gale: { c1: 0x34d399, c2: 0xa855f7, scale: 1.42, arcs: 3, wave: true, cross: false, sparks: 7, col: 0x34d399 },
-          blademaster_thunder: { c1: 0x38bdf8, c2: 0xfacc15, scale: 1.65, arcs: 3, wave: true, cross: true, sparks: 9, col: 0x38bdf8 },
-          dragoon_flame: { c1: 0xdc2626, c2: 0xfacc15, scale: 1.78, arcs: 3, wave: true, cross: false, sparks: 10, col: 0xef4444 },
-          emperor_gold: { c1: 0xfacc15, c2: 0xf472b6, scale: 2.05, arcs: 4, wave: true, cross: true, sparks: 12, col: 0xfde047 },
-          mythic_genesis: { c1: 0xf472b6, c2: 0x38bdf8, scale: 2.45, arcs: 5, wave: true, cross: true, sparks: 16, col: 0xfef08a }
-        };
-        const scfg = slashConfigs[style] || slashConfigs.novice_slash;
-        const sGrp = new THREE.Group();
-        const mat1 = new THREE.MeshBasicMaterial({ color: scfg.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.95 });
-        const mat2 = new THREE.MeshBasicMaterial({ color: scfg.c2, side: THREE.DoubleSide, transparent: true, opacity: 0.90 });
-
-        for (let a = 0; a < scfg.arcs; a++) {
-          const arc = new THREE.Mesh(
-            new THREE.RingGeometry((0.75 + a * 0.30) * scfg.scale, (1.65 + a * 0.38) * scfg.scale, 26, 1, -Math.PI * 0.5, Math.PI),
-            a % 2 === 0 ? mat1 : mat2
-          );
-          arc.rotation.set(Math.PI * (0.34 - a * 0.08), rotY, -0.55 + a * 0.45);
-          arc.position.y = 1.05 + a * 0.16;
-          sGrp.add(arc);
-        }
-
-        if (scfg.cross) {
-          const vArc = new THREE.Mesh(
-            new THREE.RingGeometry(0.8 * scfg.scale, 1.85 * scfg.scale, 24, 1, -Math.PI * 0.45, Math.PI * 0.9),
-            mat2
-          );
-          vArc.rotation.set(0, rotY + Math.PI * 0.5, 0.25);
-          vArc.position.y = 1.25;
-          sGrp.add(vArc);
-        }
-
-        if (scfg.wave) {
-          const gRing = new THREE.Mesh(
-            new THREE.RingGeometry(0.6 * scfg.scale, 1.8 * scfg.scale, 26),
-            mat1
-          );
-          gRing.rotation.x = -Math.PI / 2;
-          gRing.position.y = 0.10;
-          sGrp.add(gRing);
-        }
-
-        if (style === 'mythic_genesis' || style === 'emperor_gold') {
-          const halo = new THREE.Mesh(
-            new THREE.TorusGeometry(1.5 * scfg.scale, 0.09, 8, 28),
-            new THREE.MeshBasicMaterial({ color: 0xfde047, transparent: true, opacity: 0.9 })
-          );
-          halo.position.y = 1.35;
-          halo.rotation.x = Math.PI * 0.32;
-          sGrp.add(halo);
-        }
-
-        sGrp.position.set(entity.pos.x + dirX * 1.35, 0, entity.pos.z + dirZ * 1.35);
-        this.scene.add(sGrp);
-        this._slashEffects.push({
-          kind: 'slash', mesh: sGrp, mat: mat1,
-          life: 0.38, maxLife: 0.38,
-          vx: dirX * (4.0 + scfg.scale * 2.2),
-          vz: dirZ * (4.0 + scfg.scale * 2.2)
-        });
-
-        const rainbow = [0xf472b6, 0x38bdf8, 0xfde047, 0x34d399, 0xa855f7];
-        for (let i = 0; i < scfg.sparks; i++) {
-          const ang = rotY + ((i / Math.max(1, scfg.sparks - 1)) - 0.5) * 1.45;
-          const pCol = style === 'mythic_genesis' ? rainbow[i % rainbow.length] : (i % 2 === 0 ? scfg.c1 : scfg.c2);
-          const sp = new THREE.Mesh(
-            new THREE.OctahedronGeometry(0.18 * Math.min(1.8, scfg.scale * 0.8), 0),
-            new THREE.MeshBasicMaterial({ color: pCol })
-          );
-          sp.position.set(entity.pos.x + dirX * 1.3, 1.25, entity.pos.z + dirZ * 1.3);
-          this.scene.add(sp);
-          this._slashEffects.push({
-            kind: 'star', mesh: sp, life: 0.45, maxLife: 0.45,
-            vx: Math.sin(ang) * (7.5 + scfg.scale * 2.0),
-            vy: 1.6 + (i % 3) * 0.7,
-            vz: Math.cos(ang) * (7.5 + scfg.scale * 2.0)
-          });
-        }
-      },
-
-      // 杖クラスの魔法弾の飛翔・敵命中・着弾バースト処理
-      stepMagicShotsV45(dt = 0.016) {
-        if (!Array.isArray(this._v22MagicShots) || this._v22MagicShots.length === 0) return;
-        for (let i = this._v22MagicShots.length - 1; i >= 0; i--) {
-          const s = this._v22MagicShots[i];
-          try {
-            s.life -= dt;
-            if (s.grp) {
-              s.grp.position.x += s.vx * dt;
-              s.grp.position.z += s.vz * dt;
-            }
-            if (s.aura) {
-              s.aura.rotation.x += dt * 10;
-              s.aura.rotation.y += dt * 12;
-            }
-            if (s.ring) {
-              s.ring.rotation.z += dt * 14;
-            }
-
-            if (!s.hitDone && s.isLocal && Array.isArray(this.monsters) && s.grp) {
-              const hitRadius = 1.65 * Math.min(1.6, s.size || 1.0);
-              for (let mIdx = 0; mIdx < this.monsters.length; mIdx++) {
-                const m = this.monsters[mIdx];
-                if (!m || m.dead || !m.pos) continue;
-                const d = Math.hypot(m.pos.x - s.grp.position.x, m.pos.z - s.grp.position.z);
-                if (d <= hitRadius) {
-                  s.hitDone = true;
-                  s.life = Math.min(s.life, 0.08);
-                  if (typeof this.applyMagicProjectileHitDamageV40 === 'function') {
-                    this.applyMagicProjectileHitDamageV40(m, s.magicDmg || 20);
-                  }
-                  if (this.scene && typeof THREE !== 'undefined') {
-                    const burst = new THREE.Mesh(
-                      new THREE.RingGeometry(0.25, 1.35 * (s.size || 1.0), 24),
-                      new THREE.MeshBasicMaterial({ color: s.color || 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.9 })
-                    );
-                    burst.rotation.x = -Math.PI / 2;
-                    burst.position.set(s.grp.position.x, 0.18, s.grp.position.z);
-                    this.scene.add(burst);
-                    setTimeout(() => {
-                      try {
-                        this.scene?.remove(burst);
-                        burst.geometry?.dispose?.();
-                        burst.material?.dispose?.();
-                      } catch (e) {}
-                    }, 220);
-                  }
-                  break;
-                }
-              }
-            }
-
-            if (s.life <= 0) {
-              try {
-                this.scene?.remove(s.grp);
-                s.grp?.traverse?.(o => {
-                  o.geometry?.dispose?.();
-                  o.material?.dispose?.();
-                });
-              } catch (e) {}
-              this._v22MagicShots.splice(i, 1);
-            }
-          } catch (e) {
-            this._v22MagicShots.splice(i, 1);
-          }
-        }
-      },
-
-      // 杖クラス＝game7の魔法弾 ／ 剣クラス＝game8の3連横振り 統合ルーター
-      dispatchUnifiedBasicAttackV7(entity, isSkill = false, skillInfo = null) {
-        if (!entity) return;
-        if (isSkill) {
-          if (typeof this._origTriggerAttackVisualV7 === 'function') {
-            return this._origTriggerAttackVisualV7.call(this, entity, isSkill, skillInfo);
-          }
-          return;
-        }
-        const now = performance.now();
-        if (entity._lastUnifiedAtkFxTime && (now - entity._lastUnifiedAtkFxTime) < 60) return;
-        entity._lastUnifiedAtkFxTime = now;
-
-        const isLocal = (entity === this.player);
-        const evoOverride = isLocal ? null : (skillInfo?.evolutionId || entity.evolutionId);
-        const isStaff = window.isStaffClassV45(this, entity);
-
-        if (isStaff) {
-          entity.attackAnimTimer = 0.36;
-          entity.attackIsSkill = false;
-          entity._v7StaffCastTimer = 0.36;
-          this.spawnClassBasicAttackEffectV45(entity, isLocal, evoOverride);
-          return;
-        }
-
+        // 剣クラスは game8.js の3連水平横振りへ委譲
         if (typeof window.triggerSwordSwingAndSlashV8 === 'function') {
           window.triggerSwordSwingAndSlashV8(this, entity);
-          return;
         }
-
-        entity.attackAnimTimer = 0.36;
-        entity.attackIsSkill = false;
-        this.spawnClassBasicAttackEffectV45(entity, isLocal, evoOverride);
       }
     });
   }
@@ -1422,7 +1549,7 @@
 })();
 
 // =========================================================
-// 4. 【後編】ペット火力プレイヤー参照化・オンライン復旧・Lv.999クラス選択UI
+// 4. ペット火力プレイヤー参照化・オンライン復旧・Lv.999クラス選択UI
 // =========================================================
 (() => {
   'use strict';
@@ -1553,8 +1680,8 @@
                 <span style="font-size:11px;font-weight:900;color:#fde047;">Lv.${playerLv} / 💰${curGold.toLocaleString()}G</span>
               </div>
               <div style="font-size:10px;color:#cbd5e1;margin-bottom:8px;line-height:1.35;">
-                現在クラス: <b style="color:#34d399;">${curCls.icon} ${curCls.name}</b>（攻撃エフェクト: <b style="color:#f472b6;">${curCls.fxName}</b>）<br>
-                ※ 一度解放したクラスは<b>いつでも無料で自由に切り替え可能</b>！杖クラスは魔法弾、剣クラスは3連横振りに自動変化します。
+                現在クラス: <b style="color:#34d399;">${curCls.icon} ${curCls.name}</b>（通常攻撃: <b style="color:#f472b6;">${curCls.weaponType === 'staff' ? '🪄魔法弾発射' : '⚔️3連水平横振り'}</b>）<br>
+                ※ 一度解放したクラスは<b>いつでも無料で自由に切り替え可能</b>！杖クラスは魔法弾、剣クラスは3連横振りに自動切替します。
               </div>
               <div class="kmj-v45-class-grid">
                 ${tree.map(c => {
@@ -1563,7 +1690,7 @@
                   const canReachLv = playerLv >= c.reqLv || this._debugInfiniteMode;
                   const wBadge = c.weaponType === 'staff'
                     ? '<span style="background:#581c87;color:#f5d0fe;padding:1px 5px;border-radius:4px;font-size:9px;">🪄杖・魔法弾</span>'
-                    : '<span style="background:#1e3a8a;color:#bae6fd;padding:1px 5px;border-radius:4px;font-size:9px;">🗡️片手剣・3連斬</span>';
+                    : '<span style="background:#1e3a8a;color:#bae6fd;padding:1px 5px;border-radius:4px;font-size:9px;">🗡️剣・3連斬</span>';
 
                   let btnTxt = '';
                   let btnBg = '#334155';
@@ -1660,9 +1787,9 @@
         }
 
         if (typeof proto.triggerAttackVisual === 'function' && !proto._v45AtkVisWrapped) {
-          proto._origTriggerAttackVisualV7 = proto.triggerAttackVisual;
+          const origVis = proto.triggerAttackVisual;
           proto.triggerAttackVisual = function (entity, isSkill = false, skillInfo = null) {
-            return this.dispatchUnifiedBasicAttackV7(entity, isSkill, skillInfo);
+            return routeBasicAttackVisualV7(this, entity, isSkill, skillInfo, origVis);
           };
           proto._v45AtkVisWrapped = true;
         }
@@ -1701,14 +1828,12 @@
         if (typeof proto.update === 'function' && !proto._v45UpdateWrapped) {
           const origUpdate = proto.update;
           proto.update = function (dt = 0.016, ...rest) {
-            const safeDt = Math.min(0.1, Math.max(0.001, Number(dt) || 0.016));
             try {
               this.enforceThreatAndLevelCapsV45();
               this.syncPetStatsFromPlayerV45();
             } catch (e) {}
             const res = origUpdate.apply(this, [dt, ...rest]);
             try {
-              this.stepMagicShotsV45(safeDt);
               if (!this._v45NetCheckTimer || (performance.now() - this._v45NetCheckTimer) > 2000) {
                 this._v45NetCheckTimer = performance.now();
                 this.ensureOnlineSystemV45();
