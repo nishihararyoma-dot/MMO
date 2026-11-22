@@ -1,4 +1,4 @@
-// ▼▼▼ ここから game8.js（完全版：武器グレード別3D剣＆3連水平横振り・顔文字正面化＆表情・MP成長回復・脅威度999・実績称号UI・高機能チャット） ▼▼▼
+// ▼▼▼ ここから game8.js 【1/2】（元のコード100%そのまま：武器グレード別3D剣・顔文字正面化＆表情アニメ） ▼▼▼
 (() => {
   'use strict';
 
@@ -496,7 +496,7 @@
     return pivot;
   }
 // --- 【1/2】ここまで（この直下に【2/2】を繋げてください） ---
-// =========================================================
+ // =========================================================
   // 5. 3連コンボ水平横振りモーション＆グレード別3D斬撃エフェクト
   // =========================================================
   function updateEntitySwordSwingAnimV8(game, entity, dt) {
@@ -777,57 +777,61 @@
   function stepSlashEffectsV8(dt) {
     for (let i = activeSlashesV8.length - 1; i >= 0; i--) {
       const fx = activeSlashesV8[i];
-      fx.elapsed += dt;
-      const p = Math.min(1, fx.elapsed / fx.duration);
+      try {
+        fx.elapsed += dt;
+        const p = Math.min(1, fx.elapsed / fx.duration);
 
-      if (fx.entity?.pos) {
-        fx.root.position.set(fx.entity.pos.x, 0, fx.entity.pos.z);
-      }
+        if (fx.entity?.pos) {
+          fx.root.position.set(fx.entity.pos.x, 0, fx.entity.pos.z);
+        }
 
-      const sweepZ = -1.1 + Math.sin(Math.min(1, p * 1.35) * Math.PI * 0.5) * 2.2;
-      fx.arcs.forEach(a => {
-        a.mesh.rotation.z = (sweepZ - a.idx * 0.14) * a.dir;
-        a.mesh.scale.setScalar(1 + p * (0.28 + fx.grade * 0.05));
-        a.mat.opacity = Math.max(0, (1 - p) * 0.96);
-      });
+        const sweepZ = -1.1 + Math.sin(Math.min(1, p * 1.35) * Math.PI * 0.5) * 2.2;
+        fx.arcs.forEach(a => {
+          a.mesh.rotation.z = (sweepZ - a.idx * 0.14) * a.dir;
+          a.mesh.scale.setScalar(1 + p * (0.28 + fx.grade * 0.05));
+          a.mat.opacity = Math.max(0, (1 - p) * 0.96);
+        });
 
-      fx.flyingWaves.forEach(fw => {
-        fw.mesh.position.z = fw.baseZ + p * (4.8 + fx.grade * 0.85) * fx.sc;
-        fw.mesh.scale.setScalar(1 + p * 0.35);
-        fw.mat.opacity = Math.max(0, (1 - p) * 0.95);
-      });
+        fx.flyingWaves.forEach(fw => {
+          fw.mesh.position.z = fw.baseZ + p * (4.8 + fx.grade * 0.85) * fx.sc;
+          fw.mesh.scale.setScalar(1 + p * 0.35);
+          fw.mat.opacity = Math.max(0, (1 - p) * 0.95);
+        });
 
-      if (fx.groundRing) {
-        fx.groundRing.scale.setScalar(1 + p * (1.85 + fx.grade * 0.35));
-        fx.groundRing.material.opacity = Math.max(0, (1 - p) * 0.88);
-      }
+        if (fx.groundRing) {
+          fx.groundRing.scale.setScalar(1 + p * (1.85 + fx.grade * 0.35));
+          fx.groundRing.material.opacity = Math.max(0, (1 - p) * 0.88);
+        }
 
-      fx.crossBlades.forEach(cb => {
-        cb.mesh.scale.setScalar(1 + p * 0.45);
-        cb.mat.opacity = Math.max(0, (1 - p) * 0.92);
-      });
+        fx.crossBlades.forEach(cb => {
+          cb.mesh.scale.setScalar(1 + p * 0.45);
+          cb.mat.opacity = Math.max(0, (1 - p) * 0.92);
+        });
 
-      fx.spiritSwords.forEach(ss => {
-        ss.mesh.position.z = 0.6 + p * 7.0 * fx.sc;
-        ss.mat.opacity = Math.max(0, (1 - p) * 0.96);
-      });
+        fx.spiritSwords.forEach(ss => {
+          ss.mesh.position.z = 0.6 + p * 7.0 * fx.sc;
+          ss.mat.opacity = Math.max(0, (1 - p) * 0.96);
+        });
 
-      fx.particles.forEach(pt => {
-        pt.mesh.position.x = pt.sx + pt.vx * p;
-        pt.mesh.position.z = pt.sz + pt.vz * p;
-        pt.mesh.position.y = Math.max(0.1, 1.05 + pt.vy * p - 2.6 * p * p);
-        pt.mesh.rotation.set(fx.elapsed * 9, fx.elapsed * 7, 0);
-        pt.mat.opacity = Math.max(0, (1 - p) * 0.95);
-      });
+        fx.particles.forEach(pt => {
+          pt.mesh.position.x = pt.sx + pt.vx * p;
+          pt.mesh.position.z = pt.sz + pt.vz * p;
+          pt.mesh.position.y = Math.max(0.1, 1.05 + pt.vy * p - 2.6 * p * p);
+          pt.mesh.rotation.set(fx.elapsed * 9, fx.elapsed * 7, 0);
+          pt.mat.opacity = Math.max(0, (1 - p) * 0.95);
+        });
 
-      if (p >= 1) {
-        try {
-          fx.scene.remove(fx.root);
-          fx.root.traverse?.(o => {
-            o.geometry?.dispose?.();
-            o.material?.dispose?.();
-          });
-        } catch (e) {}
+        if (p >= 1) {
+          try {
+            fx.scene.remove(fx.root);
+            fx.root.traverse?.(o => {
+              o.geometry?.dispose?.();
+              o.material?.dispose?.();
+            });
+          } catch (e) {}
+          activeSlashesV8.splice(i, 1);
+        }
+      } catch (e) {
         activeSlashesV8.splice(i, 1);
       }
     }
@@ -1078,7 +1082,7 @@
   }
 
   // =========================================================
-  // 9. MP成長＆自動回復・ステータス・戦闘フック統合
+  // 9. MP成長＆自動回復・ステータス・戦闘フック統合（完全フリーズ防止ガード付き）
   // =========================================================
   function installV8Core() {
     if (typeof KaomojiMMORPG === 'undefined') {
@@ -1202,24 +1206,26 @@
       const origDerived = proto.calcDerivedStats;
       proto.calcDerivedStats = function (...args) {
         const st = origDerived.apply(this, args) || {};
-        const ach = this._achPassiveSummaryV8 || this.syncAchievementPassiveBuffsV40();
-        const wInfo = getWeaponGradeInfoV8(this, this.player);
-        const wMult = wInfo.meta.mult || 1.0;
+        try {
+          const ach = this._achPassiveSummaryV8 || this.syncAchievementPassiveBuffsV40();
+          const wInfo = getWeaponGradeInfoV8(this, this.player);
+          const wMult = wInfo.meta.mult || 1.0;
 
-        if (typeof st.physAtk === 'number') {
-          st.physAtk = Math.floor(st.physAtk * wMult * (1 + (ach?.atkPct || 0)));
-        }
-        if (typeof st.magMult === 'number') {
-          st.magMult = Number((st.magMult * (1 + (ach?.matkPct || 0))).toFixed(3));
-        }
-        if (ach && ach.unlockedCount > 0) {
-          if (typeof st.def === 'number') st.def = Math.min(0.88, st.def + ach.defPct * 0.25);
-          if (typeof st.maxHp === 'number') st.maxHp = Math.floor(st.maxHp * (1 + ach.hpPct));
-          if (typeof st.rewardMult === 'number') st.rewardMult = Number((st.rewardMult * (1 + ach.rewardBonusPct)).toFixed(3));
-        }
-        if (this.saveData?.maxMp) {
-          st.maxMp = Math.max(Number(st.maxMp || 0), Number(this.saveData.maxMp));
-        }
+          if (typeof st.physAtk === 'number') {
+            st.physAtk = Math.floor(st.physAtk * wMult * (1 + (ach?.atkPct || 0)));
+          }
+          if (typeof st.magMult === 'number') {
+            st.magMult = Number((st.magMult * (1 + (ach?.matkPct || 0))).toFixed(3));
+          }
+          if (ach && ach.unlockedCount > 0) {
+            if (typeof st.def === 'number') st.def = Math.min(0.88, st.def + ach.defPct * 0.25);
+            if (typeof st.maxHp === 'number') st.maxHp = Math.floor(st.maxHp * (1 + ach.hpPct));
+            if (typeof st.rewardMult === 'number') st.rewardMult = Number((st.rewardMult * (1 + ach.rewardBonusPct)).toFixed(3));
+          }
+          if (this.saveData?.maxMp) {
+            st.maxMp = Math.max(Number(st.maxMp || 0), Number(this.saveData.maxMp));
+          }
+        } catch (e) {}
         return st;
       };
       proto._v8DerivedStatsWrapped = true;
@@ -1230,7 +1236,9 @@
       const origVis = proto.triggerAttackVisual;
       proto.triggerAttackVisual = function (entity, isSkill = false, skillInfo = null) {
         if (!isSkill && entity) {
-          triggerSwordSwingAndSlashV8(this, entity);
+          try {
+            triggerSwordSwingAndSlashV8(this, entity);
+          } catch (e) {}
           return;
         }
         return origVis.apply(this, [entity, isSkill, skillInfo]);
@@ -1243,72 +1251,97 @@
       const origRewards = proto.grantMonsterRewards;
       proto.grantMonsterRewards = function (m, ...rest) {
         const res = origRewards.apply(this, [m, ...rest]);
-        if (this.player) this.player._v8VictoryTimer = 0.85;
-        const d = this.saveData;
-        const threat = Math.max(1, Number(d?.threatRank ?? d?.threat ?? 1));
-        if (d && threat > 1) {
-          const mult = (threat - 1) * 0.08;
-          d.exp = (Number(d.exp) || 0) + Math.floor((Number(m?.exp || 12)) * mult);
-          d.gold = (Number(d.gold) || 0) + Math.floor((Number(m?.gold || 10)) * mult);
-        }
+        try {
+          if (this.player) this.player._v8VictoryTimer = 0.85;
+          const d = this.saveData;
+          const threat = Math.max(1, Number(d?.threatRank ?? d?.threat ?? 1));
+          if (d && threat > 1) {
+            const mult = (threat - 1) * 0.08;
+            d.exp = (Number(d.exp) || 0) + Math.floor((Number(m?.exp || 12)) * mult);
+            d.gold = (Number(d.gold) || 0) + Math.floor((Number(m?.gold || 10)) * mult);
+          }
+        } catch (e) {}
         return res;
       };
       proto._v8RewardWrapped = true;
     }
 
-    // フレーム更新ループ（MP成長回復・3D剣スイング＆斬撃更新・全顔文字正面化・被弾検知・極光の聖域ティック）
+    // フレーム更新ループ（完全フリーズ防止 try/catch ガード付き）
     if (typeof proto.update === 'function' && !proto._v8UpdateWrapped) {
       const origUpdate = proto.update;
       proto.update = function (dt = 0.016, ...rest) {
         const safeDt = Math.min(0.1, Math.max(0.001, Number(dt) || 0.016));
-        this.updateMpGrowthAndRegenV8(safeDt);
+        try {
+          this.updateMpGrowthAndRegenV8(safeDt);
 
-        if (this.player?.sanctuaryBuffTimer > 0) {
-          this.player.sanctuaryBuffTimer = Math.max(0, this.player.sanctuaryBuffTimer - safeDt);
-        }
-
-        // HP減少を検知して被弾表情を発火
-        if (this.player) {
-          const curHp = Number(this.player.hp || 0);
-          if (typeof this.player._v8PrevHp === 'number' && curHp < this.player._v8PrevHp - 0.5) {
-            this.player._v8HurtTimer = 0.45;
+          if (this.player?.sanctuaryBuffTimer > 0) {
+            this.player.sanctuaryBuffTimer = Math.max(0, this.player.sanctuaryBuffTimer - safeDt);
           }
-          this.player._v8PrevHp = curHp;
+
+          // HP減少を検知して被弾表情を発火
+          if (this.player) {
+            const curHp = Number(this.player.hp || 0);
+            if (typeof this.player._v8PrevHp === 'number' && curHp < this.player._v8PrevHp - 0.5) {
+              this.player._v8HurtTimer = 0.45;
+            }
+            this.player._v8PrevHp = curHp;
+          }
+        } catch (e) {}
+
+        let res;
+        try {
+          res = origUpdate.apply(this, [dt, ...rest]);
+        } catch (err) {
+          if (!this._v8UpdateErrLogged) {
+            this._v8UpdateErrLogged = true;
+            console.warn('[game8 safe-update]', err);
+          }
         }
 
-        const res = origUpdate.apply(this, [dt, ...rest]);
+        try {
+          updateEntitySwordSwingAnimV8(this, this.player, safeDt);
+          if (this.remotePlayers && typeof this.remotePlayers.forEach === 'function') {
+            this.remotePlayers.forEach(rp => updateEntitySwordSwingAnimV8(this, rp, safeDt));
+          }
+          if (this.pet) {
+            syncEntityKaomojiFrontAndFaceV8(this, this.pet, safeDt);
+          }
 
-        updateEntitySwordSwingAnimV8(this, this.player, safeDt);
-        if (this.remotePlayers && typeof this.remotePlayers.forEach === 'function') {
-          this.remotePlayers.forEach(rp => updateEntitySwordSwingAnimV8(this, rp, safeDt));
-        }
-        if (this.pet) {
-          syncEntityKaomojiFrontAndFaceV8(this, this.pet, safeDt);
-        }
-
-        stepSlashEffectsV8(safeDt);
-        window.KMJ_SKILL_FX_V9?.updateSanctuaryFields?.(this, safeDt);
+          stepSlashEffectsV8(safeDt);
+          window.KMJ_SKILL_FX_V9?.updateSanctuaryFields?.(this, safeDt);
+        } catch (e) {}
 
         return res;
       };
       proto._v8UpdateWrapped = true;
     }
 
-    // HUD更新（0.4秒以内の連続DOM走査を防止して超軽量化）
+    // HUD更新（0.4秒以内の連続DOM走査を防止＋完全フリーズ防止ガード）
     if (typeof proto.refreshAllHUD === 'function' && !proto._v8HudWrapped) {
       const origHud = proto.refreshAllHUD;
       let _lastHudV8 = 0;
       proto.refreshAllHUD = function (...args) {
-        const res = origHud.apply(this, args);
+        let res;
+        try {
+          res = origHud.apply(this, args);
+        } catch (err) {
+          if (!this._v8HudErrLogged) {
+            this._v8HudErrLogged = true;
+            console.warn('[game8 safe-hud]', err);
+          }
+        }
+
         const now = performance.now();
         if (now - _lastHudV8 < 400) return res;
         _lastHudV8 = now;
 
-        this.syncAchievementPassiveBuffsV40();
-        ensureThreatRankBarV8(this);
-        enhanceChatWindowV8();
-        renderAchievementPassiveCardV8(this);
-        window.KMJ_SKILL_FX_V9?.syncAllSkills?.(this);
+        try {
+          this.syncAchievementPassiveBuffsV40();
+          ensureThreatRankBarV8(this);
+          enhanceChatWindowV8();
+          renderAchievementPassiveCardV8(this);
+          window.KMJ_SKILL_FX_V9?.syncAllSkills?.(this);
+        } catch (e) {}
         return res;
       };
       proto._v8HudWrapped = true;
