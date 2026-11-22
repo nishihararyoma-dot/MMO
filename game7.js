@@ -1,4 +1,4 @@
-// ▼▼▼ ここから game7.js 【1/2】（完全版：タイトル復旧・歯車名前変更・統合デバッグ・状態異常・自動実績） ▼▼▼
+// ▼▼▼ ここから game7.js （完全版：タイトル復旧・歯車名前変更・統合デバッグ・状態異常・自動実績・杖魔法弾飛翔＆クラス分岐統合） ▼▼▼
 (() => {
   'use strict';
 
@@ -6,9 +6,8 @@
   window.MAX_THREAT_CAP_V27 = 999;
   window.SECRET_DEBUG_CODE = 'debug777';
 
-  // iPad Safariでも万が一エラーが起きたら画面左下に小さく通知し、ゲーム自体は止めない安全装置
-  window.addEventListener('error', (ev) => {
-    if (!ev?.message) return;
+  function showErrToastV7(msg) {
+    if (!msg) return;
     let box = document.getElementById('kmj-ipad-err-toast');
     if (!box) {
       box = document.createElement('div');
@@ -17,7 +16,13 @@
       box.onclick = () => box.remove();
       document.body?.appendChild(box);
     }
-    box.textContent = `⚠️ ${ev.message} (タップで閉じる)`;
+    box.textContent = `⚠️ ${msg} (タップで閉じる)`;
+  }
+
+  // iPad Safariでも万が一エラーが起きたら画面左下に小さく通知し、ゲーム自体は止めない安全装置
+  window.addEventListener('error', (ev) => {
+    if (!ev?.message) return;
+    showErrToastV7(ev.message);
   });
 
   // ゲームインスタンス取得＆自動生成ヘルパー
@@ -520,6 +525,15 @@
       }
       ensureSaveDataReady(inst);
 
+      // 各種開始・移動許可フラグを確実に有効化
+      inst.inGame = true;
+      inst.isPlaying = true;
+      inst.started = true;
+      inst.isStarted = true;
+      inst.inWorld = true;
+      inst.paused = false;
+      inst.isPaused = false;
+
       const overlay = findTitleOverlay();
       if (overlay) {
         overlay.style.display = 'none';
@@ -782,6 +796,10 @@
                 return res;
               } catch (err) {
                 console.warn(`[game7 safe-${fn}]`, err);
+                if (!this[`_v7ErrShown_${fn}`]) {
+                  this[`_v7ErrShown_${fn}`] = true;
+                  showErrToastV7(`${fn}: ${err?.message || err}`);
+                }
               }
             };
             proto[`_v7Safe_${fn}`] = true;
@@ -844,7 +862,7 @@
   setTimeout(markTitleDataReady, 300);
   setTimeout(markTitleDataReady, 1000);
 })();
-// --- 【game7.js 1/2】ここまで（この直下に【2/2】を繋げてください） ---
+
 // =========================================================
 // 3. 【前編】Lv.999クラス進化・クラス別3D攻撃エフェクト・驚異度上限開放
 // =========================================================
@@ -998,6 +1016,17 @@
     }
   ];
 
+  window.isStaffClassV45 = function (game, entity) {
+    const g = game || window.__kmjInstance || window.game;
+    const isLocal = !entity || (entity === g?.player);
+    if (g && typeof g.isStaffClassV45 === 'function') {
+      return g.isStaffClassV45(isLocal ? null : (entity?.evolutionId || entity?.classId || entity?.jobId || ''));
+    }
+    const d = isLocal ? (g?.saveData || {}) : (entity || {});
+    const rawId = String(d.evolutionId ?? d.jobId ?? d.classId ?? entity?.evolutionId ?? '');
+    return /mage|wizard|witch|sage|priest|overlord|staff|魔道|魔導|魔法|賢者|神官|杖/i.test(rawId);
+  };
+
   if (!document.getElementById('kmj-v45-style')) {
     const st = document.createElement('style');
     st.id = 'kmj-v45-style';
@@ -1063,7 +1092,7 @@
         );
         const found = CLASS_EVOLUTION_TREE_V45.find(c => c.id === rawId || (rawId === '' && c.id === 'novice'));
         if (found) return found;
-        const isM = /mage|wizard|witch|sage|priest|魔道|魔導|魔法|賢者|神官/.test(rawId.toLowerCase());
+        const isM = /mage|wizard|witch|sage|priest|overlord|staff|魔道|魔導|魔法|賢者|神官|杖/i.test(rawId);
         return {
           id: rawId || 'novice',
           name: rawId || '見習い冒険者',
@@ -1076,6 +1105,10 @@
           atkMult: 1.0, matkMult: 1.0, defMult: 1.0, hpMult: 1.0,
           desc: ''
         };
+      },
+
+      isStaffClassV45(evoIdOverride = null) {
+        return this.getCurrentClassDefV45(evoIdOverride)?.weaponType === 'staff';
       },
 
       selectOrEvolveClassV45(classId, bypassCost = false) {
@@ -1115,6 +1148,7 @@
           this.player.evolutionId = saveId;
           this.player.job = saveId;
           this.player.classId = saveId;
+          this.player._v8SwordSig = '';
         }
 
         this.syncMageWeaponNamesV22?.();
@@ -1186,8 +1220,10 @@
 
           this._v22MagicShots.push({
             grp, aura, ring, auraMat, ringMat,
+            color: cfg.aura,
+            size: cfg.size,
             vx: dirX * 22.0, vz: dirZ * 22.0,
-            life: 0.60, maxLife: 0.60,
+            life: 0.65, maxLife: 0.65,
             isLocal, magicDmg, hitDone: false
           });
           return;
@@ -1275,12 +1311,116 @@
             vz: Math.cos(ang) * (7.5 + scfg.scale * 2.0)
           });
         }
+      },
+
+      // 杖クラスの魔法弾の飛翔・敵命中・着弾バースト処理
+      stepMagicShotsV45(dt = 0.016) {
+        if (!Array.isArray(this._v22MagicShots) || this._v22MagicShots.length === 0) return;
+        for (let i = this._v22MagicShots.length - 1; i >= 0; i--) {
+          const s = this._v22MagicShots[i];
+          try {
+            s.life -= dt;
+            if (s.grp) {
+              s.grp.position.x += s.vx * dt;
+              s.grp.position.z += s.vz * dt;
+            }
+            if (s.aura) {
+              s.aura.rotation.x += dt * 10;
+              s.aura.rotation.y += dt * 12;
+            }
+            if (s.ring) {
+              s.ring.rotation.z += dt * 14;
+            }
+
+            if (!s.hitDone && s.isLocal && Array.isArray(this.monsters) && s.grp) {
+              const hitRadius = 1.65 * Math.min(1.6, s.size || 1.0);
+              for (let mIdx = 0; mIdx < this.monsters.length; mIdx++) {
+                const m = this.monsters[mIdx];
+                if (!m || m.dead || !m.pos) continue;
+                const d = Math.hypot(m.pos.x - s.grp.position.x, m.pos.z - s.grp.position.z);
+                if (d <= hitRadius) {
+                  s.hitDone = true;
+                  s.life = Math.min(s.life, 0.08);
+                  if (typeof this.applyMagicProjectileHitDamageV40 === 'function') {
+                    this.applyMagicProjectileHitDamageV40(m, s.magicDmg || 20);
+                  }
+                  if (this.scene && typeof THREE !== 'undefined') {
+                    const burst = new THREE.Mesh(
+                      new THREE.RingGeometry(0.25, 1.35 * (s.size || 1.0), 24),
+                      new THREE.MeshBasicMaterial({ color: s.color || 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.9 })
+                    );
+                    burst.rotation.x = -Math.PI / 2;
+                    burst.position.set(s.grp.position.x, 0.18, s.grp.position.z);
+                    this.scene.add(burst);
+                    setTimeout(() => {
+                      try {
+                        this.scene?.remove(burst);
+                        burst.geometry?.dispose?.();
+                        burst.material?.dispose?.();
+                      } catch (e) {}
+                    }, 220);
+                  }
+                  break;
+                }
+              }
+            }
+
+            if (s.life <= 0) {
+              try {
+                this.scene?.remove(s.grp);
+                s.grp?.traverse?.(o => {
+                  o.geometry?.dispose?.();
+                  o.material?.dispose?.();
+                });
+              } catch (e) {}
+              this._v22MagicShots.splice(i, 1);
+            }
+          } catch (e) {
+            this._v22MagicShots.splice(i, 1);
+          }
+        }
+      },
+
+      // 杖クラス＝game7の魔法弾 ／ 剣クラス＝game8の3連横振り 統合ルーター
+      dispatchUnifiedBasicAttackV7(entity, isSkill = false, skillInfo = null) {
+        if (!entity) return;
+        if (isSkill) {
+          if (typeof this._origTriggerAttackVisualV7 === 'function') {
+            return this._origTriggerAttackVisualV7.call(this, entity, isSkill, skillInfo);
+          }
+          return;
+        }
+        const now = performance.now();
+        if (entity._lastUnifiedAtkFxTime && (now - entity._lastUnifiedAtkFxTime) < 60) return;
+        entity._lastUnifiedAtkFxTime = now;
+
+        const isLocal = (entity === this.player);
+        const evoOverride = isLocal ? null : (skillInfo?.evolutionId || entity.evolutionId);
+        const isStaff = window.isStaffClassV45(this, entity);
+
+        if (isStaff) {
+          entity.attackAnimTimer = 0.36;
+          entity.attackIsSkill = false;
+          entity._v7StaffCastTimer = 0.36;
+          this.spawnClassBasicAttackEffectV45(entity, isLocal, evoOverride);
+          return;
+        }
+
+        if (typeof window.triggerSwordSwingAndSlashV8 === 'function') {
+          window.triggerSwordSwingAndSlashV8(this, entity);
+          return;
+        }
+
+        entity.attackAnimTimer = 0.36;
+        entity.attackIsSkill = false;
+        this.spawnClassBasicAttackEffectV45(entity, isLocal, evoOverride);
       }
     });
   }
 
   installV45Core();
 })();
+
 // =========================================================
 // 4. 【後編】ペット火力プレイヤー参照化・オンライン復旧・Lv.999クラス選択UI
 // =========================================================
@@ -1414,7 +1554,7 @@
               </div>
               <div style="font-size:10px;color:#cbd5e1;margin-bottom:8px;line-height:1.35;">
                 現在クラス: <b style="color:#34d399;">${curCls.icon} ${curCls.name}</b>（攻撃エフェクト: <b style="color:#f472b6;">${curCls.fxName}</b>）<br>
-                ※ 一度解放したクラスは<b>いつでも無料で自由に切り替え可能</b>！クラスごとに通常攻撃3Dエフェクトが変化します。
+                ※ 一度解放したクラスは<b>いつでも無料で自由に切り替え可能</b>！杖クラスは魔法弾、剣クラスは3連横振りに自動変化します。
               </div>
               <div class="kmj-v45-class-grid">
                 ${tree.map(c => {
@@ -1423,7 +1563,7 @@
                   const canReachLv = playerLv >= c.reqLv || this._debugInfiniteMode;
                   const wBadge = c.weaponType === 'staff'
                     ? '<span style="background:#581c87;color:#f5d0fe;padding:1px 5px;border-radius:4px;font-size:9px;">🪄杖・魔法弾</span>'
-                    : '<span style="background:#1e3a8a;color:#bae6fd;padding:1px 5px;border-radius:4px;font-size:9px;">🗡️片手剣</span>';
+                    : '<span style="background:#1e3a8a;color:#bae6fd;padding:1px 5px;border-radius:4px;font-size:9px;">🗡️片手剣・3連斬</span>';
 
                   let btnTxt = '';
                   let btnBg = '#334155';
@@ -1520,16 +1660,9 @@
         }
 
         if (typeof proto.triggerAttackVisual === 'function' && !proto._v45AtkVisWrapped) {
-          const origVis = proto.triggerAttackVisual;
+          proto._origTriggerAttackVisualV7 = proto.triggerAttackVisual;
           proto.triggerAttackVisual = function (entity, isSkill = false, skillInfo = null) {
-            if (!isSkill && entity) {
-              const isLocal = (entity === this.player);
-              entity.attackAnimTimer = 0.36;
-              entity.attackIsSkill = false;
-              this.spawnClassBasicAttackEffectV45(entity, isLocal, skillInfo?.evolutionId || entity.evolutionId);
-              return;
-            }
-            return origVis.apply(this, [entity, isSkill, skillInfo]);
+            return this.dispatchUnifiedBasicAttackV7(entity, isSkill, skillInfo);
           };
           proto._v45AtkVisWrapped = true;
         }
@@ -1568,12 +1701,14 @@
         if (typeof proto.update === 'function' && !proto._v45UpdateWrapped) {
           const origUpdate = proto.update;
           proto.update = function (dt = 0.016, ...rest) {
+            const safeDt = Math.min(0.1, Math.max(0.001, Number(dt) || 0.016));
             try {
               this.enforceThreatAndLevelCapsV45();
               this.syncPetStatsFromPlayerV45();
             } catch (e) {}
             const res = origUpdate.apply(this, [dt, ...rest]);
             try {
+              this.stepMagicShotsV45(safeDt);
               if (!this._v45NetCheckTimer || (performance.now() - this._v45NetCheckTimer) > 2000) {
                 this._v45NetCheckTimer = performance.now();
                 this.ensureOnlineSystemV45();
