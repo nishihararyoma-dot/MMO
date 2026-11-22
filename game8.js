@@ -11,8 +11,8 @@
     st.textContent = `
       .kmj-v8-threat-bar {
         position: fixed;
-        top: 34px;
-        right: 8px;
+        top: 68px;
+        left: 10px;
         z-index: 89;
         display: flex;
         align-items: center;
@@ -43,8 +43,8 @@
       }
       .kmj-v8-combo-badge {
         position: fixed;
-        left: 14px;
-        top: 118px;
+        left: 10px;
+        top: 100px;
         z-index: 88;
         pointer-events: none;
         background: linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(30, 58, 138, 0.92));
@@ -192,7 +192,7 @@
       wList = (Array.isArray(WEAPONS) ? WEAPONS : Object.values(WEAPONS)).filter(w => w && typeof w === 'object');
     }
 
-    const rawId = d.equippedWeapon ?? d.weaponId ?? d.weapon ?? d.equip?.weapon ?? entity?.weaponId ?? entity?.weapon;
+    const rawId = d.weapon ?? d.equippedWeapon ?? d.weaponId ?? d.equip?.weapon ?? entity?.weaponId ?? entity?.weapon;
     if (rawId && typeof rawId === 'object') {
       wpnObj = rawId;
       const found = wList.indexOf(wpnObj);
@@ -212,52 +212,52 @@
       wpnIdx = 0;
     }
 
-    const wName = String(wpnObj?.name || d.weaponName || 'ブロンズソード');
+    const wName = String(wpnObj?.name || d.weaponName || '初心者の木の剣');
     const wDesc = String(wpnObj?.desc || '');
-    const search = `${wName} ${wDesc} ${wpnObj?.attr || wpnObj?.element || ''}`;
+    const search = `${wName} ${wDesc} ${wpnObj?.attr || wpnObj?.element || ''} ${wpnObj?.shape || ''}`;
 
     // グレード 0〜5（★1〜★6）判定
     let grade = 0;
     const rar = String(wpnObj?.rarity || wpnObj?.rank || wpnObj?.grade || '').toUpperCase();
-    if (/LR|MYTH|GOD|神話|創世|アルティメット/.test(rar) || /創世|神話|エクスカリバー|ラグナロク|アルティメット|天叢雲/.test(wName)) {
+    if (/LR|MYTH|GOD|神話|創世|アルティメット/.test(rar) || /創世|神話|エクスカリバー|ラグナロク|アルティメット|天叢雲|終焉/.test(wName)) {
       grade = 5;
-    } else if (/UR|LEGEND|伝説|覇王|神剣/.test(rar) || /覇王|神剣|天帝|虚空|聖剣/.test(wName)) {
+    } else if (/UR|LEGEND|伝説|覇王|神剣/.test(rar) || /覇王|神剣|天帝|虚空|聖剣|オメガ/.test(wName)) {
       grade = 4;
-    } else if (/SSR|EPIC|英雄|竜/.test(rar) || /竜|英雄|魔剣|雷神|氷帝|炎帝/.test(wName)) {
+    } else if (/SSR|EPIC|英雄|竜|深淵/.test(rar) || /竜|英雄|魔剣|雷神|氷帝|炎帝|深淵|死神/.test(wName)) {
       grade = 3;
-    } else if (/SR|RARE|名剣/.test(rar) || /ミスリル|オリハルコン|プラチナ|騎士|名剣/.test(wName)) {
+    } else if (/SR|RARE|名剣|紅蓮|氷獄/.test(rar) || /ミスリル|オリハルコン|プラチナ|騎士|名剣|紅蓮|業火/.test(wName)) {
       grade = 2;
-    } else if (/R|UNCOMMON|鋼|アイアン/.test(rar) || /鋼|アイアン|シルバー|銀|大剣/.test(wName)) {
+    } else if (/R|UNCOMMON|鋼|アイアン|翡翠/.test(rar) || /鋼|アイアン|シルバー|銀|大剣|翡翠/.test(wName)) {
       grade = 1;
     } else if (wList.length > 1) {
       grade = Math.min(5, Math.floor((wpnIdx / Math.max(1, wList.length - 1)) * 5.4));
     }
 
-    const plusLv = Number(d.weaponPlus ?? d.weaponEnhance ?? wpnObj?.plus ?? wpnObj?.lv ?? 0);
-    if (plusLv >= 50) grade = 5;
-    else if (plusLv >= 30) grade = Math.max(grade, 4);
-    else if (plusLv >= 15) grade = Math.max(grade, 3);
-    else if (plusLv >= 5) grade = Math.max(grade, 2);
+    const plusLv = Number(d.weaponEnh ?? d.weaponPlus ?? d.weaponEnhance ?? wpnObj?.plus ?? wpnObj?.lv ?? 0);
+    if (plusLv >= 20) grade = 5;
+    else if (plusLv >= 14) grade = Math.max(grade, 4);
+    else if (plusLv >= 9) grade = Math.max(grade, 3);
+    else if (plusLv >= 4) grade = Math.max(grade, 2);
 
     // 刀身タイプ判定（大剣 / 日本刀 / 細剣 / 片手剣）
     let bladeType = 'longsword';
-    if (/大剣|クレイモア|バスター|グレート|重剣|斬馬/.test(wName)) bladeType = 'greatsword';
-    else if (/刀|ムラマサ|村正|天叢雲|正宗|katana/i.test(wName)) bladeType = 'katana';
-    else if (/レイピア|細剣|フルーレ|rapier/i.test(wName)) bladeType = 'rapier';
+    if (/大剣|クレイモア|バスター|グレート|重剣|斬馬|broad|omega|god/.test(search)) bladeType = 'greatsword';
+    else if (/刀|ムラマサ|村正|天叢雲|正宗|katana/i.test(search)) bladeType = 'katana';
+    else if (/レイピア|細剣|フルーレ|rapier/i.test(search)) bladeType = 'rapier';
 
     // 属性カラー・粒子形状
     let style = { c1: 0x38bdf8, c2: 0xe0f2fe, c3: 0x7dd3fc, hilt: 0x475569, shape: 'octa', attrName: '蒼空' };
     if (/炎|火|紅蓮|ブレイズ|フレア|イフリート|太陽|fire|flame|blaze/i.test(search)) {
       style = { c1: 0xef4444, c2: 0xfacc15, c3: 0xf97316, hilt: 0x7f1d1d, shape: 'tetra', attrName: '紅蓮' };
-    } else if (/氷|吹雪|零度|アイス|フロスト|コキュートス|ice|frost|freeze/i.test(search)) {
+    } else if (/氷|吹雪|零度|アイス|フロスト|コキュートス|ice|frost|freeze|scythe/i.test(search)) {
       style = { c1: 0x38bdf8, c2: 0xffffff, c3: 0x818cf8, hilt: 0x1e3a8a, shape: 'octa', attrName: '氷結' };
     } else if (/雷|電|サンダー|紫電|ライトニング|インドラ|thunder|volt|lightning/i.test(search)) {
       style = { c1: 0xfacc15, c2: 0xa855f7, c3: 0x38bdf8, hilt: 0x581c87, shape: 'tetra', attrName: '紫電' };
-    } else if (/風|嵐|疾風|翠嵐|ウィンド|テンペスト|wind|storm/i.test(search)) {
+    } else if (/風|嵐|疾風|翠嵐|ウィンド|テンペスト|wind|storm|翡翠/i.test(search)) {
       style = { c1: 0x34d399, c2: 0xa7f3d0, c3: 0xfde047, hilt: 0x064e3b, shape: 'octa', attrName: '翠嵐' };
-    } else if (/聖|光|黄金|パラディン|エクスカリバー|天照|holy|light|gold/i.test(search)) {
+    } else if (/聖|光|黄金|パラディン|エクスカリバー|天照|holy|light|gold|omega/i.test(search)) {
       style = { c1: 0xfde047, c2: 0xffffff, c3: 0xf59e0b, hilt: 0x92400e, shape: 'octa', attrName: '聖光' };
-    } else if (/闇|黒|ダーク|アビス|虚空|ラグナロク|魔剣|dark|void|abyss/i.test(search)) {
+    } else if (/闇|黒|ダーク|アビス|虚空|ラグナロク|魔剣|深淵|dark|void|abyss/i.test(search)) {
       style = { c1: 0x9333ea, c2: 0xf43f5e, c3: 0x38bdf8, hilt: 0x1e1b4b, shape: 'dodeca', attrName: '虚空' };
     } else if (/竜|ドラゴン|ドラグーン|dragon/i.test(search)) {
       style = { c1: 0xdc2626, c2: 0xfde047, c3: 0xf97316, hilt: 0x450a0a, shape: 'tetra', attrName: '竜王' };
@@ -369,7 +369,7 @@
       grp.add(auraBlade);
     }
 
-    // グレード5（★6 神話級）：刀身背後に回転する神聖光輪＋浮遊ルーン結晶
+    // グレード5（★6 神話級）：刀身背後に回転する神聖光輪
     if (grade >= 5) {
       const halo = new THREE.Mesh(
         new THREE.TorusGeometry(0.34, 0.036, 8, 24),
@@ -387,7 +387,7 @@
   // 4. 全顔文字の完全正面化＆リアルタイム表情アニメーション
   // =========================================================
   const KAOMOJI_EXPRESSIONS_V8 = {
-    idle: ['(・ω・)', '(・∀・)', '(｀・ω・)'],
+    idle: ['(´・ω・`)', '(・∀・)', '(｀・ω・)'],
     move: ['(｀・ω・´)', 'ε=ε=(ﾉ・ω・)ﾉ', '(・ω・´)'],
     attack1: ['( ง •̀_•́)ง', '(｀・ω・´)ｼｬｷｰﾝ', '(ﾒ｀ﾛ´)/'],
     attack2: ['(ﾉ｀Д´)ﾉ彡', '(╬ﾟ◥益◤ﾟ)', '(｀･д･´)ﾉ'],
@@ -411,11 +411,10 @@
     const cam = game.camera;
     host.traverse?.(child => {
       const nameHint = `${child.name || ''} ${child.userData?.type || ''}`;
-      if (child.userData?.isKaomojiFace || /face|kaomoji|head|label|billboard/i.test(nameHint)) {
+      if (child.userData?.isKaomojiFace || /kaomoji|label|billboard/i.test(nameHint)) {
         if (child.isSprite) {
           child.center?.set?.(0.5, 0.5);
         } else if (cam) {
-          // 親の回転を打ち消してカメラへ正面を向ける
           child.rotation.set(0, cam.rotation.y - host.rotation.y, 0);
         } else {
           child.rotation.y = 0;
@@ -423,9 +422,9 @@
       }
     });
 
-    // 状態に応じた動的表情更新（プレイヤー本人のカスタム顔文字はベースとして尊重）
-    if (entity === game.player && game.saveData) {
-      const baseFace = String(game.saveData.kaomoji || '(・ω・)');
+    // 状態に応じた動的表情更新（エモート中は上書きしない）
+    if (entity === game.player && game.saveData && !(entity.emoteTimer > 0)) {
+      const baseFace = String(game.saveData.kaomoji || '(´・ω・`)');
       let state = 'idle';
       if (entity._v8HurtTimer > 0) {
         entity._v8HurtTimer = Math.max(0, entity._v8HurtTimer - dt);
@@ -448,8 +447,11 @@
 
       if (entity._v8ActiveFace !== nextFace) {
         entity._v8ActiveFace = nextFace;
-        if (typeof game.updatePlayerKaomojiTexture === 'function') {
-          try { game.updatePlayerKaomojiTexture(nextFace); } catch (e) {}
+        if (entity.frontMat && typeof game.getKaomojiFaceTexture === 'function') {
+          try {
+            entity.frontMat.map = game.getKaomojiFaceTexture(nextFace, game.saveData.faceBgColor);
+            entity.frontMat.needsUpdate = true;
+          } catch (e) {}
         }
       }
     }
@@ -465,33 +467,36 @@
     const { wName, grade, plusLv, bladeType, style } = getWeaponGradeInfoV8(game, entity);
     const sig = `${wName}|${grade}|${plusLv}|${bladeType}|${style.c1}`;
 
-    if (!entity._v8SwordPivot) {
-      const pivot = new THREE.Group();
+    // 本体の weaponPivot を一本化して二重剣表示を防止
+    let pivot = entity.weaponPivot || entity._v8SwordPivot;
+    if (!pivot) {
+      pivot = new THREE.Group();
       pivot.position.set(0.62, 0.88, 0.15);
       pivot.rotation.set(0.38, 0.0, -0.22);
       host.add(pivot);
-      entity._v8SwordPivot = pivot;
+      entity.weaponPivot = pivot;
     }
+    entity._v8SwordPivot = pivot;
 
     if (entity._v8SwordSig !== sig) {
       entity._v8SwordSig = sig;
-      while (entity._v8SwordPivot.children.length > 0) {
-        const old = entity._v8SwordPivot.children[0];
-        entity._v8SwordPivot.remove(old);
+      while (pivot.children.length > 0) {
+        const old = pivot.children[0];
+        pivot.remove(old);
         old.traverse?.(o => {
           o.geometry?.dispose?.();
           o.material?.dispose?.();
         });
       }
       const swordMesh = buildGradeSwordMeshV8(grade, style, bladeType);
-      entity._v8SwordPivot.add(swordMesh);
+      pivot.add(swordMesh);
       entity._v8SwordMesh = swordMesh;
     }
 
-    return entity._v8SwordPivot;
+    return pivot;
   }
-
-  // =========================================================
+// --- 【1/2】ここまで（この直下に【2/2】を繋げてください） ---
+// =========================================================
   // 5. 3連コンボ水平横振りモーション＆グレード別3D斬撃エフェクト
   // =========================================================
   function updateEntitySwordSwingAnimV8(game, entity, dt) {
@@ -763,8 +768,9 @@
       duration: 0.34 + grade * 0.035
     });
 
-    if ((grade >= 3 || nextStep === 3) && ent === g.player && typeof g.shakeTimer === 'number') {
-      g.shakeTimer = Math.max(g.shakeTimer, 0.08 + Math.max(0, grade - 2) * 0.04);
+    // 本体の camShake へカメラシェイクを反映
+    if ((grade >= 3 || nextStep === 3) && ent === g.player) {
+      g.camShake = Math.max(Number(g.camShake) || 0, 0.08 + Math.max(0, grade - 2) * 0.04);
     }
   }
 
@@ -893,139 +899,106 @@
   }
 
   // =========================================================
-  // 7. 高機能チャットウィンドウ（ドラッグ移動・リサイズ・最小化・顔文字スタンプ）
+  // 7. 高機能チャットウィンドウ（外枠 #chat-wrapper と分離させず移動＆リサイズ）
   // =========================================================
   function enhanceChatWindowV8() {
-    let chatBox = document.getElementById('chat-box') || document.getElementById('chat-container') || document.querySelector('.chat-box, .chat-container, #chatPanel');
-    if (!chatBox) {
-      const inp = document.querySelector('input[placeholder*="チャット"], input[placeholder*="発言"], input[placeholder*="メッセージ"]');
-      if (inp) chatBox = inp.closest('div[style*="position"], section, aside') || inp.parentElement?.parentElement;
-    }
-    if (!chatBox || chatBox.dataset.v8ChatReady === '1') return;
-    chatBox.dataset.v8ChatReady = '1';
+    const wrapper = document.getElementById('chat-wrapper');
+    const panel = document.getElementById('chat-panel');
+    const targetBox = wrapper || panel || document.getElementById('chat-box');
+    if (!targetBox || targetBox.dataset.v8ChatReady === '1') return;
+    targetBox.dataset.v8ChatReady = '1';
 
     let savedRect = null;
     try {
       savedRect = JSON.parse(localStorage.getItem('kmj_v8_chat_rect') || 'null');
       if (savedRect && typeof savedRect === 'object') {
-        chatBox.style.position = 'fixed';
-        if (typeof savedRect.left === 'number') { chatBox.style.left = `${savedRect.left}px`; chatBox.style.right = 'auto'; }
-        if (typeof savedRect.top === 'number') { chatBox.style.top = `${savedRect.top}px`; chatBox.style.bottom = 'auto'; }
-        if (typeof savedRect.width === 'number') chatBox.style.width = `${savedRect.width}px`;
-        if (typeof savedRect.height === 'number') chatBox.style.height = `${savedRect.height}px`;
+        targetBox.style.position = 'fixed';
+        if (typeof savedRect.left === 'number') { targetBox.style.left = `${savedRect.left}px`; targetBox.style.right = 'auto'; }
+        if (typeof savedRect.top === 'number') { targetBox.style.top = `${savedRect.top}px`; targetBox.style.bottom = 'auto'; }
+        if (panel && typeof savedRect.width === 'number') { panel.style.width = `${savedRect.width}px`; }
+        if (panel && typeof savedRect.height === 'number') { panel.style.height = `${savedRect.height}px`; }
       }
     } catch (e) {}
 
+    const dragContainer = panel || targetBox;
     const dragBar = document.createElement('div');
     dragBar.className = 'kmj-v8-chat-drag';
     dragBar.innerHTML = `
       <span>💬 チャット (ドラッグ移動)</span>
-      <div style="display:flex;align-items:center;gap:4px;">
-        <button type="button" id="kmj-v8-chat-min-btn" style="background:#334155;border:1px solid #64748b;color:#fde047;border-radius:4px;padding:0 5px;font-size:9px;font-weight:900;cursor:pointer;">＿最小化</button>
-      </div>
+      <span style="font-size:8.5px;color:#94a3b8;">右下でサイズ変更</span>
     `;
-    chatBox.insertBefore(dragBar, chatBox.firstChild);
+    dragContainer.insertBefore(dragBar, dragContainer.firstChild);
 
-    // ワンタップ顔文字スタンプバー
-    const stampBar = document.createElement('div');
-    stampBar.className = 'kmj-v8-chat-stamps';
-    const stamps = [
-      { label: '(・ω・)ﾉ よろ', text: 'よろしく！(・ω・)ﾉ' },
-      { label: '(*^▽^*) ﾅｲｽ', text: 'ナイス！(*^▽^*)' },
-      { label: '(＞＜) 助けて', text: '助けて！(＞＜)' },
-      { label: '(｀・ω・´) いくぞ', text: 'いくぞ！(｀・ω・´)' },
-      { label: '(人´∀`*) 感謝', text: 'ありがとう！(人´∀`*)' }
-    ];
-    stampBar.innerHTML = stamps.map((s, idx) => `<button type="button" class="kmj-v8-stamp-btn" data-idx="${idx}">${s.label}</button>`).join('');
-    chatBox.insertBefore(stampBar, dragBar.nextSibling);
+    // 既存のクイックボタンが無い場合のみスタンプバーを追加（UI重複防止）
+    if (!dragContainer.querySelector('#chat-quick-bar, .chat-quick-btns')) {
+      const stampBar = document.createElement('div');
+      stampBar.className = 'kmj-v8-chat-stamps';
+      const stamps = [
+        { label: '(・ω・)ﾉ よろ', text: 'よろしく！(・ω・)ﾉ' },
+        { label: '(*^▽^*) ﾅｲｽ', text: 'ナイス！(*^▽^*)' },
+        { label: '(＞＜) 助けて', text: '助けて！(＞＜)' },
+        { label: '(｀・ω・´) いくぞ', text: 'いくぞ！(｀・ω・´)' },
+        { label: '(人´∀`*) 感謝', text: 'ありがとう！(人´∀`*)' }
+      ];
+      stampBar.innerHTML = stamps.map((s, idx) => `<button type="button" class="kmj-v8-stamp-btn" data-idx="${idx}">${s.label}</button>`).join('');
+      dragContainer.insertBefore(stampBar, dragBar.nextSibling);
 
-    stampBar.querySelectorAll('.kmj-v8-stamp-btn').forEach(btn => {
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        const st = stamps[Number(btn.dataset.idx)];
-        if (!st) return;
-        const inp = chatBox.querySelector('input[type="text"], input:not([type])');
-        const sendBtn = chatBox.querySelector('button[type="submit"], button:not(.kmj-v8-stamp-btn):not(#kmj-v8-chat-min-btn)');
-        if (inp) {
-          inp.value = st.text;
-          inp.dispatchEvent(new Event('input', { bubbles: true }));
-          if (sendBtn) {
-            sendBtn.click();
-          } else {
-            inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
+      stampBar.querySelectorAll('.kmj-v8-stamp-btn').forEach(btn => {
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          const st = stamps[Number(btn.dataset.idx)];
+          if (!st) return;
+          const inp = dragContainer.querySelector('#chat-input, input[type="text"]');
+          const sendBtn = dragContainer.querySelector('#btn-chat-send, button[type="submit"]');
+          if (inp) {
+            inp.value = st.text;
+            inp.dispatchEvent(new Event('input', { bubbles: true }));
+            if (sendBtn) sendBtn.click();
           }
-        }
-      };
-    });
+        };
+      });
+    }
 
     const resizeGrip = document.createElement('div');
     resizeGrip.className = 'kmj-v8-chat-resize';
-    chatBox.appendChild(resizeGrip);
-
-    let isMinimized = Boolean(savedRect?.minimized);
-    let expandedHeight = savedRect?.height || chatBox.offsetHeight || 150;
-    const minBtn = dragBar.querySelector('#kmj-v8-chat-min-btn');
+    dragContainer.style.position = 'relative';
+    dragContainer.appendChild(resizeGrip);
 
     const saveRect = () => {
       try {
-        const r = chatBox.getBoundingClientRect();
+        const r = targetBox.getBoundingClientRect();
+        const pr = dragContainer.getBoundingClientRect();
         localStorage.setItem('kmj_v8_chat_rect', JSON.stringify({
           left: Math.round(r.left),
           top: Math.round(r.top),
-          width: Math.round(r.width),
-          height: isMinimized ? expandedHeight : Math.round(r.height),
-          minimized: isMinimized
+          width: Math.round(pr.width),
+          height: Math.round(pr.height)
         }));
       } catch (e) {}
-    };
-
-    const applyMinimizeState = () => {
-      Array.from(chatBox.children).forEach(ch => {
-        if (ch === dragBar) return;
-        ch.style.display = isMinimized ? 'none' : '';
-      });
-      if (isMinimized) {
-        chatBox.style.height = '24px';
-        chatBox.style.minHeight = '24px';
-        minBtn.textContent = '▢展開';
-      } else {
-        chatBox.style.height = `${expandedHeight}px`;
-        chatBox.style.minHeight = '';
-        minBtn.textContent = '＿最小化';
-      }
-    };
-
-    if (isMinimized) applyMinimizeState();
-
-    minBtn.onclick = (e) => {
-      e.stopPropagation();
-      if (!isMinimized) expandedHeight = chatBox.offsetHeight || 150;
-      isMinimized = !isMinimized;
-      applyMinimizeState();
-      saveRect();
     };
 
     let mode = null;
     let startX = 0, startY = 0, startL = 0, startT = 0, startW = 0, startH = 0;
 
     const onStart = (ev, nextMode) => {
-      if (ev.target?.closest?.('button')) return;
+      if (ev.target?.closest?.('button, input')) return;
       const pt = ev.touches ? ev.touches[0] : ev;
       if (!pt) return;
       ev.stopPropagation();
       mode = nextMode;
-      const r = chatBox.getBoundingClientRect();
-      chatBox.style.position = 'fixed';
-      chatBox.style.left = `${r.left}px`;
-      chatBox.style.top = `${r.top}px`;
-      chatBox.style.right = 'auto';
-      chatBox.style.bottom = 'auto';
+      const r = targetBox.getBoundingClientRect();
+      const pr = dragContainer.getBoundingClientRect();
+      targetBox.style.position = 'fixed';
+      targetBox.style.left = `${r.left}px`;
+      targetBox.style.top = `${r.top}px`;
+      targetBox.style.right = 'auto';
+      targetBox.style.bottom = 'auto';
       startX = pt.clientX;
       startY = pt.clientY;
       startL = r.left;
       startT = r.top;
-      startW = r.width;
-      startH = r.height;
+      startW = pr.width;
+      startH = pr.height;
     };
 
     const onMove = (ev) => {
@@ -1035,16 +1008,15 @@
       const dx = pt.clientX - startX;
       const dy = pt.clientY - startY;
       if (mode === 'drag') {
-        const maxL = Math.max(0, window.innerWidth - chatBox.offsetWidth);
-        const maxT = Math.max(0, window.innerHeight - chatBox.offsetHeight);
-        chatBox.style.left = `${Math.max(0, Math.min(maxL, startL + dx))}px`;
-        chatBox.style.top = `${Math.max(0, Math.min(maxT, startT + dy))}px`;
-      } else if (mode === 'resize' && !isMinimized) {
-        const nextW = Math.max(190, Math.min(window.innerWidth - 16, startW + dx));
-        const nextH = Math.max(105, Math.min(window.innerHeight - 40, startH + dy));
-        chatBox.style.width = `${nextW}px`;
-        chatBox.style.height = `${nextH}px`;
-        expandedHeight = nextH;
+        const maxL = Math.max(0, window.innerWidth - targetBox.offsetWidth);
+        const maxT = Math.max(0, window.innerHeight - targetBox.offsetHeight);
+        targetBox.style.left = `${Math.max(0, Math.min(maxL, startL + dx))}px`;
+        targetBox.style.top = `${Math.max(0, Math.min(maxT, startT + dy))}px`;
+      } else if (mode === 'resize') {
+        const nextW = Math.max(210, Math.min(window.innerWidth - 16, startW + dx));
+        const nextH = Math.max(120, Math.min(window.innerHeight - 50, startH + dy));
+        dragContainer.style.width = `${nextW}px`;
+        dragContainer.style.height = `${nextH}px`;
       }
     };
 
@@ -1122,9 +1094,13 @@
       syncAchievementPassiveBuffsV40() {
         const d = this.saveData;
         if (!d) return { unlockedCount: 0, atkPct: 0, matkPct: 0, defPct: 0, hpPct: 0, mpPct: 0, rewardBonusPct: 0 };
-        const achObj = (d.achievements && typeof d.achievements === 'object') ? d.achievements : {};
+        // 本体の saveData.claimedAchievements（配列）と saveData.achievements の両方に対応
         let unlockedCount = 0;
-        Object.values(achObj).forEach(v => { if (v === true) unlockedCount++; });
+        if (Array.isArray(d.claimedAchievements)) {
+          unlockedCount = d.claimedAchievements.length;
+        } else if (d.achievements && typeof d.achievements === 'object') {
+          Object.values(d.achievements).forEach(v => { if (v === true) unlockedCount++; });
+        }
 
         const summary = {
           unlockedCount,
@@ -1186,20 +1162,25 @@
       },
 
       calcMagicAttackPowerV40() {
-        const st = typeof this.getPlayerStats === 'function' ? (this.getPlayerStats() || {}) : {};
+        const st = typeof this.calcDerivedStats === 'function' ? (this.calcDerivedStats() || {}) : {};
         const d = this.saveData || {};
-        return Math.max(12, Number(st.matk ?? st.mAtk ?? d.matk ?? st.atk ?? d.atk ?? 15));
+        const pAtk = Number(st.physAtk ?? d.atk ?? 15);
+        const magMult = Number(st.magMult ?? 1.0);
+        return Math.max(12, Math.floor(pAtk * magMult));
       },
 
       applyMagicProjectileHitDamageV40(m, dmg) {
         if (!m || m.dead) return;
         const val = Math.max(1, Math.floor(Number(dmg) || 1));
-        m.hp = Math.max(0, (Number(m.hp) || 0) - val);
-        this.spawnFloatingText?.(m.pos, `-${val}`, '#38bdf8');
-        if (m.hp <= 0 && !m.dead) {
-          if (typeof this.killMonster === 'function') this.killMonster(m);
-          else if (typeof this.onMonsterKilled === 'function') this.onMonsterKilled(m);
-          else m.dead = true;
+        if (typeof this.damageMonster === 'function') {
+          this.damageMonster(m, val, false, '✨');
+        } else {
+          m.hp = Math.max(0, (Number(m.hp) || 0) - val);
+          this.spawnFloatText?.(m.pos, `-${val}`, '#38bdf8', false);
+          if (m.hp <= 0 && !m.dead) {
+            m.dead = true;
+            this.grantMonsterRewards?.(m);
+          }
         }
       },
 
@@ -1216,37 +1197,35 @@
       }
     });
 
-    // ステータス計算に実績パッシブ＆武器グレード倍率を統合
-    if (typeof proto.getPlayerStats === 'function' && !proto._v8StatsWrapped) {
-      const origStats = proto.getPlayerStats;
-      proto.getPlayerStats = function (...args) {
-        const st = origStats.apply(this, args) || {};
+    // 本体の calcDerivedStats に実績パッシブ＆武器グレード倍率を統合
+    if (typeof proto.calcDerivedStats === 'function' && !proto._v8DerivedStatsWrapped) {
+      const origDerived = proto.calcDerivedStats;
+      proto.calcDerivedStats = function (...args) {
+        const st = origDerived.apply(this, args) || {};
         const ach = this._achPassiveSummaryV8 || this.syncAchievementPassiveBuffsV40();
         const wInfo = getWeaponGradeInfoV8(this, this.player);
         const wMult = wInfo.meta.mult || 1.0;
 
-        if (typeof st.atk === 'number') {
-          st.atk = Math.floor(st.atk * wMult * (1 + (ach?.atkPct || 0)));
+        if (typeof st.physAtk === 'number') {
+          st.physAtk = Math.floor(st.physAtk * wMult * (1 + (ach?.atkPct || 0)));
         }
-        if (typeof st.matk === 'number') {
-          st.matk = Math.floor(st.matk * (1 + (ach?.matkPct || 0)));
-        }
-        if (typeof st.mAtk === 'number') {
-          st.mAtk = Math.floor(st.mAtk * (1 + (ach?.matkPct || 0)));
+        if (typeof st.magMult === 'number') {
+          st.magMult = Number((st.magMult * (1 + (ach?.matkPct || 0))).toFixed(3));
         }
         if (ach && ach.unlockedCount > 0) {
-          if (typeof st.def === 'number') st.def = Math.floor(st.def * (1 + ach.defPct));
+          if (typeof st.def === 'number') st.def = Math.min(0.88, st.def + ach.defPct * 0.25);
           if (typeof st.maxHp === 'number') st.maxHp = Math.floor(st.maxHp * (1 + ach.hpPct));
+          if (typeof st.rewardMult === 'number') st.rewardMult = Number((st.rewardMult * (1 + ach.rewardBonusPct)).toFixed(3));
         }
         if (this.saveData?.maxMp) {
           st.maxMp = Math.max(Number(st.maxMp || 0), Number(this.saveData.maxMp));
         }
         return st;
       };
-      proto._v8StatsWrapped = true;
+      proto._v8DerivedStatsWrapped = true;
     }
 
-    // 通常攻撃ビジュアルを武器グレード別水平横振りに一本化（重複フックなし）
+    // 通常攻撃ビジュアルを武器グレード別水平横振りに一本化
     if (typeof proto.triggerAttackVisual === 'function' && !proto._v8AtkVisWrapped) {
       const origVis = proto.triggerAttackVisual;
       proto.triggerAttackVisual = function (entity, isSkill = false, skillInfo = null) {
@@ -1259,27 +1238,25 @@
       proto._v8AtkVisWrapped = true;
     }
 
-    // モンスター撃破時の脅威度ボーナス＆勝利表情トリガー
-    ['killMonster', 'onMonsterKilled'].forEach(fn => {
-      if (typeof proto[fn] === 'function' && !proto[`_v8ThreatReward_${fn}`]) {
-        const origKill = proto[fn];
-        proto[fn] = function (m, ...rest) {
-          const res = origKill.apply(this, [m, ...rest]);
-          if (this.player) this.player._v8VictoryTimer = 0.85;
-          const d = this.saveData;
-          const threat = Math.max(1, Number(d?.threatRank ?? d?.threat ?? 1));
-          if (d && threat > 1) {
-            const mult = (threat - 1) * 0.08;
-            d.exp = (Number(d.exp) || 0) + Math.floor((Number(m?.exp || 12)) * mult);
-            d.gold = (Number(d.gold) || 0) + Math.floor((Number(m?.gold || 10)) * mult);
-          }
-          return res;
-        };
-        proto[`_v8ThreatReward_${fn}`] = true;
-      }
-    });
+    // 本体の敵撃破報酬処理（grantMonsterRewards）に脅威度ボーナス＆勝利表情トリガーを接続
+    if (typeof proto.grantMonsterRewards === 'function' && !proto._v8RewardWrapped) {
+      const origRewards = proto.grantMonsterRewards;
+      proto.grantMonsterRewards = function (m, ...rest) {
+        const res = origRewards.apply(this, [m, ...rest]);
+        if (this.player) this.player._v8VictoryTimer = 0.85;
+        const d = this.saveData;
+        const threat = Math.max(1, Number(d?.threatRank ?? d?.threat ?? 1));
+        if (d && threat > 1) {
+          const mult = (threat - 1) * 0.08;
+          d.exp = (Number(d.exp) || 0) + Math.floor((Number(m?.exp || 12)) * mult);
+          d.gold = (Number(d.gold) || 0) + Math.floor((Number(m?.gold || 10)) * mult);
+        }
+        return res;
+      };
+      proto._v8RewardWrapped = true;
+    }
 
-    // フレーム更新ループ（MP成長回復・3D剣スイング＆斬撃更新・全顔文字正面化・極光の聖域ティック）
+    // フレーム更新ループ（MP成長回復・3D剣スイング＆斬撃更新・全顔文字正面化・被弾検知・極光の聖域ティック）
     if (typeof proto.update === 'function' && !proto._v8UpdateWrapped) {
       const origUpdate = proto.update;
       proto.update = function (dt = 0.016, ...rest) {
@@ -1288,6 +1265,15 @@
 
         if (this.player?.sanctuaryBuffTimer > 0) {
           this.player.sanctuaryBuffTimer = Math.max(0, this.player.sanctuaryBuffTimer - safeDt);
+        }
+
+        // HP減少を検知して被弾表情を発火
+        if (this.player) {
+          const curHp = Number(this.player.hp || 0);
+          if (typeof this.player._v8PrevHp === 'number' && curHp < this.player._v8PrevHp - 0.5) {
+            this.player._v8HurtTimer = 0.45;
+          }
+          this.player._v8PrevHp = curHp;
         }
 
         const res = origUpdate.apply(this, [dt, ...rest]);
@@ -1308,7 +1294,7 @@
       proto._v8UpdateWrapped = true;
     }
 
-// HUD更新（0.4秒以内の連続DOM走査を防止して超軽量化）
+    // HUD更新（0.4秒以内の連続DOM走査を防止して超軽量化）
     if (typeof proto.refreshAllHUD === 'function' && !proto._v8HudWrapped) {
       const origHud = proto.refreshAllHUD;
       let _lastHudV8 = 0;
@@ -1328,7 +1314,9 @@
       proto._v8HudWrapped = true;
     }
   }
+
   installV8Core();
+
   window.updateMpGrowthAndRegenV8 = function (dt = 0.016) {
     const inst = window.__kmjInstance || window.game;
     inst?.updateMpGrowthAndRegenV8?.(dt);
