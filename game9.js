@@ -1607,12 +1607,37 @@
   V9._addMagicCircleBase = addMagicCircleBase;
 })();
 // ▲▲▲ ここまで【スキルエフェクト専用 game9.js 2/3】 ▲▲▲
-// ▼▼▼ ここから【スキルエフェクト専用 game9.js 3/3】3Dビルダー(10〜18)・統合実行エンジン・武器6段階水平横振り・通常戦闘フック ▼▼▼
+// ▼▼▼ ここから【スキルエフェクト専用 game9.js 3/3】3Dビルダー(10〜18)・統合実行エンジン・武器6段階水平横振り・安全ガードフック ▼▼▼
 (() => {
   'use strict';
 
+  // iPad実機でエラー箇所を即特定するためのエラー通知バナー
+  function showDebugErrorV9(msg) {
+    let box = document.getElementById('kmj-v9-err-banner');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'kmj-v9-err-banner';
+      box.style.cssText = 'position:fixed;top:42px;left:8px;right:8px;z-index:99999;background:rgba(153,27,27,0.96);color:#fef2f2;border:2px solid #f87171;border-radius:8px;padding:8px 10px;font-size:11px;font-weight:bold;word-break:break-all;box-shadow:0 4px 16px rgba(0,0,0,0.7);';
+      document.body.appendChild(box);
+    }
+    box.textContent = '⚠️ エラー検知: ' + msg;
+  }
+  window.addEventListener('error', (e) => {
+    const file = (e.filename || '').split('/').pop();
+    showDebugErrorV9(`${e.message} (${file}:${e.lineno})`);
+  });
+
   const V9 = window.KMJ_SKILL_FX_V9;
-  if (!V9 || !V9.EFFECT_BUILDERS) return;
+  if (!V9 || !V9.EFFECT_BUILDERS) {
+    showDebugErrorV9('game9.js の 1/3 または 2/3 が正しく読み込まれていません');
+    return;
+  }
+
+  // 本体側のスキル参照を壊さないよう、SKILLS配列の元name書き換えを無効化
+  V9.syncAllSkills = function (game) {
+    const allList = this.getAll14Skills(game);
+    this.assignUniqueProfiles(allList);
+  };
 
   const addMagicCircleBase = V9._addMagicCircleBase || function (root, radius, c1, c2, tier, ringsOut) {
     const ringCount = 2 + tier;
@@ -2397,7 +2422,6 @@
       });
     }
 
-    // 本体(game3.js / game4.js)の camShake 変数へ正しくカメラシェイクを反映
     const shakeVal = 0.26 + tier * 0.09;
     if (typeof game.camShake === 'number') {
       game.camShake = Math.max(game.camShake, shakeVal);
@@ -2531,7 +2555,6 @@
     root.position.set(entity.pos.x, 0, entity.pos.z);
     root.rotation.y = rotY;
 
-    // 1. 剣の横振りに連動して右から左へ薙ぎ払う水平扇形スラッシュ群
     const arcs = [];
     for (let i = 0; i < slashLayers; i++) {
       const col = grade >= 5 ? rainbowCols[i % rainbowCols.length] : (i % 3 === 0 ? c1 : (i % 3 === 1 ? c2 : c3));
@@ -2554,7 +2577,6 @@
       arcs.push({ mesh, mat, idx: i });
     }
 
-    // 2. グレード2以上：前方へ直進する三日月型の飛翔剣気ウェーブ
     const flyingWaves = [];
     if (grade >= 2) {
       const waveCnt = grade >= 4 ? 2 : 1;
@@ -2576,7 +2598,6 @@
       }
     }
 
-    // 3. グレード3以上：足元から広がる地面衝撃波リング
     let groundRing = null;
     if (grade >= 3) {
       const gMat = new THREE.MeshBasicMaterial({
@@ -2591,7 +2612,6 @@
       root.add(groundRing);
     }
 
-    // 4. グレード4以上：斜め交差する追加X字斬撃閃光
     const crossBlades = [];
     if (grade >= 4) {
       for (let c = 0; c < 2; c++) {
@@ -2613,7 +2633,6 @@
       }
     }
 
-    // 5. グレード5（LR・神話級）：連動して飛ぶ光剣ビット
     const spiritSwords = [];
     if (grade >= 5) {
       for (let s = 0; s < 4; s++) {
@@ -2631,7 +2650,6 @@
       }
     }
 
-    // 6. 武器属性パーティクル飛散
     const particles = [];
     const pCnt = grade === 0 ? 4 : (8 + grade * 5);
     for (let i = 0; i < pCnt; i++) {
@@ -2706,7 +2724,7 @@
   }
 
   // =========================================================
-  // 29. ゲーム本体（game3.js / game1.js）との完全接続＆重複防止フック
+  // 29. ゲーム本体（game3.js / game1.js）との安全接続＆フリーズ防止フック
   // =========================================================
   function hookGameV9() {
     if (typeof KaomojiMMORPG === 'undefined') {
@@ -2717,7 +2735,7 @@
     if (P._v9Hooked) return;
     P._v9Hooked = true;
 
-    // 1. 毎フレーム update() で極光の聖域フィールドを更新
+    // 1. 毎フレーム update() を例外保護しつつ極光の聖域フィールドを更新
     if (typeof P.update === 'function') {
       const origUpdate = P.update;
       let lastSanctuaryTick = performance.now();
@@ -2728,21 +2746,33 @@
           : Math.min(0.1, (now - lastSanctuaryTick) / 1000);
         lastSanctuaryTick = now;
         try { V9.updateSanctuaryFields(this, dt); } catch (e) {}
-        return origUpdate.apply(this, args);
+        try {
+          return origUpdate.apply(this, args);
+        } catch (err) {
+          if (!this._v9LoggedUpdateErr) {
+            this._v9LoggedUpdateErr = true;
+            showDebugErrorV9(`update内エラー: ${err?.message || err}`);
+          }
+        }
       };
     }
 
-    // 2. 通常戦闘のスキル発動（useSkillSlot / executeSingleSkillCast）から3D魔法＆カットインを確実に起動
+    // 2. 通常戦闘のスキル発動（useSkillSlot / executeSingleSkillCast）から3D魔法＆カットインを起動
     let lastV9SkillStamp = 0;
     ['useSkillSlot', 'executeSingleSkillCast'].forEach(fnName => {
       if (typeof P[fnName] !== 'function') return;
       const origSkillFn = P[fnName];
       P[fnName] = function (...args) {
         const prevMp = Number(this.player?.mp ?? this.saveData?.mp ?? 0);
-        const res = origSkillFn.apply(this, args);
+        let res;
+        try {
+          res = origSkillFn.apply(this, args);
+        } catch (err) {
+          showDebugErrorV9(`${fnName}エラー: ${err?.message || err}`);
+          return false;
+        }
         const curMp = Number(this.player?.mp ?? this.saveData?.mp ?? 0);
         const now = performance.now();
-        // MPが消費されたか成功戻り値が返った時のみ重複なしで3D魔法を再生
         if ((res !== false || curMp < prevMp) && (now - lastV9SkillStamp > 120)) {
           lastV9SkillStamp = now;
           try {
@@ -2750,7 +2780,9 @@
             const arg0 = args[0];
             const slotOrSk = (arg0 && typeof arg0 === 'object' && arg0.skill) ? arg0.skill : (arg0 ?? 0);
             V9.castSkillEffect(this, slotOrSk);
-          } catch (e) {}
+          } catch (e) {
+            showDebugErrorV9(`3D演出エラー: ${e?.message || e}`);
+          }
         }
         return res;
       };
@@ -2775,7 +2807,7 @@
       }
     };
 
-    // 4. モーダル・タブ切り替え時にスキル画面へ「⚡ スタジオを開く」ボタンを注入＆スキル名同期
+    // 4. モーダル・タブ切り替え時にスキル画面へ「⚡ スタジオを開く」ボタンを注入
     ['openModal', 'renderModal', 'switchTab', 'renderTab'].forEach(uiFn => {
       if (typeof P[uiFn] !== 'function') return;
       const origUi = P[uiFn];
@@ -2792,19 +2824,9 @@
       };
     });
 
-    if (typeof P.syncSkillDescriptionsAndEffects === 'function') {
-      const origSync = P.syncSkillDescriptionsAndEffects;
-      P.syncSkillDescriptionsAndEffects = function () {
-        V9.syncAllSkills(this);
-        origSync.call(this);
-        V9.syncAllSkills(this);
-      };
-    }
-
     setTimeout(() => {
       if (window.game) {
         V9.syncAllSkills(window.game);
-        window.game.showAlertBanner?.('✨ 全18種3D魔法演出・【神】進化・武器6段階水平横振りシステム起動！', 2600);
       }
     }, 350);
   }
