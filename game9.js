@@ -2602,9 +2602,292 @@
     btn.onclick = () => openMagicEvolutionStudioV9();
     document.body?.appendChild(btn);
   }
+// =========================================================
+  // 11. 着弾タイミング完全同期エンジン（3Dエフェクトとダメージの因果一致）
+  // =========================================================
+  // 各属性の3Dアニメーション（セクション6・7）の「実際の着弾フレーム」に合わせた秒数設定
+  const IMPACT_SYNC_TABLE_V9 = {
+    slash_crescent: { delay: 0.14, perDist: 0.035, hits: 1, interval: 0,    shake: 0.18 }, // 真空波が飛んで当たる瞬間
+    fire_meteor:    { delay: 0.58, perDist: 0.005, hits: 1, interval: 0,    shake: 0.42 }, // 隕石が地面に激突する瞬間
+    fire_pillar:    { delay: 0.24, perDist: 0.004, hits: 1, interval: 0,    shake: 0.28 }, // 炎柱が吹き上がる瞬間
+    fire_burst:     { delay: 0.58, perDist: 0.012, hits: 1, interval: 0,    shake: 0.30 }, // 火球が飛んで爆発する瞬間
+    fire_eruption:  { delay: 0.30, perDist: 0.004, hits: 1, interval: 0,    shake: 0.34 }, // マグマ噴火のピーク
+    ice:            { delay: 0.26, perDist: 0.004, hits: 1, interval: 0,    shake: 0.26 }, // 氷柱が下から突き刺さる瞬間
+    thunder:        { delay: 0.14, perDist: 0.002, hits: 1, interval: 0,    shake: 0.34 }, // 稲妻が落ちる瞬間
+    wind:           { delay: 0.18, perDist: 0.005, hits: 3, interval: 0.16, shake: 0.16 }, // 竜巻で連続切り刻み（3段）
+    water:          { delay: 0.34, perDist: 0.004, hits: 1, interval: 0,    shake: 0.24 }, // 大渦潮・水柱の噴出ピーク
+    earth:          { delay: 0.24, perDist: 0.004, hits: 1, interval: 0,    shake: 0.36 }, // 巨岩が隆起する瞬間
+    dark:           { delay: 0.82, perDist: 0.003, hits: 1, interval: 0,    shake: 0.45 }, // 吸引後にブラックホール爆発
+    poison:         { delay: 0.20, perDist: 0.004, hits: 3, interval: 0.20, shake: 0.12 }, // 瘴気による継続スリップ（3段）
+    star:           { delay: 0.56, perDist: 0.005, hits: 2, interval: 0.12, shake: 0.32 }, // 流星群が降り注ぐ瞬間
+    sword:          { delay: 0.62, perDist: 0.004, hits: 1, interval: 0,    shake: 0.30 }, // 光剣が回転後に突き刺さる瞬間
+    default:        { delay: 0.24, perDist: 0.008, hits: 1, interval: 0,    shake: 0.22 }
+  };
+
+  const pendingImpactsV9 = [];
+
+  // 着弾専用の重低音ヒットSE
+  function playImpactHitSoundV9(power = 1.0) {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      if (!window._kmjV9AudioCtx) window._kmjV9AudioCtx = new AudioCtx();
+      const ctx = window._kmjV9AudioCtx;
+      if (ctx.state === 'suspended') ctx.resume();
+
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(140 * Math.min(1.4, Math.max(0.8, power)), now);
+      osc.frequency.exponentialRampToValueAtTime(32, now + 0.15);
+
+      gain.gain.setValueAtTime(0.11, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.17);
+    } catch (e) {}
+  }
+
+  // 着弾時の「敵の白発光」＆「カメラ揺れ」
+  function triggerImpactVisualsV9(game, monster, shakePower) {
+    try {
+      // 敵メッシュを一瞬だけ白く光らせる（ヒットフラッシュ）
+      const rootObj = monster?.mesh || monster?.group || monster?.obj;
+      if (rootObj && typeof rootObj.traverse === 'function') {
+        rootObj.traverse((child) => {
+          if (child.isMesh && child.material && child.material.emissive) {
+            if (child.userData._v9OrigEmissive === undefined) {
+              child.userData._v9OrigEmissive = child.material.emissive.getHex();
+              child.userData._v9OrigEmissiveInt = child.material.emissiveIntensity ?? 1;
+            }
+            child.material.emissive.setHex(0xffffff);
+            child.material.emissiveIntensity = 1.5;
+            clearTimeout(child.userData._v9FlashTimer);
+            child.userData._v9FlashTimer = setTimeout(() => {
+              if (child.material && child.material.emissive) {
+                child.material.emissive.setHex(child.userData._v9OrigEmissive || 0x000000);
+                child.material.emissiveIntensity = child.userData._v9OrigEmissiveInt ?? 1;
+              }
+            }, 80);
+          }
+        });
+      }
+
+      // カメラのマイクロシェイク予約
+      if (game && shakePower > 0) {
+        game._v9ShakeTime = 0.14;
+        game._v9ShakePower = Math.max(game._v9ShakePower || 0, shakePower);
+      }
+    } catch (e) {}
+  }
+
+  // 【連携①-A】スキル実行直前の「敵ステータス」と「ダメージ表示関数」をフック
+  function beginCaptureSkillImpactV9(game) {
+    const snap = new Map();
+    const mList = Array.isArray(game?.monsters) ? game.monsters : [];
+    for (let i = 0; i < mList.length; i++) {
+      const m = mList[i];
+      if (!m) continue;
+      snap.set(m, {
+        hp: Number(m.hp ?? 0),
+        vx: Number(m.vx ?? m.vel?.x ?? 0),
+        vy: Number(m.vy ?? m.vel?.y ?? 0),
+        vz: Number(m.vz ?? m.vel?.z ?? 0),
+        dead: Boolean(m.dead)
+      });
+    }
+
+    // 本体側がスキル発動瞬間に飛ばすダメージ数字を一時保留する
+    const capturedTexts = [];
+    const origFloat1 = game?.spawnFloatText;
+    const origFloat2 = game?.spawnFloatingText;
+
+    if (typeof origFloat1 === 'function') {
+      game.spawnFloatText = function (...args) {
+        capturedTexts.push({ fn: origFloat1, args });
+      };
+    }
+    if (typeof origFloat2 === 'function') {
+      game.spawnFloatingText = function (...args) {
+        capturedTexts.push({ fn: origFloat2, args });
+      };
+    }
+
+    return { snap, capturedTexts, origFloat1, origFloat2 };
+  }
+
+  // 【連携①-B & ②】スキル実行直後にダメージを巻き戻し、3Dエフェクトの着弾時間に合わせて予約
+  function finishCaptureSkillImpactV9(game, info, captureState) {
+    if (!captureState) return;
+    const { snap, capturedTexts, origFloat1, origFloat2 } = captureState;
+
+    // フックしていたダメージ数字関数を必ず元に戻す
+    if (game) {
+      if (origFloat1) game.spawnFloatText = origFloat1;
+      if (origFloat2) game.spawnFloatingText = origFloat2;
+    }
+
+    // 非攻撃スキル（回復・聖盾・聖域・咆哮）なら保留テキストをそのまま出して終了
+    if (!info || info.isNonAttack) {
+      capturedTexts.forEach(t => { try { t.fn.apply(game, t.args); } catch (e) {} });
+      return;
+    }
+
+    const syncCfg = IMPACT_SYNC_TABLE_V9[info.attr?.id] || IMPACT_SYNC_TABLE_V9.default;
+    const pPos = game?.player?.pos || { x: 0, z: 0 };
+    const mList = Array.isArray(game?.monsters) ? game.monsters : [];
+
+    // 敵ごとのダメージ・ノックバックを巻き戻して予約キューへ登録
+    let firstTargetQueueItem = null;
+
+    for (let i = 0; i < mList.length; i++) {
+      const m = mList[i];
+      const prev = snap.get(m);
+      if (!m || !prev) continue;
+
+      const curHp = Number(m.hp ?? 0);
+      const totalDmg = prev.hp - curHp;
+      if (totalDmg <= 0) continue;
+
+      // 1. HPと死亡フラグを「攻撃前」に巻き戻す（着弾するまで敵が倒れないようにする）
+      m.hp = prev.hp;
+      if (!prev.dead) {
+        m.dead = false;
+      }
+
+      // 2. 吹き飛び（ノックバック）速度も「攻撃前」に巻き戻す
+      const kvx = Number(m.vx ?? m.vel?.x ?? 0) - prev.vx;
+      const kvy = Number(m.vy ?? m.vel?.y ?? 0) - prev.vy;
+      const kvz = Number(m.vz ?? m.vel?.z ?? 0) - prev.vz;
+      if (typeof m.vx === 'number') m.vx = prev.vx;
+      if (typeof m.vy === 'number') m.vy = prev.vy;
+      if (typeof m.vz === 'number') m.vz = prev.vz;
+      if (m.vel) {
+        m.vel.x = prev.vx;
+        m.vel.y = prev.vy;
+        m.vel.z = prev.vz;
+      }
+
+      // 3. プレイヤーと敵の距離から着弾までの秒数を算出
+      const mPos = m.pos || pPos;
+      const dist = Math.hypot((mPos.x || 0) - (pPos.x || 0), (mPos.z || 0) - (pPos.z || 0));
+      const impactDelay = syncCfg.delay + dist * syncCfg.perDist;
+
+      // 4. 多段スキル（竜巻・瘴気など）はダメージを分割して予約
+      const hits = Math.max(1, syncCfg.hits || 1);
+      const dmgPerHit = totalDmg / hits;
+
+      for (let h = 0; h < hits; h++) {
+        const entry = {
+          game,
+          monster: m,
+          damage: dmgPerHit,
+          isLastHit: h === hits - 1,
+          kvx: h === 0 ? kvx : kvx * 0.2,
+          kvy: h === 0 ? kvy : kvy * 0.2,
+          kvz: h === 0 ? kvz : kvz * 0.2,
+          timer: impactDelay + h * (syncCfg.interval || 0.14),
+          shake: h === 0 ? syncCfg.shake : syncCfg.shake * 0.4,
+          playSound: h === 0 || h === hits - 1,
+          texts: []
+        };
+        if (!firstTargetQueueItem && h === 0) {
+          firstTargetQueueItem = entry;
+        }
+        pendingImpactsV9.push(entry);
+      }
+    }
+
+    // 保留していたダメージ数字を、一番近い着弾タイミングのキューに紐づける
+    if (capturedTexts.length > 0) {
+      if (firstTargetQueueItem) {
+        firstTargetQueueItem.texts.push(...capturedTexts);
+      } else {
+        // 敵に当たらなかったテキスト（Miss等）は少し遅らせて表示
+        setTimeout(() => {
+          capturedTexts.forEach(t => { try { t.fn.apply(game, t.args); } catch (e) {} });
+        }, Math.round(syncCfg.delay * 1000));
+      }
+    }
+  }
+
+  // 【連携③】毎フレーム更新（proto.update から呼ばれ、着弾した敵から順にダメージ確定）
+  function updatePendingImpactsV9(game, dt) {
+    const step = Math.min(0.05, Math.max(0.001, dt || 0.016));
+
+    // 1. 着弾タイマーの進行とダメージ解放
+    for (let i = pendingImpactsV9.length - 1; i >= 0; i--) {
+      const item = pendingImpactsV9[i];
+      item.timer -= step;
+      if (item.timer > 0) continue;
+
+      pendingImpactsV9.splice(i, 1);
+      const { game: g, monster: m, damage, kvx, kvy, kvz, shake, playSound, texts } = item;
+      if (!m) continue;
+
+      // ダメージ確定
+      const dmgInt = Math.max(1, Math.round(damage));
+      if (typeof m.hp === 'number') {
+        m.hp = Math.max(0, m.hp - dmgInt);
+      }
+
+      // ノックバック解放
+      if (typeof m.vx === 'number') m.vx += kvx;
+      if (typeof m.vy === 'number') m.vy += kvy;
+      if (typeof m.vz === 'number') m.vz += kvz;
+      if (m.vel) {
+        m.vel.x = (m.vel.x || 0) + kvx;
+        m.vel.y = (m.vel.y || 0) + kvy;
+        m.vel.z = (m.vel.z || 0) + kvz;
+      }
+
+      // 保留していたダメージ数字をここでポップアップ
+      if (texts && texts.length > 0) {
+        texts.forEach(t => { try { t.fn.apply(g, t.args); } catch (e) {} });
+      } else if (g && m.pos) {
+        (g.spawnFloatText || g.spawnFloatingText)?.call(g, m.pos, `💥-${dmgInt}`, '#fde047');
+      }
+
+      // HPが0になった瞬間に撃破状態にする
+      if (typeof m.hp === 'number' && m.hp <= 0 && !m.dead) {
+        m.dead = true;
+        if (typeof g?.killMonster === 'function') {
+          try { g.killMonster(m); } catch (e) {}
+        } else if (typeof g?.onMonsterDeath === 'function') {
+          try { g.onMonsterDeath(m); } catch (e) {}
+        }
+      }
+
+      // 白発光・カメラ揺れ・着弾SE
+      triggerImpactVisualsV9(g, m, shake);
+      if (playSound) playImpactHitSoundV9(1.0);
+    }
+
+    // 2. カメラのマイクロシェイク更新（座標ズレ防止付き）
+    if (game?.camera?.position) {
+      if (game._v9LastShakeOffset) {
+        game.camera.position.x -= game._v9LastShakeOffset.x;
+        game.camera.position.y -= game._v9LastShakeOffset.y;
+        game._v9LastShakeOffset = null;
+      }
+      if (game._v9ShakeTime > 0) {
+        game._v9ShakeTime -= step;
+        const p = (game._v9ShakePower || 0.2) * Math.max(0, game._v9ShakeTime / 0.14);
+        const ox = (Math.random() - 0.5) * p;
+        const oy = (Math.random() - 0.5) * p;
+        game.camera.position.x += ox;
+        game.camera.position.y += oy;
+        game._v9LastShakeOffset = { x: ox, y: oy };
+      }
+    }
+  }
 
   // =========================================================
-  // 11. 本体フック＆無限再帰・二重発火・非攻撃スキルの完全ガード
+  // 12. 本体フック＆無限再帰・二重発火・非攻撃スキルの完全ガード
   // =========================================================
   function installV9MasterHooks() {
     const classes = [];
@@ -2661,6 +2944,7 @@
         proto._v9Guard_status = true;
       }
 
+      // ★ 連携ポイント①・②：スキル実行を挟み込んでダメージを遅らせる
       ['useSkillSlot', 'executeSingleSkillCast', 'useSkill', 'castSkill', 'executeSkill'].forEach(fn => {
         if (typeof proto[fn] === 'function' && !proto[`_v9Hook_${fn}`]) {
           const orig = proto[fn];
@@ -2686,7 +2970,15 @@
                 this._v9SuppressAttackUntil = performance.now() + 220;
               }
 
-              const res = orig.apply(this, [slotOrId, targetArg, ...rest]);
+              // 【入り口】ダメージ・吹き飛び・ダメージ数字の監視開始
+              const captureState = beginCaptureSkillImpactV9(this);
+              let res;
+              try {
+                res = orig.apply(this, [slotOrId, targetArg, ...rest]);
+              } finally {
+                // 【時間合わせ】即時ダメージを巻き戻して着弾キューへ予約
+                finishCaptureSkillImpactV9(this, preInfo, captureState);
+              }
 
               if (res !== false && sk) {
                 playSkillEffectV9(this, sk, slotIdx, null, targetArg);
@@ -2700,6 +2992,7 @@
         }
       });
 
+      // ★ 連携ポイント③：毎フレーム更新で着弾タイマーを進めて解放する
       if (typeof proto.update === 'function' && !proto._v9UpdateWrapped) {
         const origUpdate = proto.update;
         proto.update = function (dt = 0.016, ...rest) {
@@ -2708,6 +3001,12 @@
           if (activeSanctuariesV9.length > 0) {
             try {
               V9.updateSanctuaryFields(this, dt);
+            } catch (e) {}
+          }
+          // 【出口】着弾タイミングに到達したダメージと演出を解放
+          if (pendingImpactsV9.length > 0 || this._v9ShakeTime > 0 || this._v9LastShakeOffset) {
+            try {
+              updatePendingImpactsV9(this, dt);
             } catch (e) {}
           }
           return res;
@@ -2738,4 +3037,5 @@
     syncAllSkillsV9(null, true);
   }, 500);
 })();
-// ▲▲▲ ここまで【スキルエフェクト専用 game9.js（単一ファイル統合・スキル正確解決＆軽量爆速版）】 ▲▲▲
+// ▲▲▲ ここまで【スキルエフェクト専用 game9.js（着弾同期＆単一ファイル統合版）】 ▲▲▲
+
