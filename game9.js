@@ -1,4 +1,4 @@
-// ▼▼▼ ここから【スキルエフェクト専用 game9.js（無限再帰＆毎フレームエラー完全修正・爆速版）】 ▼▼▼
+// ▼▼▼ ここから【スキルエフェクト専用 game9.js（無限再帰完全修正＆超軽量・爆速版）1/2】CSS・シンセ音・全18種プロファイル・共有キャッシュ＆オンデマンド3Dループ・極光の聖域・前半3Dビルダー(1〜10) ▼▼▼
 (() => {
   'use strict';
 
@@ -780,12 +780,21 @@
     }
   }
 
+  const V9 = window.KMJ_SKILL_FX_V9 = {
+    ATTRIBUTES: SKILL_DERIVATION_PROFILES_V9,
+    EFFECT_BUILDERS: {},
+    register3DAnimation: register3DAnimationV9,
+    spawnAuroraSanctuaryField: spawnAuroraSanctuaryFieldV9,
+    updateSanctuaryFields: updateSanctuaryFieldsV9,
+    _playMagicAudio: playMagicAudioV9
+  };
+
   // =========================================================
-  // 6. 全18種スキル個別3Dエフェクト専用ビルダー（軽量・高迫力 1〜18）
+  // 6. 全18種スキル個別3Dエフェクト専用ビルダー（軽量・高迫力前半 1〜10）
   // =========================================================
   const reg = register3DAnimationV9;
 
-  const EFFECT_BUILDERS_V9 = {
+  const EFFECT_BUILDERS_PART1 = {
     // 1. 覇王の咆哮
     warcry_aura: (scene, caster, target, tier, attr) => {
       const root = new THREE.Group();
@@ -1448,8 +1457,18 @@
         shockRing.scale.set(sc, sc, 1);
         shockRing.material.opacity = fade;
       });
-    },
+    }
+  };
 
+  Object.assign(window.KMJ_SKILL_FX_V9.EFFECT_BUILDERS, EFFECT_BUILDERS_PART1);
+  window.KMJ_SKILL_FX_V9._makeCircleRing = makeCircleRing;
+  window.KMJ_SKILL_FX_V9._unitGeo = unitGeoV9;
+  window.KMJ_SKILL_FX_V9._getCachedGeo = getCachedGeoV9;
+
+  // =========================================================
+  // 7. 全18種スキル個別3Dエフェクト専用ビルダー（軽量・高迫力後半 11〜18）
+  // =========================================================
+  const EFFECT_BUILDERS_PART2 = {
     // 11. 旋風円舞・螺旋竜巻魔法
     wind: (scene, caster, target, tier, attr) => {
       const root = new THREE.Group();
@@ -2087,7 +2106,10 @@
     }
   };
 
-// =========================================================
+  Object.assign(V9.EFFECT_BUILDERS, EFFECT_BUILDERS_PART2);
+
+
+  // =========================================================
   // 8. スキル識別・非攻撃系スキル判定・進化状態管理（正確解決＆無限再帰ガード版）
   // =========================================================
   const TIER_LABELS_V9 = ['通常 ★1', '【真】★2', '【極】★3', '【神】★4'];
@@ -2716,4 +2738,4 @@
     syncAllSkillsV9(null, true);
   }, 500);
 })();
-// ▲▲▲ ここまで【スキルエフェクト専用 game9.js（無限再帰完全修正＆超軽量・爆速版）2/2】 ▲▲▲
+// ▲▲▲ ここまで【スキルエフェクト専用 game9.js（単一ファイル統合・スキル正確解決＆軽量爆速版）】 ▲▲▲
