@@ -204,7 +204,7 @@
 
     wrap.querySelector('#v7-dbg-heal').onclick = () => {
       g?.updateMpGrowthAndRegenV8?.(0.016);
-      const st = typeof g?.getPlayerStats === 'function' ? g.getPlayerStats() : {};
+      const st = typeof g?.calcDerivedStats === 'function' ? g.calcDerivedStats() : (typeof g?.getPlayerStats === 'function' ? g.getPlayerStats() : {});
       const mHp = Math.max(Number(st?.maxHp || 0), Number(g?.saveData?.maxHp || 100));
       const mMp = Math.max(Number(st?.maxMp || 0), Number(g?.saveData?.maxMp || 100));
       if (g?.saveData) { g.saveData.hp = mHp; g.saveData.mp = mMp; }
@@ -215,10 +215,12 @@
 
     wrap.querySelector('#v7-dbg-skill100').onclick = () => {
       if (g?.saveData) {
+        if (!g.saveData.skills) g.saveData.skills = {};
         if (!g.saveData.skillLevels) g.saveData.skillLevels = {};
         if (!g.saveData.skillLvs) g.saveData.skillLvs = {};
         allSkills.forEach((sk, i) => {
           const sid = String(sk.id || sk.skillId || `sk_${i + 1}`);
+          g.saveData.skills[sid] = 100;
           g.saveData.skillLevels[sid] = 100;
           g.saveData.skillLvs[sid] = 100;
           sk.lv = 100;
@@ -226,6 +228,7 @@
         });
       }
       v9?.syncAllSkills?.(g);
+      g?.refreshAllHUD?.();
       g?.saveGame?.(false);
       g?.showAlertBanner?.('🌈 全スキルを Lv.100【神】に進化させました！', 1800);
       openUnifiedDebugModalV7();
@@ -237,7 +240,7 @@
         if (typeof window.triggerSwordSwingAndSlashV8 === 'function') {
           window.triggerSwordSwingAndSlashV8(g, g?.player);
         } else {
-          g?.triggerAttackVisual?.(g?.player, false);
+          g?.performBasicAttack?.();
         }
       }, 60);
     };
@@ -292,14 +295,16 @@
   }
 
   function injectGearMenuV7() {
-    let gearBox = null;
-    const candidates = document.querySelectorAll('div, section, aside, ul');
-    for (let i = 0; i < candidates.length; i++) {
-      const el = candidates[i];
-      if (el.id === 'modal' || el.id === 'modal-body' || el.closest('#modal')) continue;
-      const txt = el.textContent || '';
-      if (txt.includes('手動セーブ') && txt.includes('完全データ初期化')) {
-        if (!gearBox || gearBox.contains(el)) gearBox = el;
+    let gearBox = document.getElementById('settings-menu');
+    if (!gearBox) {
+      const candidates = document.querySelectorAll('div, section, aside, ul');
+      for (let i = 0; i < candidates.length; i++) {
+        const el = candidates[i];
+        if (el.id === 'modal' || el.id === 'modal-body' || el.closest('#modal') || el.id === 'growth-modal' || el.closest('#growth-modal')) continue;
+        const txt = el.textContent || '';
+        if (txt.includes('手動セーブ') && txt.includes('完全データ初期化')) {
+          if (!gearBox || gearBox.contains(el)) gearBox = el;
+        }
       }
     }
     if (!gearBox) return;
@@ -360,8 +365,7 @@
         }
         if (g?.saveData) { g.saveData.name = raw; g.saveData.playerName = raw; }
         if (g?.player) g.player.name = raw;
-        g?.updateHUD?.();
-        g?.updateHud?.();
+        g?.refreshAllHUD?.();
         g?.saveGame?.(false);
         g?.showAlertBanner?.(`✅ 名前を「${raw}」に変更しました`, 1600);
       };
@@ -413,12 +417,14 @@
       maxMp: 50,
       atk: 15,
       def: 8,
-      threatRank: 1,
+      threatRank: 0,
       equippedWeapon: 'wpn_wood',
       weaponId: 'wpn_wood',
       weaponEnhance: 0,
       evolutionId: '',
-      skillLevels: {},
+      skills: { slash_arc: 1 },
+      skillLevels: { slash_arc: 1 },
+      claimedAchievements: [],
       achievements: {},
       unlockedRolesV40: [''],
       unlockedPetEquips: ['none'],
@@ -428,6 +434,9 @@
     };
 
     inst.saveData = Object.assign({}, defaults, inst.saveData || {}, loaded || {});
+    if (!inst.saveData.skills) inst.saveData.skills = { slash_arc: 1 };
+    if (!Array.isArray(inst.saveData.claimedAchievements)) inst.saveData.claimedAchievements = [];
+
     inst.dataReady = true;
     inst.isDataReady = true;
     inst.isReady = true;
@@ -470,7 +479,6 @@
       });
     }
 
-    // 「冒険を始める」ボタンの中央をタップした時に当たる要素を調べ、邪魔な透明膜を透過にする
     const startBtn = Array.from(document.querySelectorAll('button')).find(b => (b.textContent || '').includes('冒険を始める'));
     if (startBtn) {
       const r = startBtn.getBoundingClientRect();
@@ -654,7 +662,7 @@
             if (st.type === 'freeze') m.freezeTimer = Math.max(Number(m.freezeTimer) || 0, st.dur);
             if (st.type === 'poison') m.poisonTimer = Math.max(Number(m.poisonTimer) || 0, st.dur);
             if (st.type === 'shock') m.stunTimer = Math.max(Number(m.stunTimer) || 0, st.dur);
-            this.spawnFloatingText?.(m.pos, st.label, st.color);
+            (this.spawnFloatText || this.spawnFloatingText)?.call(this, m.pos, st.label, st.color);
           }
         });
       },
@@ -685,7 +693,17 @@
               this.applyMagicProjectileHitDamageV40(m, dotDmg);
             } else {
               m.hp = Math.max(0, (Number(m.hp) || 0) - dotDmg);
-              this.spawnFloatingText?.(m.pos, stType === 'burn' ? `🔥${dotDmg}` : `☠️${dotDmg}`, stType === 'burn' ? '#fb923c' : '#c084fc');
+              (this.spawnFloatText || this.spawnFloatingText)?.call(
+                this,
+                m.pos,
+                stType === 'burn' ? `🔥${dotDmg}` : `☠️${dotDmg}`,
+                stType === 'burn' ? '#fb923c' : '#c084fc'
+              );
+              if (m.hp <= 0 && !m.dead) {
+                m.dead = true;
+                m.respawnTimer = 4.0;
+                this.grantMonsterRewards?.(m);
+              }
             }
           }
         });
@@ -695,11 +713,12 @@
         const d = this.saveData;
         if (!d || typeof ACHIEVEMENTS === 'undefined' || !ACHIEVEMENTS) return;
         if (!d.achievements || typeof d.achievements !== 'object' || Array.isArray(d.achievements)) d.achievements = {};
+        if (!Array.isArray(d.claimedAchievements)) d.claimedAchievements = [];
         if (!d.statsV7) d.statsV7 = { kills: 0, bossKills: 0, skillsUsed: 0 };
 
         const lv = Number(d.lv ?? d.level ?? 1);
         const gold = Number(d.gold ?? d.coins ?? 0);
-        const threat = Number(d.threatRank ?? d.threat ?? 1);
+        const threat = Number(d.threatRank ?? d.threat ?? 0);
         const kills = Number(d.kills ?? d.killCount ?? d.statsV7.kills ?? 0);
         const bossKills = Number(d.bossKills ?? d.statsV7.bossKills ?? 0);
         const skillsUsed = Number(d.statsV7.skillsUsed ?? 0);
@@ -711,19 +730,26 @@
         let newly = 0;
         list.forEach((ach, idx) => {
           const aid = String(ach.id || ach.achId || `ach_${idx}`);
-          if (d.achievements[aid] === true || ach.unlocked) return;
-          const key = `${aid} ${ach.name || ''} ${ach.desc || ''}`.toLowerCase();
+          if (d.achievements[aid] === true || d.claimedAchievements.includes(aid) || ach.unlocked) return;
+
+          // 本体の check 関数がある場合はそちらを優先
           let met = false;
-          if (/lv|レベル/.test(key)) met = lv >= (Number((key.match(/(\d+)/) || [])[1]) || 10);
-          else if (/gold|ゴールド|金/.test(key)) met = gold >= (Number((key.match(/(\d+)/) || [])[1]) || 1000);
-          else if (/boss|ボス|魔王|竜/.test(key)) met = bossKills >= (Number((key.match(/(\d+)/) || [])[1]) || 1);
-          else if (/kill|討伐|撃破|敵/.test(key)) met = kills >= (Number((key.match(/(\d+)/) || [])[1]) || 10);
-          else if (/skill|スキル|魔法/.test(key)) met = skillsUsed >= (Number((key.match(/(\d+)/) || [])[1]) || 5);
-          else if (/threat|脅威/.test(key)) met = threat >= (Number((key.match(/(\d+)/) || [])[1]) || 5);
-          else met = lv >= (idx + 1) * 5 || kills >= (idx + 1) * 8;
+          if (typeof ach.check === 'function') {
+            try { met = !!ach.check(d); } catch (e) { met = false; }
+          } else {
+            const key = `${aid} ${ach.name || ''} ${ach.desc || ''}`.toLowerCase();
+            if (/lv|レベル/.test(key)) met = lv >= (Number((key.match(/(\d+)/) || [])[1]) || 10);
+            else if (/gold|ゴールド|金/.test(key)) met = gold >= (Number((key.match(/(\d+)/) || [])[1]) || 1000);
+            else if (/boss|ボス|魔王|竜/.test(key)) met = bossKills >= (Number((key.match(/(\d+)/) || [])[1]) || 1);
+            else if (/kill|討伐|撃破|敵/.test(key)) met = kills >= (Number((key.match(/(\d+)/) || [])[1]) || 10);
+            else if (/skill|スキル|魔法/.test(key)) met = skillsUsed >= (Number((key.match(/(\d+)/) || [])[1]) || 5);
+            else if (/threat|脅威/.test(key)) met = threat >= (Number((key.match(/(\d+)/) || [])[1]) || 5);
+            else met = lv >= (idx + 1) * 5 || kills >= (idx + 1) * 8;
+          }
 
           if (met) {
             d.achievements[aid] = true;
+            if (!d.claimedAchievements.includes(aid)) d.claimedAchievements.push(aid);
             ach.unlocked = true;
             ach.completed = true;
             newly++;
@@ -763,7 +789,7 @@
           }
         });
 
-        ['useSkill', 'castSkill', 'activateSkill', 'triggerSkill'].forEach(fn => {
+        ['useSkillSlot', 'executeSingleSkillCast', 'useSkill', 'castSkill'].forEach(fn => {
           if (typeof proto[fn] === 'function' && !proto[`_v7_${fn}`]) {
             const orig = proto[fn];
             proto[fn] = function (slotOrId, ...rest) {
@@ -784,7 +810,7 @@
           }
         });
 
-        ['killMonster', 'onMonsterKilled'].forEach(fn => {
+        ['grantMonsterRewards', 'killMonster', 'onMonsterKilled'].forEach(fn => {
           if (typeof proto[fn] === 'function' && !proto[`_v7_${fn}`]) {
             const orig = proto[fn];
             proto[fn] = function (m, ...rest) {
@@ -819,7 +845,7 @@
   setTimeout(markTitleDataReady, 300);
   setTimeout(markTitleDataReady, 1000);
 })();
-
+// --- 【1/2】ここまで（この直下に【2/2】を繋げてください） ---
 // =========================================================
 // 3. 【前編】Lv.999クラス進化・クラス別3D攻撃エフェクト・驚異度上限開放
 // =========================================================
@@ -998,7 +1024,7 @@
     Object.assign(proto, {
       enforceThreatAndLevelCapsV45() {
         const MAX_LV = 999;
-        const MAX_THREAT = 9999;
+        const MAX_THREAT = 999;
 
         try {
           ['MAX_LV', 'MAX_LEVEL', 'LEVEL_CAP', 'MAX_PLAYER_LV', 'MAX_SKILL_LV'].forEach(k => {
@@ -1077,9 +1103,9 @@
           }
           d[coinKey] = curGold - cls.cost;
           d.unlockedClassesV45.push(cls.id);
-          sfx?.playHeal?.();
+          if (typeof sfx !== 'undefined') sfx?.playHeal?.();
         } else {
-          sfx?.playTone?.(780, 'sine', 0.12, 0.08);
+          if (typeof sfx !== 'undefined') sfx?.playTone?.(780, 'sine', 0.12, 0.08);
         }
 
         const saveId = cls.id === 'novice' ? '' : cls.id;
@@ -1149,7 +1175,16 @@
           grp.rotation.y = rotY;
           this.scene.add(grp);
 
-          const magicDmg = isLocal && this.calcMagicAttackPowerV40 ? this.calcMagicAttackPowerV40() : 20;
+          let magicDmg = 20;
+          if (isLocal) {
+            if (typeof this.calcMagicAttackPowerV40 === 'function') {
+              magicDmg = this.calcMagicAttackPowerV40();
+            } else if (typeof this.calcDerivedStats === 'function') {
+              const st = this.calcDerivedStats();
+              magicDmg = Math.max(15, Math.floor((st.physAtk || 15) * (st.magMult || 1.0)));
+            }
+          }
+
           this._v22MagicShots.push({
             grp, aura, ring, auraMat, ringMat,
             vx: dirX * 22.0, vz: dirZ * 22.0,
@@ -1265,15 +1300,18 @@
 
     Object.assign(proto, {
       calcPetAttackPowerV45() {
-        const st = typeof this.getPlayerStats === 'function' ? (this.getPlayerStats() || {}) : {};
+        const st = typeof this.calcDerivedStats === 'function'
+          ? (this.calcDerivedStats() || {})
+          : (typeof this.getPlayerStats === 'function' ? (this.getPlayerStats() || {}) : {});
         const d = this.saveData || {};
-        const pAtk = Number(st.atk ?? d.atk ?? 15);
-        const pMatk = Number(st.matk ?? st.mAtk ?? d.matk ?? 0);
+        const pAtk = Number(st.physAtk ?? st.atk ?? d.atk ?? 15);
+        const pMagMult = Number(st.magMult ?? 1.0);
+        const pMatk = Number(st.matk ?? st.mAtk ?? d.matk ?? Math.floor(pAtk * pMagMult));
         const playerRefPower = Math.max(10, pAtk, pMatk);
 
         const petInfo = typeof this.getMyPetSyncInfo === 'function' ? this.getMyPetSyncInfo() : null;
-        const petLv = Math.max(1, Number(petInfo?.lv || this.pet?.lv || 1));
-        const eqId = petInfo?.equipId || 'none';
+        const petLv = Math.max(1, Number(petInfo?.lv || this.pet?.lv || d.pet?.lv || 1));
+        const eqId = petInfo?.equipId || d.pet?.equip || 'none';
         const petEq = typeof this.getPetEquipDef === 'function' ? this.getPetEquipDef(eqId) : { atkPct: 0 };
 
         const mult = 0.75 + Math.min(1.25, (petLv - 1) * 0.015) + (Number(petEq?.atkPct) || 0);
@@ -1295,7 +1333,7 @@
 
       ensureOnlineSystemV45() {
         const d = this.saveData || {};
-        if (d.onlineMode === undefined) d.onlineMode = true;
+        if (d.onlineMode === undefined) d.onlineMode = false;
 
         if (d.onlineMode && typeof this.initMultiplayerMQTT === 'function') {
           if (!this._mqttClient || !this._mqttClient.connected) {
@@ -1331,7 +1369,7 @@
       updateOnlinePillUIv45() {
         const pill = document.getElementById('kmj-v45-online-pill');
         if (!pill) return;
-        const isOnline = this.saveData?.onlineMode !== false;
+        const isOnline = Boolean(this.saveData?.onlineMode);
         const isConnected = Boolean(this._mqttClient && this._mqttClient.connected);
         const peerCount = (this.remotePlayers ? this.remotePlayers.size : 0) + (isOnline ? 1 : 0);
         const roomLabel = this.saveData?.roomPassEnabled ? `🔒合言葉部屋` : '全体広場';
@@ -1442,8 +1480,10 @@
             petContainer.insertBefore(atkCard, petContainer.firstChild);
           }
           const petAtk = this.calcPetAttackPowerV45();
-          const st = typeof this.getPlayerStats === 'function' ? (this.getPlayerStats() || {}) : {};
-          const pRef = Math.max(10, Number(st.atk || 15), Number(st.matk || st.mAtk || 15));
+          const st = typeof this.calcDerivedStats === 'function' ? (this.calcDerivedStats() || {}) : {};
+          const pAtk = Number(st.physAtk || 15);
+          const pMatk = Math.floor(pAtk * Number(st.magMult || 1.0));
+          const pRef = Math.max(10, pAtk, pMatk);
           const sig = `${petAtk}|${pRef}`;
           if (atkCard.dataset.sig !== sig) {
             atkCard.dataset.sig = sig;
@@ -1462,21 +1502,21 @@
         if (this._v45MasterHooked) return;
         this._v45MasterHooked = true;
 
-        if (typeof proto.getPlayerStats === 'function' && !proto._v45StatsWrapped) {
-          const origStats = proto.getPlayerStats;
-          proto.getPlayerStats = function (...args) {
-            const st = origStats.apply(this, args) || {};
+        // 本体の calcDerivedStats をラップしてクラス倍率を実際の攻撃/魔力/防御/HPへ反映
+        if (typeof proto.calcDerivedStats === 'function' && !proto._v45DerivedStatsWrapped) {
+          const origDerived = proto.calcDerivedStats;
+          proto.calcDerivedStats = function (...args) {
+            const st = origDerived.apply(this, args) || {};
             const cls = this.getCurrentClassDefV45();
             if (cls && cls.id !== 'novice') {
-              if (typeof st.atk === 'number') st.atk = Math.max(1, Math.floor(st.atk * (cls.atkMult || 1.0)));
-              if (typeof st.matk === 'number') st.matk = Math.max(1, Math.floor(st.matk * (cls.matkMult || 1.0)));
-              if (typeof st.mAtk === 'number') st.mAtk = Math.max(1, Math.floor(st.mAtk * (cls.matkMult || 1.0)));
+              if (typeof st.physAtk === 'number') st.physAtk = Math.max(1, Math.floor(st.physAtk * (cls.atkMult || 1.0)));
+              if (typeof st.magMult === 'number') st.magMult = Number((st.magMult * (cls.matkMult || 1.0)).toFixed(3));
               if (typeof st.def === 'number') st.def = Math.max(0, Math.floor(st.def * (cls.defMult || 1.0)));
               if (typeof st.maxHp === 'number') st.maxHp = Math.max(20, Math.floor(st.maxHp * (cls.hpMult || 1.0)));
             }
             return st;
           };
-          proto._v45StatsWrapped = true;
+          proto._v45DerivedStatsWrapped = true;
         }
 
         if (typeof proto.triggerAttackVisual === 'function' && !proto._v45AtkVisWrapped) {
@@ -1554,7 +1594,7 @@
 
   installV45Part2();
 
-  // 【修正】激重の MutationObserver を廃止し、画面タップ時だけ 0.3秒間隔制限付きで実行
+  // 画面タップ時だけ 0.3秒間隔制限付きで歯車メニュー・デバッグ表示を更新
   let _lastGearCheckV7 = 0;
   document.addEventListener('click', () => {
     const now = performance.now();
