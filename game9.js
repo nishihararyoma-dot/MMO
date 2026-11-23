@@ -2897,9 +2897,21 @@ snap.set(m, {
         (g.spawnFloatText || g.spawnFloatingText)?.call(g, m.pos, `💥-${dmgInt}`, '#fde047');
       }
 
-      // HPが0になった瞬間に撃破状態にする
-      if (typeof m.hp === 'number' && m.hp <= 0 && !m.dead) {
+// HPが0になった瞬間に撃破状態にし、3DモデルとHPバーを即座に消す
+      if (typeof m.hp === 'number' && m.hp <= 0) {
+        m.hp = 0;
         m.dead = true;
+        resetMonsterFlashV9(m);
+        if (!m.respawnTimer || m.respawnTimer <= 0) {
+          m.respawnTimer = m.isBoss ? 13.0 : 5.5;
+        }
+        if (m.casting) {
+          m.casting = null;
+          document.getElementById('boss-cast-box')?.classList.add('hidden');
+        }
+        if (m.group) m.group.visible = false;
+        if (m.plateEl) m.plateEl.style.display = 'none';
+        if (g?.selectedTarget === m) g.selectedTarget = null;
         if (typeof g?.killMonster === 'function') {
           try { g.killMonster(m); } catch (e) {}
         } else if (typeof g?.onMonsterDeath === 'function') {
