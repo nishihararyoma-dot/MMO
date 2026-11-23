@@ -1202,7 +1202,7 @@ updateMpGrowthAndRegenV8(dt = 0.016) {
           this.player.mp = curMp;
         }
       },
-      },      detectMonsterStatus(m) {
+      detectMonsterStatus(m) {
         if (!m) return null;
         if (m._visualStatus?.timer > 0) return m._visualStatus.type;
         if (Number(m.burnTimer) > 0) return 'burn';
