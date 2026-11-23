@@ -3740,5 +3740,412 @@ snap.set(m, {
   Object.assign(V9, {
     resetClassEvolution: () => resetClassEvolutionV9(null)
   });
+// =========================================================
+  // 14. 全スキル見た目完全差別化パッチ（新4種追加＋重複シルエット刷新）
+  // =========================================================
+  (function installDistinctSkillVisualsV9() {
+    const regFn = V9.register3DAnimation || register3DAnimationV9;
+    const ringFn = V9._makeCircleRing || makeCircleRing;
+    const geoFn = V9._unitGeo || unitGeoV9;
+
+    // 1. 新規プロファイル4種を追加（吸血・回転斬り・スタン震撃・MP魔力泉）
+    const extraProfiles = [
+      {
+        id: 'blood_drain',
+        isNonAttack: false,
+        label: '🩸 深紅吸血・ソウルドレイン魔法',
+        match: /吸血|ドレイン|吸収|ブラッド|ヴァンパイア|魂|drain|vampire|blood|siphon|leech/i,
+        cardType: '深紅吸収スペル',
+        c1: 0xe11d48, c2: 0xf43f5e, c3: 0xa855f7,
+        bgGrad: 'linear-gradient(135deg, rgba(136,19,55,0.98), rgba(88,28,135,0.94))',
+        names: (b) => [
+          b,
+          `【真】紅蓮吸魂・${b}`,
+          `【極】血界冥府符「ノスフェラトゥ・${b}」`,
+          `【神】創世血神「ドラキュラ・${b}」`
+        ]
+      },
+      {
+        id: 'spin_whirl',
+        isNonAttack: false,
+        label: '🌀 疾風回転斬・千刃竜巻輪舞',
+        match: /回転|輪舞|薙ぎ|スピン|ワール|旋回|whirl|spin|cyclone|cleave/i,
+        cardType: '円月乱舞スペル',
+        c1: 0x22d3ee, c2: 0xfde047, c3: 0x38bdf8,
+        bgGrad: 'linear-gradient(135deg, rgba(8,51,68,0.98), rgba(2,132,199,0.94))',
+        names: (b) => [
+          b,
+          `【真】円月千刃・${b}`,
+          `【極】疾風剣舞符「テンペスト・${b}」`,
+          `【神】天翔旋風神技「${b}・無双輪舞」`
+        ]
+      },
+      {
+        id: 'stun_impact',
+        isNonAttack: false,
+        label: '💫 雷鳴震撃・次元スタンブレイク',
+        match: /スタン|気絶|中断|脳天|粉砕|ハンマー|バッシュ|震撃|stun|interrupt|bash|smash|hammer/i,
+        cardType: '神罰震撃スペル',
+        c1: 0xf59e0b, c2: 0xfef08a, c3: 0xef4444,
+        bgGrad: 'linear-gradient(135deg, rgba(120,53,15,0.98), rgba(202,138,4,0.94))',
+        names: (b) => [
+          b,
+          `【真】剛烈震撃・${b}`,
+          `【極】天罰巨槌符「ミョルニル・${b}」`,
+          `【神】創世神槌「トール・${b}」`
+        ]
+      },
+      {
+        id: 'mana_charge',
+        isNonAttack: true,
+        supportType: 'heal',
+        label: '💧 蒼穹魔力泉・マナインフィニティ【MP回復】',
+        match: /マナ|魔力|チャージ|泉|エーテル|瞑想|精神|mana|mp|ether|charge|meditate/i,
+        cardType: '魔力充填スペル',
+        c1: 0x0284c7, c2: 0x7dd3fc, c3: 0xc084fc,
+        bgGrad: 'linear-gradient(135deg, rgba(12,74,110,0.98), rgba(109,40,217,0.94))',
+        names: (b) => [
+          b,
+          `【真】蒼穹魔泉・${b}`,
+          `【極】無限魔導符「エーテル・${b}」`,
+          `【神】創世魔源「マナ・インフィニティ」`
+        ]
+      }
+    ];
+
+    extraProfiles.forEach((ep) => {
+      if (!V9.ATTRIBUTES.some((a) => a.id === ep.id)) {
+        V9.ATTRIBUTES.unshift(ep);
+      }
+    });
+
+    // 着弾タイミング同期テーブルにも新4種を登録
+    if (typeof IMPACT_SYNC_TABLE_V9 === 'object' && IMPACT_SYNC_TABLE_V9) {
+      Object.assign(IMPACT_SYNC_TABLE_V9, {
+        blood_drain: { delay: 0.25, perDist: 0.008, hits: 2, interval: 0.18, shake: 0.22 },
+        spin_whirl:  { delay: 0.12, perDist: 0.003, hits: 3, interval: 0.12, shake: 0.24 },
+        stun_impact: { delay: 0.22, perDist: 0.004, hits: 1, interval: 0,    shake: 0.40 }
+      });
+    }
+
+    // 2. 個別3Dビルダー（新4種＋覇王の咆哮・聖光の癒しのシルエット刷新）
+    Object.assign(V9.EFFECT_BUILDERS, {
+      // 【刷新】覇王の咆哮：円柱をやめ、放射状に噴き出すトゲトゲ闘気スパイク＋衝撃波
+      warcry_aura: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        root.position.set(caster.x, 0.9, caster.z);
+
+        const wave1 = ringFn(0.4, 1.8 + tier * 0.5, attr.c2, 20);
+        wave1.position.y = -0.82;
+        const wave2 = ringFn(0.7, 2.5 + tier * 0.7, attr.c1, 8);
+        wave2.position.y = -0.80;
+        root.add(wave1, wave2);
+
+        const spikes = [];
+        const spCnt = 10 + tier * 4;
+        const spMats = [
+          new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.95 }),
+          new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.95 })
+        ];
+        for (let i = 0; i < spCnt; i++) {
+          const phi = Math.acos(1 - (2 * (i + 0.5)) / spCnt);
+          const theta = Math.PI * (1 + Math.sqrt(5)) * i;
+          const dir = new THREE.Vector3(
+            Math.sin(phi) * Math.cos(theta),
+            Math.abs(Math.cos(phi)) * 0.85 + 0.15,
+            Math.sin(phi) * Math.sin(theta)
+          ).normalize();
+
+          const sp = new THREE.Mesh(geoFn('cone4'), spMats[i % 2]);
+          const len = 1.6 + tier * 0.45;
+          sp.scale.set(0.22 + tier * 0.04, len, 0.22 + tier * 0.04);
+          sp.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+          root.add(sp);
+          spikes.push({ mesh: sp, dir, len });
+        }
+
+        regFn(scene, root, 1.05 + tier * 0.16, (p, el) => {
+          const fade = p > 0.7 ? 1 - (p - 0.7) / 0.3 : 1;
+          const s1 = 1 + p * (2.6 + tier * 0.7);
+          wave1.scale.set(s1, s1, 1);
+          wave1.material.opacity = fade * 0.95;
+          const s2 = 1 + p * (2.0 + tier * 0.6);
+          wave2.scale.set(s2, s2, 1);
+          wave2.rotation.z = el * 4;
+          wave2.material.opacity = fade * 0.9;
+          spMats.forEach(m => { m.opacity = fade * 0.95; });
+          spikes.forEach((s) => {
+            const dist = 0.5 + p * (2.2 + tier * 0.6);
+            s.mesh.position.copy(s.dir).multiplyScalar(dist);
+          });
+        });
+      },
+
+      // 【刷新】聖光の癒し：円柱をやめ、頭上の二重天使光輪＋舞い降りる聖羽根
+      holy_heal: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        root.position.set(caster.x, 0, caster.z);
+        const zoneR = 2.1 + tier * 0.55;
+
+        const petalRing = ringFn(zoneR * 0.75, zoneR, attr.c1, 12);
+        petalRing.position.y = 0.06;
+        root.add(petalRing);
+
+        const haloMat1 = new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.96 });
+        const haloMat2 = new THREE.MeshBasicMaterial({ color: attr.c3, transparent: true, opacity: 0.96 });
+        const halo1 = new THREE.Mesh(new THREE.TorusGeometry(0.95 + tier * 0.2, 0.07, 6, 24), haloMat1);
+        halo1.rotation.x = Math.PI / 2;
+        halo1.position.y = 2.75;
+        const halo2 = new THREE.Mesh(new THREE.TorusGeometry(1.35 + tier * 0.25, 0.05, 6, 24), haloMat2);
+        halo2.rotation.x = Math.PI / 2 + 0.25;
+        halo2.position.y = 2.95;
+        root.add(halo1, halo2);
+
+        const feathers = [];
+        const fCnt = 8 + tier * 3;
+        for (let i = 0; i < fCnt; i++) {
+          const fm = new THREE.Mesh(geoFn('tetra'), i % 2 === 0 ? haloMat1 : haloMat2);
+          fm.scale.set(0.28, 0.08, 0.45);
+          root.add(fm);
+          feathers.push({
+            mesh: fm,
+            ang: (Math.PI * 2 * i) / fCnt,
+            rad: 0.6 + (i % 4) * 0.45,
+            startY: 3.4 + (i % 3) * 0.7
+          });
+        }
+
+        regFn(scene, root, 1.2 + tier * 0.18, (p, el) => {
+          const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
+          petalRing.rotation.z = el * 2.5;
+          petalRing.material.opacity = fade * 0.95;
+          haloMat1.opacity = fade * 0.96;
+          haloMat2.opacity = fade * 0.96;
+          halo1.rotation.z = el * 4;
+          halo2.rotation.z = -el * 3;
+          feathers.forEach((f, idx) => {
+            const a = f.ang + el * 2.4;
+            const y = Math.max(0.15, f.startY * (1 - p * 0.85));
+            f.mesh.position.set(Math.cos(a) * f.rad, y, Math.sin(a) * f.rad);
+            f.mesh.rotation.set(Math.sin(el * 5 + idx) * 0.6, a, Math.cos(el * 4 + idx) * 0.6);
+          });
+        });
+      },
+
+      // 【新規】🩸 深紅吸血・ソウルドレイン
+      blood_drain: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        const tx = target?.x ?? caster.x;
+        const tz = target?.z ?? caster.z;
+
+        const targetRing = ringFn(0.4, 1.6 + tier * 0.4, attr.c1, 16);
+        targetRing.position.set(tx, 0.08, tz);
+        const casterRing = ringFn(0.4, 1.5 + tier * 0.4, attr.c2, 16);
+        casterRing.position.set(caster.x, 0.08, caster.z);
+        root.add(targetRing, casterRing);
+
+        const orbs = [];
+        const orbCnt = 6 + tier * 3;
+        const m1 = new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.96 });
+        const m2 = new THREE.MeshBasicMaterial({ color: attr.c3, transparent: true, opacity: 0.96 });
+        for (let i = 0; i < orbCnt; i++) {
+          const orb = new THREE.Mesh(geoFn('sphere'), i % 2 === 0 ? m1 : m2);
+          orb.scale.setScalar(0.28 + tier * 0.06);
+          root.add(orb);
+          orbs.push({
+            mesh: orb,
+            side: (i % 2 === 0 ? 1 : -1) * (0.8 + (i % 3) * 0.55),
+            height: 0.9 + (i % 4) * 0.45,
+            delay: (i / orbCnt) * 0.32
+          });
+        }
+
+        regFn(scene, root, 1.05 + tier * 0.15, (p, el) => {
+          const fade = p > 0.75 ? 1 - (p - 0.75) / 0.25 : 1;
+          targetRing.rotation.z = el * 5;
+          casterRing.rotation.z = -el * 5;
+          targetRing.material.opacity = fade * 0.92;
+          casterRing.material.opacity = fade * 0.92;
+          m1.opacity = fade * 0.96;
+          m2.opacity = fade * 0.96;
+
+          const dx = caster.x - tx;
+          const dz = caster.z - tz;
+          const len = Math.max(0.01, Math.hypot(dx, dz));
+          const px = -dz / len;
+          const pz = dx / len;
+
+          orbs.forEach((o) => {
+            const lp = Math.max(0, Math.min(1, (p - o.delay) / 0.68));
+            const ease = lp * lp;
+            const arc = Math.sin(lp * Math.PI);
+            o.mesh.position.set(
+              tx + dx * ease + px * o.side * arc,
+              0.8 + arc * o.height,
+              tz + dz * ease + pz * o.side * arc
+            );
+          });
+        });
+      },
+
+      // 【新規】🌀 疾風回転斬・千刃竜巻輪舞
+      spin_whirl: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        root.position.set(caster.x, 1.0, caster.z);
+        const maxR = 2.6 + tier * 0.75;
+
+        const slashDisk = ringFn(maxR * 0.45, maxR, attr.c1, 24);
+        const outerEdge = ringFn(maxR * 0.92, maxR * 1.12, attr.c2, 24);
+        outerEdge.position.y = 0.15;
+        root.add(slashDisk, outerEdge);
+
+        const blades = [];
+        const bCnt = 4 + tier * 2;
+        const bMat = new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.95 });
+        for (let i = 0; i < bCnt; i++) {
+          const b = new THREE.Mesh(geoFn('box'), bMat);
+          b.scale.set(maxR * 0.95, 0.08, 0.28 + tier * 0.06);
+          const ang = (Math.PI * 2 * i) / bCnt;
+          b.position.set(Math.cos(ang) * (maxR * 0.5), (i % 3 - 1) * 0.25, Math.sin(ang) * (maxR * 0.5));
+          b.rotation.y = -ang;
+          root.add(b);
+          blades.push(b);
+        }
+
+        regFn(scene, root, 0.85 + tier * 0.14, (p, el) => {
+          const fade = p > 0.7 ? 1 - (p - 0.7) / 0.3 : 1;
+          root.rotation.y = el * 18;
+          slashDisk.material.opacity = fade * 0.9;
+          outerEdge.material.opacity = fade * 0.95;
+          bMat.opacity = fade * 0.95;
+        });
+      },
+
+      // 【新規】💫 雷鳴震撃・次元スタンブレイク
+      stun_impact: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        root.position.set(target.x, 0, target.z);
+
+        const shock = ringFn(0.4, 2.2 + tier * 0.65, attr.c1, 20);
+        shock.position.y = 0.08;
+        root.add(shock);
+
+        const hammerGrp = new THREE.Group();
+        const headMat = new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.96 });
+        const handleMat = new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.96 });
+        const head = new THREE.Mesh(geoFn('cyl8'), headMat);
+        head.scale.set(0.75 + tier * 0.2, 1.5 + tier * 0.35, 0.75 + tier * 0.2);
+        head.rotation.z = Math.PI / 2;
+        const handle = new THREE.Mesh(geoFn('cyl8'), handleMat);
+        handle.scale.set(0.14, 2.2 + tier * 0.4, 0.14);
+        handle.position.y = 1.1;
+        hammerGrp.add(head, handle);
+        hammerGrp.position.y = 7.0;
+        root.add(hammerGrp);
+
+        const stars = [];
+        const sCnt = 5 + tier;
+        for (let i = 0; i < sCnt; i++) {
+          const st = new THREE.Mesh(geoFn('octa'), handleMat);
+          st.scale.setScalar(0.28 + tier * 0.05);
+          st.visible = false;
+          root.add(st);
+          stars.push({ mesh: st, ang: (Math.PI * 2 * i) / sCnt });
+        }
+
+        regFn(scene, root, 0.95 + tier * 0.15, (p, el) => {
+          const fade = p > 0.75 ? 1 - (p - 0.75) / 0.25 : 1;
+          headMat.opacity = fade * 0.96;
+          handleMat.opacity = fade * 0.96;
+          if (p < 0.28) {
+            const dp = p / 0.28;
+            hammerGrp.position.y = 7.0 * (1 - dp * dp) + 0.8;
+            hammerGrp.rotation.x = -0.6 * (1 - dp);
+          } else {
+            hammerGrp.position.y = 0.8;
+            hammerGrp.rotation.x = 0;
+            const sp = (p - 0.28) / 0.72;
+            const sc = 1 + sp * 1.4;
+            shock.scale.set(sc, sc, 1);
+            shock.material.opacity = (1 - sp) * 0.95;
+            stars.forEach((s) => {
+              s.mesh.visible = true;
+              const a = s.ang + el * 6;
+              s.mesh.position.set(Math.cos(a) * 1.15, 2.3 + Math.sin(el * 10) * 0.15, Math.sin(a) * 1.15);
+              s.mesh.rotation.y = el * 8;
+            });
+          }
+        });
+      },
+
+      // 【新規】💧 蒼穹魔力泉・マナインフィニティ
+      mana_charge: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        root.position.set(caster.x, 0, caster.z);
+
+        const manaRing = ringFn(0.8, 2.0 + tier * 0.5, attr.c1, 20);
+        manaRing.position.y = 0.07;
+        root.add(manaRing);
+
+        const gemMat = new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.95 });
+        const wireMat = new THREE.MeshBasicMaterial({ color: attr.c3, wireframe: true, transparent: true, opacity: 0.9 });
+        const crystal = new THREE.Mesh(geoFn('octa'), gemMat);
+        crystal.scale.set(0.55 + tier * 0.12, 0.95 + tier * 0.2, 0.55 + tier * 0.12);
+        crystal.position.y = 2.8;
+        const crystalWire = new THREE.Mesh(geoFn('octa'), wireMat);
+        crystalWire.scale.set(0.7 + tier * 0.15, 1.15 + tier * 0.24, 0.7 + tier * 0.15);
+        crystalWire.position.y = 2.8;
+        root.add(crystal, crystalWire);
+
+        const helix = [];
+        const hCnt = 8 + tier * 2;
+        for (let i = 0; i < hCnt; i++) {
+          const drop = new THREE.Mesh(geoFn('sphere'), i % 2 === 0 ? gemMat : wireMat);
+          drop.scale.setScalar(0.22 + tier * 0.04);
+          root.add(drop);
+          helix.push({ mesh: drop, phase: (Math.PI * 2 * i) / hCnt, strand: i % 2 });
+        }
+
+        regFn(scene, root, 1.15 + tier * 0.18, (p, el) => {
+          const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
+          manaRing.rotation.z = el * 3.5;
+          manaRing.material.opacity = fade * 0.95;
+          gemMat.opacity = fade * 0.95;
+          wireMat.opacity = fade * 0.9;
+          crystal.rotation.y = el * 5;
+          crystalWire.rotation.y = -el * 4;
+          helix.forEach((h) => {
+            const y = ((p * 2.5 + h.phase / (Math.PI * 2)) % 1) * 3.0;
+            const a = h.phase + el * 6 + h.strand * Math.PI;
+            const r = 1.1 * (1 - y / 3.8);
+            h.mesh.position.set(Math.cos(a) * r, y, Math.sin(a) * r);
+          });
+        });
+      }
+    });
+
+    // 3. スキルの type / id を最優先で判定して同じ見た目被りを防ぐ
+    const _prevInferV9 = inferDefaultProfileV9;
+    inferDefaultProfileV9 = function (origName, sk = {}) {
+      const skId = String(sk.id || sk.skillId || '');
+      const skType = String(sk.type || '').toUpperCase();
+
+      if (skId === 'spin_whirl') return findProfileByIdV9('spin_whirl') || _prevInferV9(origName, sk);
+      if (skType === 'DRAIN') return findProfileByIdV9('blood_drain') || _prevInferV9(origName, sk);
+      if (skType === 'INTERRUPT') return findProfileByIdV9('stun_impact') || _prevInferV9(origName, sk);
+      if (skType === 'HEAL_MP') return findProfileByIdV9('mana_charge') || _prevInferV9(origName, sk);
+      if (skType === 'HEAL') return findProfileByIdV9('holy_heal') || _prevInferV9(origName, sk);
+      if (skType === 'DEF_BUFF') return findProfileByIdV9('aegis_shield') || _prevInferV9(origName, sk);
+      if (skType === 'ATK_BUFF') return findProfileByIdV9('warcry_aura') || _prevInferV9(origName, sk);
+      if (skType === 'AOE_SLOW') return findProfileByIdV9('ice') || _prevInferV9(origName, sk);
+      if (skType === 'AOE_BURN') return findProfileByIdV9('fire_eruption') || _prevInferV9(origName, sk);
+      if (skType === 'THUNDER') return findProfileByIdV9('thunder') || _prevInferV9(origName, sk);
+
+      return _prevInferV9(origName, sk);
+    };
+
+    // スキル一覧の名前・表示を即座に再同期
+    setTimeout(() => syncAllSkillsV9(null, true), 150);
+  })();
 })();
-// ▲▲▲ ここまで 【スキルエフェクト専用 game9.js (MP完全回復&3D杖&クラス進化リセット統合版) 】 ▲▲▲
+// ▲▲▲ ここまで 【スキルエフェクト専用 game9.js (全スキル見た目差別化統合版) 】 ▲▲▲
