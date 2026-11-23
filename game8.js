@@ -1318,13 +1318,13 @@ updateMpGrowthAndRegenV8(dt = 0.016) {
       proto._v8RewardWrapped = true;
     }
 
-    // フレーム更新ループ（エラー握りつぶし防止・左下赤トースト通知付き）
+// フレーム更新ループ（エラー握りつぶし防止・左下赤トースト通知付き）
     if (typeof proto.update === 'function' && !proto._v8UpdateWrapped) {
       const origUpdate = proto.update;
       proto.update = function (dt = 0.016, ...rest) {
         const safeDt = Math.min(0.1, Math.max(0.001, Number(dt) || 0.016));
         try {
-          this.updateMpGrowthAndRegenV8(safeDt);
+          // ※ ここにあった updateMpGrowthAndRegenV8(safeDt) は下へ移動しました
 
           if (this.player?.sanctuaryBuffTimer > 0) {
             this.player.sanctuaryBuffTimer = Math.max(0, this.player.sanctuaryBuffTimer - safeDt);
@@ -1356,6 +1356,9 @@ updateMpGrowthAndRegenV8(dt = 0.016) {
         }
 
         try {
+          // ★ origUpdate の後に実行して、本体側の最大MP切り捨てを防ぐ
+          this.updateMpGrowthAndRegenV8(safeDt);
+
           updateEntitySwordSwingAnimV8(this, this.player, safeDt);
           if (this.remotePlayers && typeof this.remotePlayers.forEach === 'function') {
             this.remotePlayers.forEach(rp => updateEntitySwordSwingAnimV8(this, rp, safeDt));
@@ -1377,7 +1380,6 @@ updateMpGrowthAndRegenV8(dt = 0.016) {
       };
       proto._v8UpdateWrapped = true;
     }
-
     // HUD更新（0.4秒以内の連続DOM走査を防止＋左下赤トースト通知付き）
     if (typeof proto.refreshAllHUD === 'function' && !proto._v8HudWrapped) {
       const origHud = proto.refreshAllHUD;
