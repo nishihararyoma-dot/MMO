@@ -955,6 +955,10 @@
       savedRect = JSON.parse(localStorage.getItem('kmj_v8_chat_rect') || 'null');
       if (savedRect && typeof savedRect === 'object') {
         targetBox.style.position = 'fixed';
+        targetBox.style.setProperty('right', 'auto', 'important');
+        targetBox.style.setProperty('bottom', 'auto', 'important');
+        targetBox.style.setProperty('transform', 'none', 'important');
+        targetBox.style.setProperty('margin', '0', 'important');
         if (typeof savedRect.left === 'number') { targetBox.style.left = `${savedRect.left}px`; targetBox.style.right = 'auto'; }
         if (typeof savedRect.top === 'number') { targetBox.style.top = `${savedRect.top}px`; targetBox.style.bottom = 'auto'; }
         if (panel && typeof savedRect.width === 'number') { panel.style.width = `${savedRect.width}px`; }
@@ -1030,11 +1034,15 @@
       mode = nextMode;
       const r = targetBox.getBoundingClientRect();
       const pr = dragContainer.getBoundingClientRect();
-      targetBox.style.position = 'fixed';
-      targetBox.style.left = `${r.left}px`;
-      targetBox.style.top = `${r.top}px`;
-      targetBox.style.right = 'auto';
-      targetBox.style.bottom = 'auto';
+        targetBox.style.position = 'fixed';
+        targetBox.style.left = `${r.left}px`;
+        targetBox.style.top = `${r.top}px`;
+        targetBox.style.right = 'auto';
+        targetBox.style.bottom = 'auto';
+        targetBox.style.setProperty('right', 'auto', 'important');
+        targetBox.style.setProperty('bottom', 'auto', 'important');
+        targetBox.style.setProperty('transform', 'none', 'important');
+        targetBox.style.setProperty('margin', '0', 'important');
       startX = pt.clientX;
       startY = pt.clientY;
       startL = r.left;
