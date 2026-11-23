@@ -2985,6 +2985,7 @@
       }
 
       // ★ 連携ポイント①・②：スキル実行を挟み込んでダメージを遅らせる
+// ★ 連携ポイント①・②：未設定・クールタイム中の誤発動を完全に防ぎつつダメージを同期
       ['useSkillSlot', 'executeSingleSkillCast', 'useSkill', 'castSkill', 'executeSkill'].forEach(fn => {
         if (typeof proto[fn] === 'function' && !proto[`_v9Hook_${fn}`]) {
           const orig = proto[fn];
@@ -3000,15 +3001,53 @@
 
               const now = performance.now();
               if (this._v9LastCastStamp && (now - this._v9LastCastStamp) < 90) {
-                return orig.apply(this, [slotOrId, targetArg, ...rest]);
+                return false;
               }
-              this._v9LastCastStamp = now;
 
               const { sk, slotIdx } = resolveSkillEntryV9(this, slotOrId);
-              const preInfo = sk ? getSkillInfoV9(this, sk, slotIdx) : null;
+
+              // 1. スキルが設定されていない空きスロットなら何もしない
+              if (!sk) {
+                return false;
+              }
+
+              const preInfo = getSkillInfoV9(this, sk, slotIdx);
+              const isDebugOn = Boolean(this._debugInfiniteMode === true || window.KMJ_DEBUG?.isActive?.(this));
+
+              // 2. クールタイム中の発動をブロック（本体側とV9側の両方のCDを確認）
+              if (!isDebugOn) {
+                if (!this._v9CdUntil) this._v9CdUntil = {};
+                const cdKey = slotIdx >= 0 ? `slot_${slotIdx}` : `sk_${preInfo.sid}`;
+                if (this._v9CdUntil[cdKey] && now < this._v9CdUntil[cdKey]) {
+                  return false;
+                }
+                const coreCd = Number(
+                  (slotIdx >= 0 ? (this.skillCooldowns?.[slotIdx] ?? this.slotCooldowns?.[slotIdx] ?? this.cooldowns?.[slotIdx]) : 0)
+                  ?? this.skillCooldowns?.[preInfo.sid]
+                  ?? this.cooldowns?.[preInfo.sid]
+                  ?? sk.currentCd
+                  ?? sk.remainCd
+                  ?? 0
+                );
+                if (coreCd > 0.05) {
+                  return false;
+                }
+              }
+
+              this._v9LastCastStamp = now;
               if (preInfo?.isNonAttack) {
                 this._v9SuppressAttackUntil = performance.now() + 220;
               }
+
+              // 実行前のMP・CD・モーション値を記録（本体が実際にスキルを発動したか判定するため）
+              const mpBefore = Number(this.player?.mp ?? this.saveData?.mp ?? 0);
+              const animBefore = Number(this.player?.attackAnimTimer ?? 0);
+              const cdBefore = Number(
+                (slotIdx >= 0 ? (this.skillCooldowns?.[slotIdx] ?? this.slotCooldowns?.[slotIdx]) : 0)
+                ?? this.skillCooldowns?.[preInfo.sid]
+                ?? sk.currentCd
+                ?? 0
+              );
 
               // 【入り口】ダメージ・吹き飛び・ダメージ数字の監視開始
               const captureState = beginCaptureSkillImpactV9(this);
@@ -3020,7 +3059,28 @@
                 finishCaptureSkillImpactV9(this, preInfo, captureState);
               }
 
-              if (res !== false && sk) {
+              // 3. 本体が「MP不足」や「クールタイム」で弾いた場合は演出・効果を一切出さない
+              const mpAfter = Number(this.player?.mp ?? this.saveData?.mp ?? 0);
+              const animAfter = Number(this.player?.attackAnimTimer ?? 0);
+              const cdAfter = Number(
+                (slotIdx >= 0 ? (this.skillCooldowns?.[slotIdx] ?? this.slotCooldowns?.[slotIdx]) : 0)
+                ?? this.skillCooldowns?.[preInfo.sid]
+                ?? sk.currentCd
+                ?? 0
+              );
+
+              const didConsumeMp = mpAfter < mpBefore - 0.01;
+              const didTriggerCd = cdAfter > cdBefore + 0.05;
+              const didTriggerAnim = animAfter > animBefore + 0.01;
+              const didActuallyCast = (res === true) || didConsumeMp || didTriggerCd || didTriggerAnim || isDebugOn;
+
+              if (res !== false && didActuallyCast) {
+                // V9側でもクールタイムを記録して連打・CD無視を二重防止
+                if (!this._v9CdUntil) this._v9CdUntil = {};
+                const cdKey = slotIdx >= 0 ? `slot_${slotIdx}` : `sk_${preInfo.sid}`;
+                const cdSec = Math.max(0.8, Number(sk.cd ?? sk.cooldown ?? (didTriggerCd ? cdAfter : 2.0)));
+                this._v9CdUntil[cdKey] = performance.now() + cdSec * 1000;
+
                 playSkillEffectV9(this, sk, slotIdx, null, targetArg);
               }
               return res;
