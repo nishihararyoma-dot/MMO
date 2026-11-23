@@ -1156,7 +1156,7 @@
         return summary;
       },
 
-      updateMpGrowthAndRegenV8(dt = 0.016) {
+updateMpGrowthAndRegenV8(dt = 0.016) {
         const d = this.saveData;
         if (!d) return;
 
@@ -1180,9 +1180,15 @@
         if (isDebugOn) {
           curMp = d.maxMp;
         } else {
-          const sanctMult = (this.player?.sanctuaryBuffTimer > 0) ? 2.5 : 1.0;
-          const regenPerSec = (4 + d.maxMp * 0.04) * sanctMult;
-          curMp = Math.min(d.maxMp, curMp + regenPerSec * Math.max(0.001, dt));
+          // ▼▼▼ MP自然回復スピード調整エリア（ここを変えると回復速度が変わります） ▼▼▼
+          const BASE_REGEN = 1.5;      // 毎秒の固定回復量（元は 4）
+          const PERCENT_REGEN = 0.008; // 毎秒の最大MP割合回復（0.008 = 0.8%/秒、約2分で全快。元は 0.04 = 4%/秒）
+          const sanctMult = (this.player?.sanctuaryBuffTimer > 0) ? 1.8 : 1.0; // 聖域中の倍率（元は 2.5）
+
+          const regenPerSec = (BASE_REGEN + d.maxMp * PERCENT_REGEN) * sanctMult;
+          const safeDt = Math.min(0.05, Math.max(0, Number(dt) || 0));
+          curMp = Math.min(d.maxMp, curMp + regenPerSec * safeDt);
+          // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
         }
 
         d.mp = curMp;
@@ -1190,9 +1196,7 @@
           this.player.maxMp = d.maxMp;
           this.player.mp = curMp;
         }
-      },
-
-      detectMonsterStatus(m) {
+      },      detectMonsterStatus(m) {
         if (!m) return null;
         if (m._visualStatus?.timer > 0) return m._visualStatus.type;
         if (Number(m.burnTimer) > 0) return 'burn';
