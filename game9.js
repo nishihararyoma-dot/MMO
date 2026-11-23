@@ -5581,5 +5581,121 @@ snap.set(m, {
       }
     });
   })();
+  // =========================================================
+  // 19. 重複魔法の完全消去＆竜巻魔法入れ替え確定ガード
+  // =========================================================
+  (function forceCleanDuplicateSpellsV9() {
+    const REMOVE_IDS = [
+      'spell_spiral_flame_v9',
+      'spell_aurora_sanctuary_v9',
+      'spell_meteor_v9',
+      'spell_magma_eruption_v9',
+      'spell_bigbang_v9',
+      'spell_thor_hammer_v9',
+      'spell_maelstrom_v9',
+      'spell_miasma_curse_v9',
+      'spell_black_hole_v9',
+      'spell_blaze_barrage_v9'
+    ];
+
+    const CLEAN_3_SPELLS = [
+      {
+        id: 'spell_tornado_v9',
+        name: '旋風円舞・螺旋竜巻',
+        icon: '🌪️',
+        type: 'AOE_DMG',
+        radius: 4.5,
+        cd: 5.2,
+        mp: 26,
+        baseMp: 26,
+        mult: 2.5,
+        baseMult: 2.5,
+        maxLv: 100,
+        spCost: 1,
+        isSupport: false,
+        attrId: 'wind',
+        desc: '巨大な螺旋竜巻と無数の風の刃を召喚し、範囲内の敵を巻き上げて切り裂く。'
+      },
+      {
+        id: 'spell_starlight_rain_v9',
+        name: '銀河流星群',
+        icon: '🌟',
+        type: 'AOE_DMG',
+        radius: 5.0,
+        cd: 7.0,
+        mp: 34,
+        baseMp: 34,
+        mult: 2.85,
+        baseMult: 2.85,
+        maxLv: 100,
+        spCost: 1,
+        isSupport: false,
+        attrId: 'star',
+        desc: '夜空の星霊と銀河流星群を降り注がせ、広範囲の敵を一掃する。'
+      },
+      {
+        id: 'spell_mana_charge_v9',
+        name: '蒼穹マナチャージ',
+        icon: '💧',
+        type: 'HEAL_MP',
+        cd: 7.0,
+        mp: 5,
+        baseMp: 5,
+        mult: 1.0,
+        baseMult: 1.0,
+        maxLv: 100,
+        spCost: 1,
+        isSupport: true,
+        attrId: 'mana_charge',
+        desc: '螺旋マナ水流と蒼水晶を召喚し、自身のMPとHPを一気に回復する。'
+      }
+    ];
+
+    function purgeAndApplyV9() {
+      if (typeof SKILLS !== 'undefined' && SKILLS && typeof SKILLS === 'object') {
+        REMOVE_IDS.forEach((id) => { if (SKILLS[id]) delete SKILLS[id]; });
+        CLEAN_3_SPELLS.forEach((sp) => {
+          if (!SKILLS[sp.id]) SKILLS[sp.id] = { ...sp };
+        });
+      }
+
+      const g = window.__kmjInstance || window._kmjGameInstance || window.game || window.app || window.mmorpg;
+      const d = g?.saveData;
+      if (d) {
+        let refund = 0;
+        if (d.skills && typeof d.skills === 'object') {
+          REMOVE_IDS.forEach((id) => {
+            const lv = Number(d.skills[id] || 0);
+            if (lv > 0) { refund += lv; delete d.skills[id]; }
+          });
+        }
+        if (Array.isArray(d.equippedSkills)) {
+          d.equippedSkills = d.equippedSkills.map((id) => (REMOVE_IDS.includes(id) ? null : id));
+        }
+        if (Array.isArray(g.equippedSkills)) {
+          g.equippedSkills = g.equippedSkills.map((id) => (REMOVE_IDS.includes(id) ? null : id));
+        }
+        if (refund > 0) {
+          d.sp = Number(d.sp || 0) + refund;
+          g.saveGame?.(false);
+        }
+      }
+    }
+
+    // スキル一覧取得時にも重複IDを絶対に返さないようガード
+    const _origGetAllSkills = getAllSkillsListV9;
+    getAllSkillsListV9 = function (game) {
+      purgeAndApplyV9();
+      const raw = _origGetAllSkills.call(this, game);
+      return raw.filter((sk) => {
+        const sid = sk?.id || sk?.skillId || '';
+        return !REMOVE_IDS.includes(sid);
+      });
+    };
+
+    purgeAndApplyV9();
+    setTimeout(purgeAndApplyV9, 500);
+    setTimeout(purgeAndApplyV9, 1500);
+  })();
 })();
 // ▲▲▲ ここまで 【スキルエフェクト専用 game9.js (全魔法エフェクト完全一致&重複ゼロ整理版) 】 ▲▲▲
