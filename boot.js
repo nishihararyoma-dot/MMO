@@ -1,12 +1,15 @@
 // boot.js — index.html の game9.js の「後」に読み込むこと
-//   <script src="boot.js?v=4"></script>
+//   <script src="boot.js?v=5"></script>
 //
-// 1) ゲーム本体(KaomojiMMORPG)をページ読み込み時に必ず1回だけ生成する。
-// 2) 通常攻撃のエフェクトを接続する（performBasicAttack）。
-// 3) スキルスタジオにあって本体に無かった属性スキル7種を、実スキルとして登録する。
-//    ＋ 属性の自動判定が外れる3スキルへ、専用属性を割り当てる。
-// 4) 設定メニューに「🎮 戦闘ボタン配置を編集」を追加（移動スティック/攻撃/標的切替/スキル5個を自由に移動）。
-// 5) 設定内のデバッグモード切替・魔法進化ボタンを消し、チャット開閉を左に固定、重なるUIを整理する。
+//  1) ゲーム本体(KaomojiMMORPG)をページ読み込み時に必ず1回だけ生成する。
+//  2) 通常攻撃のエフェクトを接続する（performBasicAttack）。
+//  3) スキルスタジオの属性スキル7種を実スキルとして登録＋属性の自動判定が外れる3スキルを補正。
+//  4) 設定メニューに追加:
+//       🎮 戦闘ボタン配置を編集（位置＋大きさ）
+//       💬 チャット欄を初期位置・初期サイズに戻す
+//  5) 魔法系クラス(杖クラス)のとき、杖を表示し、元の剣を隠す。
+//  6) デバッグ画面に「🎒 素材無限」を追加。
+//  7) 設定内のデバッグモード切替・魔法進化ボタンを消し、チャット開閉を左に固定、重なるUIを整理。
 (function () {
   'use strict';
 
@@ -25,59 +28,127 @@
       const el = document.getElementById('title-save-info');
       if (el) el.textContent = '⚠️ 起動エラー: ' + (e && e.message ? e.message : e);
     }
-    ensureLayoutMenuButton();
+    ensureMenuButtons();
   }
 
   // =====================================================
-  // 2. 通常攻撃のエフェクト接続
+  // 2. 通常攻撃のエフェクト接続 ＋ 5. 杖の見た目
   // =====================================================
-  function installBasicAttackFx() {
+  function installProtoPatches() {
     if (typeof KaomojiMMORPG === 'undefined') return;
     const P = KaomojiMMORPG.prototype;
-    if (P._bootBasicFxInstalled) return;
-    P._bootBasicFxInstalled = true;
+    if (P._bootPatchesInstalled) return;
+    P._bootPatchesInstalled = true;
 
+    // ---- 通常攻撃 ----
     const origBasic = P.performBasicAttack;
-    if (typeof origBasic !== 'function') return;
-    P.performBasicAttack = function (...args) {
-      const p = this.player;
-      if (!p || this.isDead || p.stunTimer > 0) return origBasic.apply(this, args);
+    if (typeof origBasic === 'function') {
+      P.performBasicAttack = function (...args) {
+        const p = this.player;
+        if (!p || this.isDead || p.stunTimer > 0) return origBasic.apply(this, args);
 
-      let isStaff = false;
-      try {
-        isStaff = typeof window.isStaffClassEntityV7 === 'function' && window.isStaffClassEntityV7(this, p);
-      } catch (e) { console.error('[boot] 杖判定エラー', e); }
+        let isStaff = false;
+        try {
+          isStaff = typeof window.isStaffClassEntityV7 === 'function' && window.isStaffClassEntityV7(this, p);
+        } catch (e) { console.error('[boot] 杖判定エラー', e); }
 
-      let res;
-      if (isStaff) {
-        // 杖: ダメージは魔法弾が命中した時に与える（game7）。二重ダメージ防止のため
-        // 元のダメージ処理は呼ばず、向き・クールダウン・モーションだけ整える。
-        const st = this.calcDerivedStats();
-        const target = this.getNearestMonster?.(6.2) || this.getValidTarget?.();
-        if (target && !target.dead && target.pos) {
-          const dx = target.pos.x - p.pos.x, dz = target.pos.z - p.pos.z;
-          if (dx * dx + dz * dz > 0.01) p.rotY = Math.atan2(dx, dz);
+        let res;
+        if (isStaff) {
+          // 杖: ダメージは魔法弾が命中した時に与える（game7）。二重ダメージ防止のため
+          // 元のダメージ処理は呼ばず、向き・クールダウン・モーションだけ整える。
+          const st = this.calcDerivedStats();
+          const target = this.getNearestMonster?.(6.2) || this.getValidTarget?.();
+          if (target && !target.dead && target.pos) {
+            const dx = target.pos.x - p.pos.x, dz = target.pos.z - p.pos.z;
+            if (dx * dx + dz * dz > 0.01) p.rotY = Math.atan2(dx, dz);
+          }
+          p.skillAnimType = 'basic_slash';
+          p.skillAnimDur = 0.24;
+          p.skillAnimTimer = 0.24;
+          this.autoAtkTimer = Math.max(0.42, 0.95 * (1 - (st.cdReduction || 0) * 0.6));
+        } else {
+          res = origBasic.apply(this, args); // 剣: ダメージは元処理、見た目は game8 の3連横振り
         }
-        p.skillAnimType = 'basic_slash';
-        p.skillAnimDur = 0.24;
-        p.skillAnimTimer = 0.24;
-        this.autoAtkTimer = Math.max(0.42, 0.95 * (1 - (st.cdReduction || 0) * 0.6));
-      } else {
-        res = origBasic.apply(this, args); // 剣: ダメージは元処理、見た目は game8 の3連横振り
-      }
 
-      try {
-        this.triggerAttackVisual?.(p, false, isStaff ? { isMage: true } : null);
-        this.broadcastPlayerPacket?.('attack', { isSkill: false, skillInfo: isStaff ? { isMage: true } : undefined });
-      } catch (e) { console.error('[boot] 通常攻撃エフェクトエラー', e); }
+        try {
+          this.triggerAttackVisual?.(p, false, isStaff ? { isMage: true } : null);
+          this.broadcastPlayerPacket?.('attack', { isSkill: false, skillInfo: isStaff ? { isMage: true } : undefined });
+        } catch (e) { console.error('[boot] 通常攻撃エフェクトエラー', e); }
+        return res;
+      };
+    }
+
+    // ---- 武器の見た目（杖／剣） ----
+    // game8.js が enforceStrictWeaponVisualV27 を「剣だけ」の処理で上書きしており、
+    // 杖クラスでは剣を隠すだけで杖が作られていなかった。杖を作って付け、元の剣の台座を隠す。
+    const origEnforce = P.enforceStrictWeaponVisualV27;
+    P.enforceStrictWeaponVisualV27 = function (entity, ...rest) {
+      const res = typeof origEnforce === 'function' ? origEnforce.call(this, entity, ...rest) : undefined;
+      try { syncWeaponVisual(this, entity || this.player, rest[0]); }
+      catch (e) { console.error('[boot] 武器の見た目エラー', e); }
       return res;
     };
+  }
+
+  function isStaffFor(game, entity, evoId) {
+    if (evoId !== undefined && evoId !== null) {
+      const cls = game.getCurrentClassDefV45?.(String(evoId).toLowerCase());
+      if (cls?.weaponType === 'staff') return true;
+      if (cls?.weaponType === 'sword') return false;
+    }
+    return !!window.isStaffClassEntityV7?.(game, entity);
+  }
+
+  function syncWeaponVisual(game, entity, evoId) {
+    if (!game?.useWebGL || !entity || typeof THREE === 'undefined') return;
+    const host = entity.group || entity.mesh || entity.container || entity.obj;
+    if (!host || !host.add) return;
+
+    const isStaff = isStaffFor(game, entity, evoId);
+    const pivot = entity.weaponPivot || entity._v8SwordPivot;
+    let staff = entity._bootStaff || host.getObjectByName?.('mage_staff_weapon');
+
+    if (isStaff) {
+      if (pivot) pivot.visible = false;                         // 元の剣の台座ごと隠す
+      if (entity._v8SwordMesh) entity._v8SwordMesh.visible = false;
+      if (typeof game.buildMageStaff3D !== 'function') return;
+
+      const d = game.saveData || {};
+      const isLocal = entity === game.player;
+      const wId = isLocal ? (d.equippedWeapon || d.weaponId || 'wpn_wood') : (entity.weaponId || 'wpn_wood');
+      const wEnh = isLocal ? (d.weaponEnhance || 0) : 0;
+      const sig = `staff|${wId}|${wEnh}`;
+      if (!staff || staff.userData?.wpnSig !== sig) {
+        if (staff) host.remove(staff);
+        staff = game.buildMageStaff3D(wId, wEnh);
+        if (!staff) return;
+        staff.userData = staff.userData || {};
+        staff.userData.wpnSig = sig;
+        staff.position.set(0.64, 0.42, 0.22);
+        host.add(staff);
+        entity._bootStaff = staff;
+      }
+      staff.visible = true;
+      entity.weaponMesh = staff;
+    } else {
+      if (staff) { staff.visible = false; host.remove(staff); entity._bootStaff = null; }
+      if (pivot) pivot.visible = true;
+    }
+  }
+
+  // 読み込み直し・転職直後・街への移動直後でも確実に反映されるよう、自分の見た目を定期確認する
+  function startWeaponWatcher() {
+    setInterval(() => {
+      const g = window.game;
+      if (g?.player && !g.inTitleScreen) {
+        try { syncWeaponVisual(g, g.player); } catch (e) { console.error('[boot] 武器の見た目エラー', e); }
+      }
+    }, 400);
   }
 
   // =====================================================
   // 3. スキルスタジオの属性スキルを実スキルとして登録
   // =====================================================
-  // スキルスタジオにあるのに本体(SKILLS)に無かった属性スキル。性能は本体のバランスに合わせた初期値。
   const STUDIO_SKILLS = [
     { id: 'fx_fire_pillar', icon: '🔥', name: '螺旋炎柱',           type: 'AOE_BURN',   baseMp: 26, cd: 6.8, baseMult: 3.2, radius: 6.4, desc: '螺旋状の炎柱で広範囲を焼き、継続炎上ダメージを与える' },
     { id: 'fx_fire_burst', icon: '🎇', name: '爆炎連弾',           type: 'AOE_DMG',    baseMp: 20, cd: 4.6, baseMult: 2.6, radius: 5.4, desc: '連装火球を撃ち込み、着弾点を爆破する' },
@@ -93,8 +164,7 @@
     STUDIO_SKILLS.forEach((s) => { if (!SKILLS[s.id]) SKILLS[s.id] = Object.assign({}, s); });
   }
 
-  // game9 の属性自動判定が外れるスキル（名前に「光」「炎」等が入り、回復系や別の炎に誤判定される）。
-  // 回復系に誤判定されると攻撃ダメージが無効化されるため、専用属性を明示する。
+  // 属性の自動判定が外れるスキルへ専用属性を明示（回復系に誤判定されると攻撃ダメージが無効化されるため）。
   // プレイヤーがスタジオで設定済みの場合はそちらを優先する。
   const DEFAULT_ATTR = { vamp_drain: 'dark', fx_fire_burst: 'fire_burst', fx_sword: 'sword' };
 
@@ -106,7 +176,6 @@
     });
   }
 
-  // セーブデータが読み込み直されても、必ず既定属性を適用する
   function guardSaveData(g) {
     if (g._bootSaveGuard) return;
     g._bootSaveGuard = true;
@@ -121,9 +190,11 @@
   }
 
   // =====================================================
-  // 4. 戦闘ボタン配置エディタ
+  // 4-A. 戦闘ボタン配置エディタ（位置＋大きさ）
   // =====================================================
   const LAYOUT_KEY = 'kmj_btn_layout_v1';
+  const STICK_BASE = 114;               // #joystick-zone の標準サイズ(px)
+  const SCALE_MIN = 0.5, SCALE_MAX = 2.5;
   const MOVABLES = [
     { key: 'stick',  sel: '#joystick-zone',                   label: '移動' },
     { key: 'attack', sel: '#btn-basic-attack',                label: '攻撃' },
@@ -135,8 +206,9 @@
     { key: 'slot4',  sel: '.skill-slot-btn[data-slot="4"]',   label: 'S5' }
   ];
 
-  const orient = () => (window.innerWidth >= window.innerHeight ? 'land' : 'port'); // 横向き/縦向きで別々に保存
+  const orient = () => (window.innerWidth >= window.innerHeight ? 'land' : 'port'); // 横/縦で別々に保存
   const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), Math.max(lo, hi));
+  const scaleOf = (p) => (p && Number.isFinite(p.s) ? clamp(p.s, SCALE_MIN, SCALE_MAX) : 1);
 
   function loadLayout() {
     try {
@@ -165,22 +237,80 @@
     layoutStyleEl.textContent = MOVABLES.map((m) => {
       const p = cur[m.key];
       if (!p) return '';
-      const x = clamp(p.x, 0, maxX), y = clamp(p.y, 0, maxY);
-      return `${m.sel}{position:fixed!important;left:${x}px!important;top:${y}px!important;right:auto!important;bottom:auto!important;margin:0!important;}`;
+      const x = clamp(p.x, 0, maxX), y = clamp(p.y, 0, maxY), s = scaleOf(p);
+      let size = '';
+      if (m.key === 'stick') {
+        // スティックは枠の幅・高さを変える（つまみは中央のまま。拡大するとタッチ位置がずれるため）
+        const px = Math.round(STICK_BASE * s);
+        size = `width:${px}px!important;height:${px}px!important;`;
+      } else if (s !== 1) {
+        // 個別プロパティの scale を使うので、押した時の縮小演出(transform)は壊れない
+        size = `scale:${s}!important;transform-origin:0 0!important;`;
+      }
+      return `${m.sel}{position:fixed!important;left:${x}px!important;top:${y}px!important;right:auto!important;bottom:auto!important;margin:0!important;${size}}`;
     }).filter(Boolean).join('\n');
   }
 
   let editorLayer = null;
-  let grips = [];
+  let grips = [];          // { key, target, el }
+  let selectedKey = null;
+  let sizeUi = null;       // { label, range, val }
 
   function closeLayoutEditor() {
     editorLayer?.remove();
     editorLayer = null;
     grips = [];
+    selectedKey = null;
+    sizeUi = null;
+  }
+
+  function syncGripRects() {
+    grips.forEach(({ target, el }) => {
+      const r = target.getBoundingClientRect();
+      el.style.left = r.left + 'px';
+      el.style.top = r.top + 'px';
+      el.style.width = r.width + 'px';
+      el.style.height = r.height + 'px';
+    });
+  }
+
+  function selectKey(key) {
+    selectedKey = key;
+    grips.forEach(({ key: k, el }) => {
+      const on = k === key;
+      el.style.borderStyle = on ? 'solid' : 'dashed';
+      el.style.borderColor = on ? '#22d3ee' : '#fde047';
+      el.style.background = on ? 'rgba(34,211,238,.28)' : 'rgba(250,204,21,.2)';
+    });
+    if (sizeUi) {
+      const m = MOVABLES.find((x) => x.key === key);
+      const s = scaleOf((layout[orient()] || {})[key]);
+      sizeUi.label.textContent = `大きさ: ${m ? m.label : '(未選択)'}`;
+      sizeUi.range.disabled = !m;
+      sizeUi.range.value = String(Math.round(s * 100));
+      sizeUi.val.textContent = Math.round(s * 100) + '%';
+    }
+  }
+
+  function setScale(key, s) {
+    const m = MOVABLES.find((x) => x.key === key);
+    const target = m && document.querySelector(m.sel);
+    if (!target) return;
+    const o = orient();
+    if (!layout[o]) layout[o] = {};
+    let p = layout[o][key];
+    if (!p) { // まだ動かしていないボタンは、今の位置を基準にする
+      const r = target.getBoundingClientRect();
+      p = layout[o][key] = { x: Math.round(r.left), y: Math.round(r.top), s: 1 };
+    }
+    p.s = clamp(s, SCALE_MIN, SCALE_MAX);
+    applyLayout();
+    syncGripRects();
+    saveLayout();
   }
 
   function buildGrips() {
-    grips.forEach((el) => el.remove());
+    grips.forEach(({ el }) => el.remove());
     grips = [];
     if (!editorLayer) return;
 
@@ -192,44 +322,49 @@
 
       // 本物のボタンの上に透明な「つかみ板」を重ねる。
       // 無効状態(空スロット)のボタンでも動かせて、タップしてもスキルが発動しない。
-      const grip = document.createElement('div');
-      grip.style.cssText =
+      const el = document.createElement('div');
+      el.style.cssText =
         `position:absolute;left:${r0.left}px;top:${r0.top}px;width:${r0.width}px;height:${r0.height}px;` +
         `box-sizing:border-box;border:2px dashed #fde047;background:rgba(250,204,21,.2);` +
         `border-radius:${getComputedStyle(target).borderRadius || '12px'};` +
         `display:flex;align-items:center;justify-content:center;` +
         `color:#fff;font:800 11px sans-serif;text-shadow:0 1px 3px #000;` +
         `pointer-events:auto;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none;`;
-      grip.textContent = m.label;
+      el.textContent = m.label;
 
       let drag = null;
-      grip.addEventListener('pointerdown', (e) => {
+      el.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        grip.setPointerCapture?.(e.pointerId);
+        el.setPointerCapture?.(e.pointerId);
+        selectKey(m.key);
         const r = target.getBoundingClientRect();
         drag = { id: e.pointerId, sx: e.clientX, sy: e.clientY, l: r.left, t: r.top, w: r.width, h: r.height };
       });
-      grip.addEventListener('pointermove', (e) => {
+      el.addEventListener('pointermove', (e) => {
         if (!drag || e.pointerId !== drag.id) return;
         const x = clamp(drag.l + e.clientX - drag.sx, 0, window.innerWidth - drag.w);
         const y = clamp(drag.t + e.clientY - drag.sy, 0, window.innerHeight - drag.h);
         const o = orient();
         if (!layout[o]) layout[o] = {};
-        layout[o][m.key] = { x: Math.round(x), y: Math.round(y) };
+        const prev = layout[o][m.key];
+        layout[o][m.key] = { x: Math.round(x), y: Math.round(y), s: scaleOf(prev) };
         applyLayout();
-        grip.style.left = x + 'px';
-        grip.style.top = y + 'px';
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
       });
       const end = (e) => {
         if (drag && e.pointerId === drag.id) { drag = null; saveLayout(); }
       };
-      grip.addEventListener('pointerup', end);
-      grip.addEventListener('pointercancel', end);
+      el.addEventListener('pointerup', end);
+      el.addEventListener('pointercancel', end);
 
-      editorLayer.appendChild(grip);
-      grips.push(grip);
+      editorLayer.appendChild(el);
+      grips.push({ key: m.key, target, el });
     });
+
+    const keep = grips.some((g) => g.key === selectedKey) ? selectedKey : (grips.find((g) => g.key === 'attack') || grips[0])?.key;
+    selectKey(keep || null);
   }
 
   function openLayoutEditor() {
@@ -242,19 +377,22 @@
 
     const bar = document.createElement('div');
     bar.style.cssText =
-      'position:absolute;top:8px;left:50%;transform:translateX(-50%);display:flex;gap:8px;align-items:center;' +
-      'background:rgba(2,6,23,.95);border:2px solid #fde047;border-radius:12px;padding:7px 10px;' +
+      'position:absolute;top:8px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:7px;' +
+      'background:rgba(2,6,23,.95);border:2px solid #fde047;border-radius:12px;padding:8px 11px;' +
       'pointer-events:auto;color:#fff;font:800 12px sans-serif;white-space:nowrap;';
-    const msg = document.createElement('span');
-    msg.textContent = '🎮 ボタンをドラッグして移動';
     const btnStyle = 'border:none;border-radius:8px;padding:6px 11px;font:800 12px sans-serif;color:#fff;';
+
+    const row1 = document.createElement('div');
+    row1.style.cssText = 'display:flex;gap:8px;align-items:center;';
+    const msg = document.createElement('span');
+    msg.textContent = '🎮 ドラッグで移動／タップで選択';
 
     const resetBtn = document.createElement('button');
     resetBtn.type = 'button';
-    resetBtn.textContent = '↺ 初期位置に戻す';
+    resetBtn.textContent = '↺ 初期状態に戻す';
     resetBtn.style.cssText = btnStyle + 'background:#475569;';
     resetBtn.addEventListener('click', () => {
-      delete layout[orient()];
+      delete layout[orient()];   // 位置も大きさも初期値へ
       saveLayout();
       applyLayout();
       buildGrips();
@@ -266,28 +404,88 @@
     doneBtn.style.cssText = btnStyle + 'background:#059669;';
     doneBtn.addEventListener('click', closeLayoutEditor);
 
-    bar.appendChild(msg);
-    bar.appendChild(resetBtn);
-    bar.appendChild(doneBtn);
+    row1.appendChild(msg);
+    row1.appendChild(resetBtn);
+    row1.appendChild(doneBtn);
+
+    const row2 = document.createElement('div');
+    row2.style.cssText = 'display:flex;gap:8px;align-items:center;';
+    const label = document.createElement('span');
+    label.style.cssText = 'min-width:96px;color:#67e8f9;';
+    const range = document.createElement('input');
+    range.type = 'range';
+    range.min = String(SCALE_MIN * 100);
+    range.max = String(SCALE_MAX * 100);
+    range.step = '5';
+    range.value = '100';
+    range.style.cssText = 'flex:1;min-width:160px;touch-action:none;';
+    const val = document.createElement('span');
+    val.style.cssText = 'min-width:42px;text-align:right;color:#fde047;';
+    range.addEventListener('input', () => {
+      const pct = Number(range.value);
+      val.textContent = pct + '%';
+      if (selectedKey) setScale(selectedKey, pct / 100);
+    });
+    row2.appendChild(label);
+    row2.appendChild(range);
+    row2.appendChild(val);
+    sizeUi = { label, range, val };
+
+    bar.appendChild(row1);
+    bar.appendChild(row2);
     editorLayer.appendChild(bar);
     document.body.appendChild(editorLayer);
 
     buildGrips();
   }
 
+  // =====================================================
+  // 4-B. チャット欄を初期位置・初期サイズに戻す
+  // =====================================================
+  function resetChatLayout() {
+    // game6 と game8 がそれぞれ保存している位置・サイズを消す
+    ['kmj_chat_box_v40', 'kmj_chat_box_v18', 'kmj_v8_chat_rect'].forEach((k) => {
+      try { localStorage.removeItem(k); } catch (e) { /* 保存領域が使えなくても続行 */ }
+    });
+    // 直接書き込まれた位置・サイズを外して、CSSの初期値に戻す。
+    // ※ #chat-panel の position は game8 が意図して設定しているので触らない。
+    const wrapper = document.getElementById('chat-wrapper');
+    const panel = document.getElementById('chat-panel');
+    ['position', 'left', 'top', 'right', 'bottom', 'transform', 'margin'].forEach((p) => wrapper?.style.removeProperty(p));
+    ['left', 'top', 'right', 'bottom', 'width', 'height'].forEach((p) => panel?.style.removeProperty(p));
+    document.getElementById('hud-drawer-menu')?.classList.add('hidden');
+    window.game?.showAlertBanner?.('💬 チャット欄を初期位置・初期サイズに戻しました', 1800);
+  }
+
+  // =====================================================
   // 設定メニュー(ハンバーガー内)にボタンを追加
-  function ensureLayoutMenuButton() {
-    const drawer = document.getElementById('hud-drawer-menu');
-    if (!drawer || drawer.querySelector('#btn-edit-btn-layout')) return;
+  // =====================================================
+  function makeMenuButton(id, text, onClick) {
     const b = document.createElement('button');
     b.type = 'button';
-    b.id = 'btn-edit-btn-layout';
+    b.id = id;
     b.className = 'btn-ui btn-sky';
     b.style.width = '100%';
-    b.textContent = '🎮 戦闘ボタン配置を編集';
-    b.addEventListener('click', (e) => { e.stopPropagation(); openLayoutEditor(); });
-    const ref = drawer.querySelector('#btn-toggle-bgm');
-    if (ref) ref.insertAdjacentElement('afterend', b); else drawer.appendChild(b);
+    b.textContent = text;
+    b.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
+    return b;
+  }
+
+  function ensureMenuButtons() {
+    const drawer = document.getElementById('hud-drawer-menu');
+    if (!drawer) return;
+    const bgm = drawer.querySelector('#btn-toggle-bgm');
+    let anchor = bgm;
+    const add = (id, text, fn) => {
+      let b = drawer.querySelector('#' + id);
+      if (!b) {
+        b = makeMenuButton(id, text, fn);
+        if (anchor) anchor.insertAdjacentElement('afterend', b); else drawer.appendChild(b);
+      }
+      anchor = b;
+    };
+    add('btn-edit-btn-layout', '🎮 戦闘ボタン配置を編集', openLayoutEditor);
+    add('btn-reset-chat-layout', '💬 チャット欄を初期位置に戻す', resetChatLayout);
   }
 
   function watchDrawer() {
@@ -295,7 +493,7 @@
     if (!drawer || drawer._bootWatched) return;
     drawer._bootWatched = true;
     // 他のコードがメニューを作り直しても、ボタンが消えないようにする
-    new MutationObserver(() => ensureLayoutMenuButton()).observe(drawer, { childList: true });
+    new MutationObserver(() => ensureMenuButtons()).observe(drawer, { childList: true });
   }
 
   let resizeRaf = 0;
@@ -311,18 +509,83 @@
   window.kmjOpenLayoutEditor = openLayoutEditor; // コンソールからの確認用
 
   // =====================================================
+  // 6. デバッグ画面に「素材無限」を追加
+  // =====================================================
+  const INF_MAT = 99999999;
+  const INF_KEY = 'kmj_dbg_inf_mats';
+  let infMats = false;
+  try { infMats = localStorage.getItem(INF_KEY) === '1'; } catch (e) { /* 無効のまま */ }
+
+  function debugActive() {
+    try { return !!window.KMJ_DEBUG?.isActive?.(window.game); } catch (e) { return false; }
+  }
+
+  function topUpMaterials() {
+    const g = window.game;
+    const m = g?.saveData?.materials;
+    if (!m || typeof MATERIALS === 'undefined' || !MATERIALS) return;
+    Object.keys(MATERIALS).forEach((k) => {
+      if ((Number(m[k]) || 0) < INF_MAT) m[k] = INF_MAT;
+    });
+  }
+
+  function injectDebugButtons(modal) {
+    if (!modal || modal.querySelector('#v7-dbg-inf-mat')) return;
+    const anchor = modal.querySelector('#v7-dbg-gold');
+    if (!anchor) return;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.id = 'v7-dbg-inf-mat';
+    b.className = anchor.className;
+    const baseBg = anchor.style.background || '#334155';
+    b.style.cssText = anchor.style.cssText;
+    const render = () => {
+      b.textContent = infMats ? '🎒 素材無限: ON' : '🎒 素材無限: OFF';
+      b.style.background = infMats ? 'linear-gradient(90deg,#059669,#0284c7)' : baseBg;
+    };
+    b.addEventListener('click', () => {
+      infMats = !infMats;
+      try { localStorage.setItem(INF_KEY, infMats ? '1' : '0'); } catch (e) { /* 保存できなくても動作は続行 */ }
+      if (infMats) { topUpMaterials(); window.game?.refreshAllHUD?.(); window.game?.saveGame?.(false); }
+      render();
+      window.game?.showAlertBanner?.(infMats ? '🎒 素材を無限にしました（使っても減りません）' : '🎒 素材の無限化をOFFにしました', 1800);
+    });
+    render();
+    anchor.insertAdjacentElement('afterend', b);
+  }
+
+  function watchDebugModal() {
+    if (!document.body || document.body._bootDbgWatched) return;
+    document.body._bootDbgWatched = true;
+    new MutationObserver((records) => {
+      for (const r of records) {
+        r.addedNodes.forEach((n) => { if (n && n.id === 'kmj-v7-debug-modal') injectDebugButtons(n); });
+      }
+    }).observe(document.body, { childList: true });
+  }
+
+  function startInfMatsTimer() {
+    setInterval(() => {
+      if (infMats && debugActive()) topUpMaterials();
+    }, 250);
+  }
+
+  // =====================================================
   // 起動処理
   // =====================================================
   registerStudioSkills();
-  installBasicAttackFx();
+  installProtoPatches();
   applyLayout();
   window.addEventListener('resize', onResize);
   window.addEventListener('orientationchange', onResize);
 
   function onReady() {
     boot();
-    ensureLayoutMenuButton();
+    ensureMenuButtons();
     watchDrawer();
+    watchDebugModal();
+    startWeaponWatcher();
+    startInfMatsTimer();
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', onReady);
@@ -331,7 +594,7 @@
   }
 
   // =====================================================
-  // 5. UIの整理
+  // 7. UIの整理
   // =====================================================
   const st = document.createElement('style');
   st.id = 'kmj-boot-ui-fix';
