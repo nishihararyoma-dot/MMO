@@ -2252,28 +2252,6 @@
     return { sk: null, slotIdx: -1 };
   }
 
-    // 候補が「スキルIDの文字列」だった場合は全スキル一覧からオブジェクトを引く
-    if (typeof candidate === 'string') {
-      const found = all.find(s =>
-        s.id === candidate ||
-        s.skillId === candidate ||
-        s._v9BaseName === candidate ||
-        s.baseName === candidate ||
-        s.name === candidate
-      );
-      if (found) {
-        return { sk: found, slotIdx: all.indexOf(found) };
-      }
-      return { sk: { id: candidate, name: candidate }, slotIdx: typeof skillOrIndex === 'number' ? skillOrIndex : -1 };
-    }
-
-    if (candidate && typeof candidate === 'object') {
-      const idx = typeof skillOrIndex === 'number' ? skillOrIndex : all.indexOf(candidate);
-      return { sk: candidate, slotIdx: idx };
-    }
-
-    return { sk: null, slotIdx: -1 };
-  }
 
   function getSkillInfoV9(game, skillObj, slotIdx = -1) {
     const sk = skillObj || {};
