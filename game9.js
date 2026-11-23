@@ -2734,14 +2734,15 @@
     for (let i = 0; i < mList.length; i++) {
       const m = mList[i];
       if (!m) continue;
-      snap.set(m, {
+snap.set(m, {
         hp: Number(m.hp ?? 0),
         vx: Number(m.vx ?? m.vel?.x ?? 0),
         vy: Number(m.vy ?? m.vel?.y ?? 0),
         vz: Number(m.vz ?? m.vel?.z ?? 0),
-        dead: Boolean(m.dead)
+        dead: Boolean(m.dead),
+        groupVisible: m.group ? m.group.visible : true,
+        plateDisplay: m.plateEl ? m.plateEl.style.display : 'block'
       });
-    }
 
     // 本体側がスキル発動瞬間に飛ばすダメージ数字を一時保留する
     const capturedTexts = [];
