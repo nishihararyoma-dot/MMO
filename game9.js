@@ -3153,6 +3153,168 @@ snap.set(m, {
     ensureStudioButtonV9();
     syncAllSkillsV9(null, true);
   }, 500);
-})();
-// ▲▲▲ ここまで【スキルエフェクト専用 game9.js（着弾同期＆単一ファイル統合版）】 ▲▲▲
 
+  function resetMonsterFlashV9(monster) {
+    const rootObj = monster?.mesh || monster?.group || monster?.obj;
+    if (!rootObj || typeof rootObj.traverse !== 'function') return;
+    rootObj.traverse((child) => {
+      if (!child.isMesh || !child.material) return;
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
+      mats.forEach((mat) => {
+        if (!mat || !mat.emissive) return;
+        mat.userData = mat.userData || {};
+        clearTimeout(mat.userData._v9FlashTimer);
+        mat.userData._v9FlashUntil = 0;
+        if (mat.userData._v9OrigEmissive !== undefined) {
+          mat.emissive.setHex(mat.userData._v9OrigEmissive);
+          mat.emissiveIntensity = mat.userData._v9OrigEmissiveInt ?? 1;
+        }
+      });
+    });
+  }
+
+  triggerImpactVisualsV9 = function (game, monster, shakePower) {
+    try {
+      const rootObj = monster?.mesh || monster?.group || monster?.obj;
+      if (rootObj && typeof rootObj.traverse === 'function') {
+        rootObj.traverse((child) => {
+          if (!child.isMesh || !child.material) return;
+          const mats = Array.isArray(child.material) ? child.material : [child.material];
+          mats.forEach((mat) => {
+            if (!mat || !mat.emissive) return;
+            mat.userData = mat.userData || {};
+            if (mat.userData._v9OrigEmissive === undefined) {
+              mat.userData._v9OrigEmissive = mat.emissive.getHex();
+              mat.userData._v9OrigEmissiveInt = mat.emissiveIntensity ?? 1;
+            }
+            mat.emissive.setHex(mat.map ? 0x666666 : 0xaaaaaa);
+            mat.emissiveIntensity = mat.map ? 0.55 : 0.85;
+            mat.userData._v9FlashUntil = performance.now() + 85;
+            clearTimeout(mat.userData._v9FlashTimer);
+            mat.userData._v9FlashTimer = setTimeout(() => {
+              if (mat && mat.emissive) {
+                mat.emissive.setHex(mat.userData._v9OrigEmissive ?? 0x000000);
+                mat.emissiveIntensity = mat.userData._v9OrigEmissiveInt ?? 1;
+                mat.userData._v9FlashUntil = 0;
+              }
+            }, 80);
+          });
+        });
+      }
+      if (game && shakePower > 0) {
+        game._v9ShakeTime = 0.14;
+        game._v9ShakePower = Math.max(game._v9ShakePower || 0, shakePower);
+      }
+    } catch (e) {}
+  };
+
+  updatePendingImpactsV9 = function (game, dt) {
+    const step = Math.min(0.05, Math.max(0.001, dt || 0.016));
+
+    for (let i = pendingImpactsV9.length - 1; i >= 0; i--) {
+      const item = pendingImpactsV9[i];
+      item.timer -= step;
+      if (item.timer > 0) continue;
+
+      pendingImpactsV9.splice(i, 1);
+      const { game: g, monster: m, damage, kvx, kvy, kvz, shake, playSound, texts } = item;
+      if (!m) continue;
+
+      const dmgInt = Math.max(1, Math.round(damage));
+      if (typeof m.hp === 'number') {
+        m.hp = Math.max(0, m.hp - dmgInt);
+      }
+
+      if (typeof m.vx === 'number') m.vx += kvx;
+      if (typeof m.vy === 'number') m.vy += kvy;
+      if (typeof m.vz === 'number') m.vz += kvz;
+      if (m.vel) {
+        m.vel.x = (m.vel.x || 0) + kvx;
+        m.vel.y = (m.vel.y || 0) + kvy;
+        m.vel.z = (m.vel.z || 0) + kvz;
+      }
+
+      if (texts && texts.length > 0) {
+        texts.forEach(t => { try { t.fn.apply(g, t.args); } catch (e) {} });
+      } else if (g && m.pos) {
+        (g.spawnFloatText || g.spawnFloatingText)?.call(g, m.pos, `💥-${dmgInt}`, '#fde047');
+      }
+
+      if (typeof m.hp === 'number' && m.hp <= 0) {
+        m.hp = 0;
+        m.dead = true;
+        resetMonsterFlashV9(m);
+        if (!m.respawnTimer || m.respawnTimer <= 0) {
+          m.respawnTimer = m.isBoss ? 13.0 : 5.5;
+        }
+        if (m.casting) {
+          m.casting = null;
+          document.getElementById('boss-cast-box')?.classList.add('hidden');
+        }
+        if (m.group) m.group.visible = false;
+        if (m.plateEl) m.plateEl.style.display = 'none';
+        if (g?.selectedTarget === m) g.selectedTarget = null;
+        if (typeof g?.killMonster === 'function') {
+          try { g.killMonster(m); } catch (e) {}
+        } else if (typeof g?.onMonsterDeath === 'function') {
+          try { g.onMonsterDeath(m); } catch (e) {}
+        }
+      } else {
+        triggerImpactVisualsV9(g, m, shake);
+      }
+
+      if (playSound) playImpactHitSoundV9(1.0);
+    }
+
+    if (game?.camera?.position) {
+      if (game._v9LastShakeOffset) {
+        game.camera.position.x -= game._v9LastShakeOffset.x;
+        game.camera.position.y -= game._v9LastShakeOffset.y;
+        game._v9LastShakeOffset = null;
+      }
+      if (game._v9ShakeTime > 0) {
+        game._v9ShakeTime -= step;
+        const p = (game._v9ShakePower || 0.2) * Math.max(0, game._v9ShakeTime / 0.14);
+        const ox = (Math.random() - 0.5) * p;
+        const oy = (Math.random() - 0.5) * p;
+        game.camera.position.x += ox;
+        game.camera.position.y += oy;
+        game._v9LastShakeOffset = { x: ox, y: oy };
+      }
+    }
+  };
+
+  if (typeof KaomojiMMORPG !== 'undefined' && !KaomojiMMORPG.prototype._v9CleanupHooked) {
+    const _origUpdateCleanup = KaomojiMMORPG.prototype.update;
+    KaomojiMMORPG.prototype.update = function (...args) {
+      const res = _origUpdateCleanup.apply(this, args);
+      if (Array.isArray(this.monsters)) {
+        const now = performance.now();
+        for (let i = 0; i < this.monsters.length; i++) {
+          const m = this.monsters[i];
+          if (!m) continue;
+          if (m.dead || m.hp <= 0) {
+            if (m.plateEl && m.plateEl.style.display !== 'none') m.plateEl.style.display = 'none';
+            if (m.group && m.group.visible) m.group.visible = false;
+            resetMonsterFlashV9(m);
+          } else {
+            const rootObj = m.mesh || m.group || m.obj;
+            rootObj?.traverse?.((child) => {
+              const mats = Array.isArray(child.material) ? child.material : [child.material];
+              mats.forEach((mat) => {
+                if (mat?.userData?._v9FlashUntil && now > mat.userData._v9FlashUntil) {
+                  mat.emissive?.setHex(mat.userData._v9OrigEmissive ?? 0x000000);
+                  mat.emissiveIntensity = mat.userData._v9OrigEmissiveInt ?? 1;
+                  mat.userData._v9FlashUntil = 0;
+                }
+              });
+            });
+          }
+        }
+      }
+      return res;
+    };
+    KaomojiMMORPG.prototype._v9CleanupHooked = true;
+  }
+})();
+// ▲▲▲ ここまで 【スキルエフェクト専用 game9.js (着弾同期&単一ファイル統合版) 】 ▲▲▲
