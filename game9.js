@@ -4668,5 +4668,918 @@ snap.set(m, {
       injectNewSpellsIntoSkillTreeV9();
     }, 300);
   })();
+// =========================================================
+  // 15. スキル進化段階別・超ド派手専用エフェクト大改造【第1弾/全4回】
+  // =========================================================
+  window._V9EvoFX = {
+    ring: V9._makeCircleRing || ((ir, or, col, seg = 24) => {
+      const g = new THREE.RingGeometry(ir, or, seg); g.rotateX(-Math.PI / 2);
+      return new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide, transparent: true, opacity: 0.92 }));
+    }),
+    geo: V9._unitGeo || ((k) => {
+      const m = { sphere: () => new THREE.SphereGeometry(0.5, 12, 10), octa: () => new THREE.OctahedronGeometry(0.5, 0), tetra: () => new THREE.TetrahedronGeometry(0.5, 0), cone4: () => new THREE.ConeGeometry(0.5, 1, 4), cyl8: () => new THREE.CylinderGeometry(0.5, 0.5, 1, 8), cyl16open: () => new THREE.CylinderGeometry(0.5, 0.5, 1, 16, 1, true) };
+      return (m[k] || (() => new THREE.BoxGeometry(1, 1, 1)))();
+    }),
+    reg: V9.register3DAnimation || register3DAnimationV9,
+    magicCircle(parent, r, col1, col2, y = 0.08) {
+      const g = new THREE.Group(); g.position.y = y;
+      const outer = this.ring(r * 0.86, r, col1, 32);
+      const hex1 = this.ring(r * 0.55, r * 0.62, col2, 3);
+      const hex2 = this.ring(r * 0.55, r * 0.62, col2, 3); hex2.rotation.y = Math.PI;
+      const core = this.ring(r * 0.15, r * 0.25, col1, 16);
+      g.add(outer, hex1, hex2, core); parent.add(g);
+      return g;
+    },
+    pillar(parent, r, h, col, op = 0.45) {
+      const m = new THREE.Mesh(this.geo('cyl16open'), new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide, transparent: true, opacity: op }));
+      m.scale.set(r, h, r); m.position.y = h * 0.5; parent.add(m); return m;
+    }
+  };
+
+  (function installEvoPart1_V9() {
+    const FX = window._V9EvoFX;
+    Object.assign(V9.EFFECT_BUILDERS, {
+      // 1. 虚無次元斬（通常:交差斬 → 真:四方空間裂傷 → 極:次元ブラックコア＆六芒星 → 神:次元断罪大剣降臨）
+      void_slash: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        root.position.set(target?.x ?? caster.x, 1.3, target?.z ?? caster.z);
+        const mc = tier >= 2 ? FX.magicCircle(root, 3.2 + tier * 0.8, attr.c1, attr.c2, -1.2) : null;
+        const m1 = new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.98 });
+        const m2 = new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.94 });
+        const slashes = [];
+        const cnt = tier === 0 ? 2 : (tier === 1 ? 4 : 6);
+        for (let i = 0; i < cnt; i++) {
+          const s = new THREE.Mesh(FX.geo('box'), i % 2 === 0 ? m1 : m2);
+          const ang = (Math.PI * i) / cnt;
+          s.scale.set(3.8 + tier * 1.1, 0.14 + tier * 0.04, 0.35 + tier * 0.08);
+          s.rotation.set(Math.sin(ang) * 0.5, ang, Math.PI / 4 + i * 0.6);
+          root.add(s); slashes.push(s);
+        }
+        const voidCore = tier >= 2 ? new THREE.Mesh(FX.geo('sphere'), new THREE.MeshBasicMaterial({ color: 0x090d16, transparent: true, opacity: 0.96 })) : null;
+        if (voidCore) { voidCore.scale.setScalar(1.3 + tier * 0.4); root.add(voidCore); }
+        const godBlade = tier >= 3 ? new THREE.Mesh(FX.geo('cone4'), m1) : null;
+        if (godBlade) { godBlade.scale.set(1.2, 6.5, 0.4); godBlade.rotation.x = Math.PI; godBlade.position.y = 7; root.add(godBlade); }
+        const beam = tier >= 3 ? FX.pillar(root, 2.2, 9, attr.c1, 0.42) : null;
+        if (beam) beam.position.y = 3.2;
+
+        FX.reg(scene, root, 1.05 + tier * 0.2, (p, el) => {
+          const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
+          m1.opacity = fade * 0.98; m2.opacity = fade * 0.94;
+          if (mc) mc.rotation.y = el * 4;
+          const sc = p < 0.2 ? p / 0.2 : 1.1;
+          slashes.forEach((s, idx) => { s.scale.x = (3.8 + tier * 1.1) * sc; s.rotation.y += 0.04 * (idx % 2 ? 1 : -1); });
+          if (voidCore) { voidCore.scale.setScalar((1.3 + tier * 0.4) * (1 + Math.sin(el * 18) * 0.15)); voidCore.material.opacity = fade * 0.96; }
+          if (godBlade) godBlade.position.y = p < 0.35 ? 7 * (1 - p / 0.35) + 1.5 : 1.5;
+          if (beam) beam.material.opacity = fade * 0.42;
+        });
+      },
+
+      // 2. 三日月真空斬（通常:単発三日月 → 真:双月交差 → 極:6枚旋回真空ビット → 神:天翔十字光刃＆月輪結界）
+      slash_crescent: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        root.position.set(target?.x ?? caster.x, 1.2, target?.z ?? caster.z);
+        const mc = tier >= 2 ? FX.magicCircle(root, 3.0 + tier * 0.7, attr.c1, attr.c2, -1.1) : null;
+        const m1 = new THREE.MeshBasicMaterial({ color: attr.c1, side: THREE.DoubleSide, transparent: true, opacity: 0.95 });
+        const m2 = new THREE.MeshBasicMaterial({ color: attr.c2, side: THREE.DoubleSide, transparent: true, opacity: 0.95 });
+        const arcs = [];
+        const arcCnt = tier === 0 ? 1 : (tier === 1 ? 2 : 4);
+        for (let i = 0; i < arcCnt; i++) {
+          const arc = new THREE.Mesh(new THREE.TorusGeometry(2.0 + tier * 0.55, 0.18 + tier * 0.04, 6, 20, Math.PI * 1.15), i % 2 ? m2 : m1);
+          arc.rotation.set(Math.PI / 3 * (i % 2 ? 1 : -1), (Math.PI * 2 * i) / arcCnt, 0);
+          root.add(arc); arcs.push(arc);
+        }
+        const bits = [];
+        if (tier >= 2) {
+          for (let i = 0; i < 6 + tier * 2; i++) {
+            const b = new THREE.Mesh(FX.geo('tetra'), m2); b.scale.set(0.35, 0.12, 0.9);
+            root.add(b); bits.push({ mesh: b, ang: (Math.PI * 2 * i) / (6 + tier * 2) });
+          }
+        }
+        const cross1 = tier >= 3 ? new THREE.Mesh(FX.geo('box'), m2) : null;
+        const cross2 = tier >= 3 ? new THREE.Mesh(FX.geo('box'), m1) : null;
+        if (cross1 && cross2) {
+          cross1.scale.set(0.35, 7.5, 0.35); cross2.scale.set(6.5, 0.35, 0.35);
+          cross1.position.y = 2.0; cross2.position.y = 2.2; root.add(cross1, cross2);
+        }
+
+        FX.reg(scene, root, 0.95 + tier * 0.18, (p, el) => {
+          const fade = p > 0.7 ? 1 - (p - 0.7) / 0.3 : 1;
+          m1.opacity = fade * 0.95; m2.opacity = fade * 0.95;
+          if (mc) mc.rotation.y = -el * 5;
+          arcs.forEach((a, i) => { a.rotation.z = el * (8 + i * 2); a.scale.setScalar(0.7 + p * 0.6); });
+          bits.forEach((b) => {
+            const a = b.ang + el * 10; const r = 2.4 + tier * 0.5;
+            b.mesh.position.set(Math.cos(a) * r, Math.sin(el * 8 + b.ang) * 0.6, Math.sin(a) * r);
+            b.mesh.rotation.y = -a;
+          });
+        });
+      },
+
+      // 3. 疾風回転斬（通常:回転円盤 → 真:二重風刃リング → 極:8本公転光剣ビット → 神:天貫螺旋剣舞の嵐柱）
+      spin_whirl: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        root.position.set(caster.x, 1.0, caster.z);
+        const maxR = 2.6 + tier * 0.75;
+        const disk = FX.ring(maxR * 0.4, maxR, attr.c1, 24);
+        const mc = tier >= 1 ? FX.magicCircle(root, maxR * 1.15, attr.c2, attr.c1, -0.9) : null;
+        root.add(disk);
+        const m2 = new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.95 });
+        const swords = [];
+        const swCnt = 4 + tier * 3;
+        for (let i = 0; i < swCnt; i++) {
+          const b = new THREE.Mesh(FX.geo('box'), m2);
+          b.scale.set(maxR * 0.9, 0.08, 0.28 + tier * 0.05);
+          const ang = (Math.PI * 2 * i) / swCnt;
+          b.position.set(Math.cos(ang) * maxR * 0.55, ((i % 3) - 1) * 0.35, Math.sin(ang) * maxR * 0.55);
+          b.rotation.y = -ang; root.add(b); swords.push(b);
+        }
+        const stormCol = tier >= 3 ? FX.pillar(root, maxR * 0.85, 7.5, attr.c1, 0.36) : null;
+        if (stormCol) stormCol.position.y = 2.8;
+
+        FX.reg(scene, root, 0.95 + tier * 0.16, (p, el) => {
+          const fade = p > 0.7 ? 1 - (p - 0.7) / 0.3 : 1;
+          root.rotation.y = el * (16 + tier * 4);
+          disk.material.opacity = fade * 0.9; m2.opacity = fade * 0.95;
+          if (mc) mc.rotation.y = -el * 8;
+          if (stormCol) stormCol.material.opacity = fade * 0.36;
+        });
+      },
+
+      // 4. 無限光剣陣（通常:光剣落下 → 真:地面からの逆襲聖剣陣 → 極:空中黄金召喚ゲート → 神:巨大神聖エクスカリバー降臨）
+      sword: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        root.position.set(target?.x ?? caster.x, 0, target?.z ?? caster.z);
+        const mc = FX.magicCircle(root, 2.5 + tier * 0.75, attr.c1, attr.c2, 0.07);
+        const skyGate = tier >= 2 ? FX.magicCircle(root, 3.0 + tier * 0.8, attr.c2, attr.c1, 5.8) : null;
+        const m1 = new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.96 });
+        const m2 = new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.96 });
+        const blades = [];
+        const bCnt = 5 + tier * 4;
+        for (let i = 0; i < bCnt; i++) {
+          const b = new THREE.Mesh(FX.geo('cone4'), i % 2 ? m2 : m1);
+          const rising = tier >= 1 && i % 2 === 1;
+          b.scale.set(0.26, 2.2 + tier * 0.4, 0.26);
+          if (!rising) b.rotation.x = Math.PI;
+          const a = (Math.PI * 2 * i) / bCnt; const r = 0.7 + (i % 4) * (0.45 + tier * 0.15);
+          b.position.set(Math.cos(a) * r, rising ? -1.5 : 6.0, Math.sin(a) * r);
+          root.add(b); blades.push({ mesh: b, rising, delay: (i / bCnt) * 0.35 });
+        }
+        const excalibur = tier >= 3 ? new THREE.Mesh(FX.geo('cone4'), m2) : null;
+        if (excalibur) { excalibur.scale.set(1.1, 6.2, 1.1); excalibur.rotation.x = Math.PI; excalibur.position.y = 9.0; root.add(excalibur); }
+
+        FX.reg(scene, root, 1.15 + tier * 0.18, (p, el) => {
+          const fade = p > 0.74 ? 1 - (p - 0.74) / 0.26 : 1;
+          m1.opacity = fade * 0.96; m2.opacity = fade * 0.96;
+          mc.rotation.y = el * 3; if (skyGate) skyGate.rotation.y = -el * 4;
+          blades.forEach((b) => {
+            const lp = Math.max(0, Math.min(1, (p - b.delay) / 0.55));
+            b.mesh.position.y = b.rising ? (-1.5 + lp * 2.8) : (6.0 - lp * 4.8);
+          });
+          if (excalibur) excalibur.position.y = p < 0.4 ? 9.0 - (p / 0.4) * 6.2 : 2.8;
+        });
+      },
+
+      // 5. 創世ビッグバン（通常:超新星爆発 → 真:12本収束光線 → 極:6重ジャイロ宇宙リング → 神:創世虹色プラズマ＆神光柱）
+      big_bang: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        root.position.set(target?.x ?? caster.x, 1.6, target?.z ?? caster.z);
+        const mc = tier >= 1 ? FX.magicCircle(root, 3.6 + tier * 0.9, attr.c1, attr.c3, -1.5) : null;
+        const cMat = new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.98 });
+        const sMat = new THREE.MeshBasicMaterial({ color: attr.c1, wireframe: true, transparent: true, opacity: 0.92 });
+        const core = new THREE.Mesh(FX.geo('sphere'), cMat);
+        const shell = new THREE.Mesh(FX.geo('sphere'), sMat);
+        root.add(core, shell);
+        const gyros = [];
+        const gCnt = 2 + tier * 2;
+        for (let i = 0; i < gCnt; i++) {
+          const r = FX.ring(0.5, 3.0 + tier * 0.85, i % 2 ? attr.c3 : attr.c1, 28);
+          r.rotation.set((Math.PI * i) / gCnt, (Math.PI * i) / (gCnt + 1), 0);
+          root.add(r); gyros.push(r);
+        }
+        const godCol = tier >= 3 ? FX.pillar(root, 3.2, 11, attr.c2, 0.45) : null;
+        if (godCol) godCol.position.y = 4.0;
+
+        FX.reg(scene, root, 1.3 + tier * 0.22, (p, el) => {
+          const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
+          cMat.opacity = fade * 0.98; sMat.opacity = fade * 0.92;
+          if (mc) mc.rotation.y = el * 4;
+          const bp = p < 0.25 ? (1 - p / 0.25) * 0.5 : (p - 0.25) / 0.75;
+          const exp = p < 0.25 ? 0.5 + bp : 0.4 + bp * (3.6 + tier * 1.0);
+          core.scale.setScalar(exp); shell.scale.setScalar(exp * 1.28); shell.rotation.y = el * 6;
+          gyros.forEach((g, idx) => { g.scale.setScalar(0.4 + bp * 1.6); g.rotation.z = el * (idx % 2 ? 7 : -7); g.material.opacity = fade * 0.92; });
+          if (godCol) godCol.material.opacity = fade * 0.45;
+        });
+      },
+
+      // 6. 銀河流星群（通常:流星落下 → 真:流星倍増＆着弾星魔法陣 → 極:頭上に銀河スパイラル星雲 → 神:超巨大彗星直撃）
+      star: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        root.position.set(target?.x ?? caster.x, 0, target?.z ?? caster.z);
+        const mc = tier >= 1 ? FX.magicCircle(root, 3.0 + tier * 0.8, attr.c1, attr.c2, 0.08) : null;
+        const galaxy = tier >= 2 ? FX.magicCircle(root, 3.8 + tier * 0.9, attr.c3, attr.c1, 6.2) : null;
+        const m1 = new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.96 });
+        const m2 = new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.96 });
+        const stars = [];
+        const sCnt = 4 + tier * 4;
+        for (let i = 0; i < sCnt; i++) {
+          const st = new THREE.Mesh(FX.geo('octa'), i % 2 ? m2 : m1);
+          st.scale.setScalar(0.42 + tier * 0.08);
+          const a = (Math.PI * 2 * i) / sCnt; const r = (i % 4) * (0.7 + tier * 0.2);
+          st.position.set(Math.cos(a) * r, 7.5 + (i % 3) * 1.2, Math.sin(a) * r);
+          root.add(st); stars.push({ mesh: st, delay: (i / sCnt) * 0.4, startY: st.position.y });
+        }
+        const comet = tier >= 3 ? new THREE.Mesh(FX.geo('sphere'), m2) : null;
+        if (comet) { comet.scale.setScalar(2.2); comet.position.y = 10.5; root.add(comet); }
+
+        FX.reg(scene, root, 1.25 + tier * 0.2, (p, el) => {
+          const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
+          m1.opacity = fade * 0.96; m2.opacity = fade * 0.96;
+          if (mc) mc.rotation.y = el * 3.5;
+          if (galaxy) { galaxy.rotation.y = -el * 6; galaxy.scale.setScalar(1 + Math.sin(el * 8) * 0.08); }
+          stars.forEach((s) => {
+            const lp = Math.max(0, Math.min(1, (p - s.delay) / 0.55));
+            s.mesh.position.y = Math.max(0.3, s.startY * (1 - lp));
+            s.mesh.rotation.set(el * 8, el * 6, 0);
+          });
+          if (comet) comet.position.y = p < 0.45 ? 10.5 - (p / 0.45) * 9.2 : 1.3;
+        });
+      }
+    });
+  })();
+  // =========================================================
+  // 16. スキル進化段階別・超ド派手専用エフェクト大改造【第2弾/全4回】
+  // =========================================================
+  (function installEvoPart2_V9() {
+    const FX = window._V9EvoFX;
+    if (!FX) return;
+    Object.assign(V9.EFFECT_BUILDERS, {
+      // 7. 星屑メテオ（通常:隕石落下 → 真:多重隕石群 → 極:上空紅蓮召喚陣＆火炎旋風 → 神:超巨大覇王隕石＆天貫爆炎柱）
+      fire_meteor: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        root.position.set(target?.x ?? caster.x, 0, target?.z ?? caster.z);
+        const mc = tier >= 1 ? FX.magicCircle(root, 3.2 + tier * 0.85, attr.c1, attr.c2, 0.08) : null;
+        const skyGate = tier >= 2 ? FX.magicCircle(root, 3.8 + tier * 0.9, attr.c2, attr.c3, 6.8) : null;
+        const m1 = new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.96 });
+        const m2 = new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.96 });
+        const meteors = [];
+        const cnt = 1 + tier * 2;
+        for (let i = 0; i < cnt; i++) {
+          const rock = new THREE.Mesh(FX.geo('octa'), i % 2 ? m2 : m1);
+          const sz = (i === 0 && tier >= 3) ? 2.5 : (0.9 + tier * 0.25);
+          rock.scale.setScalar(sz);
+          const a = (Math.PI * 2 * i) / cnt; const r = i === 0 ? 0 : (1.3 + tier * 0.45);
+          rock.position.set(Math.cos(a) * r, 8.5 + i * 1.1, Math.sin(a) * r);
+          root.add(rock); meteors.push({ mesh: rock, startY: rock.position.y, delay: i * 0.1 });
+        }
+        const blastCol = tier >= 3 ? FX.pillar(root, 3.0, 10.5, attr.c1, 0.46) : null;
+        if (blastCol) blastCol.visible = false;
+
+        FX.reg(scene, root, 1.3 + tier * 0.22, (p, el) => {
+          const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
+          m1.opacity = fade * 0.96; m2.opacity = fade * 0.96;
+          if (mc) mc.rotation.y = el * 3.5; if (skyGate) skyGate.rotation.y = -el * 5;
+          meteors.forEach((mt) => {
+            const lp = Math.max(0, Math.min(1, (p - mt.delay) / 0.5));
+            mt.mesh.position.y = Math.max(0.5, mt.startY * (1 - lp * lp));
+            mt.mesh.rotation.set(el * 6, el * 5, el * 4);
+          });
+          if (blastCol && p >= 0.45) {
+            blastCol.visible = true;
+            const bp = (p - 0.45) / 0.55;
+            blastCol.scale.set(3.0 * (0.6 + bp * 0.8), 10.5, 3.0 * (0.6 + bp * 0.8));
+            blastCol.material.opacity = fade * 0.46;
+          }
+        });
+      },
+
+      // 8. 螺旋炎柱（通常:炎柱 → 真:二重螺旋炎リング → 極:8本外周炎柱サークル → 神:神炎太陽コロナ＆紅蓮魔法陣）
+      fire_pillar: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        root.position.set(target?.x ?? caster.x, 0, target?.z ?? caster.z);
+        const mc = tier >= 1 ? FX.magicCircle(root, 2.8 + tier * 0.75, attr.c1, attr.c2, 0.08) : null;
+        const mainCol = FX.pillar(root, 1.5 + tier * 0.45, 6.5 + tier * 1.6, attr.c1, 0.55);
+        const coreCol = FX.pillar(root, 0.75 + tier * 0.25, 7.2 + tier * 1.8, attr.c2, 0.72);
+        const subCols = [];
+        if (tier >= 2) {
+          const sCnt = 4 + tier * 2;
+          for (let i = 0; i < sCnt; i++) {
+            const sc = FX.pillar(root, 0.55, 5.2 + tier, i % 2 ? attr.c2 : attr.c1, 0.5);
+            subCols.push({ mesh: sc, ang: (Math.PI * 2 * i) / sCnt });
+          }
+        }
+        const m2 = new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.95 });
+        const flares = [];
+        for (let i = 0; i < 6 + tier * 3; i++) {
+          const f = new THREE.Mesh(FX.geo('tetra'), m2); f.scale.setScalar(0.35 + tier * 0.06);
+          root.add(f); flares.push({ mesh: f, ang: (Math.PI * 2 * i) / (6 + tier * 3), spd: 5 + (i % 3) });
+        }
+
+        FX.reg(scene, root, 1.2 + tier * 0.2, (p, el) => {
+          const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
+          mainCol.material.opacity = fade * 0.55; coreCol.material.opacity = fade * 0.72; m2.opacity = fade * 0.95;
+          if (mc) mc.rotation.y = el * 4;
+          subCols.forEach((s) => {
+            const a = s.ang + el * 4; const r = 2.0 + tier * 0.55;
+            s.mesh.position.set(Math.cos(a) * r, (5.2 + tier) * 0.5, Math.sin(a) * r);
+            s.mesh.material.opacity = fade * 0.5;
+          });
+          flares.forEach((f) => {
+            const a = f.ang + el * f.spd; const y = ((p * 2.2 + f.ang) % 1) * (6.2 + tier * 1.4);
+            const r = 1.2 + Math.sin(y) * 0.5 + tier * 0.3;
+            f.mesh.position.set(Math.cos(a) * r, y, Math.sin(a) * r);
+          });
+        });
+      },
+
+      // 9. 爆炎ファイア（通常:火球連弾 → 真:火球倍増＆多重爆風リング → 極:紅蓮魔導陣＆十字爆炎ビーム → 神:クリムゾンノヴァ超爆発）
+      fire_burst: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        const tx = target?.x ?? caster.x; const tz = target?.z ?? caster.z;
+        const mc = tier >= 2 ? FX.magicCircle(root, 3.0 + tier * 0.75, attr.c1, attr.c2, 0.08) : null;
+        if (mc) mc.position.set(tx, 0.08, tz);
+        const m1 = new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.96 });
+        const m2 = new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.96 });
+        const balls = [];
+        const bCnt = 4 + tier * 3;
+        for (let i = 0; i < bCnt; i++) {
+          const b = new THREE.Mesh(FX.geo('sphere'), i % 2 ? m2 : m1);
+          b.scale.setScalar(0.38 + tier * 0.07);
+          root.add(b); balls.push({ mesh: b, side: ((i % 2 ? 1 : -1) * (0.6 + (i % 3) * 0.5)), delay: (i / bCnt) * 0.35 });
+        }
+        const nova = new THREE.Mesh(FX.geo('sphere'), m1);
+        nova.position.set(tx, 1.3, tz); nova.scale.setScalar(0.1); root.add(nova);
+
+        FX.reg(scene, root, 1.15 + tier * 0.18, (p, el) => {
+          const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
+          m1.opacity = fade * 0.96; m2.opacity = fade * 0.96;
+          if (mc) mc.rotation.y = el * 5;
+          const dx = tx - caster.x; const dz = tz - caster.z;
+          const len = Math.max(0.01, Math.hypot(dx, dz));
+          balls.forEach((b) => {
+            const lp = Math.max(0, Math.min(1, (p - b.delay) / 0.55));
+            const arc = Math.sin(lp * Math.PI);
+            b.mesh.position.set(caster.x + dx * lp + (-dz / len) * b.side * arc, 1.2 + arc * 1.4, caster.z + dz * lp + (dx / len) * b.side * arc);
+          });
+          if (p > 0.4) {
+            const bp = (p - 0.4) / 0.6;
+            nova.scale.setScalar(0.5 + bp * (2.6 + tier * 0.85));
+          }
+        });
+      },
+
+      // 10. 不死鳥フェニックス（通常:溶岩噴火 → 真:炎の翼展開 → 極:黄金フェニックス飛翔＆火の粉渦 → 神:神鳥転生＆業火天蓋リング）
+      fire_eruption: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        root.position.set(target?.x ?? caster.x, 0, target?.z ?? caster.z);
+        const mc = tier >= 1 ? FX.magicCircle(root, 3.2 + tier * 0.85, attr.c1, attr.c2, 0.08) : null;
+        const m1 = new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.96 });
+        const m2 = new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.96 });
+        const bird = new THREE.Group(); bird.position.y = 1.6;
+        const body = new THREE.Mesh(FX.geo('cone4'), m2); body.scale.set(0.8 + tier * 0.2, 2.2 + tier * 0.5, 0.8 + tier * 0.2);
+        const wingL = new THREE.Mesh(FX.geo('box'), m1); wingL.scale.set(2.4 + tier * 0.8, 0.14, 0.9 + tier * 0.25); wingL.position.set(-(1.3 + tier * 0.4), 0.3, 0);
+        const wingR = new THREE.Mesh(FX.geo('box'), m1); wingR.scale.set(2.4 + tier * 0.8, 0.14, 0.9 + tier * 0.25); wingR.position.set(1.3 + tier * 0.4, 0.3, 0);
+        bird.add(body, wingL, wingR); root.add(bird);
+        const canopy = tier >= 3 ? FX.ring(1.2, 4.4, attr.c2, 28) : null;
+        if (canopy) canopy.position.y = 4.8;
+
+        FX.reg(scene, root, 1.25 + tier * 0.2, (p, el) => {
+          const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
+          m1.opacity = fade * 0.96; m2.opacity = fade * 0.96;
+          if (mc) mc.rotation.y = el * 4;
+          const flap = Math.sin(el * 16) * 0.45;
+          wingL.rotation.z = flap; wingR.rotation.z = -flap;
+          bird.position.y = 1.2 + p * (3.5 + tier * 0.8);
+          bird.rotation.y = el * (tier >= 2 ? 5 : 1.5);
+          if (canopy) { canopy.rotation.y = -el * 6; canopy.material.opacity = fade * 0.9; }
+        });
+      },
+
+      // 11. 紫電・天罰落雷（通常:落雷 → 真:多重連鎖落雷 → 極:雷雲魔法陣＆公転プラズマ球 → 神:神鳴タケミカヅチ・巨大天罰雷柱）
+      thunder: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        root.position.set(target?.x ?? caster.x, 0, target?.z ?? caster.z);
+        const mc = tier >= 1 ? FX.magicCircle(root, 3.0 + tier * 0.8, attr.c1, attr.c2, 0.08) : null;
+        const cloudGate = tier >= 2 ? FX.magicCircle(root, 3.5 + tier * 0.8, attr.c3, attr.c1, 6.5) : null;
+        const m1 = new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.98 });
+        const m2 = new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.98 });
+        const bolts = [];
+        const bCnt = 1 + tier * 2;
+        for (let i = 0; i < bCnt; i++) {
+          const b = new THREE.Mesh(FX.geo('cyl8'), i % 2 ? m2 : m1);
+          const thick = (i === 0 && tier >= 3) ? 0.95 : (0.28 + tier * 0.08);
+          b.scale.set(thick, 8.5, thick);
+          const a = (Math.PI * 2 * i) / bCnt; const r = i === 0 ? 0 : (1.3 + tier * 0.45);
+          b.position.set(Math.cos(a) * r, 4.25, Math.sin(a) * r);
+          root.add(b); bolts.push(b);
+        }
+        const orbs = [];
+        if (tier >= 2) {
+          for (let i = 0; i < 6; i++) {
+            const o = new THREE.Mesh(FX.geo('sphere'), m2); o.scale.setScalar(0.32);
+            root.add(o); orbs.push({ mesh: o, ang: (Math.PI * 2 * i) / 6 });
+          }
+        }
+
+        FX.reg(scene, root, 1.05 + tier * 0.18, (p, el) => {
+          const fade = p > 0.7 ? 1 - (p - 0.7) / 0.3 : 1;
+          const flicker = Math.sin(el * 55) > 0 ? 1 : 0.55;
+          m1.opacity = fade * flicker; m2.opacity = fade * flicker;
+          if (mc) mc.rotation.y = el * 6; if (cloudGate) cloudGate.rotation.y = -el * 6;
+          orbs.forEach((o) => {
+            const a = o.ang + el * 11; const r = 2.1 + tier * 0.5;
+            o.mesh.position.set(Math.cos(a) * r, 1.5 + Math.sin(el * 12 + o.ang) * 0.5, Math.sin(a) * r);
+          });
+        });
+      },
+
+      // 12. 破邪の衝撃・トールハンマー（通常:巨槌落下 → 真:二重雷撃衝撃波 → 極:神罰魔法陣＆公転ミニハンマー → 神:創世神槌ミョルニル超巨大化＆天罰雷柱）
+      stun_impact: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        root.position.set(target?.x ?? caster.x, 0, target?.z ?? caster.z);
+        const mc = tier >= 2 ? FX.magicCircle(root, 3.2 + tier * 0.85, attr.c1, attr.c2, 0.08) : null;
+        const shock1 = FX.ring(0.4, 2.4 + tier * 0.7, attr.c1, 24); shock1.position.y = 0.09;
+        const shock2 = tier >= 1 ? FX.ring(0.8, 3.4 + tier * 0.9, attr.c2, 24) : null;
+        if (shock2) shock2.position.y = 0.11;
+        root.add(shock1); if (shock2) root.add(shock2);
+        const hMat = new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.96 });
+        const gMat = new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.96 });
+        const hammer = new THREE.Group();
+        const head = new THREE.Mesh(FX.geo('cyl8'), hMat);
+        head.scale.set(0.8 + tier * 0.32, 1.6 + tier * 0.55, 0.8 + tier * 0.32); head.rotation.z = Math.PI / 2;
+        const handle = new THREE.Mesh(FX.geo('cyl8'), gMat);
+        handle.scale.set(0.16 + tier * 0.05, 2.4 + tier * 0.65, 0.16 + tier * 0.05); handle.position.y = 1.2 + tier * 0.3;
+        hammer.add(head, handle); hammer.position.y = 7.5; root.add(hammer);
+        const thunderCol = tier >= 3 ? FX.pillar(root, 2.6, 10, attr.c2, 0.45) : null;
+        if (thunderCol) thunderCol.visible = false;
+
+        FX.reg(scene, root, 1.1 + tier * 0.18, (p, el) => {
+          const fade = p > 0.74 ? 1 - (p - 0.74) / 0.26 : 1;
+          hMat.opacity = fade * 0.96; gMat.opacity = fade * 0.96;
+          if (mc) mc.rotation.y = el * 5;
+          if (p < 0.28) {
+            const dp = p / 0.28; hammer.position.y = 7.5 * (1 - dp * dp) + 0.9; hammer.rotation.x = -0.7 * (1 - dp);
+          } else {
+            hammer.position.y = 0.9; hammer.rotation.x = 0;
+            const sp = (p - 0.28) / 0.72;
+            shock1.scale.setScalar(1 + sp * 1.5); shock1.material.opacity = (1 - sp) * 0.95;
+            if (shock2) { shock2.scale.setScalar(1 + sp * 1.9); shock2.material.opacity = (1 - sp) * 0.9; }
+            if (thunderCol) { thunderCol.visible = true; thunderCol.material.opacity = fade * 0.45; }
+          }
+        });
+      }
+    });
+  })();
+  // =========================================================
+  // 17. スキル進化段階別・超ド派手専用エフェクト大改造【第3弾/全4回】
+  // =========================================================
+  (function installEvoPart3_V9() {
+    const FX = window._V9EvoFX;
+    if (!FX) return;
+    Object.assign(V9.EFFECT_BUILDERS, {
+      // 13. 絶対零度・氷華氷柱（通常:氷柱隆起 → 真:六角氷魔法陣＆外周氷槍 → 極:回転氷晶リング → 神:コキュートス超巨大氷山柱）
+      ice: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        root.position.set(target?.x ?? caster.x, 0, target?.z ?? caster.z);
+        const mc = tier >= 1 ? FX.magicCircle(root, 3.0 + tier * 0.8, attr.c1, attr.c2, 0.08) : null;
+        const m1 = new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.94 });
+        const m2 = new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.96 });
+        const spikes = [];
+        const cnt = 5 + tier * 4;
+        for (let i = 0; i < cnt; i++) {
+          const sp = new THREE.Mesh(FX.geo('cone4'), i % 2 ? m2 : m1);
+          const h = (i === 0 && tier >= 3) ? 6.8 : (2.2 + tier * 0.55);
+          const w = (i === 0 && tier >= 3) ? 1.5 : (0.38 + tier * 0.08);
+          sp.scale.set(w, h, w);
+          const a = (Math.PI * 2 * i) / cnt; const r = i === 0 ? 0 : (0.9 + (i % 3) * (0.6 + tier * 0.2));
+          sp.position.set(Math.cos(a) * r, -h, Math.sin(a) * r);
+          sp.rotation.z = i === 0 ? 0 : (Math.cos(a) * 0.22);
+          sp.rotation.x = i === 0 ? 0 : (-Math.sin(a) * 0.22);
+          root.add(sp); spikes.push({ mesh: sp, targetY: h * 0.45, delay: (i / cnt) * 0.25 });
+        }
+        const halo = tier >= 2 ? FX.ring(1.2, 3.4 + tier * 0.7, attr.c2, 6) : null;
+        if (halo) { halo.position.y = 3.2; root.add(halo); }
+
+        FX.reg(scene, root, 1.25 + tier * 0.2, (p, el) => {
+          const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
+          m1.opacity = fade * 0.94; m2.opacity = fade * 0.96;
+          if (mc) mc.rotation.y = el * 3.5;
+          spikes.forEach((s) => {
+            const lp = Math.max(0, Math.min(1, (p - s.delay) / 0.35));
+            s.mesh.position.y = -s.targetY + lp * (s.targetY * 2);
+          });
+          if (halo) { halo.rotation.y = el * 6; halo.material.opacity = fade * 0.92; }
+        });
+      },
+
+      // 14. 旋風円舞・螺旋竜巻（通常:竜巻 → 真:疾風魔法陣＆二重竜巻 → 極:3基の公転ミニ竜巻 → 神:天貫超巨大シルフィード嵐柱）
+      wind: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        root.position.set(target?.x ?? caster.x, 0, target?.z ?? caster.z);
+        const mc = tier >= 1 ? FX.magicCircle(root, 3.1 + tier * 0.85, attr.c1, attr.c2, 0.08) : null;
+        const maxR = 2.2 + tier * 0.75;
+        const fH = 6.2 + tier * 1.8;
+        const outer = FX.pillar(root, maxR, fH, attr.c1, 0.45);
+        const inner = FX.pillar(root, maxR * 0.55, fH + 0.5, attr.c2, 0.65);
+        const m2 = new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.95 });
+        const blades = [];
+        for (let i = 0; i < 6 + tier * 3; i++) {
+          const b = new THREE.Mesh(FX.geo('tetra'), m2); b.scale.setScalar(0.36 + tier * 0.06);
+          root.add(b); blades.push({ mesh: b, ang: (Math.PI * 2 * i) / (6 + tier * 3), hF: (i % 5) / 5 });
+        }
+        const minis = [];
+        if (tier >= 2) {
+          for (let i = 0; i < 3 + (tier - 2); i++) {
+            const mn = FX.pillar(root, 0.65, 4.8 + tier, attr.c2, 0.52);
+            minis.push({ mesh: mn, ang: (Math.PI * 2 * i) / (3 + (tier - 2)) });
+          }
+        }
+
+        FX.reg(scene, root, 1.25 + tier * 0.2, (p, el) => {
+          const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
+          outer.material.opacity = fade * 0.45; inner.material.opacity = fade * 0.65; m2.opacity = fade * 0.95;
+          outer.rotation.y = el * 10; inner.rotation.y = -el * 14;
+          if (mc) mc.rotation.y = el * 6;
+          blades.forEach((b) => {
+            const a = b.ang + el * 12; const y = 0.4 + ((b.hF + p * 1.4) % 1) * fH;
+            const r = 0.5 + (y / fH) * maxR * 0.95;
+            b.mesh.position.set(Math.cos(a) * r, y, Math.sin(a) * r); b.mesh.rotation.y = -a;
+          });
+          minis.forEach((m) => {
+            const a = m.ang + el * 5; const r = 2.4 + tier * 0.6;
+            m.mesh.position.set(Math.cos(a) * r, (4.8 + tier) * 0.5, Math.sin(a) * r);
+            m.mesh.material.opacity = fade * 0.52;
+          });
+        });
+      },
+
+      // 15. 蒼海・大渦潮水柱（通常:渦潮水柱 → 真:多重波紋＆蒼海魔法陣 → 極:旋回する水龍リング → 神:リヴァイアサン巨大海嘯＆深海泡群）
+      water: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        root.position.set(target?.x ?? caster.x, 0, target?.z ?? caster.z);
+        const mc = tier >= 1 ? FX.magicCircle(root, 3.2 + tier * 0.85, attr.c1, attr.c2, 0.08) : null;
+        const col = FX.pillar(root, 1.8 + tier * 0.55, 6.0 + tier * 1.6, attr.c1, 0.52);
+        const core = FX.pillar(root, 0.95 + tier * 0.3, 6.8 + tier * 1.8, attr.c2, 0.68);
+        const waves = [];
+        for (let i = 0; i < 2 + tier; i++) {
+          const w = FX.ring(0.5, 2.4 + tier * 0.7, i % 2 ? attr.c2 : attr.c1, 24);
+          w.position.y = 0.1 + i * 0.05; root.add(w); waves.push(w);
+        }
+        const m2 = new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.94 });
+        const bubbles = [];
+        for (let i = 0; i < 8 + tier * 4; i++) {
+          const b = new THREE.Mesh(FX.geo('sphere'), m2); b.scale.setScalar(0.28 + tier * 0.06);
+          root.add(b); bubbles.push({ mesh: b, ang: (Math.PI * 2 * i) / (8 + tier * 4), spd: 4 + (i % 4) });
+        }
+
+        FX.reg(scene, root, 1.25 + tier * 0.2, (p, el) => {
+          const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
+          col.material.opacity = fade * 0.52; core.material.opacity = fade * 0.68; m2.opacity = fade * 0.94;
+          if (mc) mc.rotation.y = el * 4.5;
+          waves.forEach((w, idx) => {
+            const wp = (p * 1.8 + idx * 0.25) % 1;
+            w.scale.setScalar(0.5 + wp * 1.6); w.material.opacity = fade * (1 - wp) * 0.9;
+          });
+          bubbles.forEach((b) => {
+            const a = b.ang + el * b.spd; const y = ((p * 2.0 + b.ang) % 1) * (5.8 + tier * 1.4);
+            const r = 1.4 + tier * 0.4 + Math.sin(y * 2) * 0.35;
+            b.mesh.position.set(Math.cos(a) * r, y, Math.sin(a) * r);
+          });
+        });
+      },
+
+      // 16. 大地隆起・巨岩破砕（通常:巨岩隆起 → 真:大地魔法陣＆8方向岩槍 → 極:浮遊岩石衛星リング → 神:タイタン超巨大モノリス＆黄金衝撃波）
+      earth: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        root.position.set(target?.x ?? caster.x, 0, target?.z ?? caster.z);
+        const mc = tier >= 1 ? FX.magicCircle(root, 3.2 + tier * 0.85, attr.c1, attr.c2, 0.08) : null;
+        const m1 = new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.96 });
+        const m2 = new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.96 });
+        const rocks = [];
+        const cnt = 4 + tier * 3;
+        for (let i = 0; i < cnt; i++) {
+          const rk = new THREE.Mesh(FX.geo('octa'), i % 2 ? m2 : m1);
+          const isBoss = (i === 0 && tier >= 3);
+          const h = isBoss ? 5.6 : (1.8 + tier * 0.45);
+          const w = isBoss ? 2.2 : (0.85 + tier * 0.2);
+          rk.scale.set(w, h, w);
+          const a = (Math.PI * 2 * i) / cnt; const r = i === 0 ? 0 : (1.2 + (i % 3) * (0.55 + tier * 0.2));
+          rk.position.set(Math.cos(a) * r, -h, Math.sin(a) * r);
+          root.add(rk); rocks.push({ mesh: rk, targetY: h * 0.45, delay: (i / cnt) * 0.22 });
+        }
+        const sats = [];
+        if (tier >= 2) {
+          for (let i = 0; i < 6 + tier * 2; i++) {
+            const st = new THREE.Mesh(FX.geo('octa'), m2); st.scale.setScalar(0.45);
+            root.add(st); sats.push({ mesh: st, ang: (Math.PI * 2 * i) / (6 + tier * 2) });
+          }
+        }
+
+        FX.reg(scene, root, 1.2 + tier * 0.2, (p, el) => {
+          const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
+          m1.opacity = fade * 0.96; m2.opacity = fade * 0.96;
+          if (mc) mc.rotation.y = el * 3;
+          rocks.forEach((r) => {
+            const lp = Math.max(0, Math.min(1, (p - r.delay) / 0.32));
+            r.mesh.position.y = -r.targetY + lp * (r.targetY * 2);
+          });
+          sats.forEach((s) => {
+            const a = s.ang + el * 5; const r = 2.6 + tier * 0.6;
+            s.mesh.position.set(Math.cos(a) * r, 2.8 + Math.sin(el * 6 + s.ang) * 0.4, Math.sin(a) * r);
+            s.mesh.rotation.set(el * 4, el * 5, 0);
+          });
+        });
+      },
+
+      // 17. 黒蝕・ブラックホール（通常:暗黒球＆円盤 → 真:冥界魔法陣＆吸引オーブ → 極:交差事象の地平線リング → 神:アビスノヴァ超重力爆発＆漆黒柱）
+      dark: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        root.position.set(target?.x ?? caster.x, 1.6, target?.z ?? caster.z);
+        const mc = tier >= 1 ? FX.magicCircle(root, 3.4 + tier * 0.9, attr.c1, attr.c2, -1.5) : null;
+        const core = new THREE.Mesh(FX.geo('sphere'), new THREE.MeshBasicMaterial({ color: 0x05070e, transparent: true, opacity: 0.98 }));
+        const coreR = 1.0 + tier * 0.35; core.scale.setScalar(coreR);
+        const disk1 = FX.ring(coreR * 1.1, coreR * 2.5, attr.c1, 28);
+        const disk2 = tier >= 2 ? FX.ring(coreR * 1.2, coreR * 2.7, attr.c2, 28) : null;
+        if (disk2) disk2.rotation.x = Math.PI / 3;
+        root.add(core, disk1); if (disk2) root.add(disk2);
+        const m2 = new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.94 });
+        const orbs = [];
+        for (let i = 0; i < 8 + tier * 4; i++) {
+          const o = new THREE.Mesh(FX.geo('sphere'), m2); o.scale.setScalar(0.24 + tier * 0.05);
+          root.add(o); orbs.push({ mesh: o, ang: (Math.PI * 2 * i) / (8 + tier * 4), elev: ((i % 3) - 1) * 0.9 });
+        }
+        const abyssCol = tier >= 3 ? FX.pillar(root, 2.4, 10, attr.c1, 0.42) : null;
+        if (abyssCol) abyssCol.position.y = 3.4;
+
+        FX.reg(scene, root, 1.3 + tier * 0.22, (p, el) => {
+          const fade = p > 0.75 ? 1 - (p - 0.75) / 0.25 : 1;
+          core.material.opacity = fade * 0.98; disk1.material.opacity = fade * 0.94; m2.opacity = fade * 0.94;
+          if (disk2) { disk2.material.opacity = fade * 0.9; disk2.rotation.z = -el * 7; }
+          if (mc) mc.rotation.y = el * 4;
+          disk1.rotation.y = el * 8;
+          if (p < 0.72) {
+            const pull = 1 - (p / 0.72);
+            orbs.forEach((o) => {
+              const a = o.ang + el * 9; const r = (3.5 + tier * 0.8) * pull + 0.4;
+              o.mesh.position.set(Math.cos(a) * r, o.elev * pull, Math.sin(a) * r);
+            });
+          } else {
+            const bp = (p - 0.72) / 0.28;
+            core.scale.setScalar(coreR * (1 + bp * 2.2));
+            orbs.forEach((o) => {
+              const a = o.ang + el * 9; const r = 0.5 + bp * (4.5 + tier);
+              o.mesh.position.set(Math.cos(a) * r, o.elev * (1 + bp * 2), Math.sin(a) * r);
+            });
+          }
+          if (abyssCol) abyssCol.material.opacity = fade * 0.42;
+        });
+      },
+
+      // 18. 呪詛・魔界瘴気（通常:瘴気ドーム → 真:呪詛魔法陣＆毒泡オーブ → 極:回転ヒュドラ毒牙トーテム柱 → 神:魔界ベリアル瘴気噴火柱＆猛毒クリスタル）
+      poison: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        root.position.set(target?.x ?? caster.x, 0, target?.z ?? caster.z);
+        const mc = tier >= 1 ? FX.magicCircle(root, 3.2 + tier * 0.85, attr.c1, attr.c2, 0.08) : null;
+        const m1 = new THREE.MeshBasicMaterial({ color: attr.c1, wireframe: true, transparent: true, opacity: 0.75 });
+        const m2 = new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.92 });
+        const dome = new THREE.Mesh(FX.geo('sphere'), m1);
+        const dR = 2.4 + tier * 0.75; dome.scale.set(dR, dR * 0.7, dR); dome.position.y = dR * 0.35;
+        root.add(dome);
+        const bubbles = [];
+        for (let i = 0; i < 8 + tier * 4; i++) {
+          const b = new THREE.Mesh(FX.geo('sphere'), m2); b.scale.setScalar(0.32 + tier * 0.06);
+          root.add(b); bubbles.push({ mesh: b, ang: (Math.PI * 2 * i) / (8 + tier * 4), rad: 0.6 + (i % 4) * 0.55 });
+        }
+        const totems = [];
+        if (tier >= 2) {
+          for (let i = 0; i < 4 + tier; i++) {
+            const tm = FX.pillar(root, 0.5, 4.8 + tier, i % 2 ? attr.c2 : attr.c1, 0.5);
+            totems.push({ mesh: tm, ang: (Math.PI * 2 * i) / (4 + tier) });
+          }
+        }
+        const miasmaCol = tier >= 3 ? FX.pillar(root, 2.2, 9.5, attr.c2, 0.42) : null;
+
+        FX.reg(scene, root, 1.25 + tier * 0.2, (p, el) => {
+          const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
+          m1.opacity = fade * 0.75; m2.opacity = fade * 0.92;
+          dome.rotation.y = el * 3;
+          if (mc) mc.rotation.y = -el * 4;
+          bubbles.forEach((b) => {
+            const a = b.ang + el * 4; const y = ((p * 1.8 + b.ang) % 1) * (3.2 + tier * 0.8);
+            b.mesh.position.set(Math.cos(a) * b.rad, y, Math.sin(a) * b.rad);
+          });
+          totems.forEach((t) => {
+            const a = t.ang + el * 4.5; const r = 2.3 + tier * 0.55;
+            t.mesh.position.set(Math.cos(a) * r, (4.8 + tier) * 0.5, Math.sin(a) * r);
+            t.mesh.material.opacity = fade * 0.5;
+          });
+          if (miasmaCol) miasmaCol.material.opacity = fade * 0.42;
+        });
+      }
+    });
+  })();
+  // =========================================================
+  // 18. スキル進化段階別・超ド派手専用エフェクト大改造【第4弾/全4回・完結】
+  // =========================================================
+  (function installEvoPart4_V9() {
+    const FX = window._V9EvoFX;
+    if (!FX) return;
+    Object.assign(V9.EFFECT_BUILDERS, {
+      // 19. 深紅吸血・ソウルドレイン（通常:魂オーブ吸収 → 真:血界魔法陣＆オーブ倍増 → 極:真紅ブラッドムーン＆旋回血刃 → 神:吸血鬼王の深紅オーラ柱）
+      blood_drain: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        const tx = target?.x ?? caster.x; const tz = target?.z ?? caster.z;
+        const mcT = tier >= 1 ? FX.magicCircle(root, 2.2 + tier * 0.5, attr.c1, attr.c3, 0.08) : null;
+        if (mcT) mcT.position.set(tx, 0.08, tz);
+        const mcC = tier >= 1 ? FX.magicCircle(root, 2.2 + tier * 0.5, attr.c2, attr.c1, 0.08) : null;
+        if (mcC) mcC.position.set(caster.x, 0.08, caster.z);
+        const m1 = new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.96 });
+        const m2 = new THREE.MeshBasicMaterial({ color: attr.c3, transparent: true, opacity: 0.96 });
+        const orbs = [];
+        const cnt = 6 + tier * 4;
+        for (let i = 0; i < cnt; i++) {
+          const o = new THREE.Mesh(FX.geo('sphere'), i % 2 ? m2 : m1);
+          o.scale.setScalar(0.3 + tier * 0.07); root.add(o);
+          orbs.push({ mesh: o, side: ((i % 2 ? 1 : -1) * (0.8 + (i % 3) * 0.55)), h: 0.9 + (i % 4) * 0.45, delay: (i / cnt) * 0.3 });
+        }
+        const moon = tier >= 2 ? new THREE.Mesh(FX.geo('sphere'), m1) : null;
+        if (moon) { moon.scale.setScalar(1.2 + tier * 0.3); moon.position.set(tx, 3.6, tz); root.add(moon); }
+        const drainCol = tier >= 3 ? FX.pillar(root, 2.0, 7.5, attr.c1, 0.42) : null;
+        if (drainCol) drainCol.position.set(caster.x, 3.75, caster.z);
+
+        FX.reg(scene, root, 1.15 + tier * 0.18, (p, el) => {
+          const fade = p > 0.74 ? 1 - (p - 0.74) / 0.26 : 1;
+          m1.opacity = fade * 0.96; m2.opacity = fade * 0.96;
+          if (mcT) mcT.rotation.y = el * 5; if (mcC) mcC.rotation.y = -el * 5;
+          const dx = caster.x - tx; const dz = caster.z - tz;
+          const len = Math.max(0.01, Math.hypot(dx, dz));
+          orbs.forEach((o) => {
+            const lp = Math.max(0, Math.min(1, (p - o.delay) / 0.65));
+            const ease = lp * lp; const arc = Math.sin(lp * Math.PI);
+            o.mesh.position.set(tx + dx * ease + (-dz / len) * o.side * arc, 0.8 + arc * o.h, tz + dz * ease + (dx / len) * o.side * arc);
+          });
+          if (moon) moon.scale.setScalar((1.2 + tier * 0.3) * (1 - p * 0.65));
+          if (drainCol) drainCol.material.opacity = fade * 0.42;
+        });
+      },
+
+      // 20. 聖光の癒し・天照光輪魔法（通常:天使光輪＆羽根 → 真:聖光六芒星魔法陣 → 極:6枚の公転黄金聖翼 → 神:天照大御光の神光柱＆三重聖輪）
+      holy_heal: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        root.position.set(caster.x, 0, caster.z);
+        const mc = tier >= 1 ? FX.magicCircle(root, 2.8 + tier * 0.7, attr.c1, attr.c3, 0.07) : null;
+        const m1 = new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.96 });
+        const m2 = new THREE.MeshBasicMaterial({ color: attr.c3, transparent: true, opacity: 0.96 });
+        const halos = [];
+        for (let i = 0; i < 1 + tier; i++) {
+          const h = new THREE.Mesh(new THREE.TorusGeometry(1.0 + i * 0.45, 0.06, 6, 24), i % 2 ? m2 : m1);
+          h.rotation.x = Math.PI / 2; h.position.y = 2.8 + i * 0.35; root.add(h); halos.push(h);
+        }
+        const wings = [];
+        if (tier >= 2) {
+          for (let i = 0; i < 6; i++) {
+            const w = new THREE.Mesh(FX.geo('tetra'), m2); w.scale.set(0.55, 1.3, 0.14);
+            root.add(w); wings.push({ mesh: w, ang: (Math.PI * 2 * i) / 6 });
+          }
+        }
+        const sunCol = tier >= 3 ? FX.pillar(root, 2.4, 9.5, attr.c1, 0.4) : null;
+
+        FX.reg(scene, root, 1.25 + tier * 0.2, (p, el) => {
+          const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
+          m1.opacity = fade * 0.96; m2.opacity = fade * 0.96;
+          if (mc) mc.rotation.y = el * 3.5;
+          halos.forEach((h, i) => { h.rotation.z = el * (i % 2 ? -4 : 4); });
+          wings.forEach((w) => {
+            const a = w.ang + el * 4; const r = 1.9 + tier * 0.35;
+            w.mesh.position.set(Math.cos(a) * r, 2.1 + Math.sin(el * 6 + w.ang) * 0.3, Math.sin(a) * r);
+            w.mesh.rotation.y = -a;
+          });
+          if (sunCol) sunCol.material.opacity = fade * 0.4;
+        });
+      },
+
+      // 21. 神域防御・絶対聖盾魔法（通常:防御ドーム → 真:聖盾魔法陣＆二重バリア → 極:6枚の公転イージス大盾 → 神:三重ジャイロ神域結界＆天蓋柱）
+      aegis_shield: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        root.position.set(caster.x, 0, caster.z);
+        const mc = tier >= 1 ? FX.magicCircle(root, 2.8 + tier * 0.7, attr.c1, attr.c2, 0.08) : null;
+        const m1 = new THREE.MeshBasicMaterial({ color: attr.c1, wireframe: true, transparent: true, opacity: 0.85 });
+        const m2 = new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.94 });
+        const dome = new THREE.Mesh(FX.geo('octa'), m1);
+        const dR = 2.2 + tier * 0.55; dome.scale.set(dR, dR * 1.15, dR); dome.position.y = dR * 0.5;
+        root.add(dome);
+        const shields = [];
+        if (tier >= 2) {
+          for (let i = 0; i < 4 + tier * 2; i++) {
+            const sh = new THREE.Mesh(FX.geo('box'), m2); sh.scale.set(0.16, 1.3 + tier * 0.2, 0.85 + tier * 0.15);
+            root.add(sh); shields.push({ mesh: sh, ang: (Math.PI * 2 * i) / (4 + tier * 2) });
+          }
+        }
+        const gyro = tier >= 3 ? FX.ring(2.2, 3.6, attr.c2, 24) : null;
+        if (gyro) { gyro.position.y = 1.8; gyro.rotation.x = Math.PI / 3; root.add(gyro); }
+
+        FX.reg(scene, root, 1.2 + tier * 0.2, (p, el) => {
+          const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
+          m1.opacity = fade * 0.85; m2.opacity = fade * 0.94;
+          dome.rotation.y = el * 3;
+          if (mc) mc.rotation.y = -el * 4;
+          shields.forEach((s) => {
+            const a = s.ang + el * 5; const r = 2.0 + tier * 0.45;
+            s.mesh.position.set(Math.cos(a) * r, 1.5, Math.sin(a) * r); s.mesh.rotation.y = -a;
+          });
+          if (gyro) { gyro.rotation.z = el * 7; gyro.material.opacity = fade * 0.92; }
+        });
+      },
+
+      // 22. 覇王の咆哮・闘気覚醒オーラ（通常:闘気スパイク → 真:覇王紅蓮魔法陣 → 極:頭上の黄金覇王冠＆闘気柱 → 神:天貫超巨大覇王闘気ビーム）
+      warcry_aura: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        root.position.set(caster.x, 0, caster.z);
+        const mc = tier >= 1 ? FX.magicCircle(root, 3.0 + tier * 0.8, attr.c1, attr.c2, 0.08) : null;
+        const m1 = new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.95 });
+        const m2 = new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.95 });
+        const spikes = [];
+        for (let i = 0; i < 8 + tier * 4; i++) {
+          const sp = new THREE.Mesh(FX.geo('cone4'), i % 2 ? m2 : m1);
+          sp.scale.set(0.24 + tier * 0.05, 1.8 + tier * 0.5, 0.24 + tier * 0.05);
+          const a = (Math.PI * 2 * i) / (8 + tier * 4);
+          sp.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(Math.cos(a), 0.7, Math.sin(a)).normalize());
+          root.add(sp); spikes.push({ mesh: sp, a });
+        }
+        const crown = tier >= 2 ? FX.ring(1.1, 2.2 + tier * 0.4, attr.c2, 8) : null;
+        if (crown) { crown.position.y = 3.4; root.add(crown); }
+        const auraCol = tier >= 2 ? FX.pillar(root, 1.8 + tier * 0.5, 7.0 + tier * 2.0, attr.c1, 0.45) : null;
+
+        FX.reg(scene, root, 1.15 + tier * 0.2, (p, el) => {
+          const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
+          m1.opacity = fade * 0.95; m2.opacity = fade * 0.95;
+          if (mc) mc.rotation.y = el * 4;
+          spikes.forEach((s) => {
+            const dist = 0.6 + p * (2.6 + tier * 0.7);
+            s.mesh.position.set(Math.cos(s.a) * dist, 0.8 + p * 1.6, Math.sin(s.a) * dist);
+          });
+          if (crown) { crown.rotation.y = el * 6; crown.material.opacity = fade * 0.94; }
+          if (auraCol) auraCol.material.opacity = fade * 0.45;
+        });
+      },
+
+      // 23. 極光の聖域（通常:虹色結界＆光柱 → 真:極光魔法陣＆プリズム結晶 → 極:天空オーロラクラウン → 神:神聖虹彩の柱＆祝福リング）
+      aurora_sanctuary: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        root.position.set(caster.x, 0, caster.z);
+        const mc = FX.magicCircle(root, 3.0 + tier * 0.8, attr.c1, attr.c2, 0.08);
+        const col = FX.pillar(root, 2.0 + tier * 0.55, 6.5 + tier * 1.8, attr.c1, 0.42);
+        const m2 = new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.95 });
+        const prisms = [];
+        for (let i = 0; i < 6 + tier * 3; i++) {
+          const pr = new THREE.Mesh(FX.geo('octa'), m2); pr.scale.setScalar(0.32 + tier * 0.06);
+          root.add(pr); prisms.push({ mesh: pr, ang: (Math.PI * 2 * i) / (6 + tier * 3) });
+        }
+        const skyCrown = tier >= 2 ? FX.ring(1.6, 3.6 + tier * 0.7, attr.c3, 24) : null;
+        if (skyCrown) { skyCrown.position.y = 4.6; root.add(skyCrown); }
+
+        FX.reg(scene, root, 1.3 + tier * 0.2, (p, el) => {
+          const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
+          col.material.opacity = fade * 0.42; m2.opacity = fade * 0.95; mc.rotation.y = el * 3.5;
+          prisms.forEach((pr) => {
+            const a = pr.ang + el * 4.5; const y = ((p * 2.0 + pr.ang) % 1) * (4.5 + tier);
+            const r = 1.6 + tier * 0.45;
+            pr.mesh.position.set(Math.cos(a) * r, y, Math.sin(a) * r); pr.mesh.rotation.y = el * 6;
+          });
+          if (skyCrown) { skyCrown.rotation.y = -el * 5; skyCrown.material.opacity = fade * 0.92; }
+        });
+      },
+
+      // 24. 蒼穹魔力泉・マナチャージ（通常:蒼水晶＆螺旋マナ → 真:二重水晶＆魔導魔法陣 → 極:4基の公転エーテルビット → 神:オーバーフロー蒼穹魔力柱）
+      mana_charge: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        root.position.set(caster.x, 0, caster.z);
+        const mc = FX.magicCircle(root, 2.6 + tier * 0.7, attr.c1, attr.c2, 0.08);
+        const m1 = new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.95 });
+        const m2 = new THREE.MeshBasicMaterial({ color: attr.c3, wireframe: true, transparent: true, opacity: 0.92 });
+        const gem = new THREE.Mesh(FX.geo('octa'), m1); gem.scale.set(0.6 + tier * 0.18, 1.1 + tier * 0.3, 0.6 + tier * 0.18); gem.position.y = 3.0;
+        const wire = new THREE.Mesh(FX.geo('octa'), m2); wire.scale.set(0.8 + tier * 0.22, 1.4 + tier * 0.35, 0.8 + tier * 0.22); wire.position.y = 3.0;
+        root.add(gem, wire);
+        const bits = [];
+        if (tier >= 2) {
+          for (let i = 0; i < 4 + tier; i++) {
+            const bt = new THREE.Mesh(FX.geo('octa'), m1); bt.scale.setScalar(0.35);
+            root.add(bt); bits.push({ mesh: bt, ang: (Math.PI * 2 * i) / (4 + tier) });
+          }
+        }
+        const manaCol = tier >= 3 ? FX.pillar(root, 2.2, 9.0, attr.c1, 0.42) : null;
+
+        FX.reg(scene, root, 1.25 + tier * 0.2, (p, el) => {
+          const fade = p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1;
+          m1.opacity = fade * 0.95; m2.opacity = fade * 0.92; mc.rotation.y = el * 4;
+          gem.rotation.y = el * 5; wire.rotation.y = -el * 4;
+          bits.forEach((b) => {
+            const a = b.ang + el * 6; const r = 1.8 + tier * 0.4;
+            b.mesh.position.set(Math.cos(a) * r, 2.0 + Math.sin(el * 8 + b.ang) * 0.4, Math.sin(a) * r);
+          });
+          if (manaCol) manaCol.material.opacity = fade * 0.42;
+        });
+      }
+    });
+  })();
 })();
 // ▲▲▲ ここまで 【スキルエフェクト専用 game9.js (全魔法エフェクト完全一致&重複ゼロ整理版) 】 ▲▲▲
