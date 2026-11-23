@@ -3741,14 +3741,14 @@ snap.set(m, {
     resetClassEvolution: () => resetClassEvolutionV9(null)
   });
 // =========================================================
-  // 14. 全スキル見た目完全差別化パッチ（新4種追加＋重複シルエット刷新）
+  // 14. 全スキル見た目完全差別化＆重複ゼロ自動振り分けエンジン
   // =========================================================
-  (function installDistinctSkillVisualsV9() {
+  (function installZeroDuplicateSkillVisualsV9() {
     const regFn = V9.register3DAnimation || register3DAnimationV9;
     const ringFn = V9._makeCircleRing || makeCircleRing;
     const geoFn = V9._unitGeo || unitGeoV9;
 
-    // 1. 新規プロファイル4種を追加（吸血・回転斬り・スタン震撃・MP魔力泉）
+    // 1. 新規専用プロファイル4種を追加
     const extraProfiles = [
       {
         id: 'blood_drain',
@@ -3819,7 +3819,6 @@ snap.set(m, {
       }
     });
 
-    // 着弾タイミング同期テーブルにも新4種を登録
     if (typeof IMPACT_SYNC_TABLE_V9 === 'object' && IMPACT_SYNC_TABLE_V9) {
       Object.assign(IMPACT_SYNC_TABLE_V9, {
         blood_drain: { delay: 0.25, perDist: 0.008, hits: 2, interval: 0.18, shake: 0.22 },
@@ -3828,9 +3827,9 @@ snap.set(m, {
       });
     }
 
-    // 2. 個別3Dビルダー（新4種＋覇王の咆哮・聖光の癒しのシルエット刷新）
+    // 2. 個別3Dビルダー（新4種＋重複していた補助2種の完全別シルエット化）
     Object.assign(V9.EFFECT_BUILDERS, {
-      // 【刷新】覇王の咆哮：円柱をやめ、放射状に噴き出すトゲトゲ闘気スパイク＋衝撃波
+      // 【刷新】覇王の咆哮：全身から放射状に噴き出すトゲトゲ闘気スパイク＋二重衝撃波
       warcry_aura: (scene, caster, target, tier, attr) => {
         const root = new THREE.Group();
         root.position.set(caster.x, 0.9, caster.z);
@@ -3861,7 +3860,7 @@ snap.set(m, {
           sp.scale.set(0.22 + tier * 0.04, len, 0.22 + tier * 0.04);
           sp.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
           root.add(sp);
-          spikes.push({ mesh: sp, dir, len });
+          spikes.push({ mesh: sp, dir });
         }
 
         regFn(scene, root, 1.05 + tier * 0.16, (p, el) => {
@@ -3881,7 +3880,7 @@ snap.set(m, {
         });
       },
 
-      // 【刷新】聖光の癒し：円柱をやめ、頭上の二重天使光輪＋舞い降りる聖羽根
+      // 【刷新】聖光の癒し：頭上の二重天使光輪＋舞い降りる聖羽根
       holy_heal: (scene, caster, target, tier, attr) => {
         const root = new THREE.Group();
         root.position.set(caster.x, 0, caster.z);
@@ -4124,28 +4123,159 @@ snap.set(m, {
       }
     });
 
-    // 3. スキルの type / id を最優先で判定して同じ見た目被りを防ぐ
-    const _prevInferV9 = inferDefaultProfileV9;
-    inferDefaultProfileV9 = function (origName, sk = {}) {
+    // 3. スキルの種類に応じた最適プロファイル候補（優先順）を返す
+    function matchPreferredProfileIdV9(origName, sk = {}) {
       const skId = String(sk.id || sk.skillId || '');
       const skType = String(sk.type || '').toUpperCase();
+      const txt = `${origName || ''} ${skId} ${sk.desc || ''}`;
 
-      if (skId === 'spin_whirl') return findProfileByIdV9('spin_whirl') || _prevInferV9(origName, sk);
-      if (skType === 'DRAIN') return findProfileByIdV9('blood_drain') || _prevInferV9(origName, sk);
-      if (skType === 'INTERRUPT') return findProfileByIdV9('stun_impact') || _prevInferV9(origName, sk);
-      if (skType === 'HEAL_MP') return findProfileByIdV9('mana_charge') || _prevInferV9(origName, sk);
-      if (skType === 'HEAL') return findProfileByIdV9('holy_heal') || _prevInferV9(origName, sk);
-      if (skType === 'DEF_BUFF') return findProfileByIdV9('aegis_shield') || _prevInferV9(origName, sk);
-      if (skType === 'ATK_BUFF') return findProfileByIdV9('warcry_aura') || _prevInferV9(origName, sk);
-      if (skType === 'AOE_SLOW') return findProfileByIdV9('ice') || _prevInferV9(origName, sk);
-      if (skType === 'AOE_BURN') return findProfileByIdV9('fire_eruption') || _prevInferV9(origName, sk);
-      if (skType === 'THUNDER') return findProfileByIdV9('thunder') || _prevInferV9(origName, sk);
+      if (skId === 'spin_whirl') return 'spin_whirl';
+      if (skType === 'DRAIN') return 'blood_drain';
+      if (skType === 'INTERRUPT') return 'stun_impact';
+      if (skType === 'HEAL_MP') return 'mana_charge';
+      if (skType === 'HEAL') return 'holy_heal';
+      if (skType === 'DEF_BUFF') return 'aegis_shield';
+      if (skType === 'ATK_BUFF') return 'warcry_aura';
+      if (skType === 'AOE_SLOW') return 'ice';
+      if (skType === 'AOE_BURN') return 'fire_eruption';
+      if (skType === 'THUNDER') return 'thunder';
 
-      return _prevInferV9(origName, sk);
+      for (let i = 0; i < V9.ATTRIBUTES.length; i++) {
+        if (V9.ATTRIBUTES[i].match.test(txt)) {
+          return V9.ATTRIBUTES[i].id;
+        }
+      }
+      return null;
+    }
+
+    // 4. 【核心】全スキルを1対1で絶対に被らないエフェクトIDへ自動割り当てする
+    const _uniqueCacheMapV9 = new Map();
+    let _lastSkillSignatureV9 = '';
+
+    function computeZeroDuplicateAssignmentV9(game) {
+      const g = game || window.__kmjInstance || window._kmjGameInstance || window.game || window.app || window.mmorpg;
+      const allSkills = getAllSkillsListV9(g);
+      if (allSkills.length === 0) return _uniqueCacheMapV9;
+
+      const sig = allSkills.map((s, i) => String(s.id || s.skillId || i)).join('|');
+      if (sig === _lastSkillSignatureV9 && _uniqueCacheMapV9.size > 0) {
+        return _uniqueCacheMapV9;
+      }
+      _lastSkillSignatureV9 = sig;
+      _uniqueCacheMapV9.clear();
+
+      const customMap = getCustomSkillConfigV9(g);
+      const usedAttackIds = new Set();
+      const usedSupportIds = new Set();
+
+      const attackPool = V9.ATTRIBUTES.filter(a => !a.isNonAttack).map(a => a.id);
+      const supportPool = V9.ATTRIBUTES.filter(a => a.isNonAttack).map(a => a.id);
+
+      // まずユーザー手動選択分を予約
+      allSkills.forEach((sk, idx) => {
+        const origName = String(sk._v9BaseName || sk.baseName || sk.name || `skill_${idx}`);
+        const sid = String(sk.id || sk.skillId || `slot_${idx}_${origName}`);
+        const custom = customMap[sid] || customMap[origName];
+        if (custom?.attrId && findProfileByIdV9(custom.attrId)) {
+          const prof = findProfileByIdV9(custom.attrId);
+          _uniqueCacheMapV9.set(sid, prof.id);
+          if (prof.isNonAttack) usedSupportIds.add(prof.id);
+          else usedAttackIds.add(prof.id);
+        }
+      });
+
+      // 未設定のスキルは、他のスキルと絶対に被らないIDを割り当て
+      allSkills.forEach((sk, idx) => {
+        const origName = String(sk._v9BaseName || sk.baseName || sk.name || `skill_${idx}`);
+        const sid = String(sk.id || sk.skillId || `slot_${idx}_${origName}`);
+        if (_uniqueCacheMapV9.has(sid)) return;
+
+        const isNonAtk = isNonAttackSkillObjV9(g, sk, null);
+        const pool = isNonAtk ? supportPool : attackPool;
+        const usedSet = isNonAtk ? usedSupportIds : usedAttackIds;
+
+        let chosenId = matchPreferredProfileIdV9(origName, sk);
+        const chosenProf = chosenId ? findProfileByIdV9(chosenId) : null;
+        if (!chosenProf || Boolean(chosenProf.isNonAttack) !== isNonAtk) {
+          chosenId = null;
+        }
+
+        // すでに他のスキルが使っていたら、未使用の別エフェクトに自動変更
+        if (!chosenId || usedSet.has(chosenId)) {
+          const unused = pool.find(id => !usedSet.has(id));
+          chosenId = unused || pool[idx % pool.length];
+        }
+
+        usedSet.add(chosenId);
+        _uniqueCacheMapV9.set(sid, chosenId);
+      });
+
+      return _uniqueCacheMapV9;
+    }
+
+    // inferDefaultProfileV9 を「重複ゼロ自動割り当て」に接続
+    inferDefaultProfileV9 = function (origName, sk = {}) {
+      const g = window.__kmjInstance || window._kmjGameInstance || window.game || window.app || window.mmorpg;
+      const map = computeZeroDuplicateAssignmentV9(g);
+      const sid = String(sk.id || sk.skillId || '');
+      if (sid && map.has(sid)) {
+        const prof = findProfileByIdV9(map.get(sid));
+        if (prof) return prof;
+      }
+      // 単体判定フォールバック
+      const prefId = matchPreferredProfileIdV9(origName, sk);
+      if (prefId && findProfileByIdV9(prefId)) return findProfileByIdV9(prefId);
+      const isNonAtk = isNonAttackSkillObjV9(g, sk, null);
+      const pool = V9.ATTRIBUTES.filter(a => Boolean(a.isNonAttack) === isNonAtk);
+      let hash = 0;
+      const key = `${origName}_${sid}`;
+      for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+      return pool[hash % pool.length] || V9.ATTRIBUTES[0];
     };
 
-    // スキル一覧の名前・表示を即座に再同期
+    // 5. 「✨ 魔法進化」スタジオに「被りなし自動再配置」ボタンを追加
+    const _prevOpenStudioV9 = openMagicEvolutionStudioV9;
+    openMagicEvolutionStudioV9 = function () {
+      _prevOpenStudioV9();
+      const card = document.querySelector('#kmj-v9-studio-modal .kmj-v9-studio-card');
+      if (!card || document.getElementById('kmj-v9-dedup-btn')) return;
+
+      const bar = document.createElement('div');
+      bar.style.cssText = 'margin-bottom:8px;display:flex;gap:6px;';
+      bar.innerHTML = `
+        <button type="button" id="kmj-v9-dedup-btn"
+          style="width:100%;background:linear-gradient(90deg,#0284c7,#7c3aed);color:#fff;border:1.5px solid #fde047;border-radius:8px;padding:7px 10px;font-size:11px;font-weight:900;cursor:pointer;">
+          🔀 全スキルを被りなしの別々の見た目に一括設定する
+        </button>
+      `;
+      card.insertBefore(bar, card.children[2] || null);
+
+      document.getElementById('kmj-v9-dedup-btn').onclick = () => {
+        const g = window.__kmjInstance || window._kmjGameInstance || window.game || window.app || window.mmorpg;
+        if (g?.saveData) {
+          // 既存の重複カスタム設定をクリアして重複ゼロで再計算
+          const prevCustom = g.saveData.skillCustomV9 || {};
+          const nextCustom = {};
+          Object.keys(prevCustom).forEach(k => {
+            if (typeof prevCustom[k]?.tier === 'number') {
+              nextCustom[k] = { tier: prevCustom[k].tier };
+            }
+          });
+          g.saveData.skillCustomV9 = nextCustom;
+        }
+        _lastSkillSignatureV9 = '';
+        _uniqueCacheMapV9.clear();
+        syncAllSkillsV9(g, true);
+        g?.saveGame?.(false);
+        openMagicEvolutionStudioV9();
+        g?.showAlertBanner?.('✨ 全スキルを被りなしの別々の見た目に再設定しました！', 2200);
+      };
+    };
+
+    // 起動時にキャッシュをリセットして重複なし同期を実行
+    _lastSkillSignatureV9 = '';
+    _uniqueCacheMapV9.clear();
     setTimeout(() => syncAllSkillsV9(null, true), 150);
   })();
 })();
-// ▲▲▲ ここまで 【スキルエフェクト専用 game9.js (全スキル見た目差別化統合版) 】 ▲▲▲
+// ▲▲▲ ここまで 【スキルエフェクト専用 game9.js (全スキル重複ゼロ完全差別化版) 】 ▲▲▲
