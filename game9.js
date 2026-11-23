@@ -3741,14 +3741,58 @@ snap.set(m, {
     resetClassEvolution: () => resetClassEvolutionV9(null)
   });
 // =========================================================
-  // 14. 全魔法エフェクト完全一致＆重複ゼロ整理パック
+  // 14. 全魔法エフェクト完全一致＆重複ゼロ整理パック（決定版）
   // =========================================================
   (function installExactMagicMappingV9() {
-    const regFn = V9.register3DAnimation || register3DAnimationV9;
-    const ringFn = V9._makeCircleRing || makeCircleRing;
-    const geoFn = V9._unitGeo || unitGeoV9;
+    const fallbackRingFn = (innerR, outerR, colorHex, seg = 24) => {
+      const geo = new THREE.RingGeometry(innerR, outerR, seg);
+      geo.rotateX(-Math.PI / 2);
+      const mat = new THREE.MeshBasicMaterial({
+        color: colorHex,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.92
+      });
+      return new THREE.Mesh(geo, mat);
+    };
 
-    // 1. 専用プロファイル（ドレイン / 回転斬 / トールハンマー / マナチャージ / 創世ビッグバン）
+    const fallbackGeoCache = {};
+    const fallbackGeoFn = (kind) => {
+      if (fallbackGeoCache[kind]) return fallbackGeoCache[kind];
+      let g;
+      if (kind === 'sphere') g = new THREE.SphereGeometry(0.5, 12, 10);
+      else if (kind === 'octa') g = new THREE.OctahedronGeometry(0.5, 0);
+      else if (kind === 'tetra') g = new THREE.TetrahedronGeometry(0.5, 0);
+      else if (kind === 'cone4') g = new THREE.ConeGeometry(0.5, 1, 4);
+      else if (kind === 'cyl8') g = new THREE.CylinderGeometry(0.5, 0.5, 1, 8);
+      else g = new THREE.BoxGeometry(1, 1, 1);
+      fallbackGeoCache[kind] = g;
+      return g;
+    };
+
+    const fallbackRegFn = (scene, root, duration, onTick) => {
+      if (!scene || !root) return;
+      scene.add(root);
+      const start = performance.now();
+      const durMs = Math.max(100, duration * 1000);
+      const step = (now) => {
+        const elMs = now - start;
+        const p = Math.min(1, elMs / durMs);
+        try { onTick(p, elMs / 1000); } catch (e) {}
+        if (p < 1) {
+          requestAnimationFrame(step);
+        } else {
+          scene.remove(root);
+        }
+      };
+      requestAnimationFrame(step);
+    };
+
+    const ringFn = V9._makeCircleRing || (typeof makeCircleRing === 'function' ? makeCircleRing : fallbackRingFn);
+    const geoFn  = V9._unitGeo || (typeof unitGeoV9 === 'function' ? unitGeoV9 : fallbackGeoFn);
+    const regFn  = V9.register3DAnimation || (typeof register3DAnimationV9 === 'function' ? register3DAnimationV9 : fallbackRegFn);
+
+    // 1. 専用プロファイル（ドレイン / 虚無次元斬 / 回転斬 / トールハンマー / 創世ビッグバン / マナチャージ）
     const extraProfiles = [
       {
         id: 'blood_drain',
@@ -3763,6 +3807,21 @@ snap.set(m, {
           `【真】紅蓮吸魂・${b}`,
           `【極】血界冥府符「ノスフェラトゥ・${b}」`,
           `【神】創世血神「ドラキュラ・${b}」`
+        ]
+      },
+      {
+        id: 'void_slash',
+        isNonAttack: false,
+        label: '🌌 虚無次元斬・空間断裂',
+        match: /虚無次元斬|次元斬|空間断裂|虚無|void_slash/i,
+        cardType: '次元断裂スペル',
+        c1: 0x7c3aed, c2: 0xe0e7ff, c3: 0x1e1b4b,
+        bgGrad: 'linear-gradient(135deg, rgba(30,27,75,0.98), rgba(109,40,217,0.95))',
+        names: (b) => [
+          b,
+          `【真】空間断裂・${b}`,
+          `【極】次元断罪符「ヴォイド・${b}」`,
+          `【神】終焉虚無神技「${b}・次元崩壊」`
         ]
       },
       {
@@ -3837,6 +3896,7 @@ snap.set(m, {
     if (typeof IMPACT_SYNC_TABLE_V9 === 'object' && IMPACT_SYNC_TABLE_V9) {
       Object.assign(IMPACT_SYNC_TABLE_V9, {
         blood_drain: { delay: 0.25, perDist: 0.008, hits: 2, interval: 0.18, shake: 0.22 },
+        void_slash:  { delay: 0.16, perDist: 0.004, hits: 2, interval: 0.14, shake: 0.34 },
         spin_whirl:  { delay: 0.12, perDist: 0.003, hits: 3, interval: 0.12, shake: 0.24 },
         stun_impact: { delay: 0.22, perDist: 0.004, hits: 1, interval: 0,    shake: 0.42 },
         big_bang:    { delay: 0.38, perDist: 0.003, hits: 1, interval: 0,    shake: 0.55 }
@@ -3845,6 +3905,64 @@ snap.set(m, {
 
     // 2. 個別3Dビルダー
     Object.assign(V9.EFFECT_BUILDERS, {
+      void_slash: (scene, caster, target, tier, attr) => {
+        const root = new THREE.Group();
+        const tx = target?.x ?? caster.x;
+        const tz = target?.z ?? caster.z;
+        root.position.set(tx, 1.35, tz);
+
+        const riftRing = ringFn(0.4, 2.4 + tier * 0.65, attr.c1, 24);
+        riftRing.position.y = -1.25;
+        const innerVoid = ringFn(0.1, 1.4 + tier * 0.4, attr.c3, 20);
+        innerVoid.position.y = -1.22;
+        root.add(riftRing, innerVoid);
+
+        const slashMat1 = new THREE.MeshBasicMaterial({ color: attr.c2, transparent: true, opacity: 0.98 });
+        const slashMat2 = new THREE.MeshBasicMaterial({ color: attr.c1, transparent: true, opacity: 0.94 });
+
+        const sLen = 3.6 + tier * 0.9;
+        const slash1 = new THREE.Mesh(geoFn('box'), slashMat1);
+        slash1.scale.set(sLen, 0.14 + tier * 0.04, 0.36 + tier * 0.08);
+        slash1.rotation.set(0.25, 0.4, Math.PI / 4);
+
+        const slash2 = new THREE.Mesh(geoFn('box'), slashMat2);
+        slash2.scale.set(sLen, 0.14 + tier * 0.04, 0.36 + tier * 0.08);
+        slash2.rotation.set(-0.25, -0.4, -Math.PI / 4);
+
+        root.add(slash1, slash2);
+
+        const shards = [];
+        const shCnt = 8 + tier * 3;
+        for (let i = 0; i < shCnt; i++) {
+          const sh = new THREE.Mesh(geoFn('tetra'), i % 2 === 0 ? slashMat1 : slashMat2);
+          sh.scale.setScalar(0.26 + tier * 0.05);
+          const ang = (Math.PI * 2 * i) / shCnt;
+          const elev = ((i % 3) - 1) * 0.55;
+          const dir = new THREE.Vector3(Math.cos(ang), elev, Math.sin(ang)).normalize();
+          root.add(sh);
+          shards.push({ mesh: sh, dir });
+        }
+
+        regFn(scene, root, 0.95 + tier * 0.16, (p, el) => {
+          const fade = p > 0.7 ? 1 - (p - 0.7) / 0.3 : 1;
+          slashMat1.opacity = fade * 0.98;
+          slashMat2.opacity = fade * 0.94;
+          riftRing.material.opacity = fade * 0.92;
+          innerVoid.material.opacity = fade * 0.95;
+
+          const cutScale = p < 0.22 ? (p / 0.22) * 1.25 : 1.25 - (p - 0.22) * 0.25;
+          slash1.scale.x = sLen * cutScale;
+          slash2.scale.x = sLen * cutScale;
+          riftRing.rotation.z = el * 6;
+          innerVoid.rotation.z = -el * 8;
+
+          shards.forEach((s, idx) => {
+            s.mesh.position.copy(s.dir).multiplyScalar(0.4 + p * (2.6 + tier * 0.65));
+            s.mesh.rotation.set(el * 7 + idx, el * 5, el * 6);
+          });
+        });
+      },
+
       warcry_aura: (scene, caster, target, tier, attr) => {
         const root = new THREE.Group();
         root.position.set(caster.x, 0.9, caster.z);
@@ -4189,7 +4307,7 @@ snap.set(m, {
       }
     });
 
-    // 3. 重複ゼロ・本編に存在しない5種だけを追加魔法として登録
+    // 3. 重複ゼロ・本編に存在しない厳選4種だけを追加魔法として登録（重複していた8種は自動削除＆SP返還）
     const DUPLICATE_REMOVED_IDS_V9 = [
       'spell_meteor_v9',
       'spell_magma_eruption_v9',
@@ -4197,7 +4315,8 @@ snap.set(m, {
       'spell_thor_hammer_v9',
       'spell_maelstrom_v9',
       'spell_miasma_curse_v9',
-      'spell_black_hole_v9'
+      'spell_black_hole_v9',
+      'spell_blaze_barrage_v9'
     ];
 
     const NEW_EXPANSION_SPELLS_V9 = [
@@ -4217,23 +4336,6 @@ snap.set(m, {
         isSupport: false,
         attrId: 'fire_pillar',
         desc: '螺旋を描く紅蓮の炎柱を噴き上げ、敵を炎上（継続ダメージ）状態にする。'
-      },
-      {
-        id: 'spell_blaze_barrage_v9',
-        name: '爆炎連弾フレア',
-        icon: '💥',
-        type: 'AOE_DMG',
-        radius: 3.8,
-        cd: 4.2,
-        mp: 22,
-        baseMp: 22,
-        mult: 2.15,
-        baseMult: 2.15,
-        maxLv: 100,
-        spCost: 1,
-        isSupport: false,
-        attrId: 'fire_burst',
-        desc: '無数の圧縮火球を連続発射し、着弾地点で連装爆発を起こす。'
       },
       {
         id: 'spell_starlight_rain_v9',
@@ -4328,14 +4430,14 @@ snap.set(m, {
     }
     registerNewSpellsIntoEngineV9();
 
-    // 4. 各魔法の名前・種類から本来のエフェクトを厳密判定
+    // 4. 【重要】スキル名による厳密判定を最優先し、skTypeフォールバックは一番最後に回す
     function cleanOriginalSkillBaseNameV9(rawStr) {
       let s = String(rawStr || '').trim();
       s = s.replace(/^【(?:真|極|神)】/, '');
       s = s.replace(/^[^「・]+「([^」]+)」$/, '$1');
-      s = s.replace(/^(?:覇王闘気|絶対防壁|極光祝福|蒼穹双月|紅蓮天隕|螺旋業火|連装爆炎|地殻灼熱|氷晶零度|紫電一閃|翠嵐烈風|蒼海激流|剛岩破邪|聖光煌めき|黒蝕冥界|猛毒瘴気|星屑流星|蒼穹剣閃|紅蓮吸魂|円月千刃|剛烈震撃|蒼穹魔泉|創世超新星)・/, '');
-      s = s.replace(/^(?:ノスフェラトゥ|ドラキュラ|テンペスト|ミョルニル|トール|エーテル|ジェネシス|カタストロフ|スターフォール|クリムゾン|アポロン|イグニッション|イフリート|ヴォルカニック|ムスペルヘイム|コキュートス|ダイヤモンドダスト|タケミカヅチ|インドラ|シルフィード|リヴァイアサン|ポセイドン|ガイア・クラッシュ|タイタン|セイクリッド|セラフィム|アビスノヴァ|ラグナロク|ベリアル|ヒュドラ|スターダスト|ビッグバン|天翔十字|エクスカリバー|アイギス|エリュシオン|アルカディア|オーバーロード)・/, '');
-      s = s.replace(/・(?:インフィニティ|ゼロ|次元断罪斬|無双輪舞|オーバーフロー|オメガ)$/, '');
+      s = s.replace(/^(?:覇王闘気|絶対防壁|極光祝福|蒼穹双月|紅蓮天隕|螺旋業火|連装爆炎|地殻灼熱|氷晶零度|紫電一閃|翠嵐烈風|蒼海激流|剛岩破邪|聖光煌めき|黒蝕冥界|猛毒瘴気|星屑流星|蒼穹剣閃|紅蓮吸魂|円月千刃|剛烈震撃|蒼穹魔泉|創世超新星|空間断裂)・/, '');
+      s = s.replace(/^(?:ノスフェラトゥ|ドラキュラ|ヴォイド|テンペスト|ミョルニル|トール|エーテル|ジェネシス|カタストロフ|スターフォール|クリムゾン|アポロン|イグニッション|イフリート|ヴォルカニック|ムスペルヘイム|コキュートス|ダイヤモンドダスト|タケミカヅチ|インドラ|シルフィード|リヴァイアサン|ポセイドン|ガイア・クラッシュ|タイタン|セイクリッド|セラフィム|アビスノヴァ|ラグナロク|ベリアル|ヒュドラ|スターダスト|ビッグバン|天翔十字|エクスカリバー|アイギス|エリュシオン|アルカディア|オーバーロード)・/, '');
+      s = s.replace(/・(?:インフィニティ|ゼロ|次元断罪斬|次元崩壊|無双輪舞|オーバーフロー|オメガ)$/, '');
       return s.trim();
     }
 
@@ -4349,44 +4451,54 @@ snap.set(m, {
       const base = cleanOriginalSkillBaseNameV9(origName);
       const txt = `${base} ${skId}`;
 
-      // 最優先：固有スキル名・タイプの厳密一致
-      if (/ドレイン|吸血|吸魂|drain/i.test(txt) || skType === 'DRAIN') return findProfileByIdV9('blood_drain');
-      if (/破邪の衝撃|破邪|トール|スタン|中断|巨槌|ハンマー|バッシュ|stun|interrupt|hammer/i.test(txt) || skType === 'INTERRUPT') return findProfileByIdV9('stun_impact');
-      if (/絶対零度|氷|アイス|ブリザード|吹雪|ice/i.test(txt) || skType === 'AOE_SLOW') return findProfileByIdV9('ice');
+      // ① 名前・IDの厳密一致（skTypeより必ず先に評価！）
+      if (/ドレイン|吸血|吸魂|drain/i.test(txt)) return findProfileByIdV9('blood_drain');
+      if (/虚無次元斬|次元斬|空間断裂|void_slash/i.test(txt)) return findProfileByIdV9('void_slash');
+      if (/破邪の衝撃|破邪|トール|スタン|中断|巨槌|ハンマー|バッシュ|stun|interrupt|hammer/i.test(txt)) return findProfileByIdV9('stun_impact');
       if (/創世ビッグバン|創世ビックバン|ビッグバン|ビックバン|bigbang/i.test(txt)) return findProfileByIdV9('big_bang');
 
-      if (/極光|聖域|オーロラ|sanctuary|aurora/i.test(txt)) return findProfileByIdV9('aurora_sanctuary');
-      if (/マナ|魔力|チャージ|エーテル|mana|heal_mp/i.test(txt) || skType === 'HEAL_MP') return findProfileByIdV9('mana_charge');
-      if (/聖光|癒し|ヒール|回復|heal/i.test(txt) || skType === 'HEAL') return findProfileByIdV9('holy_heal');
-      if (/イージス|神域|盾|バリア|シールド|aegis|shield/i.test(txt) || skType === 'DEF_BUFF') return findProfileByIdV9('aegis_shield');
-      if (/覇王|咆哮|闘気|覚醒|warcry/i.test(txt) || skType === 'ATK_BUFF') return findProfileByIdV9('warcry_aura');
-
-      if (/回転|輪舞|spin_whirl|whirl/i.test(txt)) return findProfileByIdV9('spin_whirl');
-      if (/虚無次元斬|次元斬|烈空|三日月|真空|一閃|slash_crescent|crescent/i.test(txt)) return findProfileByIdV9('slash_crescent');
-
+      if (/瘴気|呪詛|猛毒|ポイズン|poison|miasma/i.test(txt)) return findProfileByIdV9('poison');
+      if (/大渦潮|渦潮|蒼海|津波|水柱|アクア|water|maelstrom/i.test(txt)) return findProfileByIdV9('water');
+      if (/絶対零度|氷|アイス|ブリザード|吹雪|ice/i.test(txt)) return findProfileByIdV9('ice');
+      if (/不死鳥|フェニックス|マグマ|溶岩|噴火|灼熱|fire_eruption|magma|phoenix/i.test(txt)) return findProfileByIdV9('fire_eruption');
+      if (/爆炎|火球|フレア|fire_burst|blaze/i.test(txt)) return findProfileByIdV9('fire_burst');
       if (/メテオ|隕石|meteor/i.test(txt)) return findProfileByIdV9('fire_meteor');
       if (/炎柱|螺旋炎|fire_pillar/i.test(txt)) return findProfileByIdV9('fire_pillar');
-      if (/爆炎|火球|フレア|fire_burst|blaze/i.test(txt)) return findProfileByIdV9('fire_burst');
-      if (/不死鳥|フェニックス|マグマ|溶岩|噴火|灼熱|fire_eruption|magma|phoenix/i.test(txt) || skType === 'AOE_BURN') return findProfileByIdV9('fire_eruption');
 
+      if (/極光|聖域|オーロラ|sanctuary|aurora/i.test(txt)) return findProfileByIdV9('aurora_sanctuary');
+      if (/マナ|魔力|チャージ|エーテル|mana|heal_mp/i.test(txt)) return findProfileByIdV9('mana_charge');
+      if (/聖光|癒し|ヒール|回復|heal/i.test(txt)) return findProfileByIdV9('holy_heal');
+      if (/イージス|神域|盾|バリア|シールド|aegis|shield/i.test(txt)) return findProfileByIdV9('aegis_shield');
+      if (/覇王|咆哮|闘気|覚醒|warcry/i.test(txt)) return findProfileByIdV9('warcry_aura');
+
+      if (/回転|輪舞|spin_whirl|whirl/i.test(txt)) return findProfileByIdV9('spin_whirl');
+      if (/烈空|三日月|真空|一閃|slash_crescent|crescent/i.test(txt)) return findProfileByIdV9('slash_crescent');
       if (/銀河流星|星屑|銀河|スター|流星|star|comet/i.test(txt)) return findProfileByIdV9('star');
-      if (/大渦潮|渦潮|蒼海|津波|水柱|アクア|water|maelstrom/i.test(txt)) return findProfileByIdV9('water');
-      if (/瘴気|呪詛|猛毒|ポイズン|poison|miasma/i.test(txt)) return findProfileByIdV9('poison');
       if (/ブラックホール|黒蝕|アビス|闇|ダーク|dark|black_hole/i.test(txt)) return findProfileByIdV9('dark');
       if (/巨岩|衝撃|地震|大地|岩|earth/i.test(txt)) return findProfileByIdV9('earth');
       if (/竜巻|旋風|嵐|トルネード|ウィンド|wind/i.test(txt)) return findProfileByIdV9('wind');
-      if (/雷|電|サンダー|ライトニング|thunder/i.test(txt) || skType === 'THUNDER') return findProfileByIdV9('thunder');
+      if (/雷|電|サンダー|ライトニング|thunder/i.test(txt)) return findProfileByIdV9('thunder');
       if (/剣|刃|刀|sword|blade/i.test(txt)) return findProfileByIdV9('sword');
+
+      // ② 名前で判別できない場合のみ、スキルタイプから推定
+      if (skType === 'DRAIN') return findProfileByIdV9('blood_drain');
+      if (skType === 'INTERRUPT') return findProfileByIdV9('stun_impact');
+      if (skType === 'AOE_SLOW') return findProfileByIdV9('ice');
+      if (skType === 'AOE_BURN') return findProfileByIdV9('fire_eruption');
+      if (skType === 'HEAL_MP') return findProfileByIdV9('mana_charge');
+      if (skType === 'HEAL') return findProfileByIdV9('holy_heal');
+      if (skType === 'DEF_BUFF') return findProfileByIdV9('aegis_shield');
+      if (skType === 'ATK_BUFF') return findProfileByIdV9('warcry_aura');
+      if (skType === 'THUNDER') return findProfileByIdV9('thunder');
 
       return findProfileByIdV9('sword') || V9.ATTRIBUTES[0];
     };
 
-    // 5. ロード後に古いセーブデータのズレ＆削除済み重複魔法を自動修復するガード
+    // 5. セーブデータのズレ＆重複魔法を自動修復するガード
     function sanitizeLoadedSaveDataV9(g) {
       if (!g || !g.saveData) return;
       const d = g.saveData;
 
-      // 重複していた旧追加魔法を削除し、使っていたSPを返還
       if (d.skills && typeof d.skills === 'object') {
         let refundSp = 0;
         DUPLICATE_REMOVED_IDS_V9.forEach((oldId) => {
@@ -4404,13 +4516,21 @@ snap.set(m, {
         }
       }
 
-      // ドレイン系に古い 'dark' が保存されていたら強制的に 'blood_drain' に修復
       if (d.skillCustomV9 && typeof d.skillCustomV9 === 'object') {
         Object.keys(d.skillCustomV9).forEach((sid) => {
           const sk = (typeof SKILLS === 'object' && SKILLS[sid]) ? SKILLS[sid] : null;
-          const skTxt = `${sid} ${sk?._v9BaseName || ''} ${sk?.name || ''} ${sk?.type || ''}`;
-          if (/ドレイン|吸血|DRAIN/i.test(skTxt) && d.skillCustomV9[sid]?.attrId === 'dark') {
+          const skTxt = `${sid} ${sk?._v9BaseName || ''} ${sk?.name || ''}`;
+          if (/ドレイン|吸血/i.test(skTxt) && d.skillCustomV9[sid]?.attrId === 'dark') {
             d.skillCustomV9[sid].attrId = 'blood_drain';
+          }
+          if (/虚無次元斬/i.test(skTxt) && d.skillCustomV9[sid]?.attrId === 'slash_crescent') {
+            d.skillCustomV9[sid].attrId = 'void_slash';
+          }
+          if (/瘴気/i.test(skTxt) && d.skillCustomV9[sid]?.attrId === 'fire_eruption') {
+            d.skillCustomV9[sid].attrId = 'poison';
+          }
+          if (/大渦潮/i.test(skTxt) && d.skillCustomV9[sid]?.attrId === 'ice') {
+            d.skillCustomV9[sid].attrId = 'water';
           }
           if (/絶対零度/i.test(skTxt) && d.skillCustomV9[sid]?.attrId === 'star') {
             d.skillCustomV9[sid].attrId = 'ice';
@@ -4422,7 +4542,6 @@ snap.set(m, {
       }
     }
 
-    // syncAllSkillsV9 をラップしてタイトル画面からのロード後でも必ず修復が走るようにする
     const origSync = syncAllSkillsV9;
     syncAllSkillsV9 = function (game, allowHudRefresh = false) {
       const g = game || window.__kmjInstance || window._kmjGameInstance || window.game || window.app || window.mmorpg;
@@ -4431,7 +4550,7 @@ snap.set(m, {
       return origSync.call(this, g, allowHudRefresh);
     };
 
-    // 6. 「⚡ スキル・ツリー」タブ内に重複ゼロの追加魔法5種を表示
+    // 6. 「⚡ スキル・ツリー」タブ内に厳選4種の追加魔法を表示
     function injectNewSpellsIntoSkillTreeV9() {
       const modalBody = document.getElementById('modal-body');
       if (!modalBody) return;
@@ -4487,10 +4606,10 @@ snap.set(m, {
 
         box.innerHTML = `
           <div class="flex-between" style="margin-bottom:8px;">
-            <span style="font-size:13px;font-weight:900;color:#f472b6;">🌟 追加魔法スペル（厳選5種・所持SP: ${spPoints}）</span>
+            <span style="font-size:13px;font-weight:900;color:#f472b6;">🌟 追加魔法スペル（厳選4種・所持SP: ${spPoints}）</span>
           </div>
           <div style="font-size:10px;color:#94a3b8;margin-bottom:8px;">
-            ※ 既存魔法と重複しない新規5種です。SPで習得・強化し、「枠1〜5」で装備できます。
+            ※ 既存魔法と重複しない新規4種です。SPで習得・強化し、「枠1〜5」で装備できます。
           </div>
           ${cardsHtml}
         `;
