@@ -2670,28 +2670,53 @@
     } catch (e) {}
   }
 
+// ヒットフラッシュの白発光を確実に元の色へ戻すヘルパー
+  function resetMonsterFlashV9(monster) {
+    const rootObj = monster?.mesh || monster?.group || monster?.obj;
+    if (!rootObj || typeof rootObj.traverse !== 'function') return;
+    rootObj.traverse((child) => {
+      if (!child.isMesh || !child.material) return;
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
+      mats.forEach((mat) => {
+        if (!mat || !mat.emissive) return;
+        mat.userData = mat.userData || {};
+        clearTimeout(mat.userData._v9FlashTimer);
+        if (mat.userData._v9OrigEmissive !== undefined) {
+          mat.emissive.setHex(mat.userData._v9OrigEmissive);
+          mat.emissiveIntensity = mat.userData._v9OrigEmissiveInt ?? 1;
+        }
+      });
+    });
+  }
+
   // 着弾時の「敵の白発光」＆「カメラ揺れ」
   function triggerImpactVisualsV9(game, monster, shakePower) {
     try {
-      // 敵メッシュを一瞬だけ白く光らせる（ヒットフラッシュ）
+      // 敵メッシュを一瞬だけ光らせる（共有マテリアルでも元の色を上書きしない安全版）
       const rootObj = monster?.mesh || monster?.group || monster?.obj;
       if (rootObj && typeof rootObj.traverse === 'function') {
         rootObj.traverse((child) => {
-          if (child.isMesh && child.material && child.material.emissive) {
-            if (child.userData._v9OrigEmissive === undefined) {
-              child.userData._v9OrigEmissive = child.material.emissive.getHex();
-              child.userData._v9OrigEmissiveInt = child.material.emissiveIntensity ?? 1;
+          if (!child.isMesh || !child.material) return;
+          const mats = Array.isArray(child.material) ? child.material : [child.material];
+          mats.forEach((mat) => {
+            if (!mat || !mat.emissive) return;
+            mat.userData = mat.userData || {};
+            // 元の色はマテリアル自身(mat.userData)に1回だけ保存する
+            if (mat.userData._v9OrigEmissive === undefined) {
+              mat.userData._v9OrigEmissive = mat.emissive.getHex();
+              mat.userData._v9OrigEmissiveInt = mat.emissiveIntensity ?? 1;
             }
-            child.material.emissive.setHex(0xffffff);
-            child.material.emissiveIntensity = 1.5;
-            clearTimeout(child.userData._v9FlashTimer);
-            child.userData._v9FlashTimer = setTimeout(() => {
-              if (child.material && child.material.emissive) {
-                child.material.emissive.setHex(child.userData._v9OrigEmissive || 0x000000);
-                child.material.emissiveIntensity = child.userData._v9OrigEmissiveInt ?? 1;
+            // 顔文字テクスチャ(mat.map)が白く潰れないよう強度を調整
+            mat.emissive.setHex(mat.map ? 0x666666 : 0xaaaaaa);
+            mat.emissiveIntensity = mat.map ? 0.55 : 0.85;
+            clearTimeout(mat.userData._v9FlashTimer);
+            mat.userData._v9FlashTimer = setTimeout(() => {
+              if (mat && mat.emissive) {
+                mat.emissive.setHex(mat.userData._v9OrigEmissive ?? 0x000000);
+                mat.emissiveIntensity = mat.userData._v9OrigEmissiveInt ?? 1;
               }
             }, 80);
-          }
+          });
         });
       }
 
@@ -2702,7 +2727,6 @@
       }
     } catch (e) {}
   }
-
   // 【連携①-A】スキル実行直前の「敵ステータス」と「ダメージ表示関数」をフック
   function beginCaptureSkillImpactV9(game) {
     const snap = new Map();
