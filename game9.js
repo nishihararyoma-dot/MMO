@@ -3318,8 +3318,12 @@ snap.set(m, {
     KaomojiMMORPG.prototype._v9CleanupHooked = true;
   }
 // =========================================================
-  // 13. MP完全回復保証＆自然回復上限シンクロ・本格3D魔法杖・役職リセット機能
+  // 13. MP完全回復保証・本格3D魔法杖・クラス進化リセット機能
   // =========================================================
+
+  // 不要になった旧「🔄 役職」ボタン・モーダルが残っていれば削除
+  document.getElementById('kmj-v9-open-job-btn')?.remove();
+  document.getElementById('kmj-v9-job-modal')?.remove();
 
   // (A) 回復スキル（聖光の癒し等）のMP回復量を大幅強化（回復しきらない問題を解消）
   const _origApplyNonAttackV9 = applyNonAttackSupportEffectV9;
@@ -3394,15 +3398,12 @@ snap.set(m, {
     const grp = new THREE.Group();
     grp.name = 'v9_fancy_magic_staff';
 
-    // 1. 杖身（深いマホガニー木目の長い柄）
     const shaftMat = new THREE.MeshBasicMaterial({ color: 0x5c2d16 });
     const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.044, 1.85, 10), shaftMat);
     grp.add(shaft);
 
-    // 2. 黄金の装飾バンド＆石突き（ボトムキャップ）
     const goldMat = new THREE.MeshBasicMaterial({ color: 0xfbbf24 });
-    const bandPositions = [-0.88, -0.25, 0.35, 0.78];
-    bandPositions.forEach((by, idx) => {
+    [-0.88, -0.25, 0.35, 0.78].forEach((by, idx) => {
       const band = new THREE.Mesh(
         new THREE.CylinderGeometry(0.048 + (idx === 3 ? 0.012 : 0), 0.048, 0.06, 10),
         goldMat
@@ -3416,7 +3417,6 @@ snap.set(m, {
     bottomCap.position.y = -0.99;
     grp.add(bottomCap);
 
-    // 3. 杖頭：黄金の三日月クレセント＆聖翼フレーム
     const crescent = new THREE.Mesh(
       new THREE.TorusGeometry(0.23, 0.032, 8, 22, Math.PI * 1.4),
       goldMat
@@ -3438,7 +3438,6 @@ snap.set(m, {
       grp.add(subWing);
     });
 
-    // 4. 先端で浮遊回転するマナクリスタル＆魔法陣リング
     const gemMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
     const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.135, 0), gemMat);
     gem.position.y = 1.05;
@@ -3552,183 +3551,143 @@ snap.set(m, {
     }
   }
 
-  // (C) 役職（ジョブ・クラス）リセット＆再選択システム
-  const DEFAULT_JOBS_V9 = [
-    { id: 'novice',   name: '🌱 見習い冒険者（初期・リセット状態）', desc: 'クセのない基本職。ここから好きな役職へ転職可能' },
-    { id: 'warrior',  name: '⚔️ 戦士（ウォリアー）',             desc: '高いHPと物理攻撃力を誇る前衛職' },
-    { id: 'mage',     name: '🔮 魔法使い（メイジ）',             desc: '高い最大MPと魔法攻撃力を誇る後衛アタッカー' },
-    { id: 'priest',   name: '💖 僧侶（プリースト）',             desc: '回復魔法と聖盾・聖域に優れた支援職' },
-    { id: 'paladin',  name: '🛡️ 聖騎士（パラディン）',           desc: '鉄壁の防御と聖属性スキルを操る守護職' },
-    { id: 'archmage', name: '✨ 大魔導士（アークメイジ）',       desc: '全属性魔法とMP自動回復に長けた上級魔法職' }
-  ];
-
-  function getCurrentJobDisplayV9(game) {
-    const d = game?.saveData || {};
-    const p = game?.player || {};
-    const rawJob = d.jobName || p.jobName || d.job || p.job || d.class || p.class || d.role || p.role || '';
-    if (!rawJob || rawJob === 'novice' || rawJob === 'none') {
-      return '未設定 / 見習い冒険者（初期状態）';
+  // (C) 「🌟 クラス進化」リセット機能（能力・進化タブ内に直接ボタン配置）
+  function getInitialEvolutionIdV9() {
+    if (typeof EVOLUTIONS !== 'undefined' && EVOLUTIONS) {
+      if (EVOLUTIONS.novice) return 'novice';
+      const keys = Object.keys(EVOLUTIONS);
+      if (keys.length > 0) return keys[0];
     }
-    const found = DEFAULT_JOBS_V9.find(j => j.id === rawJob);
-    return found ? found.name : String(rawJob);
+    return 'novice';
   }
 
-  function applyJobResetOrChangeV9(game, targetJobId = 'novice', targetJobLabel = '見習い冒険者') {
+  function resetClassEvolutionV9(game) {
     const g = game || window.__kmjInstance || window._kmjGameInstance || window.game || window.app || window.mmorpg;
-    if (!g) return;
+    if (!g || !g.saveData) return;
 
-    const isReset = !targetJobId || targetJobId === 'novice';
-    const d = g.saveData || {};
-    const p = g.player || {};
+    const d = g.saveData;
+    const initId = getInitialEvolutionIdV9();
+    const curId = d.evolutionId || initId;
 
-    const jobFns = ['resetJob', 'resetClass', 'changeJob', 'selectJob', 'setJob', 'setClass'];
-    for (let i = 0; i < jobFns.length; i++) {
-      const fnName = jobFns[i];
-      if (typeof g[fnName] === 'function') {
+    if (curId === initId) {
+      g.showAlertBanner?.('すでに初期クラス状態です！', 1800);
+      return;
+    }
+
+    const executeReset = () => {
+      d.evolutionId = initId;
+      if (Array.isArray(d.evolutionHistory)) d.evolutionHistory = [];
+
+      // ステータスとHP/MP上限の再計算
+      if (typeof g.calcDerivedStats === 'function') {
         try {
-          if (fnName.startsWith('reset')) g[fnName]();
-          else g[fnName](targetJobId);
+          const st = g.calcDerivedStats();
+          if (g.player && st) {
+            if (st.maxHp) {
+              g.player.maxHp = st.maxHp;
+              d.maxHp = st.maxHp;
+              if (typeof g.player.hp === 'number') g.player.hp = Math.min(g.player.hp, st.maxHp);
+            }
+            if (st.maxMp) {
+              g.player.maxMp = st.maxMp;
+              d.maxMp = st.maxMp;
+              if (typeof g.player.mp === 'number') g.player.mp = Math.min(g.player.mp, st.maxMp);
+            }
+          }
         } catch (e) {}
       }
-    }
 
-    const jobKeys = ['job', 'jobId', 'class', 'classId', 'role', 'roleId', 'vocation', 'profession', 'selectedJob'];
-    jobKeys.forEach((k) => {
-      if (k in d) d[k] = isReset ? 'novice' : targetJobId;
-      if (k in p) p[k] = isReset ? 'novice' : targetJobId;
-    });
-    if (!('job' in d)) d.job = isReset ? 'novice' : targetJobId;
-    if (!('job' in p)) p.job = isReset ? 'novice' : targetJobId;
-
-    if ('jobName' in d || !isReset) d.jobName = isReset ? '見習い冒険者' : targetJobLabel;
-    if ('jobName' in p || !isReset) p.jobName = isReset ? '見習い冒険者' : targetJobLabel;
-
-    if (isReset) {
-      if ('subJob' in d) d.subJob = '';
-      if ('subJob' in p) p.subJob = '';
-      if ('jobLevel' in d) d.jobLevel = 1;
-      if ('jobLv' in d) d.jobLv = 1;
-      if ('jobExp' in d) d.jobExp = 0;
-    }
-
-    if (typeof g.calcDerivedStats === 'function') {
-      try {
-        const st = g.calcDerivedStats();
-        if (st?.maxHp) { p.maxHp = st.maxHp; d.maxHp = st.maxHp; }
-        if (st?.maxMp) { p.maxMp = st.maxMp; d.maxMp = st.maxMp; }
-      } catch (e) {}
-    }
-
-    syncAllSkillsV9(g, false);
-    if (!g._v9InRefreshHUD && typeof g.refreshAllHUD === 'function') {
-      g._v9InRefreshHUD = true;
-      try { g.refreshAllHUD(); } finally { g._v9InRefreshHUD = false; }
-    }
-    try { g.saveGame?.(false); } catch (e) {}
-
-    if (isReset) {
-      g.showAlertBanner?.('🔄 役職をリセットしました！（見習い冒険者に戻りました）', 2600);
-      const modalFns = ['openJobModal', 'openJobSelect', 'openClassModal', 'openClassSelect', 'showJobModal'];
-      for (let i = 0; i < modalFns.length; i++) {
-        if (typeof g[modalFns[i]] === 'function') {
-          try { g[modalFns[i]](); } catch (e) {}
-          break;
-        }
+      // プレイヤー見た目・HUD・セーブ・能力進化タブを即時更新
+      try { g.rebuildPlayerMesh?.(); } catch (e) {}
+      try { g.updatePlayerMesh?.(); } catch (e) {}
+      if (!g._v9InRefreshHUD && typeof g.refreshAllHUD === 'function') {
+        g._v9InRefreshHUD = true;
+        try { g.refreshAllHUD(); } finally { g._v9InRefreshHUD = false; }
       }
-    } else {
-      g.showAlertBanner?.(`🎭 役職を「${targetJobLabel}」に変更しました！`, 2400);
-    }
-  }
+      try { g.saveGame?.(false); } catch (e) {}
+      try { g.openGrowthModal?.('stats'); } catch (e) {}
 
-  function openJobResetModalV9() {
-    document.getElementById('kmj-v9-job-modal')?.remove();
-    const g = window.__kmjInstance || window._kmjGameInstance || window.game || window.app || window.mmorpg;
-    const curJobText = getCurrentJobDisplayV9(g);
-
-    const jobList = [...DEFAULT_JOBS_V9];
-    const externalJobs = (typeof JOBS !== 'undefined' && JOBS) || g?.jobs || g?.jobList || null;
-    if (externalJobs) {
-      const arr = Array.isArray(externalJobs) ? externalJobs : Object.values(externalJobs);
-      arr.forEach((jb) => {
-        if (!jb || typeof jb !== 'object') return;
-        const jid = String(jb.id || jb.jobId || jb.key || '');
-        const jname = String(jb.name || jb.title || jid);
-        if (jid && !jobList.some(x => x.id === jid)) {
-          jobList.push({ id: jid, name: `🎭 ${jname}`, desc: String(jb.desc || jb.description || 'ゲーム登録役職') });
-        }
-      });
-    }
-
-    const modal = document.createElement('div');
-    modal.id = 'kmj-v9-job-modal';
-    modal.style.cssText = 'position:fixed;inset:0;z-index:9960;background:rgba(2,6,23,0.88);display:flex;align-items:center;justify-content:center;padding:12px;';
-
-    const jobButtonsHtml = jobList.map(j => `
-      <button type="button" class="v9-pick-job-btn" data-jid="${j.id}" data-jname="${j.name}"
-        style="width:100%;text-align:left;background:rgba(30,41,59,0.95);border:1px solid #475569;border-radius:8px;padding:8px 10px;margin-bottom:6px;color:#f8fafc;cursor:pointer;">
-        <div style="font-size:12px;font-weight:900;color:#fde047;">${j.name}</div>
-        <div style="font-size:10px;color:#cbd5e1;margin-top:2px;">${j.desc}</div>
-      </button>
-    `).join('');
-
-    modal.innerHTML = `
-      <div class="kmj-v9-studio-card" style="border-color:#38bdf8;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-          <b style="font-size:14px;color:#38bdf8;">🔄 役職リセット＆転職メニュー</b>
-          <button type="button" id="kmj-v9-job-close" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:900;cursor:pointer;">✕ 閉じる</button>
-        </div>
-        <div style="background:rgba(15,23,42,0.95);border:1px solid #38bdf8;border-radius:8px;padding:8px;margin-bottom:10px;font-size:11px;">
-          現在の役職：<b style="color:#fde047;">${curJobText}</b>
-        </div>
-        <button type="button" id="kmj-v9-do-job-reset"
-          style="width:100%;background:linear-gradient(90deg,#dc2626,#ea580c);color:#fff;border:1.5px solid #fde047;border-radius:9px;padding:10px;font-size:12px;font-weight:900;margin-bottom:10px;cursor:pointer;">
-          🔄 役職を完全にリセットする（初期状態に戻す）
-        </button>
-        <div style="font-size:10.5px;color:#94a3b8;margin-bottom:6px;font-weight:800;">または、下の役職を選んで直接変更：</div>
-        ${jobButtonsHtml}
-      </div>
-    `;
-
-    document.body.appendChild(modal);
-    modal.querySelector('#kmj-v9-job-close').onclick = () => modal.remove();
-    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
-
-    modal.querySelector('#kmj-v9-do-job-reset').onclick = () => {
-      applyJobResetOrChangeV9(g, 'novice', '見習い冒険者');
-      modal.remove();
+      const initName = (typeof EVOLUTIONS !== 'undefined' && EVOLUTIONS?.[initId]?.name) || '見習い顔文字';
+      g.showAlertBanner?.(`🔄 クラス進化をリセットしました！（${initName}に戻りました）`, 2400);
     };
 
-    modal.querySelectorAll('.v9-pick-job-btn').forEach((btn) => {
-      btn.onclick = () => {
-        applyJobResetOrChangeV9(g, btn.dataset.jid, btn.dataset.jname);
-        modal.remove();
-      };
-    });
+    if (typeof g.showConfirmDialog === 'function') {
+      g.showConfirmDialog(
+        '🔄 クラス進化リセット',
+        '現在のクラス進化を初期状態（見習い顔文字）に戻しますか？\n※リセット後は別の進化ルートへ進み直すことができます。',
+        executeReset
+      );
+    } else if (window.confirm('現在のクラス進化を初期状態に戻しますか？')) {
+      executeReset();
+    }
   }
 
-  function ensureJobButtonV9() {
-    if (document.getElementById('kmj-v9-open-job-btn')) return;
-    if (!document.body) return;
-    const jBtn = document.createElement('button');
-    jBtn.id = 'kmj-v9-open-job-btn';
-    jBtn.type = 'button';
-    jBtn.textContent = '🔄 役職';
-    jBtn.style.cssText = 'position:fixed;right:104px;bottom:74px;z-index:920;background:linear-gradient(90deg,#0284c7,#2563eb);border:1.5px solid #7dd3fc;color:#fff;border-radius:999px;padding:6px 11px;font-size:11px;font-weight:900;box-shadow:0 3px 10px rgba(2,132,199,0.45);cursor:pointer;';
-    jBtn.onclick = () => openJobResetModalV9();
-    document.body.appendChild(jBtn);
-  }
-  setTimeout(ensureJobButtonV9, 400);
+  function injectClassEvolutionResetButtonV9() {
+    const modalBody = document.getElementById('modal-body');
+    if (!modalBody) return;
+    if (document.getElementById('kmj-v9-evo-reset-btn')) return;
 
-  // (D) 毎フレーム更新フック：MP最大値同期＆完全回復保証＋3D魔法杖の更新
+    // 「🌟 クラス進化 (現在 : ...)」の見出し要素を探す
+    const candidates = modalBody.querySelectorAll('div, span, h3, h4, p, b');
+    let headerEl = null;
+    for (let i = 0; i < candidates.length; i++) {
+      const el = candidates[i];
+      if (el.children.length > 2) continue;
+      const txt = el.textContent || '';
+      if (txt.includes('クラス進化') && txt.includes('現在')) {
+        headerEl = el;
+        break;
+      }
+    }
+    if (!headerEl) return;
+
+    const g = window.__kmjInstance || window._kmjGameInstance || window.game || window.app || window.mmorpg;
+    const initId = getInitialEvolutionIdV9();
+    const curId = g?.saveData?.evolutionId || initId;
+    const isInitial = curId === initId;
+
+    const btn = document.createElement('button');
+    btn.id = 'kmj-v9-evo-reset-btn';
+    btn.type = 'button';
+    btn.className = 'btn-ui btn-rose';
+    btn.style.cssText = 'padding:4px 10px;font-size:11px;margin-left:auto;flex-shrink:0;';
+    btn.textContent = isInitial ? '初期クラス' : '🔄 進化リセット';
+    btn.disabled = isInitial;
+    btn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      resetClassEvolutionV9(g);
+    };
+
+    headerEl.style.display = 'flex';
+    headerEl.style.alignItems = 'center';
+    headerEl.style.justifyContent = 'space-between';
+    headerEl.style.gap = '8px';
+    headerEl.style.flexWrap = 'wrap';
+    headerEl.appendChild(btn);
+  }
+
+  // 冒険者メニューの描画を監視してボタンを自動差し込み
+  function installEvolutionResetObserverV9() {
+    const modalBody = document.getElementById('modal-body');
+    if (modalBody && !modalBody._v9EvoObserverInstalled) {
+      const obs = new MutationObserver(() => {
+        injectClassEvolutionResetButtonV9();
+      });
+      obs.observe(modalBody, { childList: true, subtree: true });
+      modalBody._v9EvoObserverInstalled = true;
+    }
+    injectClassEvolutionResetButtonV9();
+  }
+  setTimeout(installEvolutionResetObserverV9, 500);
+
+  // (D) 毎フレーム更新フック：MP最大値同期＆完全回復保証＋3D魔法杖更新
   if (typeof KaomojiMMORPG !== 'undefined' && !KaomojiMMORPG.prototype._v9MpAndStaffHooked) {
     const _origUpdateMpStaff = KaomojiMMORPG.prototype.update;
     KaomojiMMORPG.prototype.update = function (dt = 0.016, ...rest) {
       const res = _origUpdateMpStaff.apply(this, [dt, ...rest]);
       const step = Math.min(0.1, Math.max(0.001, dt || 0.016));
 
-      ensureJobButtonV9();
-
-      // 1. MP上限のズレ修正＆自然回復で100%まで回復しきらせる処理
       if (this.player && this.saveData) {
         const p = this.player;
         const d = this.saveData;
@@ -3769,7 +3728,6 @@ snap.set(m, {
         }
       }
 
-      // 2. 杖装備時の3Dモデル自動アップグレード更新
       try {
         updateStaffAppearanceV9(this);
       } catch (e) {}
@@ -3780,8 +3738,7 @@ snap.set(m, {
   }
 
   Object.assign(V9, {
-    openJobResetModal: openJobResetModalV9,
-    resetJob: () => applyJobResetOrChangeV9(null, 'novice', '見習い冒険者')
+    resetClassEvolution: () => resetClassEvolutionV9(null)
   });
 })();
-// ▲▲▲ ここまで 【スキルエフェクト専用 game9.js (着弾同期&MP/杖/役職リセット統合版) 】 ▲▲▲
+// ▲▲▲ ここまで 【スキルエフェクト専用 game9.js (MP完全回復&3D杖&クラス進化リセット統合版) 】 ▲▲▲
