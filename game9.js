@@ -2743,7 +2743,8 @@ snap.set(m, {
         groupVisible: m.group ? m.group.visible : true,
         plateDisplay: m.plateEl ? m.plateEl.style.display : 'block'
       });
-
+    }
+    
     // 本体側がスキル発動瞬間に飛ばすダメージ数字を一時保留する
     const capturedTexts = [];
     const origFloat1 = game?.spawnFloatText;
