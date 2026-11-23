@@ -2189,9 +2189,12 @@
   }
 
   // スロット番号・スキルID文字列・スキルオブジェクトのいずれが渡されても正確に解決する
+  // スロット番号・スキルID文字列・スキルオブジェクトを正確に解決（空スロットは null を返す）
   function resolveSkillEntryV9(game, skillOrIndex) {
     const all = getAllSkillsListV9(game);
-    if (!skillOrIndex && skillOrIndex !== 0) return { sk: null, slotIdx: -1 };
+    if (skillOrIndex === null || skillOrIndex === undefined || skillOrIndex === '') {
+      return { sk: null, slotIdx: -1 };
+    }
 
     if (typeof skillOrIndex === 'object') {
       const idx = all.indexOf(skillOrIndex);
@@ -2200,17 +2203,54 @@
 
     let candidate = null;
     if (typeof skillOrIndex === 'number') {
-      candidate = game?.skillSlots?.[skillOrIndex]
-        ?? game?.equippedSkills?.[skillOrIndex]
-        ?? game?.saveData?.equippedSkills?.[skillOrIndex]
-        ?? (Array.isArray(game?.saveData?.skills) ? game.saveData.skills[skillOrIndex] : null)
-        ?? (Array.isArray(game?.skills) ? game.skills[skillOrIndex] : null)
-        ?? all[skillOrIndex];
+      // 装備中スロット配列のみを参照し、未設定時に全スキル一覧(all)へフォールバックしない
+      const slotArrays = [
+        game?.skillSlots,
+        game?.equippedSkills,
+        game?.saveData?.equippedSkills,
+        game?.saveData?.skillSlots,
+        Array.isArray(game?.saveData?.skills) ? game.saveData.skills : null,
+        Array.isArray(game?.skills) ? game.skills : null
+      ];
+      for (let i = 0; i < slotArrays.length; i++) {
+        if (Array.isArray(slotArrays[i])) {
+          candidate = slotArrays[i][skillOrIndex];
+          break;
+        }
+      }
     } else if (typeof skillOrIndex === 'string') {
-      candidate = game?.saveData?.skills?.[skillOrIndex]
-        ?? game?.skills?.[skillOrIndex]
-        ?? skillOrIndex;
+      candidate = skillOrIndex;
     }
+
+    // 空スロット判定
+    if (!candidate || candidate === 'none' || candidate === 'empty') {
+      return { sk: null, slotIdx: typeof skillOrIndex === 'number' ? skillOrIndex : -1 };
+    }
+
+    if (typeof candidate === 'string') {
+      const found = all.find(s =>
+        s.id === candidate ||
+        s.skillId === candidate ||
+        s._v9BaseName === candidate ||
+        s.baseName === candidate ||
+        s.name === candidate
+      );
+      if (found) {
+        return { sk: found, slotIdx: typeof skillOrIndex === 'number' ? skillOrIndex : all.indexOf(found) };
+      }
+      return { sk: null, slotIdx: typeof skillOrIndex === 'number' ? skillOrIndex : -1 };
+    }
+
+    if (typeof candidate === 'object') {
+      if (!candidate.id && !candidate.skillId && !candidate.name) {
+        return { sk: null, slotIdx: typeof skillOrIndex === 'number' ? skillOrIndex : -1 };
+      }
+      const idx = typeof skillOrIndex === 'number' ? skillOrIndex : all.indexOf(candidate);
+      return { sk: candidate, slotIdx: idx };
+    }
+
+    return { sk: null, slotIdx: -1 };
+  }
 
     // 候補が「スキルIDの文字列」だった場合は全スキル一覧からオブジェクトを引く
     if (typeof candidate === 'string') {
