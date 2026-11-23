@@ -1155,7 +1155,6 @@
         this._achPassiveSummaryV8 = summary;
         return summary;
       },
-
 updateMpGrowthAndRegenV8(dt = 0.016) {
         const d = this.saveData;
         if (!d) return;
@@ -1165,37 +1164,44 @@ updateMpGrowthAndRegenV8(dt = 0.016) {
         const baseMaxMp = 100 + (lv - 1) * 18;
         const scaledMaxMp = Math.max(100, Math.floor(baseMaxMp * (1 + (ach.mpPct || 0))));
 
-        const prevMaxMp = Math.max(100, Number(d.maxMp ?? this.player?.maxMp ?? scaledMaxMp));
-        if (scaledMaxMp > prevMaxMp) {
-          const diff = scaledMaxMp - prevMaxMp;
-          d.maxMp = scaledMaxMp;
-          d.mp = Math.min(scaledMaxMp, (Number(d.mp) || 0) + diff);
-        } else {
-          d.maxMp = Math.max(prevMaxMp, scaledMaxMp);
+        // 本体側の最大MPと成長後の最大MPの大きい方を正式な上限として統一
+        const coreMaxMp = Number(this.player?.maxMp ?? d.maxMp ?? 100);
+        const finalMaxMp = Math.max(100, coreMaxMp, scaledMaxMp);
+
+        const prevMaxMp = Number(this._v8LastMaxMp ?? finalMaxMp);
+        if (finalMaxMp > prevMaxMp && typeof this.player?.mp === 'number') {
+          this.player.mp += (finalMaxMp - prevMaxMp);
         }
+        this._v8LastMaxMp = finalMaxMp;
 
-        const isDebugOn = Boolean(window.KMJ_DEBUG?.isActive?.(this));
-        let curMp = Number(d.mp ?? this.player?.mp ?? d.maxMp);
+        // player.mp と saveData.mp の低い方（スキル消費が反映された値）を基準にする
+        const pMp = (typeof this.player?.mp === 'number') ? this.player.mp : Infinity;
+        const dMp = (typeof d.mp === 'number') ? d.mp : Infinity;
+        let curMp = Math.min(pMp, dMp);
+        if (!Number.isFinite(curMp)) curMp = finalMaxMp;
 
+        const isDebugOn = Boolean(this._debugInfiniteMode === true || window.KMJ_DEBUG?.isActive?.(this));
         if (isDebugOn) {
-          curMp = d.maxMp;
+          curMp = finalMaxMp;
         } else {
-          // ▼▼▼ MP自然回復スピード調整エリア（ここを変えると回復速度が変わります） ▼▼▼
-          const BASE_REGEN = 1.5;      // 毎秒の固定回復量（元は 4）
-          const PERCENT_REGEN = 0.008; // 毎秒の最大MP割合回復（0.008 = 0.8%/秒、約2分で全快。元は 0.04 = 4%/秒）
-          const sanctMult = (this.player?.sanctuaryBuffTimer > 0) ? 1.8 : 1.0; // 聖域中の倍率（元は 2.5）
+          // 自然回復スピード（お好みで数値を調整してください）
+          const BASE_REGEN = 1.5;      // 毎秒の固定回復量
+          const PERCENT_REGEN = 0.008; // 毎秒の最大MP割合回復（0.8%/秒）
+          const sanctMult = (this.player?.sanctuaryBuffTimer > 0) ? 1.8 : 1.0;
 
-          const regenPerSec = (BASE_REGEN + d.maxMp * PERCENT_REGEN) * sanctMult;
+          const regenPerSec = (BASE_REGEN + finalMaxMp * PERCENT_REGEN) * sanctMult;
           const safeDt = Math.min(0.05, Math.max(0, Number(dt) || 0));
-          curMp = Math.min(d.maxMp, curMp + regenPerSec * safeDt);
-          // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+          curMp = Math.min(finalMaxMp, Math.max(0, curMp) + regenPerSec * safeDt);
         }
 
+        // 本体・セーブデータの両方に同じ上限と現在値を書き戻す
+        d.maxMp = finalMaxMp;
         d.mp = curMp;
         if (this.player) {
-          this.player.maxMp = d.maxMp;
+          this.player.maxMp = finalMaxMp;
           this.player.mp = curMp;
         }
+      },
       },      detectMonsterStatus(m) {
         if (!m) return null;
         if (m._visualStatus?.timer > 0) return m._visualStatus.type;
