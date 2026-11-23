@@ -2796,10 +2796,12 @@ snap.set(m, {
       const totalDmg = prev.hp - curHp;
       if (totalDmg <= 0) continue;
 
-      // 1. HPと死亡フラグを「攻撃前」に巻き戻す（着弾するまで敵が倒れないようにする）
+// 1. HPと死亡フラグ・表示状態を「攻撃前」に巻き戻す（着弾するまで敵が消えないようにする）
       m.hp = prev.hp;
       if (!prev.dead) {
         m.dead = false;
+        if (m.group) m.group.visible = prev.groupVisible;
+        if (m.plateEl) m.plateEl.style.display = prev.plateDisplay;
       }
 
       // 2. 吹き飛び（ノックバック）速度も「攻撃前」に巻き戻す
