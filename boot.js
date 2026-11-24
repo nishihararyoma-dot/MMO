@@ -1,5 +1,5 @@
 // boot.js — index.html の game9.js の「後」に読み込むこと
-//   <script src="boot.js?v=5"></script>
+//   <script src="boot.js?v=6"></script>
 //
 //  1) ゲーム本体(KaomojiMMORPG)をページ読み込み時に必ず1回だけ生成する。
 //  2) 通常攻撃のエフェクトを接続する（performBasicAttack）。
@@ -10,6 +10,9 @@
 //  5) 魔法系クラス(杖クラス)のとき、杖を表示し、元の剣を隠す。
 //  6) デバッグ画面に「🎒 素材無限」を追加。
 //  7) 設定内のデバッグモード切替・魔法進化ボタンを消し、チャット開閉を左に固定、重なるUIを整理。
+//  8) チャットを触ると飛んでいく不具合の修正（game6 と game8 の移動処理の衝突を解消）。
+//  9) MP回復を1つのルールに一本化（game4/game8/game9 の回復が重なって速すぎた）。
+// 10) オンラインの他プレイヤー全員に、名前・Lv・クラスのネームタグを表示。
 (function () {
   'use strict';
 
@@ -88,6 +91,73 @@
       catch (e) { console.error('[boot] 武器の見た目エラー', e); }
       return res;
     };
+    // ---- チャット: game6 の移動・サイズ変更を無効化（game8 のものだけを使う） ----
+    // game6 の initChatFreeTransform は「チャット欄は position:fixed」と仮定して left/top を書き込むが、
+    // game8 はチャット欄を position:relative にしている。そのため、右下のつまみ等を触った瞬間に
+    // チャット欄が画面の座標ぶん（数百px）ずれて飛んでいた。
+    P.initChatFreeTransform = function () {
+      document.getElementById('kmj-chat-drag-bar')?.remove();
+      document.getElementById('kmj-chat-resize-grip')?.remove();
+    };
+
+    // ---- MP回復の一本化 ----
+    // 現状は3か所が別々にMPを書き換えていた:
+    //   game4: 毎秒4.5%（街30%）／ game8: 毎秒0.8%+1.5（しかも min() で game4 の回復を打ち消す）
+    //   game9: 毎秒7%（杖装備で10.5%）＋ max(player.mp, saveData.mp) による消費MPの払い戻し
+    // 最終的なMPを「前フレームのMP ＋ 1つのルールの回復量」に揃える。
+    const origUpdate = P.update;
+    if (typeof origUpdate === 'function') {
+      P.update = function (dt, ...rest) {
+        const p = this.player, d = this.saveData;
+        const active = !!(MP_REGEN_FIX && p && d && !this.inTitleScreen && !this.isDead &&
+                          typeof p.mp === 'number' && this._debugInfiniteMode !== true);
+        let before = 0;
+        if (active) {
+          before = p.mp;
+          d.mp = p.mp; // 古い saveData.mp が残っていると game9 が消費MPを払い戻すため、先に揃える
+        }
+        const res = origUpdate.call(this, dt, ...rest);
+        if (!active) return res;
+
+        try {
+          const after = p.mp;
+          const maxMp = Math.max(Number(p.maxMp) || 0, Number(d.maxMp) || 0, 1);
+          const step = Math.min(0.1, Math.max(0, Number(dt) || 0.016));
+          const gain = after - before;
+          let final;
+          if (!Number.isFinite(after)) {
+            final = before;
+          } else if (gain < -0.001) {
+            final = after;                               // スキル消費など、減った分はそのまま
+          } else if (gain > maxMp * 0.02 + 2) {
+            final = after;                               // 回復スキル・復活・レベルアップ等の大きな増加は尊重
+          } else {
+            // 通常の自然回復だけを、1つのルールで計算し直す
+            this._bootMpMultT = (this._bootMpMultT || 0) - step;
+            if (this._bootMpMultT <= 0) {
+              this._bootMpMultT = 0.5;
+              this._bootMpMult = Number(this.calcDerivedStats?.().treeMpRegenMult) || 1;
+            }
+            const town = this.currentZoneId === 'town';
+            let rate = town ? MP_REGEN_TOWN : MP_REGEN_FIELD * (this._bootMpMult || 1);
+            if (!town && p.sanctuaryBuffTimer > 0) rate *= 1.8; // 極光の聖域中の加速（game8 の仕様）
+            final = Math.min(maxMp, before + maxMp * rate * step);
+          }
+          final = Math.max(0, Math.min(maxMp, final));
+          p.mp = final;
+          d.mp = final;
+        } catch (e) { console.error('[boot] MP回復の一本化エラー', e); }
+        return res;
+      };
+    }
+
+    // ---- 他プレイヤーのネームタグ ----
+    const origRemote = P.updateRemotePlayers;
+    P.updateRemotePlayers = function (...args) {
+      const res = typeof origRemote === 'function' ? origRemote.apply(this, args) : undefined;
+      try { updateRemoteTags(this); } catch (e) { console.error('[boot] ネームタグエラー', e); }
+      return res;
+    };
   }
 
   function isStaffFor(game, entity, evoId) {
@@ -111,6 +181,9 @@
     if (isStaff) {
       if (pivot) pivot.visible = false;                         // 元の剣の台座ごと隠す
       if (entity._v8SwordMesh) entity._v8SwordMesh.visible = false;
+      // game9 が「杖アイテム装備中」用の杖を出している間は、そちらを優先（二重表示・ちらつき防止）
+      const fancy = host.getObjectByName?.('v9_fancy_magic_staff');
+      if (fancy && fancy.visible) { if (staff) staff.visible = false; return; }
       if (typeof game.buildMageStaff3D !== 'function') return;
 
       const d = game.saveData || {};
@@ -144,6 +217,66 @@
         try { syncWeaponVisual(g, g.player); } catch (e) { console.error('[boot] 武器の見た目エラー', e); }
       }
     }, 400);
+  }
+
+  // =====================================================
+  // MP回復の設定（ここの数字だけ変えれば回復速度を調整できます）
+  // =====================================================
+  const MP_REGEN_FIX = true;     // false にすると、この一本化を無効にして元の挙動に戻せます
+  const MP_REGEN_FIELD = 0.045;  // フィールド: 毎秒、最大MPの4.5%（game4 本来の設定）
+  const MP_REGEN_TOWN = 0.30;    // 街: 毎秒、最大MPの30%（game4 本来の設定）
+
+  // =====================================================
+  // 10. 他プレイヤーのネームタグ（全員分・距離で消さない）
+  // =====================================================
+  function updateRemoteTags(game) {
+    const layer = game.overlayLayer || document.getElementById('overlay-layer');
+    if (!layer || !game.remotePlayers) return;
+    const tags = game._bootTags || (game._bootTags = new Map());
+
+    // いなくなった人のタグを片付ける
+    tags.forEach((el, uid) => {
+      if (!game.remotePlayers.has(uid)) { el.remove(); tags.delete(uid); }
+    });
+
+    game.remotePlayers.forEach((rp, uid) => {
+      let el = tags.get(uid);
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'world-plate kmj-boot-nametag';
+        layer.appendChild(el);
+        tags.set(uid, el);
+      }
+
+      const cls = game.getCurrentClassDefV45?.(String(rp.evolutionId ?? ''));
+      const name = String(rp.name || '冒険者');
+      const sub = `Lv.${Number(rp.lv) || 1}${cls && cls.name ? ' ' + cls.name : ''}`;
+      const sig = name + '\n' + sub;
+      if (el._sig !== sig) {
+        el._sig = sig;
+        // 相手が付けた名前は文字としてだけ入れる（HTMLとして解釈させない）
+        el.textContent = '';
+        const l1 = document.createElement('div');
+        l1.style.cssText = 'font-size:11px;font-weight:900;color:#7dd3fc;';
+        l1.textContent = name;
+        const l2 = document.createElement('div');
+        l2.style.cssText = 'font-size:9px;font-weight:800;color:#fde047;';
+        l2.textContent = sub;
+        el.appendChild(l1);
+        el.appendChild(l2);
+      }
+
+      const scale = rp.bodyScale || 1.0;
+      const world = new THREE.Vector3(rp.pos.x, 2.4 * scale, rp.pos.z);
+      const sc = game.projectToScreen ? game.projectToScreen(world) : null;
+      if (sc && sc.visible) {
+        el.style.display = 'block';
+        el.style.left = sc.x + 'px';
+        el.style.top = sc.y + 'px';
+      } else {
+        el.style.display = 'none'; // カメラの真後ろにいる間だけ隠れる
+      }
+    });
   }
 
   // =====================================================
@@ -615,11 +748,9 @@
       top: 8px !important; left: 50% !important; right: auto !important;
       transform: translateX(-50%) !important;
     }
-    /* オンライン状態ピル: 右上のステージ表示と重なる → 脅威バーの下へ */
-    #kmj-v45-online-pill, .kmj-v45-online-pill {
-      top: 44px !important; right: auto !important; left: 50% !important;
-      transform: translateX(-50%) !important;
-    }
+    /* 「オフライン(タップで接続)」の丸い表示を消す（上段の「オフライン」ボタンと重なっていたため。
+       接続の切り替えは上段のボタンからできます） */
+    #kmj-v45-online-pill, .kmj-v45-online-pill { display: none !important; }
     /* DEBUG / スキルスタジオ: 右上の操作ボタンと重なる → 下部中央へ */
     #kmj-v7-debug-hud {
       top: auto !important; right: auto !important;
