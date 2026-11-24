@@ -1,5 +1,5 @@
 // boot.js — index.html の game9.js の「後」に読み込むこと
-//   <script src="boot.js?v=6"></script>
+//   <script src="boot.js?v=7"></script>
 //
 //  1) ゲーム本体(KaomojiMMORPG)をページ読み込み時に必ず1回だけ生成する。
 //  2) 通常攻撃のエフェクトを接続する（performBasicAttack）。
@@ -13,6 +13,7 @@
 //  8) チャットを触ると飛んでいく不具合の修正（game6 と game8 の移動処理の衝突を解消）。
 //  9) MP回復を1つのルールに一本化（game4/game8/game9 の回復が重なって速すぎた）。
 // 10) オンラインの他プレイヤー全員に、名前・Lv・クラスのネームタグを表示。
+// 11) スキル・ツリー内の「🌟 追加魔法スペル（厳選4種）」ボックスを非表示。
 (function () {
   'use strict';
 
@@ -732,6 +733,10 @@
   const st = document.createElement('style');
   st.id = 'kmj-boot-ui-fix';
   st.textContent = `
+    /* スキル・ツリー内の「🌟 追加魔法スペル（厳選4種）」ボックスを消す
+       （game9 が毎回作り直すため、作らせないのではなく常に非表示にしている） */
+    #kmj-v9-new-spells-box { display: none !important; }
+
     /* 設定メニュー内のデバッグモード切替を消す */
     #kmj-v7-gear-debug-toggle { display: none !important; }
     /* 通常攻撃の上の「魔法進化」ボタンを消す */
