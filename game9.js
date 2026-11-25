@@ -5903,5 +5903,197 @@ snap.set(m, {
       KaomojiMMORPG.prototype._v9CdClampHooked = true;
     }
   })();
+// =========================================================
+  // 22. 長押し高速育成＆レベル差ダメージ緩和＆必要EXP計算式改善パッチ
+  // =========================================================
+  (function installHoldUpgradeAndBalancePatchV9() {
+    // 1. 育成・スキル強化ボタンの長押し連続タップ対応（再描画されても指を離すまで継続）
+    let holdTimer = null;
+    let holdInterval = null;
+    let activeHoldSelector = null;
+
+    const clearHoldTimers = () => {
+      if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+      if (holdInterval) { clearInterval(holdInterval); holdInterval = null; }
+      activeHoldSelector = null;
+    };
+
+    const isUpgradeButton = (btn) => {
+      if (!btn || btn.disabled) return false;
+      const txt = (btn.textContent || '').trim();
+      if (/^\+(1|5|10)$/.test(txt)) return true;
+      if (/LvUP|習得する/.test(txt)) return true;
+      if (btn.classList.contains('v9-learn-spell-btn')) return true;
+      return false;
+    };
+
+    const getButtonReplaySelector = (btn) => {
+      if (btn.dataset.spid) return `.v9-learn-spell-btn[data-spid="${btn.dataset.spid}"]`;
+      if (btn.dataset.stat) return `[data-stat="${btn.dataset.stat}"][data-amt="${btn.dataset.amt || ''}"]`;
+      const txt = (btn.textContent || '').trim();
+      const parentText = (btn.parentElement?.parentElement?.textContent || '').slice(0, 12);
+      return { txt, parentText };
+    };
+
+    const triggerReplayClick = () => {
+      if (!activeHoldSelector) return;
+      const modal = document.getElementById('modal-body');
+      if (!modal) { clearHoldTimers(); return; }
+
+      let targetBtn = null;
+      if (typeof activeHoldSelector === 'string') {
+        targetBtn = modal.querySelector(activeHoldSelector);
+      } else {
+        const candidates = modal.querySelectorAll('button');
+        for (let i = 0; i < candidates.length; i++) {
+          const b = candidates[i];
+          if ((b.textContent || '').trim() === activeHoldSelector.txt) {
+            const pTxt = (b.parentElement?.parentElement?.textContent || '').slice(0, 12);
+            if (pTxt === activeHoldSelector.parentText) { targetBtn = b; break; }
+          }
+        }
+      }
+
+      if (!targetBtn || targetBtn.disabled) {
+        clearHoldTimers();
+        return;
+      }
+      targetBtn.click();
+    };
+
+    if (!window._v9HoldUpgradeBound) {
+      document.addEventListener('pointerdown', (e) => {
+        const btn = e.target?.closest?.('#modal-body button');
+        if (!isUpgradeButton(btn)) return;
+        clearHoldTimers();
+        activeHoldSelector = getButtonReplaySelector(btn);
+        holdTimer = setTimeout(() => {
+          holdInterval = setInterval(triggerReplayClick, 70);
+        }, 350);
+      }, { passive: true });
+
+      ['pointerup', 'pointercancel', 'pointerleave', 'touchend', 'touchcancel', 'mouseup'].forEach((ev) => {
+        window.addEventListener(ev, clearHoldTimers, { passive: true });
+      });
+      window._v9HoldUpgradeBound = true;
+    }
+
+    // 2. 必要経験値の計算式を引き上げ（上がりやすすぎ解消）
+    const calcBalancedNextExp = (lv) => {
+      const l = Math.max(1, Number(lv || 1));
+      // Lv.1:120, Lv.10:8,500, Lv.20:30,600, Lv.30:64,700, Lv.50:166,400
+      return Math.floor(120 * Math.pow(l, 1.85));
+    };
+
+    window.getNextLevelExp = calcBalancedNextExp;
+    window.calcNextExp = calcBalancedNextExp;
+
+    if (typeof KaomojiMMORPG !== 'undefined') {
+      if (typeof KaomojiMMORPG.prototype.getNextExp === 'function') {
+        KaomojiMMORPG.prototype.getNextExp = function (lv) {
+          return calcBalancedNextExp(lv ?? this.saveData?.level ?? this.player?.level ?? 1);
+        };
+      }
+      if (typeof KaomojiMMORPG.prototype.getRequiredExp === 'function') {
+        KaomojiMMORPG.prototype.getRequiredExp = function (lv) {
+          return calcBalancedNextExp(lv ?? this.saveData?.level ?? this.player?.level ?? 1);
+        };
+      }
+    }
+
+    // 3. レベル差による指数的なダメージカットを緩和（最大50%減まで・1レベル差あたり1.5%減）
+    const calcFairLevelDiffMult = (attackerLv, defenderLv) => {
+      const diff = Number(defenderLv || 1) - Number(attackerLv || 1);
+      if (diff <= 0) {
+        // 格下相手は1レベル差につき+1.5%（最大+35%まで）
+        return Math.min(1.35, 1 + Math.abs(diff) * 0.015);
+      }
+      // 格上相手でも指数減衰させず、1レベル差につき1.5%減（最低でも50%＝半分は必ず通る）
+      return Math.max(0.50, 1 - diff * 0.015);
+    };
+
+    window.getLevelDiffDamageMult = calcFairLevelDiffMult;
+
+    if (typeof KaomojiMMORPG !== 'undefined' && !KaomojiMMORPG.prototype._v9FairBalanceHooked) {
+      const origUpdate = KaomojiMMORPG.prototype.update;
+      KaomojiMMORPG.prototype.update = function (dt = 0.016, ...rest) {
+        // 毎フレーム必要EXP上限を新計算式に同期
+        if (this.saveData && this.player) {
+          const lv = Math.max(1, Number(this.saveData.level || this.player.level || 1));
+          const req = calcBalancedNextExp(lv);
+          if (typeof this.saveData.nextExp === 'number' && this.saveData.nextExp < req) {
+            this.saveData.nextExp = req;
+          }
+          if (typeof this.player.nextExp === 'number' && this.player.nextExp < req) {
+            this.player.nextExp = req;
+          }
+        }
+        return origUpdate.apply(this, [dt, ...rest]);
+      };
+
+      // ダメージ計算メソッドがある場合は格上ダメージ補正も緩やかな線形補正へ差し替え
+      ['calcDamage', 'computeDamage', 'dealDamageToEnemy'].forEach((fnName) => {
+        if (typeof KaomojiMMORPG.prototype[fnName] === 'function') {
+          const origFn = KaomojiMMORPG.prototype[fnName];
+          KaomojiMMORPG.prototype[fnName] = function (...args) {
+            const pLv = Number(this.saveData?.level || this.player?.level || 1);
+            const target = args.find((a) => a && typeof a === 'object' && ('hp' in a || 'level' in a || 'lv' in a));
+            const eLv = Number(target?.level || target?.lv || pLv);
+            const res = origFn.apply(this, args);
+            // 元計算で格上ペナルティ（指数減衰）を受けて極小になっていた場合、緩やかな補正値へ引き上げ
+            if (typeof res === 'number' && eLv > pLv && res > 0) {
+              const oldExpPenalty = Math.pow(0.85, eLv - pLv);
+              if (oldExpPenalty < 0.45) {
+                const fairMult = calcFairLevelDiffMult(pLv, eLv);
+                return Math.max(res, Math.round((res / Math.max(0.02, oldExpPenalty)) * fairMult));
+              }
+            }
+            return res;
+          };
+        }
+      });
+
+      KaomojiMMORPG.prototype._v9FairBalanceHooked = true;
+    }
+  })();
+  // =========================================================
+  // 23. レベル差ダメージカット上限90%（最低10%ダメージ保証）パッチ
+  // =========================================================
+  (function setMax90PercentLevelCutV9() {
+    const calc90CapLevelDiffMult = (attackerLv, defenderLv) => {
+      const diff = Number(defenderLv || 1) - Number(attackerLv || 1);
+      if (diff <= 0) {
+        return Math.min(1.35, 1 + Math.abs(diff) * 0.015);
+      }
+      // 1レベル差につき3%カット、上限90%カット（最低0.10倍のダメージは必ず通る）
+      return Math.max(0.10, 1 - diff * 0.03);
+    };
+
+    window.getLevelDiffDamageMult = calc90CapLevelDiffMult;
+
+    if (typeof KaomojiMMORPG !== 'undefined' && !KaomojiMMORPG.prototype._v9Max90CutHooked) {
+      ['calcDamage', 'computeDamage', 'dealDamageToEnemy'].forEach((fnName) => {
+        if (typeof KaomojiMMORPG.prototype[fnName] === 'function') {
+          const origFn = KaomojiMMORPG.prototype[fnName];
+          KaomojiMMORPG.prototype[fnName] = function (...args) {
+            const pLv = Number(this.saveData?.level || this.player?.level || 1);
+            const target = args.find((a) => a && typeof a === 'object' && ('hp' in a || 'level' in a || 'lv' in a));
+            const eLv = Number(target?.level || target?.lv || pLv);
+            const res = origFn.apply(this, args);
+            if (typeof res === 'number' && eLv > pLv && res > 0) {
+              const fairMult = calc90CapLevelDiffMult(pLv, eLv);
+              // 前のパッチで0.50倍（50%カット）まで引き上げていた分を90%カット上限（0.10倍〜）に再調整
+              const prev50Mult = Math.max(0.50, 1 - (eLv - pLv) * 0.015);
+              if (fairMult < prev50Mult) {
+                return Math.max(1, Math.round(res * (fairMult / prev50Mult)));
+              }
+            }
+            return res;
+          };
+        }
+      });
+      KaomojiMMORPG.prototype._v9Max90CutHooked = true;
+    }
+  })();
 })();
 // ▲▲▲ ここまで 【スキルエフェクト専用 game9.js (全魔法エフェクト完全一致&重複ゼロ整理版) 】 ▲▲▲
