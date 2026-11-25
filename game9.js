@@ -5697,5 +5697,211 @@ snap.set(m, {
     setTimeout(purgeAndApplyV9, 500);
     setTimeout(purgeAndApplyV9, 1500);
   })();
+  // =========================================================
+  // 20. サポート系スキル高レベル成長＆オーバーヒール超強化パッチ
+  // =========================================================
+  (function upgradeSupportSkillScalingV9() {
+    const isSupportSkill = (sk) => {
+      if (!sk) return false;
+      const t = String(sk.type || '').toUpperCase();
+      return Boolean(
+        sk.isSupport ||
+        sk._v9IsNonAttack ||
+        ['HEAL', 'HEAL_MP', 'ATK_BUFF', 'DEF_BUFF', 'SANCTUARY', 'BUFF'].includes(t)
+      );
+    };
+
+    // 1. サポート系スキルの消費MP上昇を大幅に緩和（レベルを上げても重くならない）
+    const prevMpCost = window.getSkillMpCost;
+    window.getSkillMpCost = function (sk, skLv) {
+      const lv = Math.max(1, Number(skLv || 1));
+      if (isSupportSkill(sk)) {
+        const base = Number(sk.baseMp || sk.mp || 12);
+        // 4レベルごとに+1だけ緩やかに上昇（高レベルでも低燃費）
+        return Math.max(3, Math.round(base + Math.floor((lv - 1) * 0.25)));
+      }
+      return typeof prevMpCost === 'function'
+        ? prevMpCost.apply(this, arguments)
+        : Math.max(1, Math.round((sk?.mp || 10) + (lv - 1) * 0.6));
+    };
+
+    // 2. サポート系の回復量・バフ倍率・持続時間・軽減率をレベルに応じて青天井強化
+    const prevEffStats = window.getSkillEffectStats;
+    window.getSkillEffectStats = function (sk, skLv, st) {
+      const res = typeof prevEffStats === 'function' ? (prevEffStats.apply(this, arguments) || {}) : {};
+      const lv = Math.max(1, Number(skLv || 1));
+      if (!isSupportSkill(sk)) return res;
+
+      const t = String(sk.type || '').toUpperCase();
+      const growth = 1 + (lv - 1) * 0.06; // Lv.50で約4倍、Lv.100で約7倍
+
+      // 回復＆マナチャージ（100%上限を撤廃し、レベルが上がるほど爆発的に回復）
+      if (t === 'HEAL' || t === 'HEAL_MP' || /heal|mana|聖光|マナ/i.test(`${sk.id} ${sk.name}`)) {
+        res.hpPct = 0.45 + (lv - 1) * 0.045;  // Lv.1:45% → Lv.20:130% → Lv.50:265% → Lv.100:490%
+        res.mpPct = (t === 'HEAL_MP' ? 0.60 : 0.25) + (lv - 1) * 0.05;
+        res.overhealShieldPct = Math.min(1.5, 0.15 + (lv - 1) * 0.015); // 最大HPの最大150%分の追加シールド変換
+      }
+
+      // 攻撃バフ（覇王の咆哮）
+      if (t === 'ATK_BUFF' || /warcry|覇王|咆哮/i.test(`${sk.id} ${sk.name}`)) {
+        res.atkMult = 1.35 + (lv - 1) * 0.035; // Lv.1:+35% → Lv.50:+206% → Lv.100:+381%
+        res.critBonus = Math.min(0.50, 0.08 + (lv - 1) * 0.005);
+        res.duration = 10 + Math.min(25, (lv - 1) * 0.35);
+      }
+
+      // 防御バフ（神域防御・絶対聖盾）
+      if (t === 'DEF_BUFF' || /aegis|shield|聖盾|防御/i.test(`${sk.id} ${sk.name}`)) {
+        // ダメージ軽減率がレベルで着実に上昇（最大88%カット＋反射ダメージ強化）
+        res.dmgReduce = Math.min(0.88, 0.30 + (lv - 1) * 0.012);
+        res.defMult = 1.4 + (lv - 1) * 0.04;
+        res.duration = 10 + Math.min(25, (lv - 1) * 0.35);
+      }
+
+      // 聖域（極光の聖域）
+      if (t === 'SANCTUARY' || /aurora|sanctuary|極光|聖域/i.test(`${sk.id} ${sk.name}`)) {
+        res.regenPct = 0.08 + (lv - 1) * 0.006; // 毎秒HP/MP回復率が大幅上昇
+        res.atkMult = 1.25 + (lv - 1) * 0.025;
+        res.dmgReduce = Math.min(0.75, 0.20 + (lv - 1) * 0.01);
+        res.duration = 8 + Math.min(22, (lv - 1) * 0.3);
+      }
+
+      res.mult = (sk.mult || 1.0) * growth;
+      // 高レベルになるほどクールタイムも最大45%短縮
+      res.cdMult = Math.max(0.55, 1 - (lv - 1) * 0.006);
+      return res;
+    };
+
+    // 3. 発動時の実回復・オーバーヒール・バフ適用＆CT短縮をゲーム本体へ確実に反映
+    if (typeof KaomojiMMORPG !== 'undefined' && !KaomojiMMORPG.prototype._v9SupportBoostHooked) {
+      const origUseSkill = KaomojiMMORPG.prototype.useSkill || KaomojiMMORPG.prototype.castSkill;
+      const methodKey = KaomojiMMORPG.prototype.useSkill ? 'useSkill' : (KaomojiMMORPG.prototype.castSkill ? 'castSkill' : null);
+
+      if (methodKey && typeof origUseSkill === 'function') {
+        KaomojiMMORPG.prototype[methodKey] = function (slotOrSkill, ...args) {
+          const res = origUseSkill.apply(this, [slotOrSkill, ...args]);
+          try {
+            const p = this.player;
+            const d = this.saveData;
+            if (!p || !d) return res;
+
+            // 対象スキル解決
+            let sk = typeof slotOrSkill === 'object' ? slotOrSkill : null;
+            if (!sk && typeof slotOrSkill === 'number' && Array.isArray(d.equippedSkills)) {
+              const sid = d.equippedSkills[slotOrSkill];
+              sk = (typeof SKILLS === 'object' && sid) ? SKILLS[sid] : null;
+            } else if (!sk && typeof slotOrSkill === 'string' && typeof SKILLS === 'object') {
+              sk = SKILLS[slotOrSkill];
+            }
+
+            if (sk && isSupportSkill(sk)) {
+              const lv = Math.max(1, Number(d.skills?.[sk.id] || 1));
+              const eff = window.getSkillEffectStats(sk, lv, null);
+              const maxHp = Math.max(100, Number(p.maxHp || d.maxHp || 100));
+              const maxMp = Math.max(100, Number(p.maxMp || d.maxMp || 100));
+              const t = String(sk.type || '').toUpperCase();
+
+              // 回復・マナチャージの超過分ボーナス適用
+              if (t === 'HEAL' || t === 'HEAL_MP' || /heal|mana|聖光|マナ/i.test(`${sk.id} ${sk.name}`)) {
+                const addHp = Math.round(maxHp * Math.max(0, (eff.hpPct || 0.5) - 0.35));
+                const addMp = Math.round(maxMp * Math.max(0, (eff.mpPct || 0.4) - 0.25));
+                p.hp = Math.min(maxHp, Number(p.hp || 0) + addHp);
+                d.hp = p.hp;
+                p.mp = Math.min(maxMp, Number(p.mp || 0) + addMp);
+                d.mp = p.mp;
+
+                // 超過回復分をバリア（shield）として付与
+                const shieldGain = Math.round(maxHp * (eff.overhealShieldPct || 0.2));
+                p.shield = Math.min(Math.round(maxHp * 1.5), Number(p.shield || 0) + shieldGain);
+              }
+
+              // バフ倍率の上書き保証
+              if (eff.atkMult && p.buffs) {
+                if (p.buffs.atk) p.buffs.atk.mult = Math.max(p.buffs.atk.mult || 1, eff.atkMult);
+              }
+              if (eff.dmgReduce && p.buffs) {
+                if (p.buffs.def) p.buffs.def.reduce = Math.max(p.buffs.def.reduce || 0, eff.dmgReduce);
+              }
+
+              // レベルに応じたクールタイム短縮
+              if (eff.cdMult && eff.cdMult < 1 && this.skillCooldowns && sk.id in this.skillCooldowns) {
+                this.skillCooldowns[sk.id] *= eff.cdMult;
+              }
+            }
+          } catch (e) {}
+          return res;
+        };
+        KaomojiMMORPG.prototype._v9SupportBoostHooked = true;
+      }
+    }
+  })();
+  // =========================================================
+  // 21. 最終強化時のスキルCT短縮しすぎ防止＆最低CT保証パッチ
+  // =========================================================
+  (function clampSkillCooldownReductionV9() {
+    // 最低保証CT（秒）：最終強化（Lv.100）でもこれより短くならない
+    const getMinCooldownFloor = (sk) => {
+      if (!sk) return 2.5;
+      const t = String(sk.type || '').toUpperCase();
+      const baseCd = Number(sk.cd || sk.baseCd || 5.0);
+      const isSupport = Boolean(
+        sk.isSupport || sk._v9IsNonAttack ||
+        ['HEAL', 'HEAL_MP', 'ATK_BUFF', 'DEF_BUFF', 'SANCTUARY', 'BUFF'].includes(t)
+      );
+      if (isSupport) return Math.max(4.5, baseCd * 0.72);
+      if (baseCd >= 7.0) return Math.max(4.0, baseCd * 0.70);
+      return Math.max(2.5, baseCd * 0.72);
+    };
+
+    // 1. ステータス計算上のCT短縮倍率を「最大25%短縮（0.75倍）」までに制限
+    const prevEffStats = window.getSkillEffectStats;
+    window.getSkillEffectStats = function (sk, skLv, st) {
+      const res = typeof prevEffStats === 'function' ? (prevEffStats.apply(this, arguments) || {}) : {};
+      const lv = Math.max(1, Number(skLv || 1));
+      // Lv.1で1.00 → Lv.100でも最大0.75（25%短縮まで）
+      const safeCdMult = Math.max(0.75, 1 - (lv - 1) * 0.0025);
+      res.cdMult = Math.max(safeCdMult, Number(res.cdMult || 1));
+      return res;
+    };
+
+    // 2. ゲーム本体のCT計算関数・使用後の残りCTに下限キャップを強制適用
+    const prevGetCd = window.getSkillCooldown;
+    if (typeof prevGetCd === 'function') {
+      window.getSkillCooldown = function (sk, skLv, st) {
+        const raw = Number(prevGetCd.apply(this, arguments) || sk?.cd || 5.0);
+        return Math.max(getMinCooldownFloor(sk), raw);
+      };
+    }
+
+    if (typeof KaomojiMMORPG !== 'undefined' && !KaomojiMMORPG.prototype._v9CdClampHooked) {
+      const methodKey = KaomojiMMORPG.prototype.useSkill ? 'useSkill' : (KaomojiMMORPG.prototype.castSkill ? 'castSkill' : null);
+      if (methodKey) {
+        const origCast = KaomojiMMORPG.prototype[methodKey];
+        KaomojiMMORPG.prototype[methodKey] = function (slotOrSkill, ...args) {
+          const res = origCast.apply(this, [slotOrSkill, ...args]);
+          try {
+            const d = this.saveData;
+            if (!d || !this.skillCooldowns) return res;
+
+            let sk = typeof slotOrSkill === 'object' ? slotOrSkill : null;
+            if (!sk && typeof slotOrSkill === 'number' && Array.isArray(d.equippedSkills)) {
+              const sid = d.equippedSkills[slotOrSkill];
+              sk = (typeof SKILLS === 'object' && sid) ? SKILLS[sid] : null;
+            } else if (!sk && typeof slotOrSkill === 'string' && typeof SKILLS === 'object') {
+              sk = SKILLS[slotOrSkill];
+            }
+
+            if (sk && sk.id && typeof this.skillCooldowns[sk.id] === 'number' && this.skillCooldowns[sk.id] > 0) {
+              const floor = getMinCooldownFloor(sk);
+              if (this.skillCooldowns[sk.id] < floor) {
+                this.skillCooldowns[sk.id] = floor;
+              }
+            }
+          } catch (e) {}
+          return res;
+        };
+      }
+      KaomojiMMORPG.prototype._v9CdClampHooked = true;
+    }
+  })();
 })();
 // ▲▲▲ ここまで 【スキルエフェクト専用 game9.js (全魔法エフェクト完全一致&重複ゼロ整理版) 】 ▲▲▲
