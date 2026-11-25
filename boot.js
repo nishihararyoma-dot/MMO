@@ -1,9 +1,9 @@
 // boot.js — index.html の game9.js の「後」に読み込むこと
-//   <script src="boot.js?v=7"></script>
+//   <script src="boot.js?v=8"></script>
 //
 //  1) ゲーム本体(KaomojiMMORPG)をページ読み込み時に必ず1回だけ生成する。
 //  2) 通常攻撃のエフェクトを接続する（performBasicAttack）。
-//  3) スキルスタジオの属性スキル7種を実スキルとして登録＋属性の自動判定が外れる3スキルを補正。
+//  3) スキルスタジオの属性スキル7種を実スキルとして登録（属性の判定は game9 が自動で行う）。
 //  4) 設定メニューに追加:
 //       🎮 戦闘ボタン配置を編集（位置＋大きさ）
 //       💬 チャット欄を初期位置・初期サイズに戻す
@@ -14,6 +14,9 @@
 //  9) MP回復を1つのルールに一本化（game4/game8/game9 の回復が重なって速すぎた）。
 // 10) オンラインの他プレイヤー全員に、名前・Lv・クラスのネームタグを表示。
 // 11) スキル・ツリー内の「🌟 追加魔法スペル（厳選4種）」ボックスを非表示。
+// 12) ペットの顔がめり込んで見えない不具合を修正（顔を球面に沿わせて前に出す）。
+// 13) オンライン: 他プレイヤーの 見た目(色・顔・着せ替え・背中・防具・武器・大きさ)・ペット・スキル演出 を、
+//     本人の画面と同じ見た目で表示（本人の画面と同じ作り方で組み立てる）。
 (function () {
   'use strict';
 
@@ -26,7 +29,6 @@
       const g = new KaomojiMMORPG();
       window.game = g;
       window.__kmjInstance = g;
-      guardSaveData(g);
     } catch (e) {
       console.error('[boot] 起動エラー', e);
       const el = document.getElementById('title-save-info');
@@ -152,14 +154,91 @@
       };
     }
 
-    // ---- 他プレイヤーのネームタグ ----
+    // ---- ペットの顔（球に埋まって見えない不具合の修正） ----
+    const origBuildPet = P.buildPetEntity;
+    if (typeof origBuildPet === 'function') {
+      P.buildPetEntity = function (...args) {
+        const res = origBuildPet.apply(this, args);
+        try { fixPetFace(this.petEntity && this.petEntity.group); }
+        catch (e) { console.error('[boot] ペットの顔の修正エラー', e); }
+        return res;
+      };
+    }
+
+    // ---- オンライン同期: 送信側（見た目 ＋ スキル演出） ----
+    const origBcast = P.broadcastPlayerPacket;
+    if (typeof origBcast === 'function') {
+      P.broadcastPlayerPacket = function (type = 'sync', extra = {}) {
+        let look;
+        try { look = buildMyLook(this); } catch (e) { console.error('[boot] 見た目の送信エラー', e); }
+        return origBcast.call(this, type, look ? { look, ...extra } : extra);
+      };
+    }
+
+    // スキルを撃った時に、進化後の属性・段階・名前を他のプレイヤーへ送る
+    const origSlot = P.useSkillSlot;
+    if (typeof origSlot === 'function') {
+      P.useSkillSlot = function (slotIdx, ...rest) {
+        const p = this.player;
+        const cdOf = () => Math.max(p?.skillCds?.[slotIdx] || 0, p?.skillCooldowns?.[slotIdx] || 0);
+        const cdBefore = cdOf();
+        const res = origSlot.call(this, slotIdx, ...rest);
+        try { if (p && cdOf() > cdBefore + 0.05) broadcastSkill(this, slotIdx); }  // クールダウンが入った＝発動成功
+        catch (e) { console.error('[boot] スキル演出の送信エラー', e); }
+        return res;
+      };
+    }
+
+    // ---- オンライン同期: 受信側 ----
+    const origIncoming = P.handleIncomingPacket;
+    if (typeof origIncoming === 'function') {
+      P.handleIncomingPacket = function (pkt, ...rest) {
+        const res = origIncoming.call(this, pkt, ...rest);
+        try {
+          const rp = pkt && pkt.uid && this.remotePlayers ? this.remotePlayers.get(pkt.uid) : null;
+          if (rp) {
+            applyRemoteLook(this, pkt, rp);
+            ensureRemotePet(this, pkt, rp);
+            if (pkt.type === 'attack' && pkt.fx) playRemoteSkillFx(this, pkt, rp);
+          }
+        } catch (e) { console.error('[boot] 他プレイヤー同期エラー', e); }
+        return res;
+      };
+    }
+
+    // ---- 他プレイヤーのペット追従 ＋ ネームタグ ----
     const origRemote = P.updateRemotePlayers;
     P.updateRemotePlayers = function (...args) {
+      // 他プレイヤーのペットを、自分のペットと同じ動き（追従位置・弾む動き）にする
+      const pets = [];
+      this.remotePlayers?.forEach((rp) => {
+        const pg = rp.petGroup;
+        if (pg && pg.position) pets.push([rp, pg, pg.position.x, pg.position.z]);
+      });
       const res = typeof origRemote === 'function' ? origRemote.apply(this, args) : undefined;
+
+      // ネームタグ（ペットの処理が失敗しても止まらないよう、独立して実行する）
       try { updateRemoteTags(this); } catch (e) { console.error('[boot] ネームタグエラー', e); }
+
+      try {
+        const step = Math.min(0.1, Math.max(0, Number(args[0]) || 0.016));
+        const t = Date.now() / 1000;
+        pets.forEach(([rp, pg, x, z]) => {
+          if (!rp.pos) return;
+          const rot = rp.rotY || 0;
+          const tx = rp.pos.x - Math.sin(rot) * 1.6 + Math.cos(rot) * 1.1;
+          const tz = rp.pos.z - Math.cos(rot) * 1.6 - Math.sin(rot) * 1.1;
+          const k = Math.min(1, step * 5.5);
+          pg.position.x = x + (tx - x) * k;
+          pg.position.z = z + (tz - z) * k;
+          pg.position.y = Math.abs(Math.sin(t * 8)) * 0.22;
+          pg.rotation.y = rot;
+        });
+      } catch (e) { console.error('[boot] 他プレイヤーのペットエラー', e); }
       return res;
     };
   }
+
 
   function isStaffFor(game, entity, evoId) {
     if (evoId !== undefined && evoId !== null) {
@@ -221,6 +300,215 @@
   }
 
   // =====================================================
+  // 12. ペットの顔（球に埋まる不具合の修正）
+  // =====================================================
+  // 元の作りは「球(半径0.55)の中心より内側(z=0.48)に平らな顔板」を置いており、板の中央が球の中に隠れていた。
+  // 顔の画像はそのままに、球の表面に沿った曲面(球の一部)へ貼り替える。
+  function fixPetFace(group) {
+    if (!group || group._bootFaceFixed || typeof THREE === 'undefined') return;
+    const kids = group.children || [];
+    const face = kids.find((c) => c.geometry && c.geometry.type === 'PlaneGeometry' && c.position && c.position.z > 0.3);
+    const body = kids.find((c) => c.geometry && c.geometry.type === 'SphereGeometry');
+    if (!face || !body) return;
+    const mat = face.material;
+    if (mat) { mat.polygonOffset = true; mat.polygonOffsetFactor = -2; }
+    group.remove(face);
+    const r = 0.55 + 0.012;                       // 球より少しだけ外側
+    const phiLen = 1.5, thetaLen = 1.0;           // 横86°×縦57°（元の顔板とほぼ同じ大きさ）
+    const thetaCenter = Math.PI / 2 - 0.07;       // 元の位置（少し上）に合わせる
+    const geo = new THREE.SphereGeometry(r, 20, 14, Math.PI / 2 - phiLen / 2, phiLen, thetaCenter - thetaLen / 2, thetaLen);
+    const patch = new THREE.Mesh(geo, mat);
+    patch.position.copy(body.position);           // 球と同じ中心
+    group.add(patch);
+    group._bootFaceFixed = true;
+  }
+
+  // =====================================================
+  // 13. オンライン: 他プレイヤーを本人の画面と同じ見た目にする
+  // =====================================================
+  // 自分の見た目を、送信用の小さなデータにまとめる
+  function buildMyLook(game) {
+    const d = game.saveData || {};
+    return {
+      c: Number(game.getPlayerBodyHexColor?.()) || 0x38bdf8,   // 体の色
+      f: String(game.getPlayerFaceBgHex?.() || '#073b66'),      // 顔画面の背景色
+      s: Number(game.getPlayerBodyScale?.()) || 1,              // 大きさ
+      k: String(game.getBasePlayerKaomoji?.() || ''),           // 顔文字
+      co: d.cosmeticId || 'none',                               // 頭の着せ替え
+      bc: d.backCosmeticId || 'none',                           // 背中の着せ替え
+      a: d.armorId || 'arm_cloth',                              // 防具
+      w: d.weaponId || 'wpn_wood',                              // 武器
+      we: Number(d.weaponEnhance) || 0,                         // 武器の強化値
+      t: d.equippedTitleId || 'title_none'                      // 称号
+    };
+  }
+
+  // 他人から届いたデータは、使う前に必ず検査する（変な値で画面が壊れないように）
+  function sanitizeLook(l) {
+    if (!l || typeof l !== 'object') return null;
+    const id = (v, def) => (typeof v === 'string' && /^[A-Za-z0-9_\-]{1,40}$/.test(v) ? v : def);
+    const c = Number(l.c);
+    return {
+      c: Number.isInteger(c) && c >= 0 && c <= 0xffffff ? c : 0x38bdf8,
+      f: typeof l.f === 'string' && /^#[0-9a-fA-F]{6}$/.test(l.f) ? l.f : '#073b66',
+      s: clamp(Number(l.s) || 1, 0.4, 3),
+      k: typeof l.k === 'string' ? l.k.replace(/[\u0000-\u001f]/g, '').slice(0, 24) : '',
+      co: id(l.co, 'none'), bc: id(l.bc, 'none'), a: id(l.a, 'arm_cloth'), w: id(l.w, 'wpn_wood'),
+      we: clamp(Math.floor(Number(l.we) || 0), 0, 99),
+      t: id(l.t, 'title_none')
+    };
+  }
+
+  // 本人の画面と「同じ作り方」で組み立てる:
+  // 自分のキャラを作る処理(buildPlayerEntity)に、相手のデータを一時的に読ませて、できた見た目だけを受け取る。
+  // （自分のキャラ・シーンには一切触れない。終わったら必ず元に戻す）
+  function buildAvatarFromLook(game, look, evoId) {
+    if (typeof game.buildPlayerEntity !== 'function') return null;
+    const realSave = game.saveData, realPlayer = game.player, realScene = game.scene;
+    const fake = Object.create(realSave || {});
+    Object.assign(fake, {
+      weaponId: look.w, armorId: look.a, weaponEnhance: look.we,
+      cosmeticId: look.co, backCosmeticId: look.bc,
+      bodyColor: '#' + look.c.toString(16).padStart(6, '0'),
+      faceBgColor: look.f, bodyScale: look.s,
+      customKaomoji: look.k || '(・ω・)',
+      evolutionId: evoId
+    });
+    let built = null;
+    try {
+      game.saveData = fake;
+      game.player = null;
+      game.scene = { add() {}, remove() {} };
+      game.buildPlayerEntity();
+      built = game.player;
+    } finally {
+      game.saveData = realSave;
+      game.player = realPlayer;
+      game.scene = realScene;
+    }
+    return built && built.group ? built : null;
+  }
+
+  function applyRemoteLook(game, pkt, rp) {
+    if (!game.useWebGL || !game.scene || typeof THREE === 'undefined' || !rp.group) return;
+    const look = sanitizeLook(pkt.look);
+    if (!look) return;
+    rp.titleId = look.t;
+    rp.bodyScale = look.s;
+
+    const evoId = String(pkt.evolutionId ?? '');
+    const sig = JSON.stringify(look) + '|' + evoId;
+    if (rp._bootLookSig === sig && rp.group._bootAvatar) return;
+
+    const built = buildAvatarFromLook(game, look, evoId);
+    if (!built) return;
+    const old = rp.group;
+    built.group.position.copy(old.position);
+    built.group.rotation.y = old.rotation.y;
+    built.group._bootAvatar = true;
+    game.scene.remove(old);
+    game.scene.add(built.group);
+
+    rp.group = built.group;
+    rp.faceMesh = built.faceMesh;
+    rp.weaponPivot = built.weaponPivot;
+    rp.backPivot = built.backPivot;
+    // 古い体に付いていた武器表示の記憶を消す（新しい体に付け直させる）
+    ['_v8SwordMesh', '_v8SwordPivot', '_v8SwordSig', '_v8ActiveFace', '_wpnBaseRotX', '_wpnBaseRotZ', '_baseScale', '_bootStaff']
+      .forEach((k) => { rp[k] = null; });
+    rp._bootLookSig = sig;
+    game.enforceStrictWeaponVisualV27?.(rp, evoId);   // 剣/杖の見た目（クラスに合わせる）
+  }
+
+  // ペット: 本人の画面と同じ作り方（buildPetEntity）で作る。作れない時は元の表示のまま。
+  function buildPetFromKey(game, petKey) {
+    if (typeof game.buildPetEntity !== 'function') return null;
+    const realSave = game.saveData, realPet = game.petEntity, realScene = game.scene;
+    const fake = Object.create(realSave || {});
+    fake.petId = petKey;
+    let group = null;
+    try {
+      game.saveData = fake;
+      game.petEntity = null;
+      game.scene = { add() {}, remove() {} };
+      game.buildPetEntity();
+      group = game.petEntity && game.petEntity.group;
+    } finally {
+      game.saveData = realSave;
+      game.petEntity = realPet;
+      game.scene = realScene;
+    }
+    return group || null;
+  }
+
+  function ensureRemotePet(game, pkt, rp) {
+    if (!game.useWebGL || !game.scene || typeof THREE === 'undefined') return;
+    const petId = pkt.pet && typeof pkt.pet.petId === 'string' ? pkt.pet.petId : '';
+    if (!/^[A-Za-z0-9_\-]{1,40}$/.test(petId) || !rp.petGroup) return;
+    if (rp.petGroup._bootPet === petId) return;
+    const g = buildPetFromKey(game, petId);
+    if (!g) return;
+    g._bootPet = petId;
+    g.position.copy(rp.petGroup.position);
+    g.rotation.y = rp.petGroup.rotation.y;
+    game.scene.remove(rp.petGroup);
+    game.scene.add(g);
+    rp.petGroup = g;
+  }
+
+  // スキルを撃った時の送信データ（進化後の属性・段階・名前）
+  function broadcastSkill(game, slotIdx) {
+    const d = game.saveData;
+    const skId = d && d.equippedSkills ? d.equippedSkills[slotIdx] : null;
+    const sk = skId && typeof SKILLS !== 'undefined' ? SKILLS[skId] : null;
+    const V9 = window.KMJ_SKILL_FX_V9;
+    const p = game.player;
+    if (!sk || !V9?.getSkillInfo || !p?.pos) return;
+    const info = V9.getSkillInfo(game, sk, slotIdx);
+    if (!info?.attr) return;
+    const tgt = game.getValidTarget?.();
+    const tx = tgt && !tgt.dead && tgt.pos ? tgt.pos.x : p.pos.x + Math.sin(p.rotY || 0) * 5.2;
+    const tz = tgt && !tgt.dead && tgt.pos ? tgt.pos.z : p.pos.z + Math.cos(p.rotY || 0) * 5.2;
+    const name = String(info.evolvedName || sk.name || '');
+    game.broadcastPlayerPacket?.('attack', {
+      isSkill: true,
+      skillInfo: { id: skId, name },
+      fx: { a: info.attr.id, t: info.tier | 0, n: name.slice(0, 60), na: info.isNonAttack ? 1 : 0,
+            tx: Math.round(tx * 100) / 100, tz: Math.round(tz * 100) / 100 }
+    });
+  }
+
+  // 他プレイヤーのスキル演出（見た目だけ。自分のHP/MP/敵には一切影響しない）
+  function playRemoteSkillFx(game, pkt, rp) {
+    const f = pkt.fx;
+    const V9 = window.KMJ_SKILL_FX_V9;
+    if (!f || !V9?.EFFECT_BUILDERS || !V9.ATTRIBUTES || !game.scene || typeof THREE === 'undefined' || !rp.pos) return;
+    const aid = String(f.a || '');
+    const attr0 = V9.ATTRIBUTES.find((a) => a.id === aid);
+    if (!attr0) return;
+    // 極光の聖域は「範囲内の自分を回復する」本物の効果を持つため、他人の分は見た目だけの別演出で代用する
+    const useId = aid === 'aurora_sanctuary' ? 'holy_heal' : aid;
+    const attr = V9.ATTRIBUTES.find((a) => a.id === useId) || attr0;
+    const builder = V9.EFFECT_BUILDERS[useId] || V9.EFFECT_BUILDERS.sword;
+    if (typeof builder !== 'function') return;
+
+    const tier = clamp(Math.floor(Number(f.t) || 0), 0, 3);
+    const caster = { x: rp.pos.x, z: rp.pos.z };
+    const rot = rp.rotY || 0;
+    const tx = Number(f.tx), tz = Number(f.tz);
+    const target = f.na ? caster : {
+      x: Number.isFinite(tx) ? tx : caster.x + Math.sin(rot) * 5.2,
+      z: Number.isFinite(tz) ? tz : caster.z + Math.cos(rot) * 5.2
+    };
+    builder(game.scene, caster, target, tier, attr);
+
+    const name = String(f.n || '').replace(/[<>&"']/g, '').slice(0, 40);
+    if (name && game.spawnFloatText) {
+      game.spawnFloatText(new THREE.Vector3(rp.pos.x, 3.3 * (rp.bodyScale || 1), rp.pos.z), name, '#fde047', 13);
+    }
+  }
+
+  // =====================================================
   // MP回復の設定（ここの数字だけ変えれば回復速度を調整できます）
   // =====================================================
   const MP_REGEN_FIX = true;     // false にすると、この一本化を無効にして元の挙動に戻せます
@@ -252,11 +540,19 @@
       const cls = game.getCurrentClassDefV45?.(String(rp.evolutionId ?? ''));
       const name = String(rp.name || '冒険者');
       const sub = `Lv.${Number(rp.lv) || 1}${cls && cls.name ? ' ' + cls.name : ''}`;
-      const sig = name + '\n' + sub;
+      const ttl = (typeof TITLES !== 'undefined' && TITLES && rp.titleId && rp.titleId !== 'title_none' && TITLES[rp.titleId])
+        ? String(TITLES[rp.titleId].name || '') : '';
+      const sig = ttl + '\n' + name + '\n' + sub;
       if (el._sig !== sig) {
         el._sig = sig;
         // 相手が付けた名前は文字としてだけ入れる（HTMLとして解釈させない）
         el.textContent = '';
+        if (ttl) {
+          const l0 = document.createElement('div');
+          l0.style.cssText = 'font-size:8.5px;font-weight:800;color:#c4b5fd;';
+          l0.textContent = ttl;
+          el.appendChild(l0);
+        }
         const l1 = document.createElement('div');
         l1.style.cssText = 'font-size:11px;font-weight:900;color:#7dd3fc;';
         l1.textContent = name;
@@ -296,31 +592,6 @@
   function registerStudioSkills() {
     if (typeof SKILLS === 'undefined' || !SKILLS || Array.isArray(SKILLS)) return;
     STUDIO_SKILLS.forEach((s) => { if (!SKILLS[s.id]) SKILLS[s.id] = Object.assign({}, s); });
-  }
-
-  // 属性の自動判定が外れるスキルへ専用属性を明示（回復系に誤判定されると攻撃ダメージが無効化されるため）。
-  // プレイヤーがスタジオで設定済みの場合はそちらを優先する。
-  const DEFAULT_ATTR = { vamp_drain: 'dark', fx_fire_burst: 'fire_burst', fx_sword: 'sword' };
-
-  function applyDefaultAttrs(d) {
-    if (!d || typeof d !== 'object') return;
-    if (!d.skillCustomV9 || typeof d.skillCustomV9 !== 'object') d.skillCustomV9 = {};
-    Object.keys(DEFAULT_ATTR).forEach((id) => {
-      if (!d.skillCustomV9[id]) d.skillCustomV9[id] = { attrId: DEFAULT_ATTR[id] };
-    });
-  }
-
-  function guardSaveData(g) {
-    if (g._bootSaveGuard) return;
-    g._bootSaveGuard = true;
-    let cur = g.saveData;
-    applyDefaultAttrs(cur);
-    Object.defineProperty(g, 'saveData', {
-      configurable: true,
-      enumerable: true,
-      get() { return cur; },
-      set(v) { cur = v; applyDefaultAttrs(v); }
-    });
   }
 
   // =====================================================
