@@ -1,5 +1,5 @@
 // boot.js — index.html の game9.js の「後」に読み込むこと
-//   <script src="boot.js?v=8"></script>
+//   <script src="boot.js?v=9"></script>
 //
 //  1) ゲーム本体(KaomojiMMORPG)をページ読み込み時に必ず1回だけ生成する。
 //  2) 通常攻撃のエフェクトを接続する（performBasicAttack）。
@@ -17,6 +17,8 @@
 // 12) ペットの顔がめり込んで見えない不具合を修正（顔を球面に沿わせて前に出す）。
 // 13) オンライン: 他プレイヤーの 見た目(色・顔・着せ替え・背中・防具・武器・大きさ)・ペット・スキル演出 を、
 //     本人の画面と同じ見た目で表示（本人の画面と同じ作り方で組み立てる）。
+// 14) チャットを実際に送受信する（全体チャット＝全員に届く／部屋チャット＝同じ部屋の人だけ）。
+//     ＋ 受け取ったチャットをHTMLとして解釈しない（なりすまし・スクリプト混入の防止）。
 (function () {
   'use strict';
 
@@ -151,6 +153,63 @@
           d.mp = final;
         } catch (e) { console.error('[boot] MP回復の一本化エラー', e); }
         return res;
+      };
+    }
+
+    // ---- チャット: 全体チャット／部屋チャットを実際に送る ----
+    // game1 の sendChatMessage は、廃止された旧Firebase用の条件(fbConnected)のときしか送らない作りで、
+    // MQTTに切り替わった後は、全体も部屋も「自分の画面にしか出ない」状態だった（game6 の送信フックも
+    // 存在しない関数名 sendChat を狙っていて、一度も取り付いていなかった）。
+    // 元の処理（自分の画面への表示・効果音・頭上の吹き出し）はそのまま使い、旧Firebaseの送信口だけを
+    // MQTT送信につなぐ。
+    const origSend = P.sendChatMessage;
+    if (typeof origSend === 'function') {
+      P.sendChatMessage = function (rawText) {
+        const online = !!(this._mqttClient && this._mqttClient.connected && this.saveData?.onlineMode !== false);
+        if (!online) return origSend.call(this, rawText);  // オフライン時は元の動作（自分のみ表示の案内）
+
+        const game = this;
+        const own = (k) => Object.prototype.hasOwnProperty.call(game, k);
+        const saved = { fbHad: own('fbConnected'), fb: game.fbConnected, bcHad: own('broadcastFirebaseEvent'), bc: game.broadcastFirebaseEvent };
+        game.fbConnected = true;
+        game.broadcastFirebaseEvent = (type, payload) => {
+          if (type !== 'chat_global' && type !== 'chat_room') return;   // 他のイベント(旧Firebase用)は送らない
+          const d = game.saveData || {};
+          const real = String(d.name || d.playerName || '冒険者').slice(0, 12);
+          game.broadcastPlayerPacket('chat', {
+            channel: type === 'chat_room' ? 'room' : 'global',            // global=全員 / room=同じ部屋だけ（受信側で判定）
+            kaomoji: String(payload?.kaomoji || '').slice(0, 24),
+            name: `Lv.${Number(d.lv) || 1}${real}`,
+            text: String(payload?.text || '').slice(0, 80)
+          });
+        };
+        try {
+          return origSend.call(this, rawText);
+        } finally {
+          if (saved.fbHad) game.fbConnected = saved.fb; else delete game.fbConnected;
+          if (saved.bcHad) game.broadcastFirebaseEvent = saved.bc; else delete game.broadcastFirebaseEvent;
+        }
+      };
+    }
+
+    // ---- チャット欄の描画: 他人の名前・本文をHTMLとして解釈しない ----
+    // 元の renderChatMessages は、名前や本文をそのまま innerHTML に差し込んでいた。チャットが他の人に届くと、
+    // <img onerror=...> のような文字列で全員の画面でスクリプトを実行できてしまうため、描画の直前に必ず無害化する。
+    const origRender = P.renderChatMessages;
+    if (typeof origRender === 'function') {
+      P.renderChatMessages = function (...args) {
+        const esc = (v, n) => String(v ?? '').slice(0, n).replace(/[&<>"']/g, (c) =>
+          ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        [this.globalChatMessages, this.roomChatMessages].forEach((list) => {
+          (list || []).forEach((m) => {
+            if (!m || m._esc) return;
+            m.sender = esc(m.sender, 24);
+            m.name = esc(m.name, 40);
+            m.text = esc(m.text, 120);
+            m._esc = true;
+          });
+        });
+        return origRender.apply(this, args);
       };
     }
 
